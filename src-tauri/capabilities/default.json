@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.json",
+  "identifier": "default",
+  "description": "Default capabilities for AI Video Studio",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "store:default",
+    "fs:default",
+    "fs:allow-mkdir",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-app-local-data-read-recursive",
+    "fs:allow-app-local-data-write-recursive",
+    "dialog:default"
+  ]
+}
