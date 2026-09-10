@@ -5,11 +5,12 @@
  *  - Gemini API key
  *  - Voice presets
  *  - Project manifests
+ *  - Base Style Presets (Phase 2)
  *
  * In development (non-Tauri context), falls back to localStorage.
  */
 
-import type { VoicePreset, ProjectManifest } from '@/types';
+import type { VoicePreset, ProjectManifest, BaseStylePreset } from '@/types';
 
 // ─── Tauri Detection ──────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ async function storeSet(store: unknown, key: string, value: unknown): Promise<vo
 let _settingsStore: unknown = null;
 let _presetsStore: unknown = null;
 let _projectsStore: unknown = null;
+let _stylePresetsStore: unknown = null;
 
 async function getSettingsStore() {
   if (!isTauri()) return null;
@@ -77,6 +79,15 @@ async function getProjectsStore() {
     _projectsStore = await Store.load('projects.json', { autoSave: true });
   }
   return _projectsStore;
+}
+
+async function getStylePresetsStore() {
+  if (!isTauri()) return null;
+  if (!_stylePresetsStore) {
+    const { Store } = await import('@tauri-apps/plugin-store');
+    _stylePresetsStore = await Store.load('style-presets.json', { autoSave: true });
+  }
+  return _stylePresetsStore;
 }
 
 // ─── API Key ──────────────────────────────────────────────────────────────────
@@ -163,4 +174,111 @@ export async function deleteProject(projectId: string): Promise<void> {
     'projects',
     projects.filter((p) => p.projectId !== projectId)
   );
+}
+
+// ─── Phase 2: Built-in Style Presets ──────────────────────────────────────────
+
+export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
+  {
+    id: 'builtin_cinematic',
+    name: 'Dark Cinematic Documentary',
+    stylePrompt:
+      'Photorealistic, cinematic lighting, 8k resolution, muted color palette, high-end documentary look, shot on 35mm anamorphic lens, dramatic shadows, film grain',
+    negativePrompt: 'cartoon, anime, blurry, distorted faces, low resolution, CGI, oversaturated',
+    aspectRatio: '16:9',
+    isDefault: true,
+    isBuiltIn: true,
+    createdAt: 0,
+  },
+  {
+    id: 'builtin_anime',
+    name: 'Anime / Manga',
+    stylePrompt:
+      'High-quality anime illustration, detailed hand-drawn style, vibrant colors, clean linework, dramatic lighting, Studio Ghibli inspired',
+    negativePrompt: 'realistic, photograph, 3D render, blurry, watermark, text',
+    aspectRatio: '16:9',
+    isDefault: false,
+    isBuiltIn: true,
+    createdAt: 0,
+  },
+  {
+    id: 'builtin_cyberpunk',
+    name: 'Cyberpunk Neon City',
+    stylePrompt:
+      'Futuristic cyberpunk aesthetic, neon lights, rain-slicked streets, ultra-detailed digital art, volumetric fog, holographic displays, blade runner inspired',
+    negativePrompt: 'natural, daylight, countryside, low tech, sketch, watermark',
+    aspectRatio: '16:9',
+    isDefault: false,
+    isBuiltIn: true,
+    createdAt: 0,
+  },
+  {
+    id: 'builtin_flat_vector',
+    name: '2D Flat Vector',
+    stylePrompt:
+      'Modern 2D flat design illustration, bold clean shapes, minimal shadows, geometric forms, professional corporate explainer video style',
+    negativePrompt: 'photograph, realistic, 3D, dark, gritty, complex textures',
+    aspectRatio: '16:9',
+    isDefault: false,
+    isBuiltIn: true,
+    createdAt: 0,
+  },
+  {
+    id: 'builtin_oil_painting',
+    name: 'Vintage Oil Painting',
+    stylePrompt:
+      'Rich oil painting, impressionist style, visible brushstrokes, warm golden palette, old masters technique, museum quality fine art',
+    negativePrompt: 'digital art, photograph, anime, flat design, neon, modern',
+    aspectRatio: '16:9',
+    isDefault: false,
+    isBuiltIn: true,
+    createdAt: 0,
+  },
+];
+
+// ─── Phase 2: Style Preset CRUD ───────────────────────────────────────────────
+
+export async function getStylePresets(): Promise<BaseStylePreset[]> {
+  const store = await getStylePresetsStore();
+  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets');
+  // Merge built-ins (first) + custom presets, deduplicating by id
+  const customList = custom ?? [];
+  const allIds = new Set(customList.map((p) => p.id));
+  const merged = [
+    ...BUILT_IN_STYLE_PRESETS.filter((p) => !allIds.has(p.id)),
+    ...customList,
+  ];
+  return merged;
+}
+
+export async function saveStylePreset(preset: BaseStylePreset): Promise<void> {
+  // Only save non-built-in presets to the store
+  const store = await getStylePresetsStore();
+  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets') ?? [];
+  const idx = custom.findIndex((p) => p.id === preset.id);
+  if (idx >= 0) {
+    custom[idx] = preset;
+  } else {
+    custom.push(preset);
+  }
+  await storeSet(store, 'style-presets', custom);
+}
+
+export async function deleteStylePreset(id: string): Promise<void> {
+  const store = await getStylePresetsStore();
+  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets') ?? [];
+  await storeSet(store, 'style-presets', custom.filter((p) => p.id !== id));
+}
+
+export async function setDefaultStylePreset(id: string): Promise<void> {
+  // Update custom presets
+  const store = await getStylePresetsStore();
+  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets') ?? [];
+  const updated = custom.map((p) => ({ ...p, isDefault: p.id === id }));
+  await storeSet(store, 'style-presets', updated);
+}
+
+export async function getDefaultStylePreset(): Promise<BaseStylePreset> {
+  const all = await getStylePresets();
+  return all.find((p) => p.isDefault) ?? all[0] ?? BUILT_IN_STYLE_PRESETS[0];
 }

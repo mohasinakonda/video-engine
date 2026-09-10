@@ -49,6 +49,10 @@ export interface ProjectManifest {
   /** Total duration in milliseconds (sum of all completed chunks) */
   totalDurationMs: number;
   updatedAt: number;
+  /** Phase 2: scenes generated from the script */
+  scenes?: SceneItem[];
+  /** Phase 2: the selected base style preset ID */
+  baseStylePresetId?: string;
 }
 
 // ─── API Key Status ───────────────────────────────────────────────────────────
@@ -60,4 +64,63 @@ export type ApiKeyStatus = 'idle' | 'testing' | 'valid' | 'invalid' | 'quota_exc
 export interface AppSettings {
   geminiApiKey: string;
   apiKeyStatus: ApiKeyStatus;
+}
+
+// ─── Phase 2: Base Style Preset ───────────────────────────────────────────────
+
+export interface BaseStylePreset {
+  id: string;
+  /** e.g. "Dark Cinematic Documentary" */
+  name: string;
+  /** e.g. "Photorealistic, cinematic lighting, 8k resolution, muted colors..." */
+  stylePrompt: string;
+  /** e.g. "cartoon, blurry, distorted faces, low resolution" */
+  negativePrompt?: string;
+  aspectRatio: '16:9' | '9:16';
+  isDefault: boolean;
+  /** True = shipped with the app, cannot be deleted */
+  isBuiltIn?: boolean;
+  createdAt: number;
+}
+
+// ─── Phase 2: Motion Profile ─────────────────────────────────────────────────
+
+export type MotionProfile = 'zoom_in' | 'zoom_out' | 'pan_left' | 'pan_right';
+
+// ─── Phase 2: Scene Status ────────────────────────────────────────────────────
+
+export type SceneStatus =
+  | 'PENDING'
+  | 'GENERATING_IMAGE'
+  | 'IMAGE_READY'
+  | 'GENERATING_MOTION'
+  | 'MOTION_READY'
+  | 'FAILED';
+
+// ─── Phase 2: Scene Item ──────────────────────────────────────────────────────
+
+export interface SceneItem {
+  /** 1-indexed scene number */
+  sceneId: number;
+  /** Start time in seconds relative to total audio */
+  audioStartSec: number;
+  /** End time in seconds */
+  audioEndSec: number;
+  /** The narration text for this scene window */
+  narrationLine: string;
+  /** Scene-specific visual description from Gemini */
+  visualPrompt: string;
+  /** Combined prompt: visualPrompt + stylePrompt */
+  fullPrompt?: string;
+  /** Relative path to the generated image: projects/{id}/scenes/scene_{n}.jpg */
+  imagePath?: string;
+  /** Temporary blob/data URL for in-app preview (not persisted) */
+  imageUrl?: string;
+  /** Relative path to the motion clip: projects/{id}/motion_clips/clip_{n}.mp4 */
+  motionClipPath?: string;
+  /** Randomly assigned motion effect */
+  motionProfile?: MotionProfile;
+  status: SceneStatus;
+  error?: string;
+  retryCount?: number;
 }

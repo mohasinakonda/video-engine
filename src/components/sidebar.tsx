@@ -8,6 +8,7 @@ import {
   Settings,
   PlusCircle,
   Zap,
+  Film,
 } from 'lucide-react';
 
 const navItems = [
@@ -20,6 +21,10 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+
+  // Extract project ID from storyboard route for context nav
+  const storyboardMatch = pathname.startsWith('/storyboard');
+  const projectPageMatch = pathname.startsWith('/project/new');
 
   return (
     <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-surface border-r border-bg-border min-h-screen">
@@ -79,11 +84,32 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Contextual: Phase 2 Storyboard link when in a project */}
+        {(storyboardMatch || projectPageMatch) && (
+          <div className="pt-3">
+            <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider px-3 pb-1.5">
+              Current Project
+            </p>
+            {projectPageMatch && (
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-accent-purple-light bg-accent-purple/10 border border-accent-purple/20">
+                <Mic2 size={13} className="text-accent-purple-light" />
+                Phase 1 · Audio
+              </div>
+            )}
+            {storyboardMatch && (
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cyan-300 bg-cyan-950/30 border border-cyan-800/30">
+                <Film size={13} className="text-cyan-400" />
+                Phase 2 · Storyboard
+              </div>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-bg-border">
-        <p className="text-[10px] text-slate-600">Phase 1 · BYOK</p>
+        <p className="text-[10px] text-slate-600">Phase 2 · BYOK</p>
       </div>
     </aside>
   );

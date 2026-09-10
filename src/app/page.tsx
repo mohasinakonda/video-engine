@@ -11,6 +11,9 @@ import {
   Trash2,
   ChevronRight,
   Sparkles,
+  Film,
+  Images,
+  Video,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import { getAllProjects, deleteProject } from '@/lib/store';
@@ -75,7 +78,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-white">Projects</h1>
-              <p className="text-sm text-slate-500 mt-0.5">Manage your audio generation projects</p>
+              <p className="text-sm text-slate-500 mt-0.5">Manage your audio & video generation projects</p>
             </div>
             <Link href="/project/new" className="btn-primary">
               <PlusCircle size={15} />
@@ -89,7 +92,7 @@ export default function DashboardPage() {
           {loading ? (
             <div className="grid grid-cols-1 gap-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="card skeleton h-24 rounded-xl" />
+                <div key={i} className="card skeleton h-28 rounded-xl" />
               ))}
             </div>
           ) : projects.length === 0 ? (
@@ -100,7 +103,7 @@ export default function DashboardPage() {
               </div>
               <h2 className="text-xl font-semibold text-white mb-2">No Projects Yet</h2>
               <p className="text-slate-500 text-sm text-center max-w-sm mb-6">
-                Create your first project to start converting long-form scripts into professional audio.
+                Create your first project to start converting long-form scripts into professional video.
               </p>
               <Link href="/project/new" className="btn-primary">
                 <PlusCircle size={15} />
@@ -112,7 +115,17 @@ export default function DashboardPage() {
               {projects.map((project, idx) => {
                 const done = completedChunks(project);
                 const total = project.audioChunks.length;
-                const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+                const audioProgress = total > 0 ? Math.round((done / total) * 100) : 0;
+
+                // Phase 2 scene stats
+                const totalScenes = project.scenes?.length ?? 0;
+                const imagesReady = project.scenes?.filter(
+                  (s) => ['IMAGE_READY', 'GENERATING_MOTION', 'MOTION_READY'].includes(s.status)
+                ).length ?? 0;
+                const motionReady = project.scenes?.filter((s) => s.status === 'MOTION_READY').length ?? 0;
+                const sceneProgress = totalScenes > 0 ? Math.round((imagesReady / totalScenes) * 100) : 0;
+
+                const hasStoryboard = totalScenes > 0;
 
                 return (
                   <div
@@ -136,17 +149,27 @@ export default function DashboardPage() {
                           </h3>
                           {total > 0 && (
                             <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                              progress === 100
+                              audioProgress === 100
                                 ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50'
-                                : progress > 0
+                                : audioProgress > 0
                                 ? 'bg-blue-950/60 text-blue-400 border-blue-800/50'
                                 : 'bg-slate-800 text-slate-400 border-slate-700'
                             }`}>
-                              {progress === 100 ? 'Complete' : progress > 0 ? 'In Progress' : 'Not Started'}
+                              {audioProgress === 100 ? '✓ Audio' : audioProgress > 0 ? 'Audio…' : 'Not Started'}
+                            </span>
+                          )}
+                          {hasStoryboard && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                              sceneProgress === 100
+                                ? 'bg-cyan-950/60 text-cyan-400 border-cyan-800/50'
+                                : 'bg-violet-950/60 text-violet-400 border-violet-800/50'
+                            }`}>
+                              {sceneProgress === 100 ? '✓ Scenes' : `Scenes ${sceneProgress}%`}
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-slate-500">
+
+                        <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
                           <span className="flex items-center gap-1">
                             <FolderOpen size={11} />
                             {total} chunk{total !== 1 ? 's' : ''}
@@ -157,18 +180,40 @@ export default function DashboardPage() {
                               {formatDuration(project.totalDurationMs)}
                             </span>
                           )}
+                          {hasStoryboard && (
+                            <span className="flex items-center gap-1 text-violet-400">
+                              <Images size={11} />
+                              {imagesReady}/{totalScenes} images
+                            </span>
+                          )}
+                          {motionReady > 0 && (
+                            <span className="flex items-center gap-1 text-cyan-400">
+                              <Video size={11} />
+                              {motionReady} clips
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
                             <Clock size={11} />
                             {timeAgo(project.updatedAt)}
                           </span>
                         </div>
 
-                        {/* Progress bar */}
+                        {/* Audio progress bar */}
                         {total > 0 && (
                           <div className="mt-2 h-1 bg-bg-border rounded-full overflow-hidden w-full max-w-xs">
                             <div
                               className="h-full bg-gradient-to-r from-accent-purple to-accent-purple-light rounded-full transition-all duration-500"
-                              style={{ width: `${progress}%` }}
+                              style={{ width: `${audioProgress}%` }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Scene progress bar */}
+                        {hasStoryboard && (
+                          <div className="mt-1 h-1 bg-bg-border rounded-full overflow-hidden w-full max-w-xs">
+                            <div
+                              className="h-full bg-gradient-to-r from-violet-700 to-cyan-500 rounded-full transition-all duration-500"
+                              style={{ width: `${sceneProgress}%` }}
                             />
                           </div>
                         )}
@@ -176,6 +221,25 @@ export default function DashboardPage() {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Storyboard quick action */}
+                        {audioProgress === 100 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/storyboard?id=${project.projectId}`);
+                            }}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
+                                       bg-gradient-to-r from-violet-900/60 to-cyan-900/40
+                                       border border-violet-700/40 text-violet-300
+                                       hover:border-cyan-600/60 hover:text-cyan-300
+                                       transition-all duration-200"
+                            title="Open Storyboard (Phase 2)"
+                          >
+                            <Film size={12} />
+                            Storyboard
+                          </button>
+                        )}
+
                         <button
                           onClick={(e) => handleDelete(e, project.projectId)}
                           disabled={deletingId === project.projectId}
