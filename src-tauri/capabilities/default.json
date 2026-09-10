@@ -14,6 +14,7 @@
     "fs:allow-write-file",
     "fs:allow-app-local-data-read-recursive",
     "fs:allow-app-local-data-write-recursive",
-    "dialog:default"
+    "dialog:default",
+    "notification:default"
   ]
 }

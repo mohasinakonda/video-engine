@@ -22,9 +22,10 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
 
-  // Extract project ID from storyboard route for context nav
+  // Extract project ID from routes for context nav
   const storyboardMatch = pathname.startsWith('/storyboard');
   const projectPageMatch = pathname.startsWith('/project/new');
+  const exportMatch = pathname.startsWith('/export');
 
   return (
     <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-surface border-r border-bg-border min-h-screen">
@@ -85,8 +86,8 @@ export default function Sidebar() {
           );
         })}
 
-        {/* Contextual: Phase 2 Storyboard link when in a project */}
-        {(storyboardMatch || projectPageMatch) && (
+        {/* Contextual navigation when in a project */}
+        {(storyboardMatch || projectPageMatch || exportMatch) && (
           <div className="pt-3">
             <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider px-3 pb-1.5">
               Current Project
@@ -101,6 +102,12 @@ export default function Sidebar() {
               <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cyan-300 bg-cyan-950/30 border border-cyan-800/30">
                 <Film size={13} className="text-cyan-400" />
                 Phase 2 · Storyboard
+              </div>
+            )}
+            {exportMatch && (
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-amber-300 bg-amber-950/30 border border-amber-800/30">
+                <Video size={13} className="text-amber-400" />
+                Phase 3 · Final Export
               </div>
             )}
           </div>

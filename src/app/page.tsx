@@ -167,6 +167,11 @@ export default function DashboardPage() {
                               {sceneProgress === 100 ? '✓ Scenes' : `Scenes ${sceneProgress}%`}
                             </span>
                           )}
+                          {project.finalVideoPath && (
+                            <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-950/60 text-amber-300 border-amber-800/50">
+                              ✓ MP4 Ready
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
@@ -237,6 +242,25 @@ export default function DashboardPage() {
                           >
                             <Film size={12} />
                             Storyboard
+                          </button>
+                        )}
+
+                        {/* Export quick action */}
+                        {audioProgress === 100 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/export?id=${project.projectId}`);
+                            }}
+                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
+                                       bg-gradient-to-r from-amber-900/60 to-accent-purple/40
+                                       border border-amber-700/40 text-amber-300
+                                       hover:border-amber-500/60 hover:text-white
+                                       transition-all duration-200"
+                            title="Final Export (Phase 3)"
+                          >
+                            <Video size={12} />
+                            Export
                           </button>
                         )}
 

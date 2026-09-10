@@ -151,32 +151,50 @@ export default function SettingsPage() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <button
+                    id="test-key-btn"
+                    onClick={handleTestKey}
+                    disabled={!apiKey.trim() || status === 'testing'}
+                    className="btn-secondary flex-1"
+                  >
+                    {status === 'testing' ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <CheckCircle size={14} />
+                    )}
+                    Test Key
+                  </button>
+                  <button
+                    id="save-key-btn"
+                    onClick={handleSave}
+                    disabled={saving || !isDirty}
+                    className="btn-primary flex-1"
+                  >
+                    {saving ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : saved ? (
+                      <CheckCircle size={14} />
+                    ) : null}
+                    {saved ? 'Saved!' : 'Save Key'}
+                  </button>
+                </div>
+
+                {/* Free Demo Mode CTA */}
                 <button
-                  id="test-key-btn"
-                  onClick={handleTestKey}
-                  disabled={!apiKey.trim() || status === 'testing'}
-                  className="btn-secondary flex-1"
+                  type="button"
+                  onClick={async () => {
+                    setApiKey('demo');
+                    await saveApiKey('demo');
+                    setSavedKey('demo');
+                    setStatus('valid');
+                    setStatusMsg('Free Demo Mode active — All workflow steps (Audio, Storyboard, Motion & FFmpeg Export) will run 100% free!');
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-emerald-950/40 border border-emerald-800/50 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/50 transition-colors flex items-center justify-center gap-2"
                 >
-                  {status === 'testing' ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <CheckCircle size={14} />
-                  )}
-                  Test Key
-                </button>
-                <button
-                  id="save-key-btn"
-                  onClick={handleSave}
-                  disabled={saving || !isDirty}
-                  className="btn-primary flex-1"
-                >
-                  {saving ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : saved ? (
-                    <CheckCircle size={14} />
-                  ) : null}
-                  {saved ? 'Saved!' : 'Save Key'}
+                  <CheckCircle size={14} className="text-emerald-400" />
+                  Enable Free Demo Mode (No Paid API Key Needed)
                 </button>
               </div>
             </div>

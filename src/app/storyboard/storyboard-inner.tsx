@@ -558,7 +558,21 @@ export default function StoryboardInner() {
                 </button>
               )}
 
-              {/* All complete */}
+              {/* All complete or ready for export */}
+              {scenes.length > 0 && (readyForMotion > 0 || scenes.some((s) => s.status === 'MOTION_READY' || s.status === 'IMAGE_READY')) && !isWorking && (
+                <button
+                  id="proceed-export-btn"
+                  onClick={() => router.push(`/export?id=${projectId}`)}
+                  className="w-full py-2.5 rounded-lg text-sm font-semibold text-white
+                             bg-gradient-to-r from-amber-600 via-accent-purple to-accent-cyan
+                             hover:shadow-lg hover:shadow-cyan-900/40 transition-all duration-200
+                             flex items-center justify-center gap-2 glow-purple"
+                >
+                  <Zap size={15} />
+                  Proceed to Final Export →
+                </button>
+              )}
+
               {allImagesReady && pendingImages === 0 && readyForMotion === 0 && (
                 <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-emerald-950/40 border border-emerald-800/40">
                   <Zap size={14} className="text-emerald-400" />

@@ -53,7 +53,46 @@ export interface ProjectManifest {
   scenes?: SceneItem[];
   /** Phase 2: the selected base style preset ID */
   baseStylePresetId?: string;
+  /** Phase 3: export configuration settings */
+  exportSettings?: ExportSettings;
+  /** Phase 3: relative path to the rendered final MP4 video */
+  finalVideoPath?: string;
 }
+
+// ─── Phase 3: Export Types ───────────────────────────────────────────────────
+
+export type ExportResolution = '1080p' | '4k';
+
+export type HardwareEncoder = 'auto' | 'h264_nvenc' | 'h264_qsv' | 'h264_videotoolbox' | 'libx264';
+
+export interface ExportSettings {
+  resolution: ExportResolution;
+  encoder: HardwareEncoder;
+  bgmFilePath?: string;
+  bgmVolume: number; // 0.0 to 1.0 (default 0.15)
+  enableAutoDucking: boolean; // default true
+  outputPath: string;
+}
+
+export type ExportStage =
+  | 'idle'
+  | 'audio_stitch'
+  | 'video_concat'
+  | 'final_render'
+  | 'completed'
+  | 'failed';
+
+export interface ExportProgress {
+  stage: ExportStage;
+  percentage: number; // 0 - 100
+  fps: number;
+  frame: number;
+  totalFrames: number;
+  etaSeconds: number;
+  currentStepMessage: string;
+  error?: string;
+}
+
 
 // ─── API Key Status ───────────────────────────────────────────────────────────
 
