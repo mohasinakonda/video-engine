@@ -15,6 +15,9 @@ import {
   ChevronLeft,
   Layers,
   Zap,
+  Download,
+  Plus,
+  Images,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import StoryboardGrid from '@/components/storyboard-grid';
@@ -25,10 +28,12 @@ import {
   getDefaultStylePreset,
   getStylePresets,
   getApiKey,
+  getPollinationsImageModel,
 } from '@/lib/store';
 import { extractScenes } from '@/lib/gemini';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
+import { getMediaBlobUrl } from '@/lib/media-storage';
 import type {
   ProjectManifest,
   SceneItem,
@@ -53,6 +58,7 @@ export default function StoryboardInner() {
 
   const [loading, setLoading] = useState(true);
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
   // Pipeline stages
   const [extracting, setExtracting] = useState(false);
@@ -65,10 +71,55 @@ export default function StoryboardInner() {
 
   const imageQueueRef = useRef<ImageQueue | null>(null);
   const motionQueueRef = useRef<MotionQueue | null>(null);
+  const autoStartedRef = useRef(false);
 
   // Keep a ref to current project/preset for use inside callbacks
   const projectRef = useRef<ProjectManifest | null>(null);
   const presetRef = useRef<BaseStylePreset | null>(null);
+
+  // ─── Step 2: Generate Images ─────────────────────────────────────────────
+
+  const handleGenerateImages = useCallback(async (currentScenes: SceneItem[]) => {
+    const apiKey = (await getApiKey()) || '';
+    const chosenModel = await getPollinationsImageModel();
+
+    setGeneratingImages(true);
+    setPauseMsg('');
+    imageQueueRef.current = new ImageQueue();
+
+    const preset = presetRef.current;
+
+    await imageQueueRef.current.run({
+      apiKey,
+      projectId,
+      scenes: currentScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED'),
+      negativePrompt: preset?.negativePrompt,
+      model: chosenModel,
+      concurrency: 3,
+      callbacks: {
+        onSceneUpdate: (sceneId, update) => {
+          setScenes((prev) => {
+            const next = prev.map((s) =>
+              s.sceneId === sceneId ? { ...s, ...update } : s
+            );
+            persistScenes(next);
+            return next;
+          });
+        },
+        onComplete: () => {
+          setGeneratingImages(false);
+          setPauseMsg('');
+        },
+        onError: (sceneId, error) => {
+          console.warn(`Scene ${sceneId} failed:`, error);
+        },
+        onPause: (reason, resumeInMs) => {
+          setPauseMsg(`${reason} — resuming in ${resumeInMs / 1000}s`);
+        },
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // ─── Load project ────────────────────────────────────────────────────────
 
@@ -81,9 +132,17 @@ export default function StoryboardInner() {
       projectRef.current = p;
       setProject(p);
 
-      // Restore scenes (strip blob URLs which aren't persisted)
+      // Restore scenes and fetch image blobs from IndexedDB
+      let restoredScenes: SceneItem[] = [];
       if (p.scenes && p.scenes.length > 0) {
-        setScenes(p.scenes.map((s) => ({ ...s, imageUrl: undefined })));
+        restoredScenes = await Promise.all(
+          p.scenes.map(async (s) => {
+            if (s.imageUrl) return s;
+            const url = await getMediaBlobUrl(`scene_${p.projectId}_${s.sceneId}`);
+            return { ...s, imageUrl: url || undefined };
+          })
+        );
+        setScenes(restoredScenes);
       }
 
       const apiKey = await getApiKey();
@@ -101,10 +160,21 @@ export default function StoryboardInner() {
       }
       presetRef.current = preset;
       setStylePreset(preset);
+
+      // Auto-start image generation if requested via query param
+      if (searchParams.get('autoGenerate') === 'true' && !autoStartedRef.current) {
+        const pending = restoredScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED');
+        if (pending.length > 0) {
+          autoStartedRef.current = true;
+          setTimeout(() => {
+            handleGenerateImages(restoredScenes);
+          }, 350);
+        }
+      }
     } finally {
       setLoading(false);
     }
-  }, [projectId, router]);
+  }, [projectId, router, searchParams, handleGenerateImages]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -133,14 +203,12 @@ export default function StoryboardInner() {
     const preset = presetRef.current;
     if (!proj || !preset) return;
 
-    const apiKey = await getApiKey();
-    if (!apiKey) { setApiKeyMissing(true); return; }
+    const apiKey = (await getApiKey()) || '';
 
-    const totalDurationMs = proj.totalDurationMs;
-    if (!totalDurationMs) {
-      setExtractError('No audio timeline found. Please generate audio in Phase 1 first.');
-      return;
-    }
+    // If project has no audio duration, calculate reasonable fallback based on scenes or script words
+    const totalDurationMs =
+      proj.totalDurationMs ||
+      (scenes.length > 0 ? scenes.length * 3500 : Math.max(15000, (proj.rawScript?.split(/\s+/).length || 20) * 400));
 
     setExtracting(true);
     setExtractError('');
@@ -161,48 +229,6 @@ export default function StoryboardInner() {
     } finally {
       setExtracting(false);
     }
-  }
-
-  // ─── Step 2: Generate Images ─────────────────────────────────────────────
-
-  async function handleGenerateImages(currentScenes: SceneItem[]) {
-    const apiKey = await getApiKey();
-    if (!apiKey) { setApiKeyMissing(true); return; }
-
-    setGeneratingImages(true);
-    setPauseMsg('');
-    imageQueueRef.current = new ImageQueue();
-
-    const preset = presetRef.current;
-
-    await imageQueueRef.current.run({
-      apiKey,
-      projectId,
-      scenes: currentScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED'),
-      negativePrompt: preset?.negativePrompt,
-      concurrency: 3,
-      callbacks: {
-        onSceneUpdate: (sceneId, update) => {
-          setScenes((prev) => {
-            const next = prev.map((s) =>
-              s.sceneId === sceneId ? { ...s, ...update } : s
-            );
-            persistScenes(next);
-            return next;
-          });
-        },
-        onComplete: () => {
-          setGeneratingImages(false);
-          setPauseMsg('');
-        },
-        onError: (sceneId, error) => {
-          console.warn(`Scene ${sceneId} failed:`, error);
-        },
-        onPause: (reason, resumeInMs) => {
-          setPauseMsg(`${reason} — resuming in ${resumeInMs / 1000}s`);
-        },
-      },
-    });
   }
 
   // ─── Step 3: Generate Motion Clips ───────────────────────────────────────
@@ -253,8 +279,8 @@ export default function StoryboardInner() {
   // ─── Per-scene actions ────────────────────────────────────────────────────
 
   async function handleRegenerate(scene: SceneItem, newPrompt?: string) {
-    const apiKey = await getApiKey();
-    if (!apiKey) return;
+    const apiKey = (await getApiKey()) || '';
+    const chosenModel = await getPollinationsImageModel();
 
     const preset = presetRef.current;
     let targetScene = scene;
@@ -275,6 +301,7 @@ export default function StoryboardInner() {
     await imageQueueRef.current.retryScene(targetScene, {
       apiKey,
       projectId,
+      model: chosenModel,
       negativePrompt: preset?.negativePrompt,
       callbacks: {
         onSceneUpdate: (sceneId, update) => {
@@ -289,6 +316,44 @@ export default function StoryboardInner() {
         onPause: () => {},
       },
     });
+  }
+
+  async function handleAddScene() {
+    const nextId = scenes.length > 0 ? Math.max(...scenes.map((s) => s.sceneId)) + 1 : 1;
+    const startSec = scenes.length > 0 ? scenes[scenes.length - 1].audioEndSec : 0;
+    const endSec = parseFloat((startSec + 3.5).toFixed(1));
+    const newScene: SceneItem = {
+      sceneId: nextId,
+      audioStartSec: startSec,
+      audioEndSec: endSec,
+      narrationLine: `Scene ${nextId}`,
+      visualPrompt: `Detailed cinematic visual for scene ${nextId}`,
+      fullPrompt: `Detailed cinematic visual for scene ${nextId}. ${presetRef.current?.stylePrompt ?? ''}`,
+      status: 'PENDING',
+    };
+    const updated = [...scenes, newScene];
+    setScenes(updated);
+    await persistScenes(updated);
+  }
+
+  async function handleDownloadAllImages() {
+    const readyScenes = scenes.filter((s) => !!s.imageUrl);
+    if (readyScenes.length === 0) return;
+    setDownloadingAll(true);
+    try {
+      for (const scene of readyScenes) {
+        if (!scene.imageUrl) continue;
+        const link = document.createElement('a');
+        link.href = scene.imageUrl;
+        link.download = `scene_${scene.sceneId}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    } finally {
+      setDownloadingAll(false);
+    }
   }
 
   async function handleUpload(scene: SceneItem, file: File) {
@@ -351,6 +416,28 @@ export default function StoryboardInner() {
           </div>
 
           <div className="ml-auto flex items-center gap-3">
+            {scenes.some((s) => !!s.imageUrl) && (
+              <button
+                onClick={handleDownloadAllImages}
+                disabled={downloadingAll}
+                className="flex items-center gap-1.5 text-xs text-white px-3 py-1.5 rounded-lg bg-bg-elevated border border-bg-border hover:border-accent-purple/50 transition-colors"
+                title="Download all generated scene images"
+              >
+                {downloadingAll ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} className="text-emerald-400" />}
+                <span>{downloadingAll ? 'Downloading…' : 'Download All Images'}</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleAddScene}
+              disabled={isWorking}
+              className="flex items-center gap-1.5 text-xs text-slate-300 px-3 py-1.5 rounded-lg bg-bg-elevated border border-bg-border hover:border-slate-600 transition-colors disabled:opacity-50"
+              title="Add a custom visual scene"
+            >
+              <Plus size={12} />
+              <span>Add Scene</span>
+            </button>
+
             {apiKeyMissing && (
               <button
                 onClick={() => router.push('/settings')}
@@ -372,7 +459,7 @@ export default function StoryboardInner() {
 
               {/* Audio summary */}
               <div className="card space-y-2">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Audio Timeline</p>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Audio / Timeline</p>
                 {hasAudio ? (
                   <>
                     <div className="flex items-center justify-between text-xs">
@@ -391,10 +478,10 @@ export default function StoryboardInner() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-950/30 border border-amber-800/30">
-                    <AlertTriangle size={12} className="text-amber-400 flex-shrink-0" />
-                    <p className="text-xs text-amber-400">
-                      No audio timeline. Generate audio in Phase 1 first.
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-purple-950/20 border border-purple-800/30">
+                    <Images size={13} className="text-purple-400 flex-shrink-0" />
+                    <p className="text-xs text-purple-300">
+                      Images-only mode active (skips voice generation).
                     </p>
                   </div>
                 )}
@@ -497,7 +584,7 @@ export default function StoryboardInner() {
                 <button
                   id="extract-scenes-btn"
                   onClick={handleExtractScenes}
-                  disabled={extracting || !hasAudio || apiKeyMissing}
+                  disabled={extracting || !project?.rawScript?.trim()}
                   className="btn-primary w-full justify-center"
                 >
                   {extracting
@@ -523,13 +610,12 @@ export default function StoryboardInner() {
                 <button
                   id="generate-images-btn"
                   onClick={() => handleGenerateImages(scenes)}
-                  disabled={apiKeyMissing}
                   className="btn-primary w-full justify-center"
                 >
                   <PlayCircle size={15} />
                   {pendingImages < scenes.length
                     ? `Resume Images (${pendingImages} left)`
-                    : `Generate ${scenes.length} Images`}
+                    : `Generate ${scenes.length} Images (Pollinations)`}
                 </button>
               )}
 

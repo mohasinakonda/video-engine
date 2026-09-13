@@ -20,10 +20,12 @@ import {
   HardDrive,
   Download,
   StopCircle,
+  ExternalLink,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import { getProject, saveProject } from '@/lib/store';
 import { ExportEngine } from '@/lib/export-engine';
+import { getMediaBlobUrl } from '@/lib/media-storage';
 import type {
   ProjectManifest,
   ExportResolution,
@@ -96,7 +98,30 @@ export default function ExportInner() {
         router.push('/');
         return;
       }
-      setProject(p);
+      // Restore audio blobs from IndexedDB
+      const restoredChunks = await Promise.all(
+        (p.audioChunks || []).map(async (c) => {
+          if (c.audioUrl) return c;
+          const url = await getMediaBlobUrl(`audio_${p.projectId}_${c.index}`);
+          return { ...c, audioUrl: url || undefined };
+        })
+      );
+
+      // Restore scene image blobs from IndexedDB
+      const restoredScenes = await Promise.all(
+        (p.scenes || []).map(async (s) => {
+          if (s.imageUrl) return s;
+          const url = await getMediaBlobUrl(`scene_${p.projectId}_${s.sceneId}`);
+          return { ...s, imageUrl: url || undefined };
+        })
+      );
+
+      const restoredProject: ProjectManifest = {
+        ...p,
+        audioChunks: restoredChunks,
+        scenes: restoredScenes,
+      };
+      setProject(restoredProject);
 
       // Restore saved export settings if present
       if (p.exportSettings) {
@@ -150,20 +175,20 @@ export default function ExportInner() {
     }
   }
 
+  const downloadFileName = `${project?.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${resolution}.mp4`;
+
   async function handleSelectOutputPath() {
     if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
       const { save } = await import('@tauri-apps/plugin-dialog');
-      const defaultName = `${project?.title.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${resolution}.mp4`;
       const selected = await save({
-        defaultPath: defaultName,
+        defaultPath: downloadFileName,
         filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
       });
       if (selected) {
         setOutputPath(selected);
       }
     } else {
-      const path = `/downloads/${project?.title.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${resolution}.mp4`;
-      setOutputPath(path);
+      setOutputPath(downloadFileName);
     }
   }
 
@@ -181,7 +206,7 @@ export default function ExportInner() {
       bgmFilePath,
       bgmVolume,
       enableAutoDucking,
-      outputPath: outputPath || `projects/${projectId}/final_export.mp4`,
+      outputPath: outputPath || downloadFileName,
     };
 
     // Save settings to project manifest
@@ -201,7 +226,8 @@ export default function ExportInner() {
         project.audioChunks,
         project.scenes || [],
         settings,
-        (prog) => setProgress(prog)
+        (prog) => setProgress(prog),
+        project.title
       );
 
       setFinalVideoUrl(resultPath);
@@ -248,6 +274,9 @@ export default function ExportInner() {
       if (target) {
         Command.create('open', ['-R', target]).execute().catch(() => {});
       }
+    } else if (finalVideoUrl) {
+      // In browser: open video in a new tab for playback and viewing
+      window.open(finalVideoUrl, '_blank');
     }
   }
 
@@ -358,12 +387,45 @@ export default function ExportInner() {
 
                 {/* Post-Render Actions */}
                 {progress.stage === 'completed' && (
-                  <div className="mt-6 pt-6 border-t border-bg-border space-y-4">
+                  <div className="mt-6 pt-6 border-t border-bg-border space-y-5">
+                    {/* Success Alert */}
+                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-800/50 text-xs text-emerald-300">
+                      <CheckCircle2 size={18} className="text-emerald-400 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold text-white">Video export ready and downloaded!</p>
+                        <p className="text-[11px] text-emerald-300/80 mt-0.5">
+                          Saved to your computer as <strong className="font-mono text-emerald-200">{downloadFileName}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* In-App Video Player Preview */}
+                    {finalVideoUrl && (
+                      <div className="relative rounded-2xl overflow-hidden border border-accent-purple/30 bg-black aspect-video shadow-2xl shadow-purple-950/40">
+                        <video
+                          src={finalVideoUrl}
+                          controls
+                          playsInline
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    )}
+
                     <div className="flex flex-wrap gap-3">
                       {finalVideoUrl && (
-                        <button onClick={handleOpenFolder} className="btn-primary">
-                          <FolderOpen size={15} />
-                          Open File / Folder
+                        <a
+                          href={finalVideoUrl}
+                          download={downloadFileName}
+                          className="btn-primary flex items-center gap-2"
+                        >
+                          <Download size={15} />
+                          Download Video Again
+                        </a>
+                      )}
+                      {finalVideoUrl && (
+                        <button onClick={handleOpenFolder} className="btn-secondary flex items-center gap-2">
+                          <ExternalLink size={15} />
+                          Open in New Tab
                         </button>
                       )}
                       <button
@@ -371,7 +433,7 @@ export default function ExportInner() {
                           setProgress({ stage: 'idle', percentage: 0, fps: 0, frame: 0, totalFrames: 0, etaSeconds: 0, currentStepMessage: '' });
                           setFinalVideoUrl('');
                         }}
-                        className="btn-secondary"
+                        className="btn-secondary flex items-center gap-2"
                       >
                         <RotateCcw size={15} />
                         Re-export Video
@@ -553,23 +615,35 @@ export default function ExportInner() {
 
                   {/* 4. Export Destination */}
                   <div className="card space-y-3">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen size={15} className="text-amber-400" />
-                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">Export Output Destination</h2>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen size={15} className="text-amber-400" />
+                        <h2 className="text-xs font-bold text-white uppercase tracking-wider">Export Destination</h2>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-bg-base text-slate-400 border border-bg-border">
+                        {typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window ? 'Local Disk Path' : 'Downloads Folder (~/Downloads)'}
+                      </span>
                     </div>
 
                     <div className="flex gap-2">
                       <input
                         type="text"
                         className="input flex-1 text-xs font-mono"
-                        placeholder="Default project export folder"
-                        value={outputPath}
+                        placeholder={downloadFileName}
+                        value={outputPath || downloadFileName}
                         onChange={(e) => setOutputPath(e.target.value)}
                       />
-                      <button type="button" onClick={handleSelectOutputPath} className="btn-secondary text-xs">
-                        Select Path
-                      </button>
+                      {typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && (
+                        <button type="button" onClick={handleSelectOutputPath} className="btn-secondary text-xs">
+                          Select Path
+                        </button>
+                      )}
                     </div>
+                    <p className="text-[11px] text-slate-400">
+                      {typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+                        ? 'Choose the file destination path on your system.'
+                        : "Rendered videos are automatically saved directly into your computer's Downloads folder."}
+                    </p>
                   </div>
 
                 </div>

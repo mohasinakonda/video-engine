@@ -103,6 +103,28 @@ export async function saveApiKey(apiKey: string): Promise<void> {
   await storeSet(store, 'gemini-api-key', apiKey);
 }
 
+export async function getPollinationsApiKey(): Promise<string> {
+  const store = await getSettingsStore();
+  const key = await storeGet<string>(store, 'pollinations-api-key');
+  return key ?? '';
+}
+
+export async function savePollinationsApiKey(apiKey: string): Promise<void> {
+  const store = await getSettingsStore();
+  await storeSet(store, 'pollinations-api-key', apiKey);
+}
+
+export async function getPollinationsImageModel(): Promise<string> {
+  const store = await getSettingsStore();
+  const model = await storeGet<string>(store, 'pollinations-image-model');
+  return model ?? 'flux';
+}
+
+export async function savePollinationsImageModel(model: string): Promise<void> {
+  const store = await getSettingsStore();
+  await storeSet(store, 'pollinations-image-model', model);
+}
+
 // ─── Voice Presets ────────────────────────────────────────────────────────────
 
 export async function getPresets(): Promise<VoicePreset[]> {
@@ -248,6 +270,23 @@ export async function getStylePresets(): Promise<BaseStylePreset[]> {
     ...BUILT_IN_STYLE_PRESETS.filter((p) => !allIds.has(p.id)),
     ...customList,
   ];
+
+  // Inject global base style prompt into default preset if customized
+  const customPrompt = await getGlobalBaseStylePrompt();
+  const customNeg = await getGlobalNegativePrompt();
+  if (customPrompt && customPrompt.trim()) {
+    return merged.map((p) => {
+      if (p.isDefault || p.id === 'builtin_cinematic') {
+        return {
+          ...p,
+          stylePrompt: customPrompt.trim(),
+          negativePrompt: customNeg ? customNeg.trim() : p.negativePrompt,
+        };
+      }
+      return p;
+    });
+  }
+
   return merged;
 }
 
@@ -278,7 +317,48 @@ export async function setDefaultStylePreset(id: string): Promise<void> {
   await storeSet(store, 'style-presets', updated);
 }
 
+export const DEFAULT_BASE_STYLE_PROMPT =
+  'Photorealistic, cinematic lighting, 8k resolution, muted color palette, high-end documentary look, shot on 35mm anamorphic lens, dramatic shadows, film grain';
+
+export const DEFAULT_NEGATIVE_PROMPT =
+  'cartoon, anime, blurry, distorted faces, low resolution, CGI, oversaturated, watermark, text, signature';
+
+export async function getGlobalBaseStylePrompt(): Promise<string> {
+  const store = await getSettingsStore();
+  const prompt = await storeGet<string>(store, 'global-base-style-prompt');
+  return prompt ?? DEFAULT_BASE_STYLE_PROMPT;
+}
+
+export async function saveGlobalBaseStylePrompt(prompt: string): Promise<void> {
+  const store = await getSettingsStore();
+  await storeSet(store, 'global-base-style-prompt', prompt);
+}
+
+export async function getGlobalNegativePrompt(): Promise<string> {
+  const store = await getSettingsStore();
+  const neg = await storeGet<string>(store, 'global-negative-prompt');
+  return neg ?? DEFAULT_NEGATIVE_PROMPT;
+}
+
+export async function saveGlobalNegativePrompt(prompt: string): Promise<void> {
+  const store = await getSettingsStore();
+  await storeSet(store, 'global-negative-prompt', prompt);
+}
+
 export async function getDefaultStylePreset(): Promise<BaseStylePreset> {
   const all = await getStylePresets();
-  return all.find((p) => p.isDefault) ?? all[0] ?? BUILT_IN_STYLE_PRESETS[0];
+  const def = all.find((p) => p.isDefault) ?? all[0] ?? BUILT_IN_STYLE_PRESETS[0];
+
+  const customPrompt = await getGlobalBaseStylePrompt();
+  const customNeg = await getGlobalNegativePrompt();
+
+  if (customPrompt && customPrompt.trim()) {
+    return {
+      ...def,
+      stylePrompt: customPrompt.trim(),
+      negativePrompt: customNeg ? customNeg.trim() : def.negativePrompt,
+    };
+  }
+
+  return def;
 }

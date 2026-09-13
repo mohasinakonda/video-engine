@@ -18,8 +18,11 @@ import { getApiKey } from '@/lib/store';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const VOICE_CHARACTERS = [
-  'Aoede', 'Charon', 'Fenrir', 'Kore', 'Puck',
-  'Orbit', 'Zephyr', 'Autonoe', 'Callirrhoe',
+  'Kore', 'Puck', 'Fenrir', 'Aoede', 'Charon', 'Zephyr',
+  'Leda', 'Orus', 'Callirrhoe', 'Autonoe', 'Enceladus', 'Iapetus',
+  'Umbriel', 'Algieba', 'Despina', 'Erinome', 'Algenib', 'Rasalgethi',
+  'Laomedeia', 'Achernar', 'Alnilam', 'Schedar', 'Gacrux', 'Pulcherrima',
+  'Achird', 'Zubenelgenubi', 'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat'
 ];
 
 const ACCENTS = [
@@ -101,8 +104,10 @@ export default function VoicePresetForm({
       const audio = new Audio(blobUrlRef.current);
       audioRef.current = audio;
       audio.onended = () => setPreviewState('idle');
-      audio.onerror = () => { setPreviewState('error'); setPreviewError('Playback error.'); };
-      audio.play();
+      audio.play().catch((playErr) => {
+        setPreviewState('error');
+        setPreviewError('Playback was prevented by browser autoplay policy.');
+      });
       setPreviewState('playing');
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : 'Preview failed');

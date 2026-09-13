@@ -15,6 +15,7 @@ import {
   ArrowRight,
   Video,
   ImageIcon,
+  Download,
 } from 'lucide-react';
 import type { SceneItem, MotionProfile } from '@/types';
 
@@ -180,6 +181,18 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
               <Upload size={11} />
               Upload
             </button>
+            {scene.imageUrl && (
+              <a
+                href={scene.imageUrl}
+                download={`scene_${scene.sceneId}.jpg`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/90 border border-cyan-700/50 text-cyan-300 text-[11px] font-medium hover:text-white hover:bg-cyan-900 transition-colors"
+                title="Download this image"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download size={11} />
+                Save
+              </a>
+            )}
           </div>
         )}
       </div>

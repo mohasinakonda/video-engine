@@ -49,12 +49,13 @@ export default function ScriptInput({
     setChunkEstimate(wc > 0 ? Math.max(1, Math.ceil(wc / 420)) : 0);
   }, [value]);
 
-  // Auto-resize textarea
+  // Auto-resize textarea with a clean upper bound to prevent infinite stretching
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.max(240, el.scrollHeight)}px`;
+    const clampedHeight = Math.min(280, Math.max(200, el.scrollHeight));
+    el.style.height = `${clampedHeight}px`;
   }, [value]);
 
   return (
@@ -68,7 +69,7 @@ export default function ScriptInput({
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           placeholder={placeholder}
-          className="textarea w-full resize-none font-mono text-xs leading-relaxed min-h-[240px]
+          className="textarea w-full resize-none font-mono text-xs leading-relaxed min-h-[200px] max-h-[280px] overflow-y-auto
                      disabled:opacity-50 disabled:cursor-not-allowed"
           spellCheck={false}
         />

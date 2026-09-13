@@ -40,11 +40,14 @@ export interface ImageQueueOptions {
   projectId: string;
   scenes: SceneItem[];
   negativePrompt?: string;
+  model?: string;
   concurrency?: number;
   callbacks: ImageQueueCallbacks;
 }
 
 // ─── Tauri FS Helper ──────────────────────────────────────────────────────────
+
+import { saveMediaBlob } from '@/lib/media-storage';
 
 async function saveImageFile(
   projectId: string,
@@ -61,6 +64,10 @@ async function saveImageFile(
     await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => {});
     await writeFile(filePath, data, { baseDir: BaseDirectory.AppLocalData });
   }
+
+  // Persist to IndexedDB for persistent browser access in Storyboard and Export
+  const blob = new Blob([data.buffer as ArrayBuffer], { type: mimeType });
+  await saveMediaBlob(`scene_${projectId}_${sceneId}`, blob);
 
   return filePath;
 }
@@ -84,7 +91,7 @@ async function processScene(
 
   try {
     const prompt = scene.fullPrompt ?? scene.visualPrompt;
-    const result = await generateImage(apiKey, prompt, negativePrompt);
+    const result = await generateImage(apiKey, prompt, negativePrompt, { model: options.model });
 
     // Decode + save to disk
     const bytes = base64ToUint8Array(result.base64Image);

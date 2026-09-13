@@ -15,14 +15,17 @@ import {
   Settings,
   RotateCcw,
   FileText,
+  Images,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import ScriptInput from '@/components/script-input';
 import AudioTimeline from '@/components/audio-timeline';
-import { getApiKey, getPresets, getProject, saveProject, getAllProjects } from '@/lib/store';
+import { getApiKey, getPresets, getProject, saveProject, getAllProjects, getDefaultStylePreset } from '@/lib/store';
 import { chunkScript } from '@/lib/gemini';
+import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import { AudioQueue } from '@/lib/queue';
-import type { AudioChunk, VoicePreset, ProjectManifest } from '@/types';
+import { getMediaBlobUrl } from '@/lib/media-storage';
+import type { AudioChunk, VoicePreset, ProjectManifest, SceneItem } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,6 +67,11 @@ function ProjectPageInner() {
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [noPresets, setNoPresets] = useState(false);
 
+  // Generate Only Images state
+  const [generatingOnlyImages, setGeneratingOnlyImages] = useState(false);
+  const [generatingOnlyImagesMsg, setGeneratingOnlyImagesMsg] = useState('');
+  const [sceneCountChoice, setSceneCountChoice] = useState(5);
+
   const queueRef = useRef<AudioQueue | null>(null);
 
   // ─── Load on mount ──────────────────────────────────────────────────────────
@@ -85,9 +93,18 @@ function ProjectPageInner() {
         setProjectId(existing.projectId);
         setProjectTitle(existing.title);
         setScript(existing.rawScript);
-        setChunks(existing.audioChunks);
         setSelectedPresetId(existing.voicePresetId ?? defaultPreset?.id ?? '');
-        if (existing.audioChunks.length > 0) setStage('chunks');
+
+        // Restore audio blob URLs from IndexedDB so playback & export always work
+        const restoredChunks = await Promise.all(
+          (existing.audioChunks || []).map(async (c) => {
+            if (c.audioUrl) return c;
+            const url = await getMediaBlobUrl(`audio_${existing.projectId}_${c.index}`);
+            return { ...c, audioUrl: url || undefined };
+          })
+        );
+        setChunks(restoredChunks);
+        if (restoredChunks.length > 0) setStage('chunks');
       }
     } else {
       const newId = generateId();
@@ -159,6 +176,55 @@ function ProjectPageInner() {
     } finally {
       setSplitting(false);
       setSplitMsg('');
+    }
+  }
+
+  // ─── Image Only Mode: Direct to Storyboard ─────────────────────────────────
+
+  async function handleGenerateOnlyImages() {
+    if (!script.trim()) return;
+
+    setGeneratingOnlyImages(true);
+    setSplitError('');
+    setGeneratingOnlyImagesMsg('Extracting visual scenes…');
+
+    try {
+      const apiKey = await getApiKey();
+      const stylePreset = await getDefaultStylePreset();
+      const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
+        sceneCount: sceneCountChoice,
+        stylePrompt: stylePreset.stylePrompt,
+        apiKey,
+      });
+
+      const newScenes: SceneItem[] = breakdown.map((item, idx) => ({
+        sceneId: idx + 1,
+        audioStartSec: parseFloat((idx * 3.5).toFixed(1)),
+        audioEndSec: parseFloat(((idx + 1) * 3.5).toFixed(1)),
+        narrationLine: item.narration,
+        visualPrompt: item.visual_prompt,
+        fullPrompt: `${item.visual_prompt}. ${stylePreset.stylePrompt}`,
+        status: 'PENDING',
+      }));
+
+      const manifest: ProjectManifest = {
+        projectId,
+        title: projectTitle || 'Image Storyboard',
+        rawScript: script,
+        voicePresetId: selectedPresetId,
+        audioChunks: [],
+        totalDurationMs: newScenes.length * 3500,
+        scenes: newScenes,
+        baseStylePresetId: stylePreset.id,
+        updatedAt: Date.now(),
+      };
+
+      await saveProject(manifest);
+      router.push(`/storyboard?id=${projectId}&autoGenerate=true`);
+    } catch (err) {
+      setSplitError(err instanceof Error ? err.message : 'Scene extraction failed.');
+      setGeneratingOnlyImages(false);
+      setGeneratingOnlyImagesMsg('');
     }
   }
 
@@ -405,17 +471,75 @@ function ProjectPageInner() {
             <div className="p-5 border-t border-bg-border space-y-3">
               {/* Step 1: Split */}
               {stage === 'input' && (
-                <button
-                  id="split-script-btn"
-                  onClick={handleSplitScript}
-                  disabled={splitting || !script.trim() || apiKeyMissing}
-                  className="btn-primary w-full justify-center"
-                >
-                  {splitting
-                    ? <Loader2 size={15} className="animate-spin" />
-                    : <Wand2 size={15} />}
-                  {splitting ? 'Splitting…' : 'Split Script'}
-                </button>
+                <>
+                  <button
+                    id="split-script-btn"
+                    onClick={handleSplitScript}
+                    disabled={splitting || !script.trim() || apiKeyMissing}
+                    className="btn-primary w-full justify-center"
+                  >
+                    {splitting
+                      ? <Loader2 size={15} className="animate-spin" />
+                      : <Wand2 size={15} />}
+                    {splitting ? 'Splitting…' : 'Split Script & Voice'}
+                  </button>
+
+                  {/* Generate Only Images Option */}
+                  <div className="pt-3 border-t border-bg-border/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <Images size={13} className="text-purple-400" />
+                        Images-Only Mode
+                      </span>
+                      <span className="text-[10px] text-purple-400/80 bg-purple-950/60 border border-purple-800/40 px-1.5 py-0.5 rounded font-mono">
+                        Pollinations AI
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-1 mb-2.5 bg-bg-base/60 p-1.5 rounded-lg border border-bg-border/50">
+                      <span className="text-[11px] text-slate-400 pl-1">Scene count:</span>
+                      <div className="flex gap-1">
+                        {[3, 5, 8, 10].map((count) => (
+                          <button
+                            key={count}
+                            type="button"
+                            onClick={() => setSceneCountChoice(count)}
+                            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
+                              sceneCountChoice === count
+                                ? 'bg-purple-600 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-white hover:bg-bg-elevated'
+                            }`}
+                          >
+                            {count}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      id="generate-only-images-btn"
+                      type="button"
+                      onClick={handleGenerateOnlyImages}
+                      disabled={generatingOnlyImages || splitting || !script.trim()}
+                      className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:via-indigo-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20 transition-all active:scale-[0.98]"
+                    >
+                      {generatingOnlyImages ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>{generatingOnlyImagesMsg || 'Extracting Scenes…'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Images size={14} />
+                          <span>Generate Only Images</span>
+                        </>
+                      )}
+                    </button>
+                    <p className="text-[10px] text-slate-500 mt-1.5 text-center">
+                      Directly creates visual storyboard &amp; generates images with Pollinations AI (free, skips voice)
+                    </p>
+                  </div>
+                </>
               )}
 
               {/* Re-split option */}
