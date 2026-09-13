@@ -34,7 +34,7 @@ export default function ScriptInput({
   value,
   onChange,
   disabled = false,
-  placeholder = 'Paste your full narration script here…\n\nThe script will be semantically split into ~3-minute audio chunks using Gemini.',
+  placeholder = 'Paste your full narration script here…\n\nThe script will be semantically split into ~3-minute audio chunks using Pollinations AI.',
 }: ScriptInputProps) {
   const [wordCount, setWordCount] = useState(0);
   const [readTime, setReadTime] = useState('0 min');

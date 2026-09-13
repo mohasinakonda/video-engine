@@ -20,7 +20,7 @@ import {
 import Sidebar from '@/components/sidebar';
 import ScriptInput from '@/components/script-input';
 import AudioTimeline from '@/components/audio-timeline';
-import { getApiKey, getPresets, getProject, saveProject, getAllProjects, getDefaultStylePreset } from '@/lib/store';
+import { getPollinationsApiKey, getPresets, getProject, saveProject, getAllProjects, getDefaultStylePreset } from '@/lib/store';
 import { chunkScript } from '@/lib/gemini';
 import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import { AudioQueue } from '@/lib/queue';
@@ -64,13 +64,11 @@ function ProjectPageInner() {
   const [splitError, setSplitError] = useState('');
 
   const [generating, setGenerating] = useState(false);
-  const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [noPresets, setNoPresets] = useState(false);
 
   // Generate Only Images state
   const [generatingOnlyImages, setGeneratingOnlyImages] = useState(false);
   const [generatingOnlyImagesMsg, setGeneratingOnlyImagesMsg] = useState('');
-  const [sceneCountChoice, setSceneCountChoice] = useState(5);
 
   const queueRef = useRef<AudioQueue | null>(null);
 
@@ -83,9 +81,6 @@ function ProjectPageInner() {
 
     const defaultPreset = allPresets.find((p) => p.isDefault) ?? allPresets[0];
     if (defaultPreset) setSelectedPresetId(defaultPreset.id);
-
-    const apiKey = await getApiKey();
-    setApiKeyMissing(!apiKey);
 
     if (projectIdParam) {
       const existing = await getProject(projectIdParam);
@@ -145,11 +140,7 @@ function ProjectPageInner() {
   async function handleSplitScript() {
     if (!script.trim()) return;
 
-    const apiKey = await getApiKey();
-    if (!apiKey) {
-      setApiKeyMissing(true);
-      return;
-    }
+    const apiKey = (await getPollinationsApiKey()) || '';
 
     setSplitting(true);
     setSplitError('');
@@ -189,10 +180,9 @@ function ProjectPageInner() {
     setGeneratingOnlyImagesMsg('Extracting visual scenes…');
 
     try {
-      const apiKey = await getApiKey();
+      const apiKey = (await getPollinationsApiKey()) || '';
       const stylePreset = await getDefaultStylePreset();
       const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
-        sceneCount: sceneCountChoice,
         stylePrompt: stylePreset.stylePrompt,
         apiKey,
       });
@@ -233,8 +223,7 @@ function ProjectPageInner() {
   async function handleGenerate() {
     if (chunks.length === 0) return;
 
-    const apiKey = await getApiKey();
-    if (!apiKey) { setApiKeyMissing(true); return; }
+    const apiKey = (await getPollinationsApiKey()) || '';
 
     const preset = presets.find((p) => p.id === selectedPresetId);
     if (!preset) { return; }
@@ -279,8 +268,7 @@ function ProjectPageInner() {
   }
 
   async function handleRetryChunk(chunk: AudioChunk) {
-    const apiKey = await getApiKey();
-    if (!apiKey) return;
+    const apiKey = (await getPollinationsApiKey()) || '';
     const preset = presets.find((p) => p.id === selectedPresetId);
     if (!preset) return;
 
@@ -346,16 +334,6 @@ function ProjectPageInner() {
 
           {/* Warnings */}
           <div className="flex items-center gap-3">
-            {apiKeyMissing && (
-              <button
-                onClick={() => router.push('/settings')}
-                className="flex items-center gap-1.5 text-xs text-amber-400 px-3 py-1.5 rounded-lg
-                           bg-amber-950/40 border border-amber-800/40 hover:bg-amber-900/40 transition-colors"
-              >
-                <AlertTriangle size={12} />
-                Set API Key
-              </button>
-            )}
             {noPresets && (
               <button
                 onClick={() => router.push('/voice-studio')}
@@ -475,7 +453,7 @@ function ProjectPageInner() {
                   <button
                     id="split-script-btn"
                     onClick={handleSplitScript}
-                    disabled={splitting || !script.trim() || apiKeyMissing}
+                    disabled={splitting || !script.trim()}
                     className="btn-primary w-full justify-center"
                   >
                     {splitting
@@ -496,25 +474,6 @@ function ProjectPageInner() {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between gap-1 mb-2.5 bg-bg-base/60 p-1.5 rounded-lg border border-bg-border/50">
-                      <span className="text-[11px] text-slate-400 pl-1">Scene count:</span>
-                      <div className="flex gap-1">
-                        {[3, 5, 8, 10].map((count) => (
-                          <button
-                            key={count}
-                            type="button"
-                            onClick={() => setSceneCountChoice(count)}
-                            className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
-                              sceneCountChoice === count
-                                ? 'bg-purple-600 text-white shadow-sm'
-                                : 'text-slate-400 hover:text-white hover:bg-bg-elevated'
-                            }`}
-                          >
-                            {count}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
 
                     <button
                       id="generate-only-images-btn"
@@ -569,7 +528,7 @@ function ProjectPageInner() {
                   <button
                     id="generate-audio-btn"
                     onClick={handleGenerate}
-                    disabled={!selectedPresetId || apiKeyMissing || pendingOrFailed === 0}
+                    disabled={!selectedPresetId || pendingOrFailed === 0}
                     className="btn-primary w-full justify-center"
                   >
                     <PlayCircle size={15} />

@@ -21,7 +21,7 @@ import {
   BUILT_IN_STYLE_PRESETS,
 } from '@/lib/store';
 import { generateImage, base64ToBlobUrl } from '@/lib/gemini';
-import { getApiKey } from '@/lib/store';
+import { getPollinationsApiKey } from '@/lib/store';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,11 +98,7 @@ export default function StylePresetModal({
     setTestImageUrl(null);
 
     try {
-      const apiKey = await getApiKey();
-      if (!apiKey) {
-        setTestError('No API key configured. Set your Gemini API key in Settings.');
-        return;
-      }
+      const apiKey = (await getPollinationsApiKey()) || '';
       const testPrompt = `A scenic landscape. ${editing.stylePrompt}`;
       const result = await generateImage(apiKey, testPrompt, editing.negativePrompt);
       setTestImageUrl(base64ToBlobUrl(result.base64Image, result.mimeType));

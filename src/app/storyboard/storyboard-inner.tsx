@@ -27,7 +27,7 @@ import {
   saveProject,
   getDefaultStylePreset,
   getStylePresets,
-  getApiKey,
+  getPollinationsApiKey,
   getPollinationsImageModel,
 } from '@/lib/store';
 import { extractScenes } from '@/lib/gemini';
@@ -57,7 +57,6 @@ export default function StoryboardInner() {
   const [showStyleModal, setShowStyleModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
-  const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [downloadingAll, setDownloadingAll] = useState(false);
 
   // Pipeline stages
@@ -80,7 +79,7 @@ export default function StoryboardInner() {
   // ─── Step 2: Generate Images ─────────────────────────────────────────────
 
   const handleGenerateImages = useCallback(async (currentScenes: SceneItem[]) => {
-    const apiKey = (await getApiKey()) || '';
+    const apiKey = (await getPollinationsApiKey()) || '';
     const chosenModel = await getPollinationsImageModel();
 
     setGeneratingImages(true);
@@ -145,9 +144,6 @@ export default function StoryboardInner() {
         setScenes(restoredScenes);
       }
 
-      const apiKey = await getApiKey();
-      setApiKeyMissing(!apiKey);
-
       const all = await getStylePresets();
       setStylePresets(all);
 
@@ -203,7 +199,7 @@ export default function StoryboardInner() {
     const preset = presetRef.current;
     if (!proj || !preset) return;
 
-    const apiKey = (await getApiKey()) || '';
+    const apiKey = (await getPollinationsApiKey()) || '';
 
     // If project has no audio duration, calculate reasonable fallback based on scenes or script words
     const totalDurationMs =
@@ -279,7 +275,7 @@ export default function StoryboardInner() {
   // ─── Per-scene actions ────────────────────────────────────────────────────
 
   async function handleRegenerate(scene: SceneItem, newPrompt?: string) {
-    const apiKey = (await getApiKey()) || '';
+    const apiKey = (await getPollinationsApiKey()) || '';
     const chosenModel = await getPollinationsImageModel();
 
     const preset = presetRef.current;
@@ -437,16 +433,6 @@ export default function StoryboardInner() {
               <Plus size={12} />
               <span>Add Scene</span>
             </button>
-
-            {apiKeyMissing && (
-              <button
-                onClick={() => router.push('/settings')}
-                className="flex items-center gap-1.5 text-xs text-amber-400 px-3 py-1.5 rounded-lg bg-amber-950/40 border border-amber-800/40 hover:bg-amber-900/40 transition-colors"
-              >
-                <AlertTriangle size={12} />
-                Set API Key
-              </button>
-            )}
           </div>
         </header>
 

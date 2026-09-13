@@ -51,10 +51,16 @@ export const POPULAR_POLLINATIONS_MODELS: PollinationsImageModelOption[] = [
     isFree: true,
   },
   {
+    id: 'lykon/dreamshaper-8-lcm',
+    name: 'DreamShaper 8 LCM (API Key Required)',
+    description: '300 RPM • Quest • 0.0001 pollen/gen • Ultra-fast LCM diffusion (enter.pollinations.ai/keys)',
+    isFree: false,
+  },
+  {
     id: 'dreamshaper',
-    name: 'DreamShaper 8 LCM',
-    description: 'Artistic, highly stylized, vibrant color fantasy & sci-fi art',
-    isFree: true,
+    name: 'DreamShaper (Legacy alias - API Key Required)',
+    description: 'Artistic stylized fantasy & sci-fi art (enter.pollinations.ai/keys)',
+    isFree: false,
   },
   {
     id: 'nanobanana-2-lite',
@@ -85,6 +91,57 @@ export const POPULAR_POLLINATIONS_MODELS: PollinationsImageModelOption[] = [
 const DEFAULT_BASE_URL = "https://gen.pollinations.ai/v1";
 const DEFAULT_API_KEY = "pollinations";
 
+export function getStoredPollinationsKey(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = localStorage.getItem("pollinations-api-key");
+    if (!raw) return "";
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "string") return parsed.trim();
+    } catch {
+      return raw.trim();
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+export function getStoredGlobalBaseStyle(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = localStorage.getItem("global-base-style-prompt");
+    if (!raw) return "";
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "string") return parsed.trim();
+    } catch {
+      return raw.trim();
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+export function getStoredGlobalNegativePrompt(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const raw = localStorage.getItem("global-negative-prompt");
+    if (!raw) return "";
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "string") return parsed.trim();
+    } catch {
+      return raw.trim();
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
 /**
  * 1. getPollinationsClient
  * Returns an OpenAI client instance pointing to Pollinations Unified Endpoint
@@ -92,25 +149,32 @@ const DEFAULT_API_KEY = "pollinations";
 export function getPollinationsClient(apiKey?: string): OpenAI {
   let resolvedKey = apiKey && apiKey.trim().length > 0 ? apiKey.trim() : "";
 
-  if (!resolvedKey && typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem("pollinations-api-key");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (typeof parsed === "string" && parsed.trim().length > 0) {
-          resolvedKey = parsed.trim();
-        }
-      }
-    } catch {
-      // ignore JSON parse error
-    }
+  // If a legacy Gemini key or placeholder was passed, discard it
+  if (resolvedKey.startsWith("AIza") || resolvedKey.toLowerCase() === "pollinations") {
+    resolvedKey = "";
   }
 
-  if (!resolvedKey) resolvedKey = DEFAULT_API_KEY;
+  if (!resolvedKey) {
+    resolvedKey = getStoredPollinationsKey();
+  }
 
+  if (resolvedKey.startsWith("AIza") || resolvedKey.toLowerCase() === "pollinations") {
+    resolvedKey = "";
+  }
+
+  if (resolvedKey) {
+    return new OpenAI({
+      baseURL: DEFAULT_BASE_URL,
+      apiKey: resolvedKey,
+      dangerouslyAllowBrowser: true,
+    });
+  }
+
+  // When no key is available, explicitly omit Authorization header so Pollinations allows free-tier requests!
   return new OpenAI({
     baseURL: DEFAULT_BASE_URL,
-    apiKey: resolvedKey,
+    apiKey: "dummy",
+    defaultHeaders: { Authorization: null as unknown as string },
     dangerouslyAllowBrowser: true,
   });
 }
@@ -129,12 +193,12 @@ export async function breakdownScriptToScenes(
 
   const aiClient = client || getPollinationsClient();
 
-  const systemInstruction = `You are an expert video director and script parser.
+  const systemInstruction = `You are an expert video director and cinematic visual artist.
 Your job is to parse a video narration script into a sequential list of visual scenes.
 Each scene must represent roughly 3 to 4 seconds of narration (default ~3.5 seconds).
 For every scene, output:
 - narration: The exact segment of script words read aloud during this scene.
-- visual_prompt: A detailed, highly descriptive prompt to generate a cinematic still image using an AI image generator.
+- visual_prompt: A studio-grade, exceptionally detailed prompt for an AI image generator. Describe the subject's exact action, camera framing (e.g. cinematic wide shot, intimate medium close-up, atmospheric low angle), environment and rich background details, dramatic cinematic lighting (e.g. golden hour volumetric rays, moody chiaroscuro, neon rim light), and textures (photorealistic, 8k resolution, 35mm film look).
 - durationSec: Estimated duration in seconds (around 3.0 to 4.5 seconds).
 
 CRITICAL: Return ONLY a valid JSON array of objects with keys "narration", "visual_prompt", "durationSec".
@@ -172,14 +236,14 @@ Do not include any explanation, intro text, or conversational markdown outside t
         typeof item.visual_prompt === "string"
           ? item.visual_prompt.trim()
           : typeof item.visualPrompt === "string"
-          ? item.visualPrompt.trim()
-          : `Cinematic frame representing scene ${index + 1}`;
+            ? item.visualPrompt.trim()
+            : `Cinematic frame representing scene ${index + 1}`;
       const durationSec =
         typeof item.durationSec === "number"
           ? item.durationSec
           : typeof item.duration_sec === "number"
-          ? item.duration_sec
-          : 3.5;
+            ? item.duration_sec
+            : 3.5;
 
       return {
         narration,
@@ -188,8 +252,20 @@ Do not include any explanation, intro text, or conversational markdown outside t
       };
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to breakdown script to scenes with Pollinations: ${message}`);
+
+    const sentences = script.split(/(?<=[.!?\n])\s+/).filter((s) => s.trim().length > 0);
+    const sceneCount = Math.max(1, Math.min(30, Math.ceil(sentences.length / 2)));
+    const chunkSize = Math.max(1, Math.ceil(sentences.length / sceneCount));
+
+    return Array.from({ length: sceneCount }, (_, idx) => {
+      const slice = sentences.slice(idx * chunkSize, (idx + 1) * chunkSize);
+      const narration = slice.join(" ") || `Scene ${idx + 1}`;
+      return {
+        narration,
+        visual_prompt: `Cinematic frame, ultra detailed 8k, dramatic lighting, camera depth: ${narration.slice(0, 120)}`,
+        durationSec: 3.5,
+      };
+    });
   }
 }
 
@@ -328,13 +404,20 @@ export async function generateSceneImage(
     throw new Error("Image prompt cannot be empty.");
   }
 
-  const combinedPrompt = baseStyle && baseStyle.trim().length > 0
-    ? `${prompt.trim()}, ${baseStyle.trim()}`
-    : prompt.trim();
 
-  let finalPrompt = combinedPrompt;
-  if (options?.negativePrompt && options.negativePrompt.trim()) {
-    finalPrompt += `, avoid: ${options.negativePrompt.trim()}`;
+  // Resolve Base Style (from arguments or stored global settings)
+  const resolvedBaseStyle = (baseStyle && baseStyle.trim().length > 0)
+    ? baseStyle.trim()
+    : (getStoredGlobalBaseStyle() || "photorealistic, 8k resolution, cinematic lighting, masterpiece, hyper-detailed, sharp focus, 35mm lens");
+
+  // Resolve Negative Prompt
+  const resolvedNegative = (options?.negativePrompt && options.negativePrompt.trim().length > 0)
+    ? options.negativePrompt.trim()
+    : (getStoredGlobalNegativePrompt() || "blurry, low resolution, distorted faces, bad anatomy, deformed limbs, pixelated, noisy, artifacts, amateur, watermark, low quality, cartoon, anime");
+
+  let finalPrompt = `${prompt.trim()}, ${resolvedBaseStyle}`;
+  if (resolvedNegative) {
+    finalPrompt += `, avoid: ${resolvedNegative}`;
   }
 
   const encodedPrompt = encodeURIComponent(finalPrompt);
@@ -343,65 +426,90 @@ export async function generateSceneImage(
     : (typeof options?.seed === "number" && !isNaN(options.seed) ? options.seed : Math.floor(Math.random() * 1000000));
 
   const model = options?.model || "flux";
-  const width = options?.width || (options?.aspectRatio === '9:16' ? 1080 : 1920);
-  const height = options?.height || (options?.aspectRatio === '9:16' ? 1920 : 1080);
+  // Optimal native diffusion dimensions for maximum clarity and detail (prevents blurring/distortion)
+  const isVertical = options?.aspectRatio === '9:16';
+  const width = options?.width || (isVertical ? 720 : 1280);
+  const height = options?.height || (isVertical ? 1280 : 720);
   const nologo = options?.nologo !== false;
 
   // Resolve API key if available
-  let apiKey = options?.apiKey;
-  if (!apiKey && typeof window !== "undefined") {
-    try {
-      const stored = localStorage.getItem("pollinations-api-key");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (typeof parsed === "string" && parsed.trim().length > 0) apiKey = parsed.trim();
-      }
-    } catch {
-      // ignore
+  let apiKey = options?.apiKey && typeof options.apiKey === 'string' && options.apiKey.trim().length > 0 ? options.apiKey.trim() : undefined;
+
+  // If the passed apiKey is an old Gemini key (AIza...) or placeholder, discard it
+  if (apiKey && (apiKey.startsWith("AIza") || apiKey.toLowerCase() === "pollinations")) {
+    apiKey = undefined;
+  }
+
+  if (!apiKey) {
+    const stored = getStoredPollinationsKey();
+    if (stored && !stored.startsWith("AIza") && stored.toLowerCase() !== "pollinations") {
+      apiKey = stored;
     }
   }
 
-  // 1. Primary endpoint: https://gen.pollinations.ai/image/{prompt}
+  console.log('[Pollinations Image Request]', {
+    model,
+    width,
+    height,
+    quality: 'hd',
+    hasKey: !!apiKey,
+    promptPreview: finalPrompt.slice(0, 70) + '...',
+  });
+
+  // Primary endpoint: https://gen.pollinations.ai/image/{prompt}
+  // If the user has a valid API key, attach it via Header and query param
+  const headers: Record<string, string> = {};
+  let keyQuery = "";
   if (apiKey && apiKey.trim().length > 0) {
-    const genUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${encodeURIComponent(model)}&nologo=${nologo}&seed=${resolvedSeed}&quality=high`;
-    try {
-      const genResponse = await fetch(genUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${apiKey.trim()}`,
-        },
-      });
-
-      if (genResponse.ok) {
-        return await genResponse.arrayBuffer();
-      } else {
-        console.warn(`gen.pollinations.ai returned ${genResponse.status}, falling back to free image endpoint.`);
-      }
-    } catch (genErr) {
-      console.warn("gen.pollinations.ai request error, trying free endpoint fallback:", genErr);
-    }
+    headers["Authorization"] = `Bearer ${apiKey.trim()}`;
+    keyQuery = `&key=${encodeURIComponent(apiKey.trim())}`;
   }
 
-  // 2. Free unauthenticated image endpoint fallback: https://image.pollinations.ai/prompt/{prompt}
-  const freeUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${encodeURIComponent(model)}&nologo=${nologo}&seed=${resolvedSeed}`;
+  const primaryUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${encodeURIComponent(model)}&nologo=${nologo}&seed=${resolvedSeed}&quality=hd${keyQuery}`;
 
   try {
-    const response = await fetch(freeUrl, { method: "GET" });
+    const response = await fetch(primaryUrl, {
+      method: "GET",
+      headers,
+    });
 
-    if (!response.ok) {
-      // If specific model failed, retry with default 'flux'
-      if (model !== 'flux') {
-        const retryUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=flux&nologo=true&seed=${resolvedSeed}`;
-        const retryRes = await fetch(retryUrl, { method: "GET" });
-        if (retryRes.ok) return await retryRes.arrayBuffer();
-      }
-      const errorText = await response.text().catch(() => "");
-      throw new Error(`HTTP ${response.status} ${response.statusText}: ${errorText.slice(0, 200)}`);
+    if (response.ok) {
+      return await response.arrayBuffer();
     }
 
-    return await response.arrayBuffer();
+    const errorStatus = response.status;
+    const errorText = await response.text().catch(() => "");
+    console.warn(`[Pollinations] Image model '${model}' returned HTTP ${errorStatus}: ${errorText.slice(0, 150)}`);
+
+    // If a non-flux model fails (e.g. 401 Unauthorized for paid models like lykon/dreamshaper-8-lcm without key),
+    // automatically fallback to free 'flux' model on gen.pollinations.ai
+    if (model !== "flux") {
+      console.info(`[Pollinations] Falling back to free 'flux' model on gen.pollinations.ai...`);
+      const fallbackUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=flux&nologo=${nologo}&seed=${resolvedSeed}&quality=hd`;
+      const fallbackRes = await fetch(fallbackUrl, { method: "GET" });
+      if (fallbackRes.ok) {
+        return await fallbackRes.arrayBuffer();
+      }
+    }
+
+    throw new Error(`HTTP ${errorStatus} ${response.statusText}: ${errorText.slice(0, 200)}`);
   } catch (error) {
+    // If anything fails in the primary path and we haven't tried free flux yet
+    if (model !== "flux") {
+      try {
+        console.info(`[Pollinations] Error caught, attempting last-resort free 'flux' fallback...`);
+        const fallbackUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=flux&nologo=${nologo}&seed=${resolvedSeed}`;
+        const fallbackRes = await fetch(fallbackUrl, { method: "GET" });
+        if (fallbackRes.ok) {
+          return await fallbackRes.arrayBuffer();
+        }
+      } catch {
+        // ignore and let original error throw
+      }
+    }
+
     const message = error instanceof Error ? error.message : String(error);
+    console.error("[Pollinations] Image generation error:", message);
     throw new Error(`Failed to generate scene image from Pollinations: ${message}`);
   }
 }
@@ -423,21 +531,24 @@ export async function breakdownRequirementToImageScenes(
     throw new Error("Requirement cannot be empty.");
   }
 
-  const requestedScenes = Math.max(1, Math.min(25, options?.sceneCount || 5));
   const aiClient = getPollinationsClient(options?.apiKey);
+  const countInstruction = typeof options?.sceneCount === "number" && options.sceneCount > 0
+    ? `Create exactly ${options.sceneCount} distinct, sequential cinematic visual scenes.`
+    : `Determine the natural number of sequential cinematic visual scenes based directly on the story progression, key moments, and narrative beats of the content.`;
 
   const systemInstruction = `You are a visual director for an AI film and art studio.
-Your task is to take a creative requirement, story, or description and generate exactly ${requestedScenes} distinct, sequential cinematic visual scenes.
+Your task is to take a creative requirement, story, or script and break it down into sequential visual scenes.
+${countInstruction}
 Each scene must feature a vivid visual prompt describing characters, lighting, environment, camera angle, and style.
 For every scene, output:
 - narration: A brief narrative or caption line (1-2 sentences) summarizing what happens in this scene.
-- visual_prompt: An exceptionally detailed, cinematic visual prompt ready for an AI image generator (Flux/Pollinations). Mention composition, lighting, style, colors, and camera framing.
+- visual_prompt: A studio-grade, exceptionally detailed visual prompt for an AI image generator (Flux). Specifically describe subject pose/action, cinematic camera framing (e.g. wide cinematic landscape, dramatic over-the-shoulder, intimate macro close-up), environment with rich atmospheric lighting (e.g. golden hour volumetric light, foggy moody backlight, neon cyberpunk reflection), and textures (photorealistic 8k, masterwork, 35mm lens, sharp focus).
 - durationSec: 3.5
 
-CRITICAL: Return ONLY a valid JSON array of ${requestedScenes} objects with keys "narration", "visual_prompt", "durationSec".
+CRITICAL: Return ONLY a valid JSON array of scene objects with keys "narration", "visual_prompt", "durationSec".
 No conversational text, markdown introduction, or backticks outside the JSON.`;
 
-  const userPrompt = `Create exactly ${requestedScenes} cinematic visual scenes for this requirement:\n\n"""\n${requirement.trim()}\n"""`;
+  const userPrompt = `Break down this requirement into sequential cinematic visual scenes based on the story content:\n\n"""\n${requirement.trim()}\n"""`;
 
   try {
     const response = await aiClient.chat.completions.create({
@@ -458,8 +569,8 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
     const cleanedJson = jsonMatch ? jsonMatch[1].trim() : content.trim();
 
     const parsed = JSON.parse(cleanedJson);
-    if (!Array.isArray(parsed)) {
-      throw new Error("LLM output is not a JSON array of scenes.");
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("LLM output is not a non-empty JSON array of scenes.");
     }
 
     return parsed.map((item: Record<string, unknown>, index: number) => {
@@ -468,8 +579,8 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
         typeof item.visual_prompt === "string"
           ? item.visual_prompt.trim()
           : typeof item.visualPrompt === "string"
-          ? item.visualPrompt.trim()
-          : `Cinematic frame for ${requirement.slice(0, 60)}`;
+            ? item.visualPrompt.trim()
+            : `Cinematic frame for ${requirement.slice(0, 60)}`;
       const durationSec = typeof item.durationSec === "number" ? item.durationSec : 3.5;
 
       return {
@@ -480,14 +591,18 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
     });
   } catch (error) {
     console.warn("Pollinations requirement breakdown fallback:", error);
-    // Graceful sentence partition fallback
+    // Graceful sentence partition fallback: dynamic scene count based on actual text
     const lines = requirement.split(/(?<=[.!?\n])\s+/).filter((l) => l.trim().length > 3);
-    const count = requestedScenes;
+    const count = typeof options?.sceneCount === "number" && options.sceneCount > 0
+      ? options.sceneCount
+      : Math.max(1, Math.min(25, Math.ceil(lines.length / 2)));
+    const chunkSize = Math.max(1, Math.ceil(lines.length / count));
+
     return Array.from({ length: count }, (_, idx) => {
-      const line = lines[idx % (lines.length || 1)] || `Visual Scene ${idx + 1}`;
+      const chunkText = lines.slice(idx * chunkSize, (idx + 1) * chunkSize).join(' ') || lines[idx] || `Visual Scene ${idx + 1}`;
       return {
-        narration: line,
-        visual_prompt: `Cinematic movie still, photorealistic 8k, dramatic lighting: ${line}`,
+        narration: chunkText,
+        visual_prompt: `Cinematic movie still, photorealistic 8k, dramatic lighting: ${chunkText}`,
         durationSec: 3.5,
       };
     });

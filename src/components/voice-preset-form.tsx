@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { VoicePreset } from '@/types';
 import { generatePreviewAudio, base64ToBlobUrl } from '@/lib/gemini';
-import { getApiKey } from '@/lib/store';
+import { getPollinationsApiKey } from '@/lib/store';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -76,12 +76,7 @@ export default function VoicePresetForm({
     setPreviewError('');
 
     try {
-      const apiKey = await getApiKey();
-      if (!apiKey) {
-        setPreviewError('No API key. Please go to Settings first.');
-        setPreviewState('error');
-        return;
-      }
+      const apiKey = (await getPollinationsApiKey()) || '';
 
       const fullPreset: VoicePreset = {
         id: preset.id ?? 'preview',

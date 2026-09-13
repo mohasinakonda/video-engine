@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'AI Video Studio',
-  description: 'Convert long-form narration scripts into professional audio — powered by Google Gemini.',
+  description: 'Convert long-form narration scripts into cinematic video & audio — powered by Pollinations AI.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

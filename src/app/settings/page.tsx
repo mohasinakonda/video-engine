@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Key, CheckCircle, XCircle, AlertTriangle, Loader2, Eye, EyeOff, Shield, Sparkles, Palette, RotateCcw } from 'lucide-react';
+import { Key, CheckCircle, Loader2, Eye, EyeOff, Sparkles, Palette, RotateCcw } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import {
-  getApiKey,
-  saveApiKey,
   getPollinationsApiKey,
   savePollinationsApiKey,
   getPollinationsImageModel,
@@ -18,17 +16,6 @@ import {
   DEFAULT_NEGATIVE_PROMPT,
 } from '@/lib/store';
 import { POPULAR_POLLINATIONS_MODELS } from '@/lib/pollinations';
-import { testApiKey } from '@/lib/gemini';
-import type { ApiKeyStatus } from '@/types';
-
-const STATUS_CONFIG = {
-  idle: { color: 'text-slate-500', bg: 'bg-slate-800', icon: null, text: '' },
-  testing: { color: 'text-blue-400', bg: 'bg-blue-950/60', icon: Loader2, text: 'Validating key…' },
-  valid: { color: 'text-emerald-400', bg: 'bg-emerald-950/60', icon: CheckCircle, text: 'Connection successful — API key is valid.' },
-  invalid: { color: 'text-red-400', bg: 'bg-red-950/60', icon: XCircle, text: 'Invalid Key. Please check and try again.' },
-  quota_exceeded: { color: 'text-amber-400', bg: 'bg-amber-950/60', icon: AlertTriangle, text: 'Quota Exceeded (429). Your key is valid but limit reached.' },
-  error: { color: 'text-red-400', bg: 'bg-red-950/60', icon: XCircle, text: 'Network error. Check your internet connection.' },
-};
 
 const STYLE_SHORTCUTS = [
   {
@@ -64,12 +51,12 @@ const STYLE_SHORTCUTS = [
 ];
 
 export default function SettingsPage() {
-  const [apiKey, setApiKey] = useState('');
-  const [savedKey, setSavedKey] = useState('');
   const [pollinationsKey, setPollinationsKey] = useState('');
   const [savedPollinationsKey, setSavedPollinationsKey] = useState('');
   const [savingPol, setSavingPol] = useState(false);
   const [savedPol, setSavedPol] = useState(false);
+  const [showPolKey, setShowPolKey] = useState(false);
+
   const [imageModel, setImageModel] = useState('flux');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_savedImageModel, setSavedImageModel] = useState('flux');
@@ -83,18 +70,7 @@ export default function SettingsPage() {
   const [savingBaseStyle, setSavingBaseStyle] = useState(false);
   const [savedBaseStyleToast, setSavedBaseStyleToast] = useState(false);
 
-  const [status, setStatus] = useState<ApiKeyStatus>('idle');
-  const [statusMsg, setStatusMsg] = useState('');
-  const [showKey, setShowKey] = useState(false);
-  const [showPolKey, setShowPolKey] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
   useEffect(() => {
-    getApiKey().then((k) => {
-      setApiKey(k);
-      setSavedKey(k);
-    });
     getPollinationsApiKey().then((k) => {
       setPollinationsKey(k);
       setSavedPollinationsKey(k);
@@ -146,16 +122,6 @@ export default function SettingsPage() {
     setTimeout(() => setSavedModelToast(false), 2000);
   }
 
-  async function handleSave() {
-    setSaving(true);
-    await saveApiKey(apiKey.trim());
-    setSavedKey(apiKey.trim());
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    if (status !== 'idle') setStatus('idle');
-  }
-
   async function handleSavePollinations() {
     setSavingPol(true);
     await savePollinationsApiKey(pollinationsKey.trim());
@@ -165,30 +131,6 @@ export default function SettingsPage() {
     setTimeout(() => setSavedPol(false), 2000);
   }
 
-  async function handleTestKey() {
-    const key = apiKey.trim();
-    if (!key) return;
-
-    setStatus('testing');
-    setStatusMsg('');
-    const result = await testApiKey(key);
-
-    if (result.ok) {
-      setStatus('valid');
-      setStatusMsg('Connection successful — API key is valid.');
-    } else {
-      const reason = result.reason;
-      setStatusMsg(result.message);
-      if (reason === 'quota_exceeded') setStatus('quota_exceeded');
-      else if (reason === 'network_error') setStatus('error');
-      else setStatus('invalid');
-    }
-  }
-
-  const cfg = STATUS_CONFIG[status];
-  const StatusIcon = cfg.icon;
-  const isDirty = apiKey.trim() !== savedKey;
-
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -196,135 +138,40 @@ export default function SettingsPage() {
         {/* Header */}
         <header className="px-8 py-6 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm">
           <h1 className="text-xl font-bold text-white">Settings</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Configure your Gemini API key and preferences</p>
+          <p className="text-sm text-slate-500 mt-0.5">Configure Pollinations AI models, visual base-styles, and preferences</p>
         </header>
 
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-xl space-y-6 animate-slide-up">
 
-            {/* BYOK Card */}
-            <div className="card">
-              {/* Section Title */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-9 h-9 rounded-lg bg-accent-purple/15 border border-accent-purple/25 flex items-center justify-center">
-                  <Key size={16} className="text-accent-purple-light" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-white">Gemini API Key</h2>
-                  <p className="text-xs text-slate-500">Bring Your Own Key (BYOK)</p>
-                </div>
-              </div>
-
-              {/* Security Notice */}
-              <div className="flex items-start gap-2.5 p-3 rounded-lg bg-bg-base/60 border border-bg-border mb-5">
-                <Shield size={14} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Your key is stored locally on this device and is <strong className="text-slate-300">never sent to any external server</strong>. Only Gemini API endpoints receive it.
-                </p>
-              </div>
-
-              {/* API Key Input */}
-              <div className="mb-4">
-                <label className="label">API Key</label>
-                <div className="relative">
-                  <input
-                    id="api-key-input"
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => {
-                      setApiKey(e.target.value);
-                      if (status !== 'idle') setStatus('idle');
-                    }}
-                    placeholder="AIza…"
-                    className="input pr-10 font-mono text-xs"
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                  >
-                    {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-600 mt-1.5">
-                  Get your key at{' '}
-                  <span className="text-accent-purple-light cursor-pointer hover:underline"
-                    onClick={() => window.open('https://aistudio.google.com/app/apikey', '_blank')}>
-                    aistudio.google.com
-                  </span>
-                </p>
-              </div>
-
-              {/* Status Banner */}
-              {status !== 'idle' && (
-                <div className={`flex items-center gap-2.5 p-3 rounded-lg border mb-4 animate-fade-in
-                                 ${cfg.bg} border-${status === 'valid' ? 'emerald' : status === 'quota_exceeded' ? 'amber' : 'red'}-800/40`}>
-                  {StatusIcon && (
-                    <StatusIcon
-                      size={15}
-                      className={`${cfg.color} flex-shrink-0 ${status === 'testing' ? 'animate-spin' : ''}`}
-                    />
-                  )}
-                  <p className={`text-xs font-medium ${cfg.color}`}>
-                    {statusMsg || cfg.text}
-                  </p>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3">
-                <button
-                  id="test-key-btn"
-                  onClick={handleTestKey}
-                  disabled={!apiKey.trim() || status === 'testing'}
-                  className="btn-secondary flex-1"
-                >
-                  {status === 'testing' ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <CheckCircle size={14} />
-                  )}
-                  Test Key
-                </button>
-                <button
-                  id="save-key-btn"
-                  onClick={handleSave}
-                  disabled={saving || !isDirty}
-                  className="btn-primary flex-1"
-                >
-                  {saving ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : saved ? (
-                    <CheckCircle size={14} />
-                  ) : null}
-                  {saved ? 'Saved!' : 'Save Key'}
-                </button>
-              </div>
-            </div>
-
-            {/* Optional Pollinations API Key Card */}
+            {/* Pollinations Configuration Card */}
             <div className="card">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-9 h-9 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
                   <Key size={16} className="text-cyan-400" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-semibold text-white">Pollinations API Key <span className="text-[11px] font-normal text-slate-500">(Optional)</span></h2>
-                  <p className="text-xs text-slate-500">For high-tier Pollinations voice & image models</p>
+                  <h2 className="text-sm font-semibold text-white">
+                    Pollinations AI{' '}
+                    <span className="text-[11px] font-normal text-emerald-400 font-mono">(Free by Default)</span>
+                  </h2>
+                  <p className="text-xs text-slate-500">Powers script splitting, scene extraction, voices, and image rendering</p>
                 </div>
               </div>
 
+              {/* API Key Input (Optional) */}
               <div className="mb-4">
-                <label className="label">Pollinations Key</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="label mb-0">Pollinations API Key (Optional)</label>
+                  <span className="text-[11px] text-slate-500">Only needed for Pro models</span>
+                </div>
                 <div className="relative">
                   <input
                     id="pollinations-key-input"
                     type={showPolKey ? 'text' : 'password'}
                     value={pollinationsKey}
                     onChange={(e) => setPollinationsKey(e.target.value)}
-                    placeholder="Enter Pollinations API key or leave empty for free models"
+                    placeholder="Enter Pollinations API key or leave blank for free models"
                     className="input pr-10 font-mono text-xs"
                     autoComplete="off"
                     spellCheck={false}
@@ -337,15 +184,15 @@ export default function SettingsPage() {
                     {showPolKey ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-600 mt-1.5">
-                  Optional key from{' '}
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  Free models require no key. Optional keys can be generated at{' '}
                   <span
                     className="text-cyan-400 cursor-pointer hover:underline"
                     onClick={() => window.open('https://enter.pollinations.ai/keys', '_blank')}
                   >
                     enter.pollinations.ai/keys
                   </span>
-                  . If omitted, built-in free models and zero-cost TTS fallbacks are used.
+                  .
                 </p>
               </div>
 
@@ -530,14 +377,13 @@ export default function SettingsPage() {
 
             {/* Info Card */}
             <div className="card-elevated border-bg-border/50">
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Models Used</h3>
+              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">AI Engine Status</h3>
               <div className="space-y-2">
                 {[
-                  { label: 'Script Chunking & Parsing', model: 'gemini-3.6-flash', color: 'text-blue-400' },
-                  { label: 'Scene Extraction & Visual Prompts', model: 'gemini-3.6-flash / Pollinations', color: 'text-indigo-400' },
-                  { label: 'Voice Generation (TTS)', model: 'gemini-2.5-pro-preview-tts', color: 'text-accent-purple-light' },
-                  { label: 'Image Engine (Primary)', model: `Pollinations AI (${imageModel})`, color: 'text-purple-400' },
-                  { label: 'Image Engine (Fallback)', model: 'nano-banana-2 (Gemini 3.1 Flash Image)', color: 'text-cyan-400' },
+                  { label: 'Script Chunking & Parsing', model: 'Pollinations AI (Semantic Chunker)', color: 'text-blue-400' },
+                  { label: 'Scene Extraction & Visual Prompts', model: 'Pollinations AI (Scene Extractor)', color: 'text-indigo-400' },
+                  { label: 'Voice Generation (TTS)', model: 'Pollinations Audio (TTS)', color: 'text-accent-purple-light' },
+                  { label: 'Image Engine', model: `Pollinations AI (${imageModel})`, color: 'text-purple-400' },
                 ].map(({ label, model, color }) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className="text-xs text-slate-500">{label}</span>

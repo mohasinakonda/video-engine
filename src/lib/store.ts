@@ -94,13 +94,16 @@ async function getStylePresetsStore() {
 
 export async function getApiKey(): Promise<string> {
   const store = await getSettingsStore();
-  const key = await storeGet<string>(store, 'gemini-api-key');
-  return key ?? '';
+  const polKey = await storeGet<string>(store, 'pollinations-api-key');
+  if (polKey && typeof polKey === 'string' && polKey.trim().length > 0) {
+    return polKey.trim();
+  }
+  return '';
 }
 
 export async function saveApiKey(apiKey: string): Promise<void> {
   const store = await getSettingsStore();
-  await storeSet(store, 'gemini-api-key', apiKey);
+  await storeSet(store, 'pollinations-api-key', apiKey);
 }
 
 export async function getPollinationsApiKey(): Promise<string> {

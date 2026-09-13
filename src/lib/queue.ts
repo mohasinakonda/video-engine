@@ -264,7 +264,7 @@ async function processAudioChunk(
     });
   } catch (err) {
     const error = err as Error & { status?: number };
-    const isInvalidKey = error.message.toLowerCase().includes("api key") || error.message.toLowerCase().includes("invalid gemini");
+    const isInvalidKey = error.message.toLowerCase().includes("api key") || error.message.toLowerCase().includes("unauthorized");
 
     if (isInvalidKey) {
       callbacks.onChunkUpdate(chunk.index, {
