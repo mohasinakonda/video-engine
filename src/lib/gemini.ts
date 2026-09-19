@@ -245,6 +245,8 @@ export async function extractScenes(
         narrationLine: item.narration,
         visualPrompt: item.visual_prompt,
         fullPrompt: `${item.visual_prompt}. ${stylePrompt}`,
+        shotType: item.shot_type,
+        bRollFocus: item.b_roll_focus,
         status: 'PENDING',
       };
     });
@@ -287,8 +289,8 @@ export async function generateImage(
   const imageBuffer = await generateSceneImage(prompt, undefined, options?.seed, {
     negativePrompt,
     model: options?.model,
-    width: options?.width,
-    height: options?.height,
+    width: Math.max(1920, options?.width || 1920),
+    height: Math.max(1080, options?.height || 1080),
     apiKey,
   });
 

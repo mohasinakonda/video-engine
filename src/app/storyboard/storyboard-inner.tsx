@@ -279,18 +279,18 @@ export default function StoryboardInner() {
     const chosenModel = await getPollinationsImageModel();
 
     const preset = presetRef.current;
-    let targetScene = scene;
-    if (newPrompt && newPrompt !== scene.visualPrompt) {
-      targetScene = {
-        ...scene,
-        visualPrompt: newPrompt,
-        fullPrompt: `${newPrompt}. ${preset?.stylePrompt ?? ''}`,
-        status: 'PENDING',
-      };
-      setScenes((prev) => prev.map((s) => s.sceneId === scene.sceneId ? targetScene : s));
-    } else {
-      setScenes((prev) => prev.map((s) => s.sceneId === scene.sceneId ? { ...s, status: 'PENDING' as const } : s));
-    }
+    const targetScene: SceneItem = {
+      ...scene,
+      status: 'PENDING' as const,
+      ...(newPrompt && newPrompt !== scene.visualPrompt
+        ? {
+            visualPrompt: newPrompt,
+            fullPrompt: `${newPrompt}. ${preset?.stylePrompt ?? ''}`,
+          }
+        : {}),
+    };
+    setScenes((prev) => prev.map((s) => s.sceneId === scene.sceneId ? targetScene : s));
+    persistScenes(scenes.map((s) => s.sceneId === scene.sceneId ? targetScene : s));
 
     if (!imageQueueRef.current) imageQueueRef.current = new ImageQueue();
 

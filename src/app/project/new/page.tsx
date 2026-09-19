@@ -194,6 +194,8 @@ function ProjectPageInner() {
         narrationLine: item.narration,
         visualPrompt: item.visual_prompt,
         fullPrompt: `${item.visual_prompt}. ${stylePreset.stylePrompt}`,
+        shotType: item.shot_type,
+        bRollFocus: item.b_roll_focus,
         status: 'PENDING',
       }));
 

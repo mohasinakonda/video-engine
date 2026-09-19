@@ -136,6 +136,14 @@ export type SceneStatus =
   | 'MOTION_READY'
   | 'FAILED';
 
+export type ShotType =
+  | 'AERIAL_GEOMETRY'    // Top-down drone, geography, landscape patterns
+  | 'MACRO_TEXTURE'      // Micro details, water drops, rocks, flora/fauna textures
+  | 'CULTURAL_HUMAN'     // People, artisans, daily life, rituals, culture
+  | 'HISTORICAL_HERITAGE'// Ancient ruins, architecture, historical relics
+  | 'ATMOSPHERIC_MOOD'   // Weather, fog, lighting transitions, ambient mood
+  | 'WIDE_ESTABLISHING'; // Broad cinematic scene-setting landscape
+
 // ─── Phase 2: Scene Item ──────────────────────────────────────────────────────
 
 export interface SceneItem {
@@ -159,7 +167,12 @@ export interface SceneItem {
   motionClipPath?: string;
   /** Randomly assigned motion effect */
   motionProfile?: MotionProfile;
+  /** B-Roll classification for visual rhythm & variety */
+  shotType?: ShotType;
+  /** Short summary of the specific B-Roll focal motif */
+  bRollFocus?: string;
   status: SceneStatus;
   error?: string;
   retryCount?: number;
 }
+

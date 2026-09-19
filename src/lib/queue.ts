@@ -53,7 +53,7 @@ async function saveImageToDisk(
     const { writeFile, mkdir, BaseDirectory } = await import("@tauri-apps/plugin-fs");
     const dir = `projects/${projectId}/scenes`;
 
-    await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => {});
+    await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => { });
     await writeFile(filePath, uint8Data, { baseDir: BaseDirectory.AppLocalData });
   }
 
@@ -227,7 +227,7 @@ async function saveAudioFile(
     const { writeFile, mkdir, BaseDirectory } = await import("@tauri-apps/plugin-fs");
     const dir = `projects/${projectId}/audio`;
 
-    await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => {});
+    await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => { });
     await writeFile(filePath, data, { baseDir: BaseDirectory.AppLocalData });
   }
 

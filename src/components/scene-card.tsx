@@ -16,8 +16,20 @@ import {
   Video,
   ImageIcon,
   Download,
+  Maximize2,
+  Eye,
+  Compass,
+  Sparkles,
+  Users,
+  Landmark,
+  CloudSun,
+  Mountain,
+  Film,
+  ChevronDown,
+  type LucideIcon,
 } from 'lucide-react';
-import type { SceneItem, MotionProfile } from '@/types';
+import type { SceneItem, MotionProfile, ShotType } from '@/types';
+import { generateBRollPrompt } from '@/lib/pollinations';
 
 // ─── Motion Profile Labels ─────────────────────────────────────────────────────
 
@@ -26,6 +38,55 @@ const MOTION_LABELS: Record<MotionProfile, { label: string; icon: React.ReactNod
   zoom_out: { label: 'Zoom Out', icon: <ZoomOut size={9} /> },
   pan_left: { label: 'Pan Left', icon: <ArrowLeft size={9} /> },
   pan_right: { label: 'Pan Right', icon: <ArrowRight size={9} /> },
+};
+
+// ─── Shot Type / B-Roll Metadata ───────────────────────────────────────────────
+
+export const SHOT_TYPE_CONFIG: Record<
+  ShotType,
+  {
+    label: string;
+    shortLabel: string;
+    icon: LucideIcon;
+    badgeColor: string;
+  }
+> = {
+  AERIAL_GEOMETRY: {
+    label: 'Drone / Aerial Geometry',
+    shortLabel: 'Aerial',
+    icon: Compass,
+    badgeColor: 'bg-indigo-950/70 text-indigo-300 border-indigo-700/50 hover:bg-indigo-900/60',
+  },
+  MACRO_TEXTURE: {
+    label: 'Macro & Texture Detail',
+    shortLabel: 'Macro',
+    icon: Sparkles,
+    badgeColor: 'bg-emerald-950/70 text-emerald-300 border-emerald-700/50 hover:bg-emerald-900/60',
+  },
+  CULTURAL_HUMAN: {
+    label: 'Culture & Daily Life',
+    shortLabel: 'Culture',
+    icon: Users,
+    badgeColor: 'bg-amber-950/70 text-amber-300 border-amber-700/50 hover:bg-amber-900/60',
+  },
+  HISTORICAL_HERITAGE: {
+    label: 'History & Heritage',
+    shortLabel: 'Heritage',
+    icon: Landmark,
+    badgeColor: 'bg-violet-950/70 text-violet-300 border-violet-700/50 hover:bg-violet-900/60',
+  },
+  ATMOSPHERIC_MOOD: {
+    label: 'Atmospheric Mood & Light',
+    shortLabel: 'Mood',
+    icon: CloudSun,
+    badgeColor: 'bg-sky-950/70 text-sky-300 border-sky-700/50 hover:bg-sky-900/60',
+  },
+  WIDE_ESTABLISHING: {
+    label: 'Wide Establishing Shot',
+    shortLabel: 'Establishing',
+    icon: Mountain,
+    badgeColor: 'bg-teal-950/70 text-teal-300 border-teal-700/50 hover:bg-teal-900/60',
+  },
 };
 
 // ─── Status Colors ─────────────────────────────────────────────────────────────
@@ -69,6 +130,9 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
   const [hovering, setHovering] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(false);
   const [promptDraft, setPromptDraft] = useState(scene.visualPrompt);
+  const [bRollMenuOpen, setBRollMenuOpen] = useState(false);
+  const [isSwitchingBRoll, setIsSwitchingBRoll] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isGenerating =
@@ -98,6 +162,27 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
     }
   }
 
+  async function handleSwitchShotType(targetType: ShotType) {
+    setBRollMenuOpen(false);
+    setIsSwitchingBRoll(true);
+    try {
+      const context = scene.narrationLine || scene.visualPrompt;
+      const res = await generateBRollPrompt(context, targetType);
+      const updatedScene: SceneItem = {
+        ...scene,
+        shotType: targetType,
+        bRollFocus: res.b_roll_focus,
+        visualPrompt: res.visual_prompt,
+      };
+      setPromptDraft(res.visual_prompt);
+      onRegenerate(updatedScene, res.visual_prompt);
+    } catch (err) {
+      console.error('Failed to switch B-Roll perspective:', err);
+    } finally {
+      setIsSwitchingBRoll(false);
+    }
+  }
+
   return (
     <div
       className={`relative group rounded-xl border overflow-hidden transition-all duration-200
@@ -108,7 +193,11 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
       style={{ background: 'var(--bg-surface)' }}
     >
       {/* Thumbnail area */}
-      <div className="relative aspect-video bg-bg-elevated overflow-hidden">
+      <div
+        className={`relative aspect-video bg-bg-elevated overflow-hidden ${scene.imageUrl ? 'cursor-pointer' : ''}`}
+        onClick={() => { if (scene.imageUrl && !isGenerating) setPreviewOpen(true); }}
+        title={scene.imageUrl ? 'Click to preview image in high resolution' : undefined}
+      >
         {scene.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -156,7 +245,20 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
 
         {/* Hover overlay */}
         {hovering && !isGenerating && !disabled && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center gap-2 animate-fade-in">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center gap-2 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {scene.imageUrl && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setPreviewOpen(true); }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-600/90 text-white text-[11px] font-medium hover:bg-sky-500 transition-colors shadow-sm"
+                title="Preview in high resolution"
+              >
+                <Maximize2 size={11} />
+                View
+              </button>
+            )}
             <button
               onClick={handleRegenerate}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent-purple/80 text-white text-[11px] font-medium hover:bg-accent-purple transition-colors"
@@ -206,6 +308,85 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
             {isGenerating && <Loader2 size={8} className="animate-spin" />}
             {statusLabel(scene.status)}
           </span>
+        </div>
+
+        {/* B-Roll Perspective Badge & Interactive Switcher */}
+        <div className="relative">
+          <div className="flex items-center justify-between gap-1.5 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setBRollMenuOpen((v) => !v)}
+              disabled={disabled || isGenerating || isSwitchingBRoll}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium border transition-all ${
+                scene.shotType && SHOT_TYPE_CONFIG[scene.shotType]
+                  ? SHOT_TYPE_CONFIG[scene.shotType].badgeColor
+                  : 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/60'
+              }`}
+              title="Change B-roll perspective (Drone, Macro, Culture, History, etc.)"
+            >
+              {isSwitchingBRoll ? (
+                <Loader2 size={9} className="animate-spin text-accent-purple" />
+              ) : scene.shotType && SHOT_TYPE_CONFIG[scene.shotType] ? (
+                <>
+                  {(() => {
+                    const IconComponent = SHOT_TYPE_CONFIG[scene.shotType!].icon;
+                    return <IconComponent size={9} />;
+                  })()}
+                  <span>{SHOT_TYPE_CONFIG[scene.shotType].shortLabel} B-Roll</span>
+                </>
+              ) : (
+                <>
+                  <Film size={9} />
+                  <span>B-Roll Cutaway</span>
+                </>
+              )}
+              <ChevronDown size={8} className="opacity-60 ml-0.5" />
+            </button>
+
+            {scene.bRollFocus && (
+              <span
+                className="text-[9px] text-slate-400 truncate max-w-[135px] font-normal"
+                title={`B-Roll Motif: ${scene.bRollFocus}`}
+              >
+                {scene.bRollFocus}
+              </span>
+            )}
+          </div>
+
+          {/* B-Roll Perspective Selector Dropdown */}
+          {bRollMenuOpen && (
+            <div
+              className="absolute left-0 top-full mt-1.5 z-40 w-56 rounded-lg bg-bg-surface border border-bg-border shadow-xl shadow-black/80 p-1 space-y-0.5 animate-fade-in backdrop-blur-md"
+              onMouseLeave={() => setBRollMenuOpen(false)}
+            >
+              <div className="px-2 py-1 text-[9px] font-semibold text-slate-400 uppercase tracking-wider border-b border-bg-border/60">
+                Switch B-Roll Perspective
+              </div>
+              {(Object.keys(SHOT_TYPE_CONFIG) as ShotType[]).map((type) => {
+                const conf = SHOT_TYPE_CONFIG[type];
+                const IconComponent = conf.icon;
+                const isSelected = scene.shotType === type;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleSwitchShotType(type)}
+                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-[10px] transition-colors text-left ${
+                      isSelected
+                        ? 'bg-accent-purple/20 text-white font-medium'
+                        : 'text-slate-300 hover:bg-bg-elevated hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <IconComponent size={11} className={isSelected ? 'text-accent-purple' : 'text-slate-400'} />
+                      <span>{conf.label}</span>
+                    </div>
+                    {isSelected && <Check size={10} className="text-accent-purple" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Narration line */}
@@ -263,6 +444,89 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
         className="hidden"
         onChange={handleFileChange}
       />
+
+      {/* Lightbox Full Preview Modal */}
+      {previewOpen && scene.imageUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/85 backdrop-blur-md animate-fade-in"
+          onClick={() => setPreviewOpen(false)}
+        >
+          <div
+            className="relative max-w-5xl w-full max-h-[92vh] bg-bg-surface border border-bg-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-bg-border bg-bg-elevated/80">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="px-2 py-0.5 rounded-md bg-accent-purple/20 text-accent-purple text-xs font-bold">
+                  Scene #{scene.sceneId}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  {timeRange} ({duration}s)
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-950/70 border border-emerald-700/50 text-emerald-300 text-[10px] font-mono font-bold">
+                  1920 × 1080 FHD
+                </span>
+                {scene.shotType && SHOT_TYPE_CONFIG[scene.shotType] && (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border ${SHOT_TYPE_CONFIG[scene.shotType].badgeColor}`}>
+                    {(() => {
+                      const Icon = SHOT_TYPE_CONFIG[scene.shotType!].icon;
+                      return <Icon size={10} />;
+                    })()}
+                    {SHOT_TYPE_CONFIG[scene.shotType].shortLabel} B-Roll
+                  </span>
+                )}
+                {scene.bRollFocus && (
+                  <span className="text-xs text-slate-300 font-medium truncate max-w-xs">
+                    · {scene.bRollFocus}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={scene.imageUrl}
+                  download={`scene_${scene.sceneId}.jpg`}
+                  className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                  title="Download full image"
+                >
+                  <Download size={13} />
+                  Download
+                </a>
+                <button
+                  onClick={() => setPreviewOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Close preview"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Image Preview */}
+            <div className="relative flex-1 min-h-[350px] max-h-[65vh] bg-black/95 flex items-center justify-center p-3 overflow-hidden">
+              <img
+                src={scene.imageUrl}
+                alt={`Scene ${scene.sceneId}`}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+            </div>
+
+            {/* Footer details */}
+            <div className="px-5 py-3 border-t border-bg-border bg-bg-surface space-y-1 text-left">
+              {scene.narrationLine && (
+                <p className="text-xs text-slate-300">
+                  <span className="text-slate-500 font-semibold uppercase text-[10px] mr-1.5">Narration:</span>
+                  {scene.narrationLine}
+                </p>
+              )}
+              <p className="text-xs text-slate-400">
+                <span className="text-slate-500 font-semibold uppercase text-[10px] mr-1.5">Visual Prompt:</span>
+                {scene.visualPrompt}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
