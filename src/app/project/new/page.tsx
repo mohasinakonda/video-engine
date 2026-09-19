@@ -182,30 +182,58 @@ function ProjectPageInner() {
     try {
       const apiKey = (await getPollinationsApiKey()) || '';
       const stylePreset = await getDefaultStylePreset();
+
+      // Check if project already has completed audio chunks
+      const existingAudioMs = chunks
+        .filter((c) => c.status === 'COMPLETED')
+        .reduce((sum, c) => sum + (c.durationMs || 0), 0);
+
+      const words = script.trim().split(/\s+/).filter(Boolean).length;
+      // 135 wpm standard voice reading pace + pauses
+      const wordEstSec = Math.max(15, Math.round((words / 135) * 60));
+      const targetDurationSec = existingAudioMs > 0 ? existingAudioMs / 1000 : wordEstSec;
+
       const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
+        targetDurationSec,
         stylePrompt: stylePreset.stylePrompt,
         apiKey,
       });
 
-      const newScenes: SceneItem[] = breakdown.map((item, idx) => ({
-        sceneId: idx + 1,
-        audioStartSec: parseFloat((idx * 3.5).toFixed(1)),
-        audioEndSec: parseFloat(((idx + 1) * 3.5).toFixed(1)),
-        narrationLine: item.narration,
-        visualPrompt: item.visual_prompt,
-        fullPrompt: `${item.visual_prompt}. ${stylePreset.stylePrompt}`,
-        shotType: item.shot_type,
-        bRollFocus: item.b_roll_focus,
-        status: 'PENDING',
-      }));
+      // Proportionally scale scenes to cover targetDurationSec perfectly
+      const rawTotal = breakdown.reduce(
+        (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
+        0
+      );
+      const scale = rawTotal > 0 ? targetDurationSec / rawTotal : 1;
+
+      let cumSec = 0;
+      const newScenes: SceneItem[] = breakdown.map((item, idx) => {
+        const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
+        const dur = rawDur * scale;
+        const start = cumSec;
+        const end = idx === breakdown.length - 1 ? targetDurationSec : cumSec + dur;
+        cumSec = end;
+
+        return {
+          sceneId: idx + 1,
+          audioStartSec: parseFloat(start.toFixed(1)),
+          audioEndSec: parseFloat(end.toFixed(1)),
+          narrationLine: item.narration,
+          visualPrompt: item.visual_prompt,
+          fullPrompt: `${item.visual_prompt}. ${stylePreset.stylePrompt}`,
+          shotType: item.shot_type,
+          bRollFocus: item.b_roll_focus,
+          status: 'PENDING',
+        };
+      });
 
       const manifest: ProjectManifest = {
         projectId,
         title: projectTitle || 'Image Storyboard',
         rawScript: script,
         voicePresetId: selectedPresetId,
-        audioChunks: [],
-        totalDurationMs: newScenes.length * 3500,
+        audioChunks: chunks.length > 0 ? chunks.map(({ audioUrl: _audioUrl, ...c }) => c) : [],
+        totalDurationMs: Math.round(targetDurationSec * 1000),
         scenes: newScenes,
         baseStylePresetId: stylePreset.id,
         updatedAt: Date.now(),

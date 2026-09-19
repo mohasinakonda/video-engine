@@ -66,7 +66,10 @@ export class ExportEngine {
     const readyClips = (scenes || []).filter((s) => s.status === 'MOTION_READY' || s.motionClipPath);
 
     const totalDurationMs = usableChunks.reduce((sum, c) => sum + (c.durationMs || 0), 0);
-    const totalDurationSec = totalDurationMs > 0 ? totalDurationMs / 1000 : (scenes.length > 0 ? scenes.length * 3.5 : 60);
+    const sceneMaxSec = scenes.length > 0 ? Math.max(...scenes.map((s) => s.audioEndSec || 0)) : 0;
+    const totalDurationSec = totalDurationMs > 0
+      ? totalDurationMs / 1000
+      : (sceneMaxSec > 0 ? sceneMaxSec : (scenes.length > 0 ? scenes.length * 4.5 : 60));
     const fps = 30;
     const totalFrames = Math.max(1, Math.round(totalDurationSec * fps));
 
@@ -444,11 +447,12 @@ export class ExportEngine {
     }
 
     // ─── Step 2: Determine Duration & Timeline ─────────────────────────────────
+    const sceneMaxSec = scenes.length > 0 ? Math.max(...scenes.map((s) => s.audioEndSec || 0)) : 0;
     const durationSec = totalAudioDuration > 0
       ? totalAudioDuration
-      : (scenes.length > 0
-          ? Math.max(5, scenes[scenes.length - 1].audioEndSec || scenes.length * 3.5)
-          : (options.totalDurationSec > 0 ? options.totalDurationSec : 60));
+      : (options.totalDurationSec > 0
+          ? options.totalDurationSec
+          : (sceneMaxSec > 0 ? sceneMaxSec : 60));
 
     const renderFps = 30;
     const totalFrames = Math.max(1, Math.round(durationSec * renderFps));

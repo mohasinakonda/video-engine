@@ -19,32 +19,45 @@ import { POPULAR_POLLINATIONS_MODELS } from '@/lib/pollinations';
 
 const STYLE_SHORTCUTS = [
   {
+    name: 'Conceptual Illustration',
+    description: 'Linocut & relief print on warm archival cream paper with symbolic visual metaphor',
+    prompt:
+      'Conceptual illustration in a traditional hand-carved linocut and relief-print style printed on warm textured off-white archival paper (#F1E7D0). Hand-carved woodblock aesthetic with rough irregular carved edges, visible ink texture, coarse paper grain, organic cross-hatching, stippling and dot patterns, carved negative space details, and expressive silhouettes. Strict limited print palette: warm aged ivory cream paper, deep charcoal-green primary ink (#17251F), muted forest green (#486044), dusty sage olive (#718064), and muted terracotta peach sky (#D98267) with faded peach highlights (#E9B49A). Tonal transitions rendered exclusively via halftone dots, stippling, and carved line density without smooth digital gradients. Poetic visual metaphor and symbolic transformation connecting subject with landscape, layered rolling hills, foliage motifs, and hidden narrative details. Print-based chiaroscuro with strong silhouettes and exposed cream paper highlights. Subtle vintage aged paper border, museum-quality editorial relief art print',
+    neg: 'photorealism, 3D render, CGI, glossy digital illustration, smooth vector gradients, plastic textures, modern UI, neon colors, oversaturated, pure white, pure black, blurry, text, watermark, bad anatomy',
+  },
+  {
     name: 'Cinematic 8K',
+    description: 'Photorealistic, cinematic lighting, 8k resolution, 35mm anamorphic lens, film grain',
     prompt: 'Photorealistic, cinematic lighting, 8k resolution, muted color palette, high-end documentary look, shot on 35mm anamorphic lens, dramatic shadows, film grain',
     neg: 'cartoon, anime, blurry, distorted faces, low resolution, CGI, oversaturated',
   },
   {
     name: 'Studio Ghibli / Anime',
+    description: 'Hand-drawn anime illustration, clean linework, vibrant colors, dramatic lighting',
     prompt: 'High-quality anime illustration, detailed hand-drawn style, vibrant colors, clean linework, dramatic lighting, Studio Ghibli inspired',
     neg: 'realistic, photograph, 3D render, blurry, watermark, text',
   },
   {
     name: 'Cyberpunk Neon',
+    description: 'Futuristic aesthetic, rain-slicked streets, volumetric fog, holographic neon',
     prompt: 'Futuristic cyberpunk aesthetic, neon lights, rain-slicked streets, ultra-detailed digital art, volumetric fog, holographic displays, blade runner style',
     neg: 'daylight, natural, countryside, low tech, sketch, watermark',
   },
   {
     name: 'Pixar / 3D Animation',
+    description: '3D animated render, subsurface scattering, expressive lighting, Octane render',
     prompt: '3D Pixar and Disney animation render style, expressive lighting, soft subsurface scattering, vibrant stylized textures, Octane 3D render',
     neg: 'photorealistic, live action, flat, grainy, distorted',
   },
   {
     name: 'Vintage Oil Painting',
+    description: 'Impressionist oil painting, visible brushstrokes, warm golden lighting',
     prompt: 'Rich oil painting, impressionist style, visible textured brushstrokes, warm golden lighting, classical fine art museum quality',
     neg: 'digital, modern, photograph, neon, flat vector',
   },
   {
     name: 'Minimalist Vector',
+    description: 'Modern 2D flat design, geometric clean shapes, corporate explainer aesthetic',
     prompt: 'Modern 2D flat vector design illustration, bold clean geometric shapes, minimalist shadows, corporate explainer video aesthetic',
     neg: 'photograph, realistic, 3D, dark, gritty, complex textures',
   },
@@ -109,6 +122,19 @@ export default function SettingsPage() {
     setBaseStylePrompt(preset.prompt);
     setNegativePrompt(preset.neg);
   }
+
+  function handleSelectStyleDropdown(val: string) {
+    const found = STYLE_SHORTCUTS.find((s) => s.name === val);
+    if (found) {
+      setBaseStylePrompt(found.prompt);
+      setNegativePrompt(found.neg);
+    }
+  }
+
+  const matchingPreset = STYLE_SHORTCUTS.find(
+    (s) => s.prompt.trim() === baseStylePrompt.trim()
+  );
+  const selectedStyleValue = matchingPreset ? matchingPreset.name : 'custom';
 
   const isBaseStyleDirty =
     baseStylePrompt.trim() !== savedBaseStylePrompt.trim() ||
@@ -271,6 +297,41 @@ export default function SettingsPage() {
                 )}
               </div>
 
+              {/* Photo / Image Style Dropdown */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label htmlFor="photo-image-style-select" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <Palette size={13} className="text-purple-400" />
+                    Select Photo / Image Style
+                  </label>
+                  {matchingPreset ? (
+                    <span className="text-[11px] text-purple-400 font-mono">
+                      Active: {matchingPreset.name}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-amber-400 font-mono">
+                      Custom / Modified
+                    </span>
+                  )}
+                </div>
+                <select
+                  id="photo-image-style-select"
+                  value={selectedStyleValue}
+                  onChange={(e) => handleSelectStyleDropdown(e.target.value)}
+                  className="input text-xs font-medium cursor-pointer"
+                >
+                  {STYLE_SHORTCUTS.map((s) => (
+                    <option key={s.name} value={s.name}>
+                      {s.name} — {s.description}
+                    </option>
+                  ))}
+                  <option value="custom">Custom / User-Defined Style</option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Choose a style preset to automatically configure its artistic prompt and negative constraints.
+                </p>
+              </div>
+
               {/* Quick Preset Selector Chips */}
               <div className="mb-4">
                 <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">
@@ -283,8 +344,8 @@ export default function SettingsPage() {
                       type="button"
                       onClick={() => handleApplyShortcut(s)}
                       className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
-                        baseStylePrompt === s.prompt
-                          ? 'bg-purple-600/30 border-purple-500 text-purple-200 shadow-sm'
+                        baseStylePrompt.trim() === s.prompt.trim()
+                          ? 'bg-purple-600/30 border-purple-500 text-purple-200 shadow-sm ring-1 ring-purple-500/50'
                           : 'bg-bg-base/60 border-bg-border text-slate-400 hover:text-white hover:bg-bg-elevated'
                       }`}
                     >

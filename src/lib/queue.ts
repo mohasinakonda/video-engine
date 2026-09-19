@@ -251,7 +251,27 @@ async function processAudioChunk(
     const result = await generateAudio(apiKey, chunk.text, preset);
 
     const bytes = base64ToUint8Array(result.base64Audio);
-    const durationMs = estimateWavDurationMs(bytes);
+    let durationMs = estimateWavDurationMs(bytes);
+
+    // If running in browser environment, use Web Audio API to decode exact duration
+    if (typeof window !== "undefined") {
+      try {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const decoded = await ctx.decodeAudioData(bytes.buffer.slice(0) as ArrayBuffer);
+          if (decoded && decoded.duration > 0) {
+            durationMs = Math.round(decoded.duration * 1000);
+          }
+          ctx.close().catch(() => {});
+        }
+      } catch {
+        // Fallback estimate was already calculated
+      }
+    }
+
     const filePath = await saveAudioFile(projectId, chunk.index, bytes, result.mimeType);
     const audioUrl = base64ToBlobUrl(result.base64Audio, result.mimeType);
 

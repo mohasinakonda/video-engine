@@ -216,6 +216,18 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     createdAt: 0,
   },
   {
+    id: 'builtin_conceptual_illustration',
+    name: 'Conceptual Illustration',
+    stylePrompt:
+      'Conceptual illustration in a traditional hand-carved linocut and relief-print style printed on warm textured off-white archival paper (#F1E7D0). Hand-carved woodblock aesthetic with rough irregular carved edges, visible ink texture, coarse paper grain, organic cross-hatching, stippling and dot patterns, carved negative space details, and expressive silhouettes. Strict limited print palette: warm aged ivory cream paper, deep charcoal-green primary ink (#17251F), muted forest green (#486044), dusty sage olive (#718064), and muted terracotta peach sky (#D98267) with faded peach highlights (#E9B49A). Tonal transitions rendered exclusively via halftone dots, stippling, and carved line density without smooth digital gradients. Poetic visual metaphor and symbolic transformation connecting subject with landscape, layered rolling hills, foliage motifs, and hidden narrative details. Print-based chiaroscuro with strong silhouettes and exposed cream paper highlights. Subtle vintage aged paper border, museum-quality editorial relief art print',
+    negativePrompt:
+      'photorealism, 3D render, CGI, glossy digital illustration, smooth vector gradients, plastic textures, modern UI, neon colors, oversaturated, pure white, pure black, blurry, text, watermark, bad anatomy',
+    aspectRatio: '16:9',
+    isDefault: false,
+    isBuiltIn: true,
+    createdAt: 0,
+  },
+  {
     id: 'builtin_anime',
     name: 'Anime / Manga',
     stylePrompt:

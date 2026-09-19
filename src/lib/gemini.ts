@@ -224,52 +224,68 @@ export async function extractScenes(
   stylePrompt: string,
   onProgress?: (msg: string) => void
 ): Promise<SceneItem[]> {
-  const totalSec = totalAudioDurationMs > 0 ? totalAudioDurationMs / 1000 : 30;
-  const targetScenes = Math.max(1, Math.round(totalSec / 3.5));
+  const words = script.trim().split(/\s+/).filter(Boolean).length;
+  // Natural pacing: 135 words/minute + pauses = ~47-60s for ~105 words
+  const wordEstimatedSec = Math.max(15, Math.round((words / 135) * 60));
+  const totalSec = totalAudioDurationMs > 0 ? totalAudioDurationMs / 1000 : wordEstimatedSec;
+  const targetScenes = Math.max(1, Math.round(totalSec / 4.5));
 
   onProgress?.(`Extracting visual scenes via Pollinations AI…`);
 
   try {
     const client = getPollinationsClient(apiKey);
-    const breakdown = await breakdownScriptToScenes(script, client);
+    const breakdown = await breakdownScriptToScenes(script, client, totalSec);
 
-    let cumulativeSec = 0;
-    const items = breakdown.map((item: ScriptSceneBreakdown, idx: number): SceneItem => {
-      const start = cumulativeSec;
-      const end = cumulativeSec + item.durationSec;
-      cumulativeSec = end;
-      return {
-        sceneId: idx + 1,
-        audioStartSec: parseFloat(start.toFixed(1)),
-        audioEndSec: parseFloat(end.toFixed(1)),
-        narrationLine: item.narration,
-        visualPrompt: item.visual_prompt,
-        fullPrompt: `${item.visual_prompt}. ${stylePrompt}`,
-        shotType: item.shot_type,
-        bRollFocus: item.b_roll_focus,
-        status: 'PENDING',
-      };
-    });
+    if (breakdown.length > 0) {
+      // Calculate raw sum of scene durations to scale timestamps proportionally across totalSec
+      const rawTotalSec = breakdown.reduce(
+        (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
+        0
+      );
+      const scale = rawTotalSec > 0 ? totalSec / rawTotalSec : 1;
 
-    if (items.length > 0) {
-      onProgress?.(`${items.length} scenes extracted.`);
+      let cumulativeSec = 0;
+      const items = breakdown.map((item: ScriptSceneBreakdown, idx: number): SceneItem => {
+        const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
+        const scaledDur = rawDur * scale;
+        const start = cumulativeSec;
+        const end = idx === breakdown.length - 1 ? totalSec : cumulativeSec + scaledDur;
+        cumulativeSec = end;
+
+        return {
+          sceneId: idx + 1,
+          audioStartSec: parseFloat(start.toFixed(1)),
+          audioEndSec: parseFloat(end.toFixed(1)),
+          narrationLine: item.narration,
+          visualPrompt: item.visual_prompt,
+          fullPrompt: `${item.visual_prompt}. ${stylePrompt}`,
+          shotType: item.shot_type,
+          bRollFocus: item.b_roll_focus,
+          status: 'PENDING',
+        };
+      });
+
+      onProgress?.(`${items.length} scenes extracted (${totalSec.toFixed(1)}s timeline).`);
       return items;
     }
   } catch (err) {
     console.warn('Pollinations scene breakdown error, using sentence boundary partition:', err);
   }
 
-  // Graceful sentence partition
+  // Graceful sentence partition spanning the entire totalSec
   const lines = script.split(/(?<=[.!?])\s+/).filter(Boolean);
   const sceneDuration = totalSec / targetScenes;
 
   return Array.from({ length: targetScenes }, (_, idx) => {
     const line = lines[idx % lines.length] || `Scene ${idx + 1}`;
     const vPrompt = `Cinematic documentary scene showing: ${line.slice(0, 80)}`;
+    const start = idx * sceneDuration;
+    const end = idx === targetScenes - 1 ? totalSec : (idx + 1) * sceneDuration;
+
     return {
       sceneId: idx + 1,
-      audioStartSec: parseFloat((idx * sceneDuration).toFixed(1)),
-      audioEndSec: parseFloat(((idx + 1) * sceneDuration).toFixed(1)),
+      audioStartSec: parseFloat(start.toFixed(1)),
+      audioEndSec: parseFloat(end.toFixed(1)),
       narrationLine: line,
       visualPrompt: vPrompt,
       fullPrompt: `${vPrompt}. ${stylePrompt}`,
@@ -334,16 +350,20 @@ export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-/** Estimate audio duration from WAV header or MP3 bytes (returns ms) */
+/**
+ * Estimate audio duration from WAV header or MP3 bytes (returns ms).
+ * Inspects RIFF/WAVE header or MPEG audio frame headers for exact duration,
+ * falling back to realistic voice TTS bitrate (~64 kbps mono).
+ */
 export function estimateWavDurationMs(data: Uint8Array): number {
-  if (data.length < 44) return 0;
+  if (data.length < 4) return 0;
 
-  // Check for valid WAV container ("RIFF" ... "WAVE")
-  const isWav =
+  // 1. Check for valid WAV container ("RIFF" ... "WAVE")
+  if (
+    data.length >= 44 &&
     data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46 &&
-    data[8] === 0x57 && data[9] === 0x41 && data[10] === 0x56 && data[11] === 0x45;
-
-  if (isWav) {
+    data[8] === 0x57 && data[9] === 0x41 && data[10] === 0x56 && data[11] === 0x45
+  ) {
     try {
       const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
       const byteRate = view.getUint32(28, true);
@@ -356,8 +376,38 @@ export function estimateWavDurationMs(data: Uint8Array): number {
     }
   }
 
-  // Fallback for MP3 / compressed audio (estimate at standard 128 kbps = 16 bytes/ms)
-  const estimatedMs = Math.round((data.length / 16000) * 1000);
+  // 2. Inspect MP3 frame sync for MPEG Audio Layer III header
+  try {
+    const limit = Math.min(data.length - 4, 4096);
+    for (let i = 0; i < limit; i++) {
+      if (data[i] === 0xff && (data[i + 1] & 0xe0) === 0xe0) {
+        const header = (data[i] << 24) | (data[i + 1] << 16) | (data[i + 2] << 8) | data[i + 3];
+        const version = (header >> 19) & 3; // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
+        const layer = (header >> 17) & 3;   // 1 = Layer 3
+        const bitrateIdx = (header >> 12) & 15;
+
+        if (layer === 1 && bitrateIdx > 0 && bitrateIdx < 15) {
+          let bitrateKbps = 64;
+          if (version === 3) {
+            const mpeg1Bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+            bitrateKbps = mpeg1Bitrates[bitrateIdx] || 64;
+          } else {
+            const mpeg2Bitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+            bitrateKbps = mpeg2Bitrates[bitrateIdx] || 64;
+          }
+          if (bitrateKbps > 0) {
+            const bytesPerSec = (bitrateKbps * 1000) / 8;
+            return Math.round((data.length / bytesPerSec) * 1000);
+          }
+        }
+      }
+    }
+  } catch {
+    // Continue to fallback
+  }
+
+  // 3. Fallback for compressed voice TTS (standard mono speech is ~64 kbps = 8 bytes/ms)
+  const estimatedMs = Math.round((data.length / 8000) * 1000);
   return estimatedMs > 0 ? estimatedMs : 3000;
 }
 

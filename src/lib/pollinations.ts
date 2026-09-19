@@ -188,7 +188,8 @@ export function getPollinationsClient(apiKey?: string): OpenAI {
  */
 export async function breakdownScriptToScenes(
   script: string,
-  client?: OpenAI
+  client?: OpenAI,
+  targetDurationSec?: number
 ): Promise<ScriptSceneBreakdown[]> {
   if (!script || !script.trim()) {
     throw new Error("Cannot break down an empty script.");
@@ -205,9 +206,17 @@ export async function breakdownScriptToScenes(
     'WIDE_ESTABLISHING',
   ];
 
+  const estimatedSceneCount = targetDurationSec && targetDurationSec > 0
+    ? Math.max(3, Math.min(30, Math.round(targetDurationSec / 4.5)))
+    : undefined;
+
+  const durationGuidance = targetDurationSec && targetDurationSec > 0
+    ? `Target total narration audio duration is ~${Math.round(targetDurationSec)} seconds. Generate approximately ${estimatedSceneCount} sequential scenes so that visual scene transitions span the entire ${Math.round(targetDurationSec)}-second narration smoothly.`
+    : `Each scene represents roughly 3.5 to 5.0 seconds of narration.`;
+
   const systemInstruction = `You are an elite documentary film director and visual auteur (in the league of BBC Earth, National Geographic, and IMAX).
 Your job is to parse a video narration script into a sequential list of cinematographically rich visual scenes.
-Each scene represents roughly 3 to 4 seconds of narration (default ~3.5 seconds).
+${durationGuidance}
 
 CINEMATIC PACING & UNIVERSAL B-ROLL MANDATE:
 Do NOT produce repetitive or literal visuals that depict only the primary subject from the same angle.
@@ -226,14 +235,14 @@ CRITICAL DIRECTING RULE: Never repeat the same shot_type twice in a row. Maintai
 For every scene, output:
 - narration: The exact segment of script words read aloud during this scene.
 - visual_prompt: A studio-grade, exceptionally detailed prompt for an AI image generator (Flux/SDXL). Describe camera framing (e.g. 90-degree bird's-eye drone shot, extreme tactile macro close-up, intimate medium close-up, low-angle telephoto), subject action/elements, rich atmospheric lighting, and environment textures (photorealistic 8k, masterwork, 35mm film look).
-- durationSec: Estimated duration in seconds (around 3.0 to 4.5 seconds).
+- durationSec: Estimated duration in seconds for reading this scene's narration segment.
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
 - b_roll_focus: A concise 3-7 word description of the specific visual motif featured (e.g., "Wind-rippled sand dune geometry", "Bedouin tea ceremony by fire", "Extreme macro sea salt crystals").
 
 CRITICAL: Return ONLY a valid JSON array of objects with keys "narration", "visual_prompt", "durationSec", "shot_type", "b_roll_focus".
 Do not include any explanation, intro text, or conversational markdown outside the JSON.`;
 
-  const userPrompt = `Break down the following narration script into scenes with diverse B-roll cutaways:\n\n"""\n${script.trim()}\n"""`;
+  const userPrompt = `Break down the following narration script into scenes with diverse B-roll cutaways${targetDurationSec && targetDurationSec > 0 ? ` spanning approximately ${Math.round(targetDurationSec)} seconds` : ''}:\n\n"""\n${script.trim()}\n"""`;
 
   try {
     const response = await aiClient.chat.completions.create({
@@ -556,6 +565,7 @@ export async function breakdownRequirementToImageScenes(
   requirement: string,
   options?: {
     sceneCount?: number;
+    targetDurationSec?: number;
     stylePrompt?: string;
     apiKey?: string;
   }
@@ -565,9 +575,20 @@ export async function breakdownRequirementToImageScenes(
   }
 
   const aiClient = getPollinationsClient(options?.apiKey);
+  const targetDurationSec = options?.targetDurationSec;
+  const estimatedScenes = targetDurationSec && targetDurationSec > 0
+    ? Math.max(3, Math.min(30, Math.round(targetDurationSec / 4.5)))
+    : undefined;
+
   const countInstruction = typeof options?.sceneCount === "number" && options.sceneCount > 0
     ? `Create exactly ${options.sceneCount} distinct, sequential cinematic visual scenes.`
-    : `Determine the natural number of sequential cinematic visual scenes based directly on the story progression, key moments, and narrative beats of the content.`;
+    : targetDurationSec && targetDurationSec > 0
+      ? `Generate approximately ${estimatedScenes} sequential scenes so that the visual timeline covers ~${Math.round(targetDurationSec)} seconds smoothly.`
+      : `Determine the natural number of sequential cinematic visual scenes based directly on the story progression, key moments, and narrative beats of the content.`;
+
+  const perSceneEstimate = targetDurationSec && targetDurationSec > 0 && estimatedScenes
+    ? (targetDurationSec / estimatedScenes).toFixed(1)
+    : "4.5";
 
   const VALID_SHOT_TYPES: ShotType[] = [
     'AERIAL_GEOMETRY',
@@ -581,6 +602,7 @@ export async function breakdownRequirementToImageScenes(
   const systemInstruction = `You are an elite visual director for an AI film and documentary studio.
 Your task is to take a creative requirement, story, or script and break it down into sequential, cinematographically diverse visual scenes.
 ${countInstruction}
+${targetDurationSec && targetDurationSec > 0 ? `Target total video duration is ~${Math.round(targetDurationSec)} seconds.` : ''}
 
 CINEMATIC PACING & UNIVERSAL B-ROLL MANDATE:
 Do NOT produce repetitive or literal visuals. A professional documentary cuts dynamically between scales and perspectives:
@@ -598,15 +620,15 @@ Never use the same shot_type consecutively. Maintain visual rhythm.
 
 For every scene, output:
 - narration: A brief narrative or caption line (1-2 sentences) summarizing what happens in this scene.
-- visual_prompt: A studio-grade, exceptionally detailed visual prompt for an AI image generator (Flux). Specifically describe camera framing, subject pose/action, atmospheric lighting, and rich textures (photorealistic 8k, masterwork, 35mm lens, sharp focus).
-- durationSec: 3.5
+- visual_prompt: A studio-grade, exceptionally detailed visual prompt for an AI image generator (Flux). Specifically describe subject pose/action, composition, atmospheric lighting, and rich textures${options?.stylePrompt ? ` aligned with the target visual style: "${options.stylePrompt.slice(0, 150)}..."` : ' (photorealistic 8k, masterwork, 35mm lens, sharp focus)'}.
+- durationSec: Estimated duration in seconds (around ${perSceneEstimate} seconds).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
 - b_roll_focus: A concise 3-7 word description of the specific B-roll focal motif.
 
 CRITICAL: Return ONLY a valid JSON array of scene objects with keys "narration", "visual_prompt", "durationSec", "shot_type", "b_roll_focus".
 No conversational text, markdown introduction, or backticks outside the JSON.`;
 
-  const userPrompt = `Break down this requirement into sequential cinematic visual scenes with diverse B-roll perspectives:\n\n"""\n${requirement.trim()}\n"""`;
+  const userPrompt = `Break down this requirement into sequential cinematic visual scenes with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
 
   try {
     const response = await aiClient.chat.completions.create({

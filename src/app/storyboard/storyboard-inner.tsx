@@ -201,10 +201,13 @@ export default function StoryboardInner() {
 
     const apiKey = (await getPollinationsApiKey()) || '';
 
-    // If project has no audio duration, calculate reasonable fallback based on scenes or script words
+    // If project has no audio duration, calculate reasonable fallback based on script words
+    const words = proj.rawScript?.trim().split(/\s+/).filter(Boolean).length || 0;
+    const wordEstMs = Math.max(15000, Math.round((words / 135) * 60 * 1000));
     const totalDurationMs =
-      proj.totalDurationMs ||
-      (scenes.length > 0 ? scenes.length * 3500 : Math.max(15000, (proj.rawScript?.split(/\s+/).length || 20) * 400));
+      proj.totalDurationMs && proj.totalDurationMs > 0
+        ? proj.totalDurationMs
+        : (scenes.length > 0 ? scenes[scenes.length - 1].audioEndSec * 1000 : wordEstMs);
 
     setExtracting(true);
     setExtractError('');
@@ -225,6 +228,41 @@ export default function StoryboardInner() {
     } finally {
       setExtracting(false);
     }
+  }
+
+  // ─── Sync Scene Durations to Voice Audio ──────────────────────────────────
+
+  async function handleSyncTimelineToAudio() {
+    const proj = projectRef.current;
+    if (!proj || scenes.length === 0) return;
+
+    const words = proj.rawScript?.trim().split(/\s+/).filter(Boolean).length || 0;
+    const wordEstSec = Math.max(15, Math.round((words / 135) * 60));
+    const targetDurationSec =
+      proj.totalDurationMs && proj.totalDurationMs > 0
+        ? proj.totalDurationMs / 1000
+        : wordEstSec;
+
+    const currentDurations = scenes.map((s) => Math.max(1, s.audioEndSec - s.audioStartSec));
+    const totalCurr = currentDurations.reduce((a, b) => a + b, 0);
+    const scale = totalCurr > 0 ? targetDurationSec / totalCurr : 1;
+
+    let cum = 0;
+    const resynced = scenes.map((s, idx) => {
+      const d = currentDurations[idx] * scale;
+      const start = cum;
+      const end = idx === scenes.length - 1 ? targetDurationSec : cum + d;
+      cum = end;
+      return {
+        ...s,
+        audioStartSec: parseFloat(start.toFixed(1)),
+        audioEndSec: parseFloat(end.toFixed(1)),
+      };
+    });
+
+    setScenes(resynced);
+    await persistScenes(resynced);
+    setExtractMsg(`Timeline synchronized: all ${scenes.length} scenes now span ${targetDurationSec.toFixed(1)}s.`);
   }
 
   // ─── Step 3: Generate Motion Clips ───────────────────────────────────────
@@ -373,8 +411,17 @@ export default function StoryboardInner() {
   const allImagesReady = scenes.length > 0 && pendingImages === 0 && !scenes.some((s) => s.status === 'GENERATING_IMAGE');
   const isWorking = generatingImages || generatingMotion || extracting;
 
-  const totalDurationSec = (project?.totalDurationMs ?? 0) / 1000;
-  const estimatedScenes = totalDurationSec > 0 ? Math.round(totalDurationSec / 3.5) : 0;
+  const scriptWords = project?.rawScript?.trim().split(/\s+/).filter(Boolean).length || 0;
+  const scriptEstSec = Math.max(15, Math.round((scriptWords / 135) * 60));
+  const targetAudioSec = (project?.totalDurationMs ?? 0) > 0
+    ? (project!.totalDurationMs / 1000)
+    : scriptEstSec;
+
+  const currentTimelineEndSec = scenes.length > 0 ? scenes[scenes.length - 1].audioEndSec : 0;
+  const timelineNeedsSync = scenes.length > 0 && targetAudioSec > 0 && Math.abs(currentTimelineEndSec - targetAudioSec) >= 2;
+
+  const totalDurationSec = targetAudioSec;
+  const estimatedScenes = totalDurationSec > 0 ? Math.round(totalDurationSec / 4.5) : 0;
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -655,7 +702,26 @@ export default function StoryboardInner() {
           </div>
 
           {/* Right: Storyboard Grid */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {timelineNeedsSync && (
+              <div className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-amber-950/40 border border-amber-800/50 animate-fade-in text-xs">
+                <div className="flex items-center gap-2 text-amber-300">
+                  <AlertTriangle size={15} className="flex-shrink-0 text-amber-400" />
+                  <span>
+                    Your {scenes.length} scenes currently cover <strong>{currentTimelineEndSec.toFixed(1)}s</strong>, but the voice narration length is <strong>{targetAudioSec.toFixed(1)}s</strong>.
+                  </span>
+                </div>
+                <button
+                  onClick={handleSyncTimelineToAudio}
+                  disabled={isWorking}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition-colors flex-shrink-0 shadow disabled:opacity-50"
+                  title="Scale all scenes proportionally to cover full audio length"
+                >
+                  Fit Scenes to Full Audio ({Math.round(targetAudioSec)}s)
+                </button>
+              </div>
+            )}
+
             <StoryboardGrid
               scenes={scenes}
               onRegenerate={handleRegenerate}
