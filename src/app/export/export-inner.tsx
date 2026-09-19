@@ -17,15 +17,22 @@ import {
   Trash2,
   Cpu,
   Volume2,
-  HardDrive,
   Download,
   StopCircle,
   ExternalLink,
+  Layers,
+  FileArchive,
+  FileText,
+  HelpCircle,
+  Check,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import { getProject, saveProject } from '@/lib/store';
 import { ExportEngine } from '@/lib/export-engine';
 import { getMediaBlobUrl } from '@/lib/media-storage';
+import { exportUniversalTimelineZip, TimelineExportProgress } from '@/lib/timeline-exporter';
 import type {
   ProjectManifest,
   ExportResolution,
@@ -82,6 +89,12 @@ export default function ExportInner() {
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [cleanedCache, setCleanedCache] = useState(false);
   const [freedSpaceMB, setFreedSpaceMB] = useState(0);
+
+  // Timeline Export State
+  const [isExportingTimeline, setIsExportingTimeline] = useState(false);
+  const [timelineProgress, setTimelineProgress] = useState<TimelineExportProgress | null>(null);
+  const [timelineExportSuccess, setTimelineExportSuccess] = useState(false);
+  const [showImportGuide, setShowImportGuide] = useState(false);
 
   const engineRef = useRef<ExportEngine | null>(null);
 
@@ -277,6 +290,45 @@ export default function ExportInner() {
     } else if (finalVideoUrl) {
       // In browser: open video in a new tab for playback and viewing
       window.open(finalVideoUrl, '_blank');
+    }
+  }
+
+  // ─── Universal Timeline Package Export ─────────────────────────────────────
+
+  async function handleExportTimeline() {
+    if (!project) return;
+    setIsExportingTimeline(true);
+    setTimelineExportSuccess(false);
+    setTimelineProgress({ message: 'Preparing timeline package...', percentage: 5 });
+
+    try {
+      const zipBlob = await exportUniversalTimelineZip(project, (progress) => {
+        setTimelineProgress(progress);
+      });
+
+      const cleanTitle = (project.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const zipFileName = `${cleanTitle}_Timeline_Package.zip`;
+      const url = URL.createObjectURL(zipBlob);
+
+      if (typeof document !== 'undefined') {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zipFileName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 2000);
+      }
+
+      setTimelineExportSuccess(true);
+    } catch (err: unknown) {
+      console.error('Timeline export failed:', err);
+      alert('Timeline export failed: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsExportingTimeline(false);
     }
   }
 
@@ -675,18 +727,156 @@ export default function ExportInner() {
                     </div>
                   </div>
 
-                  {/* Export CTA Button */}
-                  <button
-                    type="button"
-                    onClick={handleStartExport}
-                    className="w-full py-4 rounded-xl font-bold text-sm text-white
-                               bg-gradient-to-r from-accent-purple via-accent-purple-light to-accent-cyan
-                               hover:shadow-xl hover:shadow-purple-900/50 transition-all duration-200
-                               flex items-center justify-center gap-2 glow-purple active:scale-95"
-                  >
-                    <Sparkles size={18} />
-                    Export Final Video (.mp4)
-                  </button>
+                  {/* Export Final Video (.mp4) CTA Button */}
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleStartExport}
+                      className="w-full py-4 rounded-xl font-bold text-sm text-white
+                                 bg-gradient-to-r from-accent-purple via-accent-purple-light to-accent-cyan
+                                 hover:shadow-xl hover:shadow-purple-900/50 transition-all duration-200
+                                 flex items-center justify-center gap-2 glow-purple active:scale-95"
+                    >
+                      <Sparkles size={18} />
+                      Export Final Video (.mp4)
+                    </button>
+                    <p className="text-[10px] text-center text-slate-500">
+                      Renders full composite video with voiceover, BGM & motion
+                    </p>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="relative flex py-1 items-center">
+                    <div className="flex-grow border-t border-bg-border" />
+                    <span className="flex-shrink mx-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      Or Open in Video Editor
+                    </span>
+                    <div className="flex-grow border-t border-bg-border" />
+                  </div>
+
+                  {/* Universal Timeline Package Card */}
+                  <div className="card p-4 space-y-3 bg-gradient-to-br from-bg-surface to-cyan-950/20 border-accent-cyan/30">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-accent-cyan/20 border border-accent-cyan/40 flex items-center justify-center text-accent-cyan">
+                          <Layers size={15} />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-bold text-white leading-tight">Universal Timeline Package</h3>
+                          <p className="text-[10px] text-accent-cyan/80">CapCut · Premiere · DaVinci · FCP</p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan">
+                        ZIP Bundle
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      Exports multi-track project with <strong>FCP 7 XML</strong>, <strong>CapCut SRT captions</strong>, <strong>CMX 3600 EDL</strong>, master audio WAV, and numbered scene artwork.
+                    </p>
+
+                    {/* Editor Compatibility Badges */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                        🎬 CapCut
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                        ⚡ Premiere Pro
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                        🎨 DaVinci Resolve
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                        🍎 Final Cut Pro
+                      </span>
+                    </div>
+
+                    {/* Progress Bar when packaging timeline */}
+                    {isExportingTimeline && timelineProgress && (
+                      <div className="space-y-1.5 pt-2 border-t border-accent-cyan/20">
+                        <div className="flex justify-between text-[11px] text-slate-300">
+                          <span className="truncate pr-2">{timelineProgress.message}</span>
+                          <span className="font-mono text-accent-cyan">{timelineProgress.percentage}%</span>
+                        </div>
+                        <div className="h-1.5 bg-bg-base rounded-full overflow-hidden border border-bg-border">
+                          <div
+                            className="h-full bg-gradient-to-r from-accent-cyan to-emerald-400 transition-all duration-300 rounded-full"
+                            style={{ width: `${timelineProgress.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Success Notice */}
+                    {timelineExportSuccess && !isExportingTimeline && (
+                      <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/40 flex items-center gap-2 text-xs text-emerald-300">
+                        <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
+                        <span>Timeline ZIP downloaded to your computer!</span>
+                      </div>
+                    )}
+
+                    {/* Timeline Export Button */}
+                    <button
+                      type="button"
+                      disabled={isExportingTimeline}
+                      onClick={handleExportTimeline}
+                      className="w-full py-3 rounded-xl font-bold text-xs text-white
+                                 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500
+                                 disabled:opacity-50 disabled:cursor-not-allowed
+                                 transition-all duration-200 flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-cyan-950/30"
+                    >
+                      {isExportingTimeline ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          <span>Generating Timeline Package...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileArchive size={14} />
+                          <span>Export Timeline Package (.zip)</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* Expandable Import Guide */}
+                    <div className="pt-1 border-t border-bg-border">
+                      <button
+                        type="button"
+                        onClick={() => setShowImportGuide(!showImportGuide)}
+                        className="w-full flex items-center justify-between text-[11px] text-slate-400 hover:text-white py-1 transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <HelpCircle size={12} className="text-accent-cyan" />
+                          How to import in CapCut & Premiere?
+                        </span>
+                        {showImportGuide ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      </button>
+
+                      {showImportGuide && (
+                        <div className="mt-2 p-3 rounded-lg bg-bg-base/90 border border-bg-border text-[11px] space-y-2.5 text-slate-300 animate-slide-up">
+                          <div>
+                            <strong className="text-white block mb-0.5">🎬 In CapCut (Desktop/Mobile):</strong>
+                            <p className="text-slate-400 text-[10px] leading-relaxed">
+                              1. Drag all images from <code className="text-accent-cyan">media/images/</code> and <code className="text-accent-cyan">master_voice.wav</code> to the timeline.<br />
+                              2. Go to <strong>Text &gt; Local Captions &gt; Import</strong> and select <code className="text-emerald-400">subtitles.srt</code>. CapCut will automatically create and sync all animated subtitle cards!
+                            </p>
+                          </div>
+                          <div className="pt-1.5 border-t border-bg-border/60">
+                            <strong className="text-white block mb-0.5">⚡ In Adobe Premiere Pro:</strong>
+                            <p className="text-slate-400 text-[10px] leading-relaxed">
+                              Go to <strong>File &gt; Import</strong> and choose <code className="text-accent-purple-light">timeline.xml</code>. Premiere will automatically generate a sequence with all cuts and audio synced to the exact frame.
+                            </p>
+                          </div>
+                          <div className="pt-1.5 border-t border-bg-border/60">
+                            <strong className="text-white block mb-0.5">🎨 In DaVinci Resolve:</strong>
+                            <p className="text-slate-400 text-[10px] leading-relaxed">
+                              Go to <strong>File &gt; Import Timeline &gt; Import AAF, EDL, XML...</strong> and select <code className="text-accent-purple-light">timeline.xml</code>.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                 </div>
 
