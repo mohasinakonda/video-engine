@@ -71,6 +71,8 @@ export type ExportResolution = '1080p' | '4k';
 
 export type HardwareEncoder = 'auto' | 'h264_nvenc' | 'h264_qsv' | 'h264_videotoolbox' | 'libx264';
 
+export type TransitionType = 'crossfade' | 'fade_black' | 'cut';
+
 export interface ExportSettings {
   resolution: ExportResolution;
   encoder: HardwareEncoder;
@@ -78,6 +80,8 @@ export interface ExportSettings {
   bgmVolume: number; // 0.0 to 1.0 (default 0.15)
   enableAutoDucking: boolean; // default true
   outputPath: string;
+  transitionType?: TransitionType;
+  transitionDurationSec?: number;
 }
 
 export type ExportStage =

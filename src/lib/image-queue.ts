@@ -42,12 +42,13 @@ export interface ImageQueueOptions {
   negativePrompt?: string;
   model?: string;
   concurrency?: number;
+  forceRegenerate?: boolean;
   callbacks: ImageQueueCallbacks;
 }
 
 // ─── Tauri FS Helper ──────────────────────────────────────────────────────────
 
-import { saveMediaBlob } from '@/lib/media-storage';
+import { saveMediaBlob, getMediaBlob } from '@/lib/media-storage';
 
 async function saveImageFile(
   projectId: string,
@@ -86,6 +87,22 @@ async function processScene(
   retryAttempt = 0
 ): Promise<void> {
   const { apiKey, projectId, negativePrompt, callbacks } = options;
+
+  // Checkpoint check: if scene image already exists in persistent storage and not forced, skip regeneration
+  if (!options.forceRegenerate) {
+    const existingBlob = await getMediaBlob(`scene_${projectId}_${scene.sceneId}`);
+    if (existingBlob && existingBlob.size > 500) {
+      const imageUrl = URL.createObjectURL(existingBlob);
+      const ext = existingBlob.type.includes('png') ? 'png' : 'jpg';
+      callbacks.onSceneUpdate(scene.sceneId, {
+        status: 'IMAGE_READY' as SceneStatus,
+        imageUrl,
+        imagePath: scene.imagePath || `projects/${projectId}/scenes/scene_${scene.sceneId}.${ext}`,
+        error: undefined,
+      });
+      return;
+    }
+  }
 
   callbacks.onSceneUpdate(scene.sceneId, { status: 'GENERATING_IMAGE' as SceneStatus });
 
@@ -183,12 +200,12 @@ export class ImageQueue {
     }
   }
 
-  /** Retry a single failed scene */
+  /** Retry a single failed or user-regenerated scene */
   async retryScene(
     scene: SceneItem,
     options: Omit<ImageQueueOptions, 'scenes'>
   ): Promise<void> {
-    await processScene(scene, { ...options, scenes: [scene] }, 0);
+    await processScene(scene, { ...options, scenes: [scene], forceRegenerate: true }, 0);
   }
 
   cancel(): void {

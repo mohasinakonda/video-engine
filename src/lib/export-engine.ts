@@ -16,6 +16,7 @@ import type {
   SceneItem,
   ExportSettings,
   ExportProgress,
+  TransitionType,
 } from '@/types';
 import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer';
 import { getMediaBlob } from '@/lib/media-storage';
@@ -629,29 +630,18 @@ export class ExportEngine {
 
           const t = f / renderFps;
 
-          // Find active scene by timestamp window
-          let activeScene = sortedScenes.find((s) => t >= s.audioStartSec && t < s.audioEndSec);
-          if (!activeScene && sortedScenes.length > 0) {
-            const idx = Math.min(sortedScenes.length - 1, Math.floor((t / durationSec) * sortedScenes.length));
-            activeScene = sortedScenes[idx];
-          }
-
-          // Render cinema backdrop
-          ctx.fillStyle = '#06070d';
-          ctx.fillRect(0, 0, width, height);
-
-          const img = activeScene ? imageMap.get(activeScene.sceneId) : null;
-          if (img && activeScene) {
-            drawKenBurnsScene(ctx, img, activeScene, width, height, t);
-          } else {
-            // Sleek ambient gradient card if scene image is not generated yet
-            const grad = ctx.createLinearGradient(0, 0, width, height);
-            grad.addColorStop(0, '#1e1b4b');
-            grad.addColorStop(0.5, '#090d16');
-            grad.addColorStop(1, '#020617');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, width, height);
-          }
+          // Render cinema frame with smooth transitions & Ken Burns motion
+          renderSceneWithTransitions(
+            ctx,
+            imageMap,
+            sortedScenes,
+            width,
+            height,
+            t,
+            durationSec,
+            settings.transitionType || 'crossfade',
+            settings.transitionDurationSec ?? 0.6
+          );
 
           // Clean video render (no title/subtitle or watermark overlays)
 
@@ -775,19 +765,19 @@ export class ExportEngine {
       }
 
       const t = f / renderFps;
-      let activeScene = sortedScenes.find((s) => t >= s.audioStartSec && t < s.audioEndSec);
-      if (!activeScene && sortedScenes.length > 0) {
-        activeScene = sortedScenes[Math.min(sortedScenes.length - 1, Math.floor((t / durationSec) * sortedScenes.length))];
-      }
 
       if (ctx) {
-        ctx.fillStyle = '#06070d';
-        ctx.fillRect(0, 0, width, height);
-
-        const img = activeScene ? imageMap.get(activeScene.sceneId) : null;
-        if (img && activeScene) {
-          drawKenBurnsScene(ctx, img, activeScene, width, height, t);
-        }
+        renderSceneWithTransitions(
+          ctx,
+          imageMap,
+          sortedScenes,
+          width,
+          height,
+          t,
+          durationSec,
+          settings.transitionType || 'crossfade',
+          settings.transitionDurationSec ?? 0.6
+        );
       }
 
       if (f % 15 === 0 || f === totalFrames - 1) {
@@ -938,7 +928,9 @@ function drawKenBurnsScene(
   const sStart = scene.audioStartSec ?? 0;
   const sEnd = scene.audioEndSec > sStart ? scene.audioEndSec : sStart + 4;
   const sDur = Math.max(0.1, sEnd - sStart);
-  const progress = Math.min(1, Math.max(0, (t - sStart) / sDur));
+  // Allow slight smooth lead-in and lead-out (-0.15 to 1.15) so Ken Burns motion
+  // never freezes at cut boundaries and camera is already gliding during dissolves
+  const progress = Math.min(1.15, Math.max(-0.15, (t - sStart) / sDur));
 
   // Determine motion profile
   const motionProfiles = ['zoom_in', 'zoom_out', 'pan_left', 'pan_right'] as const;
@@ -984,4 +976,135 @@ function drawKenBurnsScene(
   const curY = (height - curH) / 2 + shiftY;
 
   ctx.drawImage(img, curX, curY, curW, curH);
+}
+
+function drawAmbientCard(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+  grad.addColorStop(0, '#1e1b4b');
+  grad.addColorStop(0.5, '#090d16');
+  grad.addColorStop(1, '#020617');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+}
+
+/**
+ * Renders scenes with broadcast-grade smooth transitions (Cross-Dissolve, Dip-to-Black, or Hard Cut),
+ * preserving continuous Ken Burns motion and applying subtle cinematic intro/outro fades.
+ */
+function renderSceneWithTransitions(
+  ctx: CanvasRenderingContext2D,
+  imageMap: Map<number, HTMLImageElement>,
+  sortedScenes: SceneItem[],
+  width: number,
+  height: number,
+  t: number,
+  durationSec: number,
+  transitionType: TransitionType = 'crossfade',
+  targetTransSec = 0.6
+) {
+  // Clear backdrop
+  ctx.fillStyle = '#06070d';
+  ctx.fillRect(0, 0, width, height);
+
+  if (sortedScenes.length === 0) {
+    drawAmbientCard(ctx, width, height);
+    return;
+  }
+
+  // 1. Check if t falls inside any cut's transition window across all scene boundaries
+  let activeTransition: {
+    fromScene: SceneItem;
+    toScene: SceneItem;
+    progress: number;
+  } | null = null;
+
+  if (transitionType !== 'cut' && sortedScenes.length > 1) {
+    for (let i = 0; i < sortedScenes.length - 1; i++) {
+      const sceneA = sortedScenes[i];
+      const sceneB = sortedScenes[i + 1];
+      const boundary = (sceneA.audioEndSec + sceneB.audioStartSec) / 2;
+      const durA = Math.max(0.5, sceneA.audioEndSec - sceneA.audioStartSec);
+      const durB = Math.max(0.5, sceneB.audioEndSec - sceneB.audioStartSec);
+      // Safe clamp: never exceed 35% of either scene
+      const actualTrans = Math.min(targetTransSec, durA * 0.35, durB * 0.35);
+
+      if (actualTrans > 0.05) {
+        const transStart = boundary - actualTrans / 2;
+        const transEnd = boundary + actualTrans / 2;
+
+        if (t >= transStart && t < transEnd) {
+          const linearP = Math.max(0, Math.min(1, (t - transStart) / actualTrans));
+          // Cosine S-curve easing: silky smooth 0.0 -> 1.0 with no abrupt jumps
+          const progress = 0.5 * (1 - Math.cos(linearP * Math.PI));
+          activeTransition = {
+            fromScene: sceneA,
+            toScene: sceneB,
+            progress,
+          };
+          break;
+        }
+      }
+    }
+  }
+
+  // 2. Render Scene(s)
+  if (activeTransition) {
+    const { fromScene, toScene, progress } = activeTransition;
+    const imgA = imageMap.get(fromScene.sceneId);
+    const imgB = imageMap.get(toScene.sceneId);
+
+    if (transitionType === 'crossfade') {
+      // Outgoing scene A rendered as base (continuous motion)
+      ctx.globalAlpha = 1.0;
+      if (imgA) drawKenBurnsScene(ctx, imgA, fromScene, width, height, t);
+      else drawAmbientCard(ctx, width, height);
+
+      // Incoming scene B dissolving smoothly on top from 0.0 to 1.0 (continuous motion)
+      ctx.globalAlpha = progress;
+      if (imgB) drawKenBurnsScene(ctx, imgB, toScene, width, height, t);
+      else drawAmbientCard(ctx, width, height);
+    } else if (transitionType === 'fade_black') {
+      // Dip to black: first half fades out to black, second half fades in from black
+      if (progress < 0.5) {
+        ctx.globalAlpha = Math.max(0, 1.0 - progress * 2);
+        if (imgA) drawKenBurnsScene(ctx, imgA, fromScene, width, height, t);
+        else drawAmbientCard(ctx, width, height);
+      } else {
+        ctx.globalAlpha = Math.min(1.0, (progress - 0.5) * 2);
+        if (imgB) drawKenBurnsScene(ctx, imgB, toScene, width, height, t);
+        else drawAmbientCard(ctx, width, height);
+      }
+    }
+  } else {
+    // Normal single-scene frame outside any transition window
+    let currentScene = sortedScenes[0];
+    for (let i = 0; i < sortedScenes.length; i++) {
+      const s = sortedScenes[i];
+      if (t >= s.audioStartSec && (t < s.audioEndSec || i === sortedScenes.length - 1)) {
+        currentScene = s;
+        break;
+      }
+    }
+
+    ctx.globalAlpha = 1.0;
+    const img = imageMap.get(currentScene.sceneId);
+    if (img) drawKenBurnsScene(ctx, img, currentScene, width, height, t);
+    else drawAmbientCard(ctx, width, height);
+  }
+
+  // 3. Subtle Cinematic Intro (0.5s) & Outro (0.8s) Fades to/from Black
+  const introSec = 0.5;
+  const outroSec = 0.8;
+
+  if (t < introSec) {
+    const blackAlpha = Math.max(0, Math.min(1, 1.0 - t / introSec));
+    ctx.fillStyle = `rgba(6, 7, 13, ${blackAlpha.toFixed(3)})`;
+    ctx.fillRect(0, 0, width, height);
+  } else if (t > durationSec - outroSec) {
+    const blackAlpha = Math.max(0, Math.min(1, (t - (durationSec - outroSec)) / outroSec));
+    ctx.fillStyle = `rgba(6, 7, 13, ${blackAlpha.toFixed(3)})`;
+    ctx.fillRect(0, 0, width, height);
+  }
+
+  ctx.globalAlpha = 1.0;
 }

@@ -73,6 +73,7 @@ function ProjectPageInner() {
   const [generatingOnlyImagesMsg, setGeneratingOnlyImagesMsg] = useState('');
 
   const queueRef = useRef<AudioQueue | null>(null);
+  const existingProjectRef = useRef<ProjectManifest | null>(null);
 
   // ─── Load on mount ──────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ function ProjectPageInner() {
     if (projectIdParam) {
       const existing = await getProject(projectIdParam);
       if (existing) {
+        existingProjectRef.current = existing;
         setProjectId(existing.projectId);
         setProjectTitle(existing.title);
         setScript(existing.rawScript);
@@ -124,6 +126,8 @@ function ProjectPageInner() {
         .filter((c) => c.status === 'COMPLETED')
         .reduce((acc, c) => acc + (c.durationMs ?? 0), 0);
 
+      const existing = existingProjectRef.current;
+
       const manifest: ProjectManifest = {
         projectId,
         title: projectTitle,
@@ -132,8 +136,11 @@ function ProjectPageInner() {
         pacingProfile,
         audioChunks: updatedChunks.map(({ audioUrl: _audioUrl, ...c }) => c), // don't persist blob URLs
         totalDurationMs,
+        scenes: existing?.scenes || [],
+        baseStylePresetId: existing?.baseStylePresetId,
         updatedAt: Date.now(),
       };
+      existingProjectRef.current = manifest;
       await saveProject(manifest);
     },
     [projectId, projectTitle, script, selectedPresetId, pacingProfile]

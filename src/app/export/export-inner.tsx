@@ -39,6 +39,8 @@ import type {
   ExportResolution,
   HardwareEncoder,
   ExportProgress,
+  TransitionType,
+  ExportSettings,
 } from '@/types';
 
 function formatDuration(ms: number): string {
@@ -68,6 +70,8 @@ export default function ExportInner() {
   // Configuration options
   const [resolution, setResolution] = useState<ExportResolution>('1080p');
   const [encoder, setEncoder] = useState<HardwareEncoder>('auto');
+  const [transitionType, setTransitionType] = useState<TransitionType>('crossfade');
+  const [transitionDuration, setTransitionDuration] = useState<number>(0.6);
   const [bgmFilePath, setBgmFilePath] = useState<string>('');
   const [bgmFileName, setBgmFileName] = useState<string>('');
   const [bgmVolume, setBgmVolume] = useState<number>(0.15);
@@ -145,6 +149,8 @@ export default function ExportInner() {
         setBgmVolume(p.exportSettings.bgmVolume ?? 0.15);
         setEnableAutoDucking(p.exportSettings.enableAutoDucking ?? true);
         setOutputPath(p.exportSettings.outputPath ?? '');
+        if (p.exportSettings.transitionType) setTransitionType(p.exportSettings.transitionType);
+        if (p.exportSettings.transitionDurationSec) setTransitionDuration(p.exportSettings.transitionDurationSec);
       }
 
       if (p.finalVideoPath) {
@@ -214,13 +220,15 @@ export default function ExportInner() {
     setErrorMsg('');
     setCleanedCache(false);
 
-    const settings = {
+    const settings: ExportSettings = {
       resolution,
       encoder,
       bgmFilePath,
       bgmVolume,
       enableAutoDucking,
       outputPath: outputPath || downloadFileName,
+      transitionType,
+      transitionDurationSec: transitionDuration,
     };
 
     // Save settings to project manifest
@@ -590,7 +598,96 @@ export default function ExportInner() {
                     </select>
                   </div>
 
-                  {/* 3. Background Music & Auto-Ducking */}
+                  {/* 3. Cinematic Scene Transitions */}
+                  <div className="card space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={15} className="text-purple-400" />
+                        <h2 className="text-xs font-bold text-white uppercase tracking-wider">Scene Transitions & Blending</h2>
+                      </div>
+                      <span className="text-[10px] font-mono text-purple-300 font-semibold bg-purple-950/70 border border-purple-800/40 px-2 py-0.5 rounded">
+                        {transitionType === 'crossfade' ? 'Cross-Dissolve' : transitionType === 'fade_black' ? 'Dip to Black' : 'Direct Cut'} · {transitionDuration}s
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setTransitionType('crossfade')}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          transitionType === 'crossfade'
+                            ? 'bg-accent-purple/20 border-accent-purple text-white shadow-lg shadow-purple-950/40 glow-purple'
+                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-white">Cross-Dissolve</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Smooth, seamless blending between images</p>
+                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-accent-purple/30 text-purple-200 font-medium">
+                          Recommended
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTransitionType('fade_black')}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          transitionType === 'fade_black'
+                            ? 'bg-accent-cyan/20 border-accent-cyan text-white shadow-lg shadow-cyan-950/40 glow-cyan'
+                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-white">Dip to Black</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Gentle fade to black breath between scenes</p>
+                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-medium">
+                          Classic Film
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setTransitionType('cut')}
+                        className={`p-3 rounded-xl border text-left transition-all ${
+                          transitionType === 'cut'
+                            ? 'bg-slate-800 border-slate-500 text-white shadow-lg'
+                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        <p className="text-xs font-bold text-white">Hard Cut</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Instant switch without transition blending</p>
+                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium">
+                          Fast Montage
+                        </span>
+                      </button>
+                    </div>
+
+                    {transitionType !== 'cut' && (
+                      <div className="pt-2 border-t border-bg-border flex items-center justify-between">
+                        <span className="text-xs text-slate-400 font-medium">Transition Duration:</span>
+                        <div className="flex items-center gap-1.5">
+                          {[0.4, 0.6, 0.8].map((sec) => (
+                            <button
+                              key={sec}
+                              type="button"
+                              onClick={() => setTransitionDuration(sec)}
+                              className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-all ${
+                                transitionDuration === sec
+                                  ? 'bg-purple-600 text-white shadow-md font-bold'
+                                  : 'bg-bg-elevated text-slate-400 hover:text-white'
+                              }`}
+                            >
+                              {sec}s {sec === 0.4 ? '(Snappy)' : sec === 0.6 ? '(Natural)' : '(Cinematic)'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-slate-500">
+                      ✨ Seamlessly preserves Ken Burns pan/zoom motion across cuts. Includes 0.5s fade-in from black at video start and 0.8s fade-out at end.
+                    </p>
+                  </div>
+
+                  {/* 4. Background Music & Auto-Ducking */}
                   <div className="card space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

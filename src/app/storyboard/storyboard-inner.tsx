@@ -37,6 +37,7 @@ import { getMediaBlobUrl } from '@/lib/media-storage';
 import type {
   ProjectManifest,
   SceneItem,
+  SceneStatus,
   BaseStylePreset,
 } from '@/types';
 
@@ -108,6 +109,10 @@ export default function StoryboardInner() {
         onComplete: () => {
           setGeneratingImages(false);
           setPauseMsg('');
+          setScenes((latest) => {
+            persistScenes(latest);
+            return latest;
+          });
         },
         onError: (sceneId, error) => {
           console.warn(`Scene ${sceneId} failed:`, error);
@@ -133,15 +138,42 @@ export default function StoryboardInner() {
 
       // Restore scenes and fetch image blobs from IndexedDB
       let restoredScenes: SceneItem[] = [];
+      let hadUnmarkedReadyImages = false;
+
       if (p.scenes && p.scenes.length > 0) {
         restoredScenes = await Promise.all(
           p.scenes.map(async (s) => {
             if (s.imageUrl) return s;
             const url = await getMediaBlobUrl(`scene_${p.projectId}_${s.sceneId}`);
-            return { ...s, imageUrl: url || undefined };
+            if (url) {
+              if (s.status === 'PENDING' || s.status === 'FAILED' || s.status === 'GENERATING_IMAGE') {
+                hadUnmarkedReadyImages = true;
+              }
+              return {
+                ...s,
+                imageUrl: url,
+                status: (s.status === 'PENDING' || s.status === 'FAILED' || s.status === 'GENERATING_IMAGE')
+                  ? ('IMAGE_READY' as SceneStatus)
+                  : s.status,
+              };
+            }
+            return s;
           })
         );
         setScenes(restoredScenes);
+
+        // If any scenes had their images saved in IndexedDB but were marked pending in manifest, update manifest now
+        if (hadUnmarkedReadyImages) {
+          const stripped = restoredScenes.map(({ imageUrl: _imageUrl, ...s }) => s);
+          const updated: ProjectManifest = {
+            ...p,
+            scenes: stripped,
+            updatedAt: Date.now(),
+          };
+          projectRef.current = updated;
+          setProject(updated);
+          await saveProject(updated);
+        }
       }
 
       const all = await getStylePresets();
@@ -158,13 +190,23 @@ export default function StoryboardInner() {
       setStylePreset(preset);
 
       // Auto-start image generation if requested via query param
-      if (searchParams.get('autoGenerate') === 'true' && !autoStartedRef.current) {
-        const pending = restoredScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED');
-        if (pending.length > 0) {
-          autoStartedRef.current = true;
-          setTimeout(() => {
-            handleGenerateImages(restoredScenes);
-          }, 350);
+      const isAutoGenerate = searchParams.get('autoGenerate') === 'true';
+      if (isAutoGenerate) {
+        // Strip autoGenerate from URL so refreshing, bookmarking or reopening will NEVER trigger generation again
+        if (typeof window !== 'undefined') {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('autoGenerate');
+          window.history.replaceState({}, '', cleanUrl.pathname + cleanUrl.search);
+        }
+
+        if (!autoStartedRef.current) {
+          const pending = restoredScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED');
+          if (pending.length > 0) {
+            autoStartedRef.current = true;
+            setTimeout(() => {
+              handleGenerateImages(restoredScenes);
+            }, 350);
+          }
         }
       }
     } finally {

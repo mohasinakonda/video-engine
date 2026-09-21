@@ -130,7 +130,13 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={project.projectId}
-                    onClick={() => router.push(`/project/new?id=${project.projectId}`)}
+                    onClick={() =>
+                      router.push(
+                        hasStoryboard
+                          ? `/storyboard?id=${project.projectId}`
+                          : `/project/new?id=${project.projectId}`
+                      )
+                    }
                     className="card hover:border-accent-purple/30 hover:bg-bg-elevated cursor-pointer
                                transition-all duration-200 group animate-slide-up"
                     style={{ animationDelay: `${idx * 60}ms` }}
@@ -227,7 +233,7 @@ export default function DashboardPage() {
                       {/* Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {/* Storyboard quick action */}
-                        {audioProgress === 100 && (
+                        {(hasStoryboard || audioProgress === 100) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -246,7 +252,7 @@ export default function DashboardPage() {
                         )}
 
                         {/* Export quick action */}
-                        {audioProgress === 100 && (
+                        {(imagesReady > 0 || audioProgress === 100) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
