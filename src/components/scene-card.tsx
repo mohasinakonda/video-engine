@@ -121,12 +121,13 @@ interface SceneCardProps {
   scene: SceneItem;
   onRegenerate: (scene: SceneItem, newPrompt?: string) => void;
   onUpload: (scene: SceneItem, file: File) => void;
+  onUpdateDuration?: (sceneId: number, deltaSec: number) => void;
   disabled?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: SceneCardProps) {
+export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDuration, disabled }: SceneCardProps) {
   const [hovering, setHovering] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(false);
   const [promptDraft, setPromptDraft] = useState(scene.visualPrompt);
@@ -302,12 +303,39 @@ export default function SceneCard({ scene, onRegenerate, onUpload, disabled }: S
       {/* Info area */}
       <div className="p-2.5 space-y-1.5">
         {/* Time range + duration + status */}
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] text-slate-500 font-mono">{timeRange} · {duration}s</span>
-          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium border ${statusClass(scene.status)}`}>
-            {isGenerating && <Loader2 size={8} className="animate-spin" />}
-            {statusLabel(scene.status)}
-          </span>
+        <div className="flex items-center justify-between gap-1.5">
+          <span className="text-[10px] text-slate-400 font-mono">{timeRange}</span>
+          <div className="flex items-center gap-1.5">
+            {onUpdateDuration ? (
+              <div className="flex items-center bg-bg-base/90 border border-bg-border/80 rounded px-1 py-0.5 text-[9px] font-mono text-slate-300">
+                <button
+                  type="button"
+                  onClick={() => onUpdateDuration(scene.sceneId, -0.5)}
+                  disabled={disabled || parseFloat(duration) <= 1.0}
+                  title="Shorten scene length (-0.5s)"
+                  className="px-1 text-slate-400 hover:text-white disabled:opacity-30 transition-colors font-bold"
+                >
+                  −
+                </button>
+                <span className="font-semibold px-0.5 text-purple-300">{duration}s</span>
+                <button
+                  type="button"
+                  onClick={() => onUpdateDuration(scene.sceneId, 0.5)}
+                  disabled={disabled || parseFloat(duration) >= 30.0}
+                  title="Lengthen scene length (+0.5s)"
+                  className="px-1 text-slate-400 hover:text-white disabled:opacity-30 transition-colors font-bold"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <span className="text-[10px] text-purple-300/90 font-mono font-medium">{duration}s</span>
+            )}
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium border ${statusClass(scene.status)}`}>
+              {isGenerating && <Loader2 size={8} className="animate-spin" />}
+              {statusLabel(scene.status)}
+            </span>
+          </div>
         </div>
 
         {/* B-Roll Perspective Badge & Interactive Switcher */}

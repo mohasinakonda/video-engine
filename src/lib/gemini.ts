@@ -10,11 +10,12 @@
  *  6. Image generation via Pollinations AI (FLUX, Z-Image, DreamShaper, etc.)
  */
 
-import type { VoicePreset, SceneItem } from '@/types';
+import type { VoicePreset, SceneItem, PacingProfile, ShotType } from '@/types';
 import {
   generateVoiceChunk,
   generateSceneImage,
   breakdownScriptToScenes,
+  splitIntoPacingChunks,
   getPollinationsClient,
   type ScriptSceneBreakdown,
 } from '@/lib/pollinations';
@@ -222,65 +223,107 @@ export async function extractScenes(
   script: string,
   totalAudioDurationMs: number,
   stylePrompt: string,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  pacingProfile: PacingProfile = 'balanced'
 ): Promise<SceneItem[]> {
   const words = script.trim().split(/\s+/).filter(Boolean).length;
-  // Natural pacing: 135 words/minute + pauses = ~47-60s for ~105 words
+  // Natural pacing: ~135 words/minute + pauses
   const wordEstimatedSec = Math.max(15, Math.round((words / 135) * 60));
   const totalSec = totalAudioDurationMs > 0 ? totalAudioDurationMs / 1000 : wordEstimatedSec;
-  const targetScenes = Math.max(1, Math.round(totalSec / 4.5));
 
-  onProgress?.(`Extracting visual scenes via Pollinations AI…`);
+  const paceSeconds = {
+    fast: 2.8,
+    balanced: 4.0,
+    cinematic: 5.5,
+  }[pacingProfile] || 4.0;
 
-  try {
-    const client = getPollinationsClient(apiKey);
-    const breakdown = await breakdownScriptToScenes(script, client, totalSec);
+  const targetScenes = Math.max(1, Math.round(totalSec / paceSeconds));
 
-    if (breakdown.length > 0) {
-      // Calculate raw sum of scene durations to scale timestamps proportionally across totalSec
-      const rawTotalSec = breakdown.reduce(
-        (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
-        0
+  onProgress?.(`Extracting visual scenes via Pollinations AI (${pacingProfile} pacing)…`);
+
+  const client = getPollinationsClient(apiKey);
+
+  // Multi-chunk batching for long scripts (e.g. 23 min scripts)
+  if (words > 180 || totalSec > 90) {
+    const batches = splitIntoPacingChunks(script, 140);
+    onProgress?.(`Divided into ${batches.length} story batches for detailed visual extraction…`);
+
+    const allBreakdown: ScriptSceneBreakdown[] = [];
+
+    for (let i = 0; i < batches.length; i++) {
+      const batchScript = batches[i];
+      const batchWords = batchScript.split(/\s+/).filter(Boolean).length;
+      const batchDurationSec = (batchWords / words) * totalSec;
+
+      onProgress?.(
+        `Extracting scenes: Batch ${i + 1} of ${batches.length} (${allBreakdown.length} scenes created so far)…`
       );
-      const scale = rawTotalSec > 0 ? totalSec / rawTotalSec : 1;
 
-      let cumulativeSec = 0;
-      const items = breakdown.map((item: ScriptSceneBreakdown, idx: number): SceneItem => {
-        const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
-        const scaledDur = rawDur * scale;
-        const start = cumulativeSec;
-        const end = idx === breakdown.length - 1 ? totalSec : cumulativeSec + scaledDur;
-        cumulativeSec = end;
-
-        return {
-          sceneId: idx + 1,
-          audioStartSec: parseFloat(start.toFixed(1)),
-          audioEndSec: parseFloat(end.toFixed(1)),
-          narrationLine: item.narration,
-          visualPrompt: item.visual_prompt,
-          fullPrompt: `${item.visual_prompt}. ${stylePrompt}`,
-          shotType: item.shot_type,
-          bRollFocus: item.b_roll_focus,
-          status: 'PENDING',
-        };
-      });
-
-      onProgress?.(`${items.length} scenes extracted (${totalSec.toFixed(1)}s timeline).`);
-      return items;
+      try {
+        const batchScenes = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
+          pacingProfile,
+          stylePrompt,
+        });
+        allBreakdown.push(...batchScenes);
+      } catch (err) {
+        console.warn(`Batch ${i + 1} extraction failed, using fallback partition:`, err);
+        const fallbackBatch = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
+          pacingProfile,
+          stylePrompt,
+        });
+        allBreakdown.push(...fallbackBatch);
+      }
     }
-  } catch (err) {
-    console.warn('Pollinations scene breakdown error, using sentence boundary partition:', err);
+
+    if (allBreakdown.length > 0) {
+      return convertBreakdownToScenes(allBreakdown, totalSec, stylePrompt, onProgress);
+    }
   }
 
-  // Graceful sentence partition spanning the entire totalSec
-  const lines = script.split(/(?<=[.!?])\s+/).filter(Boolean);
-  const sceneDuration = totalSec / targetScenes;
+  try {
+    const breakdown = await breakdownScriptToScenes(script, client, totalSec, {
+      pacingProfile,
+      stylePrompt,
+    });
 
+    if (breakdown.length > 0) {
+      return convertBreakdownToScenes(breakdown, totalSec, stylePrompt, onProgress);
+    }
+  } catch (err) {
+    console.warn('Pollinations scene breakdown error, using dynamic sentence partition:', err);
+  }
+
+  // Graceful content-aware sentence partition with variable durations
+  const VALID_SHOT_TYPES: ShotType[] = [
+    'AERIAL_GEOMETRY',
+    'MACRO_TEXTURE',
+    'CULTURAL_HUMAN',
+    'HISTORICAL_HERITAGE',
+    'ATMOSPHERIC_MOOD',
+    'WIDE_ESTABLISHING',
+  ];
+  const lines = script.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const effectiveLines = lines.length > 0 ? lines : [`Scene 1`];
+
+  const weights = Array.from({ length: targetScenes }, (_, idx) => {
+    const line = effectiveLines[idx % effectiveLines.length];
+    const w = line.split(/\s+/).filter(Boolean).length;
+    const shotType = VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
+    const shotFactor = shotType === 'MACRO_TEXTURE' ? 0.8 : (shotType === 'WIDE_ESTABLISHING' || shotType === 'ATMOSPHERIC_MOOD') ? 1.25 : 1.0;
+    return Math.max(1.8, (Math.max(4, w) / 2.5) * shotFactor);
+  });
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const scale = totalWeight > 0 ? totalSec / totalWeight : 1;
+
+  let cumSec = 0;
   return Array.from({ length: targetScenes }, (_, idx) => {
-    const line = lines[idx % lines.length] || `Scene ${idx + 1}`;
-    const vPrompt = `Cinematic documentary scene showing: ${line.slice(0, 80)}`;
-    const start = idx * sceneDuration;
-    const end = idx === targetScenes - 1 ? totalSec : (idx + 1) * sceneDuration;
+    const line = effectiveLines[idx % effectiveLines.length];
+    const shotType = VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
+    const vPrompt = `Cinematic ${shotType.replace('_', ' ').toLowerCase()} documentary scene showing: ${line.slice(0, 90)}`;
+    const dur = weights[idx] * scale;
+    const start = cumSec;
+    const end = idx === targetScenes - 1 ? totalSec : cumSec + dur;
+    cumSec = end;
 
     return {
       sceneId: idx + 1,
@@ -289,9 +332,49 @@ export async function extractScenes(
       narrationLine: line,
       visualPrompt: vPrompt,
       fullPrompt: `${vPrompt}. ${stylePrompt}`,
+      shotType,
+      bRollFocus: shotType.replace('_', ' ').toLowerCase(),
       status: 'PENDING',
     };
   });
+}
+
+/** Helper to convert breakdown items into final SceneItems with scaled variable timestamps */
+function convertBreakdownToScenes(
+  breakdown: ScriptSceneBreakdown[],
+  totalSec: number,
+  stylePrompt: string,
+  onProgress?: (msg: string) => void
+): SceneItem[] {
+  const rawTotalSec = breakdown.reduce(
+    (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
+    0
+  );
+  const scale = rawTotalSec > 0 ? totalSec / rawTotalSec : 1;
+
+  let cumulativeSec = 0;
+  const items = breakdown.map((item: ScriptSceneBreakdown, idx: number): SceneItem => {
+    const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
+    const scaledDur = rawDur * scale;
+    const start = cumulativeSec;
+    const end = idx === breakdown.length - 1 ? totalSec : cumulativeSec + scaledDur;
+    cumulativeSec = end;
+
+    return {
+      sceneId: idx + 1,
+      audioStartSec: parseFloat(start.toFixed(1)),
+      audioEndSec: parseFloat(end.toFixed(1)),
+      narrationLine: item.narration,
+      visualPrompt: item.visual_prompt,
+      fullPrompt: `${item.visual_prompt}. ${stylePrompt}`,
+      shotType: item.shot_type,
+      bRollFocus: item.b_roll_focus,
+      status: 'PENDING',
+    };
+  });
+
+  onProgress?.(`${items.length} scenes extracted (${totalSec.toFixed(1)}s timeline).`);
+  return items;
 }
 
 // ─── 6. Image Generation (Pollinations AI) ──────────────────────────────────

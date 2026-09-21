@@ -27,6 +27,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  HardDrive,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import { getProject, saveProject } from '@/lib/store';

@@ -11,6 +11,7 @@ interface StoryboardGridProps {
   scenes: SceneItem[];
   onRegenerate: (scene: SceneItem, newPrompt?: string) => void;
   onUpload: (scene: SceneItem, file: File) => void;
+  onUpdateDuration?: (sceneId: number, deltaSec: number) => void;
   disabled?: boolean;
 }
 
@@ -24,6 +25,7 @@ export default function StoryboardGrid({
   scenes,
   onRegenerate,
   onUpload,
+  onUpdateDuration,
   disabled,
 }: StoryboardGridProps) {
   const [page, setPage] = useState(0);
@@ -135,6 +137,7 @@ export default function StoryboardGrid({
             scene={scene}
             onRegenerate={onRegenerate}
             onUpload={onUpload}
+            onUpdateDuration={onUpdateDuration}
             disabled={disabled}
           />
         ))}

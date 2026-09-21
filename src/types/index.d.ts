@@ -53,11 +53,17 @@ export interface ProjectManifest {
   scenes?: SceneItem[];
   /** Phase 2: the selected base style preset ID */
   baseStylePresetId?: string;
-  /** Phase 3: export configuration settings */
+  /** Phase 2: export configuration settings */
   exportSettings?: ExportSettings;
   /** Phase 3: relative path to the rendered final MP4 video */
   finalVideoPath?: string;
+  /** Scene cutting pace profile */
+  pacingProfile?: PacingProfile;
 }
+
+// ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────
+
+export type PacingProfile = 'fast' | 'balanced' | 'cinematic';
 
 // ─── Phase 3: Export Types ───────────────────────────────────────────────────
 

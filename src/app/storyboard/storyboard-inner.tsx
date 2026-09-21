@@ -213,12 +213,14 @@ export default function StoryboardInner() {
     setExtractError('');
 
     try {
+      const pacingProfile = proj.pacingProfile || 'balanced';
       const extracted = await extractScenes(
         apiKey,
         proj.rawScript,
         totalDurationMs,
         preset.stylePrompt,
-        (msg) => setExtractMsg(msg)
+        (msg) => setExtractMsg(msg),
+        pacingProfile
       );
       setScenes(extracted);
       await persistScenes(extracted);
@@ -243,7 +245,12 @@ export default function StoryboardInner() {
         ? proj.totalDurationMs / 1000
         : wordEstSec;
 
-    const currentDurations = scenes.map((s) => Math.max(1, s.audioEndSec - s.audioStartSec));
+    const currentDurations = scenes.map((s) => {
+      const lineWords = (s.narrationLine || '').split(/\s+/).filter(Boolean).length;
+      const naturalWeight = lineWords > 0 ? lineWords / 2.5 : 3.5;
+      const existingDur = Math.max(1.0, s.audioEndSec - s.audioStartSec);
+      return existingDur || naturalWeight;
+    });
     const totalCurr = currentDurations.reduce((a, b) => a + b, 0);
     const scale = totalCurr > 0 ? targetDurationSec / totalCurr : 1;
 
@@ -263,6 +270,34 @@ export default function StoryboardInner() {
     setScenes(resynced);
     await persistScenes(resynced);
     setExtractMsg(`Timeline synchronized: all ${scenes.length} scenes now span ${targetDurationSec.toFixed(1)}s.`);
+  }
+
+  // ─── Manual Adjust Scene Duration ─────────────────────────────────────────
+
+  async function handleUpdateSceneDuration(sceneId: number, deltaSec: number) {
+    if (scenes.length === 0) return;
+    const targetIdx = scenes.findIndex((s) => s.sceneId === sceneId);
+    if (targetIdx === -1) return;
+
+    const currentDur = Math.max(1.0, scenes[targetIdx].audioEndSec - scenes[targetIdx].audioStartSec);
+    const newDur = Math.max(1.0, Math.min(30.0, parseFloat((currentDur + deltaSec).toFixed(1))));
+    if (Math.abs(newDur - currentDur) < 0.05) return;
+
+    let cum = 0;
+    const updated = scenes.map((s, idx) => {
+      const sceneDur = idx === targetIdx ? newDur : Math.max(0.5, s.audioEndSec - s.audioStartSec);
+      const start = cum;
+      const end = parseFloat((cum + sceneDur).toFixed(1));
+      cum = end;
+      return {
+        ...s,
+        audioStartSec: parseFloat(start.toFixed(1)),
+        audioEndSec: end,
+      };
+    });
+
+    setScenes(updated);
+    await persistScenes(updated);
   }
 
   // ─── Step 3: Generate Motion Clips ───────────────────────────────────────
@@ -726,6 +761,7 @@ export default function StoryboardInner() {
               scenes={scenes}
               onRegenerate={handleRegenerate}
               onUpload={handleUpload}
+              onUpdateDuration={handleUpdateSceneDuration}
               disabled={isWorking}
             />
           </div>

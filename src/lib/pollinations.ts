@@ -1,7 +1,7 @@
 "use client";
 
 import OpenAI from "openai";
-import type { ShotType } from "@/types";
+import type { ShotType, PacingProfile } from "@/types";
 
 /**
  * Types & Interfaces
@@ -184,12 +184,16 @@ export function getPollinationsClient(apiKey?: string): OpenAI {
 
 /**
  * 2. breakdownScriptToScenes
- * Uses Pollinations text completion to break down long scripts into ~3.5s sequential visual scenes.
+ * Uses Pollinations text completion to break down scripts into dynamic sequential visual scenes (2.0s - 6.5s variable).
  */
 export async function breakdownScriptToScenes(
   script: string,
   client?: OpenAI,
-  targetDurationSec?: number
+  targetDurationSec?: number,
+  options?: {
+    pacingProfile?: PacingProfile;
+    stylePrompt?: string;
+  }
 ): Promise<ScriptSceneBreakdown[]> {
   if (!script || !script.trim()) {
     throw new Error("Cannot break down an empty script.");
@@ -206,13 +210,20 @@ export async function breakdownScriptToScenes(
     'WIDE_ESTABLISHING',
   ];
 
+  const pacing = options?.pacingProfile || 'balanced';
+  const paceConfig = {
+    fast: { avgSec: 2.8, minSec: 1.8, maxSec: 3.8, desc: 'Fast, punchy cutaways (1.8s - 3.8s)' },
+    balanced: { avgSec: 4.0, minSec: 2.2, maxSec: 5.5, desc: 'Dynamic natural pacing (2.2s - 5.5s)' },
+    cinematic: { avgSec: 5.5, minSec: 3.5, maxSec: 7.5, desc: 'Cinematic, atmospheric rhythm (3.5s - 7.5s)' },
+  }[pacing];
+
   const estimatedSceneCount = targetDurationSec && targetDurationSec > 0
-    ? Math.max(3, Math.min(30, Math.round(targetDurationSec / 4.5)))
+    ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
     : undefined;
 
   const durationGuidance = targetDurationSec && targetDurationSec > 0
-    ? `Target total narration audio duration is ~${Math.round(targetDurationSec)} seconds. Generate approximately ${estimatedSceneCount} sequential scenes so that visual scene transitions span the entire ${Math.round(targetDurationSec)}-second narration smoothly.`
-    : `Each scene represents roughly 3.5 to 5.0 seconds of narration.`;
+    ? `Target total narration audio duration is ~${Math.round(targetDurationSec)} seconds. Generate approximately ${estimatedSceneCount} sequential scenes with natural variable lengths (${paceConfig.desc}) so that visual scene transitions span the entire ${Math.round(targetDurationSec)}-second narration smoothly.`
+    : `Each scene represents roughly ${paceConfig.minSec} to ${paceConfig.maxSec} seconds of narration based on sentence length and shot emotion.`;
 
   const systemInstruction = `You are an elite documentary film director and visual auteur (in the league of BBC Earth, National Geographic, and IMAX).
 Your job is to parse a video narration script into a sequential list of cinematographically rich visual scenes.
@@ -230,12 +241,18 @@ Then, as an expert director, cut dynamically across scales and perspectives, int
 5. "ATMOSPHERIC_MOOD": Dramatic elemental weather and lighting transitions — shifting mirages, blizzards, rolling ocean fog, dust storms, sunbeams cutting through haze, twilight silhouettes, or native wildlife in the elements.
 6. "WIDE_ESTABLISHING": Majestic, expansive panoramic vista that anchors the viewer into the broader landscape and atmosphere.
 
-CRITICAL DIRECTING RULE: Never repeat the same shot_type twice in a row. Maintain an engaging, rhythmic visual montage.
+CRITICAL PACING & VARIABLE DURATION RULES:
+- Images must NEVER have uniform durations (e.g. all 4s). Durations MUST dynamically vary based on spoken syllables and shot style:
+  * Short punchy clauses, quick action, or MACRO_TEXTURE: ${paceConfig.minSec}s - ${(paceConfig.minSec + 1.2).toFixed(1)}s
+  * Medium narrative exposition or CULTURAL_HUMAN / HISTORICAL_HERITAGE: ${(paceConfig.avgSec - 0.5).toFixed(1)}s - ${(paceConfig.avgSec + 0.8).toFixed(1)}s
+  * Wide panoramic vistas, AERIAL_GEOMETRY, or ATMOSPHERIC_MOOD: ${(paceConfig.avgSec + 0.8).toFixed(1)}s - ${paceConfig.maxSec}s
+- Rule: Estimate durationSec based on the spoken length of narration (approx 2.3 - 2.8 words per second) plus pause weight.
+- Never repeat the same shot_type twice in a row. Maintain an engaging, rhythmic visual montage.
 
 For every scene, output:
 - narration: The exact segment of script words read aloud during this scene.
 - visual_prompt: A studio-grade, exceptionally detailed prompt for an AI image generator (Flux/SDXL). Describe camera framing (e.g. 90-degree bird's-eye drone shot, extreme tactile macro close-up, intimate medium close-up, low-angle telephoto), subject action/elements, rich atmospheric lighting, and environment textures (photorealistic 8k, masterwork, 35mm film look).
-- durationSec: Estimated duration in seconds for reading this scene's narration segment.
+- durationSec: Estimated duration in seconds (between ${paceConfig.minSec} and ${paceConfig.maxSec}).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
 - b_roll_focus: A concise 3-7 word description of the specific visual motif featured (e.g., "Wind-rippled sand dune geometry", "Bedouin tea ceremony by fire", "Extreme macro sea salt crystals").
 
@@ -276,17 +293,31 @@ Do not include any explanation, intro text, or conversational markdown outside t
           : typeof item.visualPrompt === "string"
             ? item.visualPrompt.trim()
             : `Cinematic frame representing scene ${index + 1}`;
-      const durationSec =
-        typeof item.durationSec === "number"
-          ? item.durationSec
-          : typeof item.duration_sec === "number"
-            ? item.duration_sec
-            : 3.5;
 
       const rawShotType = (typeof item.shot_type === "string" ? item.shot_type : typeof item.shotType === "string" ? item.shotType : "") as ShotType;
       const shot_type: ShotType = VALID_SHOT_TYPES.includes(rawShotType)
         ? rawShotType
         : VALID_SHOT_TYPES[index % VALID_SHOT_TYPES.length];
+
+      // Calculate realistic variable duration based on spoken words if LLM gave uniform or invalid duration
+      const wordCount = narration.split(/\s+/).filter(Boolean).length;
+      const naturalDur = wordCount > 0
+        ? Math.max(paceConfig.minSec, Math.min(paceConfig.maxSec, parseFloat((wordCount / 2.5).toFixed(1))))
+        : paceConfig.avgSec;
+
+      let durationSec =
+        typeof item.durationSec === "number" && item.durationSec >= 1.0
+          ? Math.max(1.5, Math.min(10.0, item.durationSec))
+          : typeof item.duration_sec === "number" && item.duration_sec >= 1.0
+            ? Math.max(1.5, Math.min(10.0, item.duration_sec))
+            : naturalDur;
+
+      // Adjust slightly by shot type pacing
+      if (shot_type === 'MACRO_TEXTURE') {
+        durationSec = Math.max(paceConfig.minSec, parseFloat((durationSec * 0.85).toFixed(1)));
+      } else if (shot_type === 'WIDE_ESTABLISHING' || shot_type === 'ATMOSPHERIC_MOOD') {
+        durationSec = Math.min(paceConfig.maxSec, parseFloat((durationSec * 1.15).toFixed(1)));
+      }
 
       const b_roll_focus =
         typeof item.b_roll_focus === "string" && item.b_roll_focus.trim()
@@ -304,19 +335,29 @@ Do not include any explanation, intro text, or conversational markdown outside t
       };
     });
   } catch (error) {
-    console.warn("Pollinations scene breakdown error, using fallback rotation:", error);
+    console.warn("Pollinations scene breakdown error, using dynamic sentence partition:", error);
     const sentences = script.split(/(?<=[.!?\n])\s+/).filter((s) => s.trim().length > 0);
-    const sceneCount = Math.max(1, Math.min(30, Math.ceil(sentences.length / 2)));
+    const targetCount = targetDurationSec && targetDurationSec > 0
+      ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
+      : Math.max(1, Math.ceil(sentences.length / 2));
+    const sceneCount = Math.max(1, Math.min(sentences.length, targetCount));
     const chunkSize = Math.max(1, Math.ceil(sentences.length / sceneCount));
 
     return Array.from({ length: sceneCount }, (_, idx) => {
       const slice = sentences.slice(idx * chunkSize, (idx + 1) * chunkSize);
       const narration = slice.join(" ") || `Scene ${idx + 1}`;
       const shot_type = VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
+      const words = narration.split(/\s+/).filter(Boolean).length;
+      const shotFactor = shot_type === 'MACRO_TEXTURE' ? 0.85 : shot_type === 'WIDE_ESTABLISHING' ? 1.25 : 1.0;
+      const dur = Math.max(
+        paceConfig.minSec,
+        Math.min(paceConfig.maxSec, parseFloat(((Math.max(4, words) / 2.5) * shotFactor).toFixed(1)))
+      );
+
       return {
         narration,
         visual_prompt: `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} shot, ultra detailed 8k, dramatic lighting, camera depth: ${narration.slice(0, 120)}`,
-        durationSec: 3.5,
+        durationSec: dur,
         shot_type,
         b_roll_focus: shot_type.replace('_', ' ').toLowerCase(),
       };
@@ -557,9 +598,41 @@ export async function generateSceneImage(
 }
 
 /**
+ * Splits long script text into natural semantic chunks (~120–160 words each),
+ * respecting paragraph and sentence boundaries.
+ */
+export function splitIntoPacingChunks(text: string, targetWords = 140): string[] {
+  const paragraphs = text.split(/\n\s*\n/).filter(Boolean);
+  const chunks: string[] = [];
+  let currentChunk: string[] = [];
+  let currentWords = 0;
+
+  for (const para of paragraphs) {
+    const sentences = para.split(/(?<=[.!?])\s+/).filter(Boolean);
+    for (const sentence of sentences) {
+      const words = sentence.split(/\s+/).filter(Boolean).length;
+      if (currentWords + words > targetWords && currentChunk.length > 0) {
+        chunks.push(currentChunk.join(' '));
+        currentChunk = [];
+        currentWords = 0;
+      }
+      currentChunk.push(sentence);
+      currentWords += words;
+    }
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk.join(' '));
+  }
+
+  return chunks.length > 0 ? chunks : [text.trim()];
+}
+
+/**
  * 5. breakdownRequirementToImageScenes
  * Takes user creative requirements or story prompt and breaks them down into
  * sequential visual scenes ready for image generation, without requiring voice generation.
+ * Supports auto-batching for long scripts (e.g. 23+ minutes).
  */
 export async function breakdownRequirementToImageScenes(
   requirement: string,
@@ -568,27 +641,87 @@ export async function breakdownRequirementToImageScenes(
     targetDurationSec?: number;
     stylePrompt?: string;
     apiKey?: string;
+    pacingProfile?: PacingProfile;
+    onProgress?: (msg: string) => void;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   if (!requirement || !requirement.trim()) {
     throw new Error("Requirement cannot be empty.");
   }
 
+  const words = requirement.trim().split(/\s+/).filter(Boolean).length;
+  const isLongScript = !options?.sceneCount && (words > 180 || (options?.targetDurationSec && options.targetDurationSec > 90));
+
+  // Multi-chunk batching for long scripts to prevent token truncation & enforce rich scene count
+  if (isLongScript) {
+    const batches = splitIntoPacingChunks(requirement, 140);
+    options?.onProgress?.(`Divided into ${batches.length} sequential story batches for high-density visual extraction…`);
+
+    const totalTargetSec = options?.targetDurationSec || Math.max(15, Math.round((words / 135) * 60));
+    const allScenes: ScriptSceneBreakdown[] = [];
+
+    for (let i = 0; i < batches.length; i++) {
+      const batchText = batches[i];
+      const batchWords = batchText.split(/\s+/).filter(Boolean).length;
+      const batchDurationSec = totalTargetSec > 0 ? (batchWords / words) * totalTargetSec : undefined;
+
+      options?.onProgress?.(
+        `Extracting scenes: Batch ${i + 1} of ${batches.length} (${allScenes.length} scenes created so far)…`
+      );
+
+      try {
+        const batchScenes = await breakdownRequirementToImageScenesSingle(batchText, {
+          ...options,
+          targetDurationSec: batchDurationSec,
+        });
+        allScenes.push(...batchScenes);
+      } catch (err) {
+        console.warn(`Batch ${i + 1} extraction error, falling back to local partition:`, err);
+        const fallbackBatch = await breakdownRequirementToImageScenesSingle(batchText, {
+          ...options,
+          targetDurationSec: batchDurationSec,
+        });
+        allScenes.push(...fallbackBatch);
+      }
+    }
+
+    options?.onProgress?.(`Successfully generated ${allScenes.length} diverse scenes across ${batches.length} batches.`);
+    return allScenes;
+  }
+
+  return breakdownRequirementToImageScenesSingle(requirement, options);
+}
+
+/** Single-batch scene breakdown */
+async function breakdownRequirementToImageScenesSingle(
+  requirement: string,
+  options?: {
+    sceneCount?: number;
+    targetDurationSec?: number;
+    stylePrompt?: string;
+    apiKey?: string;
+    pacingProfile?: PacingProfile;
+  }
+): Promise<ScriptSceneBreakdown[]> {
   const aiClient = getPollinationsClient(options?.apiKey);
   const targetDurationSec = options?.targetDurationSec;
+
+  const pacing = options?.pacingProfile || 'balanced';
+  const paceConfig = {
+    fast: { avgSec: 2.8, minSec: 1.8, maxSec: 3.8, desc: 'Fast, punchy cutaways (1.8s - 3.8s)' },
+    balanced: { avgSec: 4.0, minSec: 2.2, maxSec: 5.5, desc: 'Dynamic natural pacing (2.2s - 5.5s)' },
+    cinematic: { avgSec: 5.5, minSec: 3.5, maxSec: 7.5, desc: 'Cinematic, atmospheric rhythm (3.5s - 7.5s)' },
+  }[pacing];
+
   const estimatedScenes = targetDurationSec && targetDurationSec > 0
-    ? Math.max(3, Math.min(30, Math.round(targetDurationSec / 4.5)))
+    ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
     : undefined;
 
   const countInstruction = typeof options?.sceneCount === "number" && options.sceneCount > 0
     ? `Create exactly ${options.sceneCount} distinct, sequential cinematic visual scenes.`
     : targetDurationSec && targetDurationSec > 0
-      ? `Generate approximately ${estimatedScenes} sequential scenes so that the visual timeline covers ~${Math.round(targetDurationSec)} seconds smoothly.`
+      ? `Generate approximately ${estimatedScenes} sequential scenes with dynamic variable lengths (${paceConfig.desc}) so that the visual timeline covers ~${Math.round(targetDurationSec)} seconds smoothly.`
       : `Determine the natural number of sequential cinematic visual scenes based directly on the story progression, key moments, and narrative beats of the content.`;
-
-  const perSceneEstimate = targetDurationSec && targetDurationSec > 0 && estimatedScenes
-    ? (targetDurationSec / estimatedScenes).toFixed(1)
-    : "4.5";
 
   const VALID_SHOT_TYPES: ShotType[] = [
     'AERIAL_GEOMETRY',
@@ -616,12 +749,17 @@ Then, as an elite visual director, interleave 6 universal B-roll lenses tailored
 5. "ATMOSPHERIC_MOOD": Dramatic elemental weather and lighting transitions — shifting mirages, blizzards, rolling ocean fog, dust storms, sunbeams cutting through haze, twilight silhouettes, or native wildlife in the elements.
 6. "WIDE_ESTABLISHING": Majestic panoramic establishing shots that orient the viewer to the broader landscape.
 
-Never use the same shot_type consecutively. Maintain visual rhythm.
+CRITICAL PACING & VARIABLE DURATION RULES:
+- Durations must NEVER be uniform! They must vary dynamically:
+  * Short action, punchy lines, or MACRO_TEXTURE: ${paceConfig.minSec}s - ${(paceConfig.minSec + 1.2).toFixed(1)}s
+  * Medium action or CULTURAL_HUMAN / HISTORICAL_HERITAGE: ${(paceConfig.avgSec - 0.5).toFixed(1)}s - ${(paceConfig.avgSec + 0.8).toFixed(1)}s
+  * Panoramic scenery, AERIAL_GEOMETRY, or ATMOSPHERIC_MOOD: ${(paceConfig.avgSec + 0.8).toFixed(1)}s - ${paceConfig.maxSec}s
+- Never use the same shot_type consecutively. Maintain visual rhythm.
 
 For every scene, output:
 - narration: A brief narrative or caption line (1-2 sentences) summarizing what happens in this scene.
 - visual_prompt: A studio-grade, exceptionally detailed visual prompt for an AI image generator (Flux). Specifically describe subject pose/action, composition, atmospheric lighting, and rich textures${options?.stylePrompt ? ` aligned with the target visual style: "${options.stylePrompt.slice(0, 150)}..."` : ' (photorealistic 8k, masterwork, 35mm lens, sharp focus)'}.
-- durationSec: Estimated duration in seconds (around ${perSceneEstimate} seconds).
+- durationSec: Estimated duration in seconds (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
 - b_roll_focus: A concise 3-7 word description of the specific B-roll focal motif.
 
@@ -661,12 +799,29 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
           : typeof item.visualPrompt === "string"
             ? item.visualPrompt.trim()
             : `Cinematic frame for ${requirement.slice(0, 60)}`;
-      const durationSec = typeof item.durationSec === "number" ? item.durationSec : 3.5;
 
       const rawShotType = (typeof item.shot_type === "string" ? item.shot_type : typeof item.shotType === "string" ? item.shotType : "") as ShotType;
       const shot_type: ShotType = VALID_SHOT_TYPES.includes(rawShotType)
         ? rawShotType
         : VALID_SHOT_TYPES[index % VALID_SHOT_TYPES.length];
+
+      const wordCount = narration.split(/\s+/).filter(Boolean).length;
+      const naturalDur = wordCount > 0
+        ? Math.max(paceConfig.minSec, Math.min(paceConfig.maxSec, parseFloat((wordCount / 2.5).toFixed(1))))
+        : paceConfig.avgSec;
+
+      let durationSec =
+        typeof item.durationSec === "number" && item.durationSec >= 1.0
+          ? Math.max(1.5, Math.min(10.0, item.durationSec))
+          : typeof item.duration_sec === "number" && item.duration_sec >= 1.0
+            ? Math.max(1.5, Math.min(10.0, item.duration_sec))
+            : naturalDur;
+
+      if (shot_type === 'MACRO_TEXTURE') {
+        durationSec = Math.max(paceConfig.minSec, parseFloat((durationSec * 0.85).toFixed(1)));
+      } else if (shot_type === 'WIDE_ESTABLISHING' || shot_type === 'ATMOSPHERIC_MOOD') {
+        durationSec = Math.min(paceConfig.maxSec, parseFloat((durationSec * 1.15).toFixed(1)));
+      }
 
       const b_roll_focus =
         typeof item.b_roll_focus === "string" && item.b_roll_focus.trim()
@@ -683,21 +838,29 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
         b_roll_focus,
       };
     });
-  } catch (error) {
-
+  } catch {
     const lines = requirement.split(/(?<=[.!?\n])\s+/).filter((l) => l.trim().length > 3);
     const count = typeof options?.sceneCount === "number" && options.sceneCount > 0
       ? options.sceneCount
-      : Math.max(1, Math.min(25, Math.ceil(lines.length / 2)));
+      : targetDurationSec && targetDurationSec > 0
+        ? Math.max(1, Math.min(lines.length, Math.round(targetDurationSec / paceConfig.avgSec)))
+        : Math.max(1, Math.min(25, Math.ceil(lines.length / 2)));
     const chunkSize = Math.max(1, Math.ceil(lines.length / count));
 
     return Array.from({ length: count }, (_, idx) => {
       const chunkText = lines.slice(idx * chunkSize, (idx + 1) * chunkSize).join(' ') || lines[idx] || `Visual Scene ${idx + 1}`;
       const shot_type = VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
+      const words = chunkText.split(/\s+/).filter(Boolean).length;
+      const shotFactor = shot_type === 'MACRO_TEXTURE' ? 0.85 : shot_type === 'WIDE_ESTABLISHING' ? 1.25 : 1.0;
+      const dur = Math.max(
+        paceConfig.minSec,
+        Math.min(paceConfig.maxSec, parseFloat(((Math.max(4, words) / 2.5) * shotFactor).toFixed(1)))
+      );
+
       return {
         narration: chunkText,
         visual_prompt: `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} movie still, photorealistic 8k, dramatic lighting: ${chunkText}`,
-        durationSec: 3.5,
+        durationSec: dur,
         shot_type,
         b_roll_focus: shot_type.replace('_', ' ').toLowerCase(),
       };

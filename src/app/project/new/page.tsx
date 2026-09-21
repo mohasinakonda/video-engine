@@ -16,6 +16,7 @@ import {
   RotateCcw,
   FileText,
   Images,
+  Gauge,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import ScriptInput from '@/components/script-input';
@@ -25,7 +26,7 @@ import { chunkScript } from '@/lib/gemini';
 import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import { AudioQueue } from '@/lib/queue';
 import { getMediaBlobUrl } from '@/lib/media-storage';
-import type { AudioChunk, VoicePreset, ProjectManifest, SceneItem } from '@/types';
+import type { AudioChunk, VoicePreset, ProjectManifest, SceneItem, PacingProfile } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ function ProjectPageInner() {
 
   const [generating, setGenerating] = useState(false);
   const [noPresets, setNoPresets] = useState(false);
+  const [pacingProfile, setPacingProfile] = useState<PacingProfile>('balanced');
 
   // Generate Only Images state
   const [generatingOnlyImages, setGeneratingOnlyImages] = useState(false);
@@ -89,6 +91,7 @@ function ProjectPageInner() {
         setProjectTitle(existing.title);
         setScript(existing.rawScript);
         setSelectedPresetId(existing.voicePresetId ?? defaultPreset?.id ?? '');
+        if (existing.pacingProfile) setPacingProfile(existing.pacingProfile);
 
         // Restore audio blob URLs from IndexedDB so playback & export always work
         const restoredChunks = await Promise.all(
@@ -126,13 +129,14 @@ function ProjectPageInner() {
         title: projectTitle,
         rawScript: script,
         voicePresetId: selectedPresetId,
+        pacingProfile,
         audioChunks: updatedChunks.map(({ audioUrl: _audioUrl, ...c }) => c), // don't persist blob URLs
         totalDurationMs,
         updatedAt: Date.now(),
       };
       await saveProject(manifest);
     },
-    [projectId, projectTitle, script, selectedPresetId]
+    [projectId, projectTitle, script, selectedPresetId, pacingProfile]
   );
 
   // ─── Step 1: Split Script ────────────────────────────────────────────────────
@@ -197,6 +201,8 @@ function ProjectPageInner() {
         targetDurationSec,
         stylePrompt: stylePreset.stylePrompt,
         apiKey,
+        pacingProfile,
+        onProgress: (msg) => setGeneratingOnlyImagesMsg(msg),
       });
 
       // Proportionally scale scenes to cover targetDurationSec perfectly
@@ -232,6 +238,7 @@ function ProjectPageInner() {
         title: projectTitle || 'Image Storyboard',
         rawScript: script,
         voicePresetId: selectedPresetId,
+        pacingProfile,
         audioChunks: chunks.length > 0 ? chunks.map(({ audioUrl: _audioUrl, ...c }) => c) : [],
         totalDurationMs: Math.round(targetDurationSec * 1000),
         scenes: newScenes,
@@ -472,6 +479,61 @@ function ProjectPageInner() {
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Visual Scene Pacing Selector */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Gauge size={13} className="text-slate-400" />
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                      Scene Pacing
+                    </label>
+                  </div>
+                  <span className="text-[10px] font-mono text-purple-400 font-semibold bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-800/40">
+                    {pacingProfile === 'fast' ? '~2.5s cuts' : pacingProfile === 'balanced' ? '~4.0s dynamic' : '~5.5s cinematic'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-bg-base/70 border border-bg-border">
+                  <button
+                    type="button"
+                    onClick={() => setPacingProfile('fast')}
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-all ${
+                      pacingProfile === 'fast'
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Fast (2–3s)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPacingProfile('balanced')}
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-all ${
+                      pacingProfile === 'balanced'
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Balanced
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPacingProfile('cinematic')}
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-all ${
+                      pacingProfile === 'cinematic'
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Cinematic
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1.5 leading-tight">
+                  {pacingProfile === 'fast' && 'Short, punchy cuts (~2–3s) tailored for social reels, shorts, and fast montage.'}
+                  {pacingProfile === 'balanced' && 'Dynamic documentary rhythm: cuts vary naturally from 2s (macro/action) to 5.5s (wide vistas).'}
+                  {pacingProfile === 'cinematic' && 'Slow, expansive atmospheric pacing with longer establishing and environmental shots.'}
+                </p>
               </div>
             </div>
 
