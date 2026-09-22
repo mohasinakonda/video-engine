@@ -243,9 +243,9 @@ export async function extractScenes(
 
   const client = getPollinationsClient(apiKey);
 
-  // Multi-chunk batching for long scripts (e.g. 23 min scripts or multi-paragraph narrations)
-  if (words > 85 || totalSec > 40) {
-    const batches = splitIntoPacingChunks(script, 75);
+  // Multi-chunk batching for long scripts (e.g. 23 min scripts)
+  if (words > 180 || totalSec > 90) {
+    const batches = splitIntoPacingChunks(script, 140);
     onProgress?.(`Divided into ${batches.length} story batches for detailed visual extraction…`);
 
     const allBreakdown: ScriptSceneBreakdown[] = [];
@@ -263,7 +263,6 @@ export async function extractScenes(
         const batchScenes = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
           pacingProfile,
           stylePrompt,
-          apiKey,
         });
         allBreakdown.push(...batchScenes);
       } catch (err) {
@@ -271,7 +270,6 @@ export async function extractScenes(
         const fallbackBatch = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
           pacingProfile,
           stylePrompt,
-          apiKey,
         });
         allBreakdown.push(...fallbackBatch);
       }
@@ -286,7 +284,6 @@ export async function extractScenes(
     const breakdown = await breakdownScriptToScenes(script, client, totalSec, {
       pacingProfile,
       stylePrompt,
-      apiKey,
     });
 
     if (breakdown.length > 0) {

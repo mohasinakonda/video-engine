@@ -11,23 +11,27 @@ const config: Config = {
     extend: {
       colors: {
         bg: {
-          base: '#07071a',
-          surface: '#0f0f24',
-          elevated: '#161630',
-          border: '#1e1e40',
+          base: '#09090b',
+          surface: '#121215',
+          elevated: '#18181b',
+          border: '#27272a',
+          'border-subtle': '#1f1f23',
         },
         accent: {
-          purple: '#7c3aed',
-          'purple-light': '#a855f7',
-          'purple-glow': 'rgba(124,58,237,0.25)',
-          cyan: '#06b6d4',
-          'cyan-glow': 'rgba(6,182,212,0.2)',
+          primary: '#ffffff',
+          'primary-hover': '#e4e4e7',
+          muted: '#27272a',
+          purple: '#ffffff',
+          'purple-light': '#e4e4e7',
+          'purple-glow': 'transparent',
+          cyan: '#a1a1aa',
+          'cyan-glow': 'transparent',
         },
         status: {
           success: '#10b981',
           error: '#ef4444',
           warning: '#f59e0b',
-          info: '#3b82f6',
+          info: '#a1a1aa',
         },
       },
       fontFamily: {
@@ -35,10 +39,9 @@ const config: Config = {
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-in-out',
-        'slide-up': 'slideUp 0.4s ease-out',
-        'slide-in-right': 'slideInRight 0.3s ease-out',
-        'glow-pulse': 'glowPulse 2s ease-in-out infinite',
+        'fade-in': 'fadeIn 0.2s ease-in-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+        'slide-in-right': 'slideInRight 0.25s ease-out',
         'spin-slow': 'spin 3s linear infinite',
       },
       keyframes: {
@@ -47,22 +50,17 @@ const config: Config = {
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         slideInRight: {
-          '0%': { opacity: '0', transform: 'translateX(12px)' },
+          '0%': { opacity: '0', transform: 'translateX(8px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
-        },
-        glowPulse: {
-          '0%, 100%': { boxShadow: '0 0 8px rgba(124,58,237,0.3)' },
-          '50%': { boxShadow: '0 0 20px rgba(124,58,237,0.6)' },
         },
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'purple-glow': 'radial-gradient(ellipse at top, rgba(124,58,237,0.15) 0%, transparent 60%)',
       },
     },
   },

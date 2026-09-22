@@ -503,8 +503,8 @@ function ProjectPageInner() {
             {noPresets && (
               <button
                 onClick={() => router.push('/voice-studio')}
-                className="flex items-center gap-1.5 text-xs text-purple-400 px-3 py-1.5 rounded-lg
-                           bg-purple-950/40 border border-purple-800/40 hover:bg-purple-900/40 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-zinc-300 px-3 py-1.5 rounded-lg
+                           bg-zinc-800 border border-zinc-700 hover:bg-zinc-750 transition-colors"
               >
                 <Mic2 size={12} />
                 Create Voice Preset
@@ -601,7 +601,7 @@ function ProjectPageInner() {
                     )}
                     <button
                       onClick={() => router.push('/voice-studio')}
-                      className="flex items-center gap-1 text-accent-purple-light/70 hover:text-accent-purple-light transition-colors pt-1"
+                      className="flex items-center gap-1 text-zinc-400 hover:text-white transition-colors pt-1"
                     >
                       <Settings size={10} />
                       Edit presets
@@ -619,18 +619,18 @@ function ProjectPageInner() {
                       Scene Pacing
                     </label>
                   </div>
-                  <span className="text-[10px] font-mono text-purple-400 font-semibold bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-800/40">
+                  <span className="text-[10px] font-mono text-zinc-300 font-semibold bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
                     {pacingProfile === 'fast' ? '~2.5s cuts' : pacingProfile === 'balanced' ? '~4.0s dynamic' : '~5.5s cinematic'}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-bg-base/70 border border-bg-border">
+                <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-zinc-900/90 border border-zinc-800">
                   <button
                     type="button"
                     onClick={() => setPacingProfile('fast')}
-                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-all ${
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${
                       pacingProfile === 'fast'
-                        ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 font-semibold'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                        : 'text-zinc-400 hover:text-white'
                     }`}
                   >
                     Fast (2–3s)
@@ -638,10 +638,10 @@ function ProjectPageInner() {
                   <button
                     type="button"
                     onClick={() => setPacingProfile('balanced')}
-                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-all ${
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${
                       pacingProfile === 'balanced'
-                        ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 font-semibold'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                        : 'text-zinc-400 hover:text-white'
                     }`}
                   >
                     Balanced
@@ -649,10 +649,10 @@ function ProjectPageInner() {
                   <button
                     type="button"
                     onClick={() => setPacingProfile('cinematic')}
-                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-all ${
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${
                       pacingProfile === 'cinematic'
-                        ? 'bg-purple-600 text-white shadow-md shadow-purple-900/40 font-semibold'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                        : 'text-zinc-400 hover:text-white'
                     }`}
                   >
                     Cinematic
@@ -686,11 +686,11 @@ function ProjectPageInner() {
                   {/* Generate Only Images Option */}
                   <div className="pt-3 border-t border-bg-border/60">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                        <Images size={13} className="text-purple-400" />
+                      <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+                        <Images size={13} className="text-zinc-300" />
                         Images-Only Mode
                       </span>
-                      <span className="text-[10px] text-purple-400/80 bg-purple-950/60 border border-purple-800/40 px-1.5 py-0.5 rounded font-mono">
+                      <span className="text-[10px] text-zinc-400 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded font-mono">
                         Pollinations AI
                       </span>
                     </div>
@@ -701,7 +701,7 @@ function ProjectPageInner() {
                       type="button"
                       onClick={handleGenerateOnlyImages}
                       disabled={generatingOnlyImages || splitting || !script.trim()}
-                      className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:via-indigo-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20 transition-all active:scale-[0.98]"
+                      className="w-full py-2.5 px-3 rounded-lg text-xs font-medium text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm transition-colors active:scale-[0.98]"
                     >
                       {generatingOnlyImages && !customAudioFile ? (
                         <>
@@ -767,7 +767,7 @@ function ProjectPageInner() {
                           type="button"
                           onClick={handleCreateWithCustomVoice}
                           disabled={generatingOnlyImages || splitting || !script.trim()}
-                          className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all active:scale-[0.98]"
+                          className="w-full py-2.5 px-3 rounded-lg text-xs font-medium text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm transition-colors active:scale-[0.98]"
                         >
                           {generatingOnlyImages && customAudioFile ? (
                             <>
@@ -893,7 +893,7 @@ export default function ProjectPage() {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
-        <Loader2 size={24} className="animate-spin text-accent-purple" />
+        <Loader2 size={24} className="animate-spin text-zinc-400" />
       </div>
     }>
       <ProjectPageInner />

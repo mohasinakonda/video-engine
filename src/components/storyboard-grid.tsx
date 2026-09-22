@@ -102,13 +102,13 @@ export default function StoryboardGrid({
 
         {/* Image progress bar */}
         <div>
-          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+          <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
             <span>Images</span>
             <span>{stats.imagePercent}%</span>
           </div>
-          <div className="h-1.5 bg-bg-border rounded-full overflow-hidden">
+          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all duration-500"
+              className="h-full bg-white rounded-full transition-all duration-300"
               style={{ width: `${stats.imagePercent}%` }}
             />
           </div>
@@ -116,13 +116,13 @@ export default function StoryboardGrid({
 
         {/* Motion progress bar */}
         <div>
-          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
+          <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
             <span>Motion Clips</span>
             <span>{stats.motionPercent}%</span>
           </div>
-          <div className="h-1.5 bg-bg-border rounded-full overflow-hidden">
+          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-cyan-700 to-cyan-400 rounded-full transition-all duration-500"
+              className="h-full bg-zinc-400 rounded-full transition-all duration-300"
               style={{ width: `${stats.motionPercent}%` }}
             />
           </div>

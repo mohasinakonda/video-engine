@@ -98,11 +98,11 @@ export default function DashboardPage() {
           ) : projects.length === 0 ? (
             /* Empty State */
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] animate-fade-in">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent-purple/20 to-accent-cyan/10 border border-accent-purple/20 flex items-center justify-center mb-6">
-                <Sparkles size={36} className="text-accent-purple-light" />
+              <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6 shadow-sm">
+                <Sparkles size={28} className="text-zinc-300" />
               </div>
               <h2 className="text-xl font-semibold text-white mb-2">No Projects Yet</h2>
-              <p className="text-slate-500 text-sm text-center max-w-sm mb-6">
+              <p className="text-zinc-400 text-sm text-center max-w-sm mb-6">
                 Create your first project to start converting long-form scripts into professional video.
               </p>
               <Link href="/project/new" className="btn-primary">
@@ -137,50 +137,50 @@ export default function DashboardPage() {
                           : `/project/new?id=${project.projectId}`
                       )
                     }
-                    className="card hover:border-accent-purple/30 hover:bg-bg-elevated cursor-pointer
-                               transition-all duration-200 group animate-slide-up"
+                    className="card hover:border-zinc-700 hover:bg-zinc-850 cursor-pointer
+                               transition-colors duration-150 group animate-slide-up"
                     style={{ animationDelay: `${idx * 60}ms` }}
                   >
                     <div className="flex items-center gap-4">
                       {/* Icon */}
-                      <div className="w-10 h-10 rounded-lg bg-accent-purple/15 border border-accent-purple/20 flex items-center justify-center flex-shrink-0">
-                        <Mic2 size={18} className="text-accent-purple-light" />
+                      <div className="w-10 h-10 rounded-lg bg-zinc-800 border border-zinc-700/80 flex items-center justify-center flex-shrink-0">
+                        <Mic2 size={18} className="text-zinc-300" />
                       </div>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-semibold text-white text-sm truncate group-hover:text-accent-purple-light transition-colors">
+                          <h3 className="font-semibold text-white text-sm truncate group-hover:text-zinc-200 transition-colors">
                             {project.title}
                           </h3>
                           {total > 0 && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                            <span className={`text-xs px-2.5 py-0.5 rounded-md border font-medium ${
                               audioProgress === 100
-                                ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/50'
+                                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/50'
                                 : audioProgress > 0
-                                ? 'bg-blue-950/60 text-blue-400 border-blue-800/50'
-                                : 'bg-slate-800 text-slate-400 border-slate-700'
+                                ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-800'
                             }`}>
                               {audioProgress === 100 ? '✓ Audio' : audioProgress > 0 ? 'Audio…' : 'Not Started'}
                             </span>
                           )}
                           {hasStoryboard && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                            <span className={`text-xs px-2.5 py-0.5 rounded-md border font-medium ${
                               sceneProgress === 100
-                                ? 'bg-cyan-950/60 text-cyan-400 border-cyan-800/50'
-                                : 'bg-violet-950/60 text-violet-400 border-violet-800/50'
+                                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-900/50'
+                                : 'bg-zinc-800 text-zinc-200 border-zinc-700'
                             }`}>
                               {sceneProgress === 100 ? '✓ Scenes' : `Scenes ${sceneProgress}%`}
                             </span>
                           )}
                           {project.finalVideoPath && (
-                            <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-950/60 text-amber-300 border-amber-800/50">
+                            <span className="text-xs px-2.5 py-0.5 rounded-md border bg-zinc-800 text-zinc-200 border-zinc-700 font-medium">
                               ✓ MP4 Ready
                             </span>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
+                        <div className="flex items-center gap-4 text-xs text-zinc-400 flex-wrap">
                           <span className="flex items-center gap-1">
                             <FolderOpen size={11} />
                             {total} chunk{total !== 1 ? 's' : ''}
@@ -192,13 +192,13 @@ export default function DashboardPage() {
                             </span>
                           )}
                           {hasStoryboard && (
-                            <span className="flex items-center gap-1 text-violet-400">
+                            <span className="flex items-center gap-1 text-zinc-400">
                               <Images size={11} />
                               {imagesReady}/{totalScenes} images
                             </span>
                           )}
                           {motionReady > 0 && (
-                            <span className="flex items-center gap-1 text-cyan-400">
+                            <span className="flex items-center gap-1 text-zinc-400">
                               <Video size={11} />
                               {motionReady} clips
                             </span>
@@ -211,9 +211,9 @@ export default function DashboardPage() {
 
                         {/* Audio progress bar */}
                         {total > 0 && (
-                          <div className="mt-2 h-1 bg-bg-border rounded-full overflow-hidden w-full max-w-xs">
+                          <div className="mt-2 h-1 bg-zinc-800 rounded-full overflow-hidden w-full max-w-xs">
                             <div
-                              className="h-full bg-gradient-to-r from-accent-purple to-accent-purple-light rounded-full transition-all duration-500"
+                              className="h-full bg-white rounded-full transition-all duration-300"
                               style={{ width: `${audioProgress}%` }}
                             />
                           </div>
@@ -221,9 +221,9 @@ export default function DashboardPage() {
 
                         {/* Scene progress bar */}
                         {hasStoryboard && (
-                          <div className="mt-1 h-1 bg-bg-border rounded-full overflow-hidden w-full max-w-xs">
+                          <div className="mt-1 h-1 bg-zinc-800 rounded-full overflow-hidden w-full max-w-xs">
                             <div
-                              className="h-full bg-gradient-to-r from-violet-700 to-cyan-500 rounded-full transition-all duration-500"
+                              className="h-full bg-zinc-400 rounded-full transition-all duration-300"
                               style={{ width: `${sceneProgress}%` }}
                             />
                           </div>
@@ -240,10 +240,9 @@ export default function DashboardPage() {
                               router.push(`/storyboard?id=${project.projectId}`);
                             }}
                             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
-                                       bg-gradient-to-r from-violet-900/60 to-cyan-900/40
-                                       border border-violet-700/40 text-violet-300
-                                       hover:border-cyan-600/60 hover:text-cyan-300
-                                       transition-all duration-200"
+                                       bg-zinc-800/90 border border-zinc-700 text-zinc-200
+                                       hover:bg-zinc-700 hover:text-white
+                                       transition-colors duration-150"
                             title="Open Storyboard (Phase 2)"
                           >
                             <Film size={12} />
@@ -259,10 +258,9 @@ export default function DashboardPage() {
                               router.push(`/export?id=${project.projectId}`);
                             }}
                             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg
-                                       bg-gradient-to-r from-amber-900/60 to-accent-purple/40
-                                       border border-amber-700/40 text-amber-300
-                                       hover:border-amber-500/60 hover:text-white
-                                       transition-all duration-200"
+                                       bg-zinc-800/90 border border-zinc-700 text-zinc-200
+                                       hover:bg-zinc-700 hover:text-white
+                                       transition-colors duration-150"
                             title="Final Export (Phase 3)"
                           >
                             <Video size={12} />
@@ -273,14 +271,14 @@ export default function DashboardPage() {
                         <button
                           onClick={(e) => handleDelete(e, project.projectId)}
                           disabled={deletingId === project.projectId}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600
-                                     hover:text-red-400 hover:bg-red-950/40 transition-all duration-150
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400
+                                     hover:text-red-400 hover:bg-red-950/40 transition-colors duration-150
                                      opacity-0 group-hover:opacity-100"
                           title="Delete project"
                         >
                           <Trash2 size={14} />
                         </button>
-                        <ChevronRight size={16} className="text-slate-600 group-hover:text-accent-purple-light transition-colors" />
+                        <ChevronRight size={16} className="text-zinc-400 group-hover:text-white transition-colors" />
                       </div>
                     </div>
                   </div>

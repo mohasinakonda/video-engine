@@ -9,7 +9,7 @@ export default function ExportPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-bg-base">
-          <Loader2 size={24} className="animate-spin text-accent-purple" />
+          <Loader2 size={24} className="animate-spin text-zinc-400" />
         </div>
       }
     >

@@ -197,7 +197,7 @@ export default function VoicePresetForm({
             step={0.05}
             value={preset.pace ?? 1.0}
             onChange={(e) => onChange('pace', parseFloat(e.target.value))}
-            className="flex-1 accent-accent-purple h-2 rounded-full cursor-pointer"
+            className="flex-1 accent-white h-2 rounded-full cursor-pointer bg-zinc-800"
           />
           <div className="flex flex-col items-end flex-shrink-0 w-20 text-right">
             <span className="text-sm font-semibold text-white tabular-nums">

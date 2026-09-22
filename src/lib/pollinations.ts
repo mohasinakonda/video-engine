@@ -183,124 +183,6 @@ export function getPollinationsClient(apiKey?: string): OpenAI {
 }
 
 /**
- * 1b. callPollinationsText
- * Dispatches a chat completion prompt to Pollinations AI.
- * First tries gen.pollinations.ai/v1 if an API key is provided,
- * and automatically falls back to the 100% free text.pollinations.ai endpoint.
- */
-export async function callPollinationsText(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-  options?: {
-    apiKey?: string;
-    model?: string;
-    temperature?: number;
-    jsonMode?: boolean;
-  }
-): Promise<string> {
-  const apiKey = options?.apiKey || getStoredPollinationsKey();
-
-  // 1. If key is provided and valid, try gen.pollinations.ai/v1
-  if (apiKey && !apiKey.startsWith("AIza") && apiKey.toLowerCase() !== "pollinations") {
-    try {
-      const client = getPollinationsClient(apiKey);
-      const res = await client.chat.completions.create({
-        model: options?.model || "openai",
-        messages,
-        temperature: options?.temperature ?? 0.35,
-      });
-      const text = res.choices[0]?.message?.content;
-      if (text && text.trim().length > 0) {
-        return text.trim();
-      }
-    } catch (err) {
-      console.warn("gen.pollinations.ai chat completions failed, falling back to free text endpoint:", err);
-    }
-  }
-
-  // 2. Direct free text endpoint (https://text.pollinations.ai/)
-  try {
-    const res = await fetch("https://text.pollinations.ai/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages,
-        model: options?.model || "openai",
-        jsonMode: options?.jsonMode !== false,
-        temperature: options?.temperature ?? 0.35,
-      }),
-    });
-    if (res.ok) {
-      const text = await res.text();
-      if (text && text.trim().length > 0) {
-        return text.trim();
-      }
-    }
-  } catch (err) {
-    console.warn("text.pollinations.ai POST failed:", err);
-  }
-
-  // 3. Fallback GET request if POST was blocked
-  const userMsg = [...messages].reverse().find((m) => m.role === "user")?.content || "";
-  if (userMsg) {
-    try {
-      const getRes = await fetch(`https://text.pollinations.ai/${encodeURIComponent(userMsg.slice(0, 250))}`);
-      if (getRes.ok) {
-        const text = await getRes.text();
-        if (text && text.trim().length > 0) {
-          return text.trim();
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  throw new Error("Pollinations text generation failed across all available endpoints.");
-}
-
-/**
- * Helper to safely extract an array of scene objects from LLM text output,
- * handling direct arrays, markdown code fences, and wrapped objects (e.g. { scenes: [...] }).
- */
-export function parseScenesJson(rawText: string): Record<string, unknown>[] {
-  let cleaned = rawText.trim();
-  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (fenceMatch) {
-    cleaned = fenceMatch[1].trim();
-  }
-
-  // 1. Direct JSON parse
-  try {
-    const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed)) return parsed;
-    if (parsed && typeof parsed === "object") {
-      if (Array.isArray(parsed.scenes)) return parsed.scenes;
-      if (Array.isArray(parsed.output)) return parsed.output;
-      if (Array.isArray(parsed.visual_scenes)) return parsed.visual_scenes;
-      if (Array.isArray(parsed.data)) return parsed.data;
-      const firstArr = Object.values(parsed).find((v) => Array.isArray(v));
-      if (firstArr) return firstArr as Record<string, unknown>[];
-      if (parsed.visual_prompt || parsed.visualPrompt || parsed.narration) {
-        return [parsed as Record<string, unknown>];
-      }
-    }
-  } catch {
-    // 2. Regex fallback for nested array
-    const arrayMatch = cleaned.match(/\[\s*\{[\s\S]*\}\s*\]/);
-    if (arrayMatch) {
-      try {
-        const parsed = JSON.parse(arrayMatch[0]);
-        if (Array.isArray(parsed)) return parsed;
-      } catch {
-        // ignore
-      }
-    }
-  }
-
-  throw new Error("Could not parse valid scenes JSON from LLM output.");
-}
-
-/**
  * 2. breakdownScriptToScenes
  * Uses Pollinations text completion to break down scripts into dynamic sequential visual scenes (2.0s - 6.5s variable).
  */
@@ -311,12 +193,13 @@ export async function breakdownScriptToScenes(
   options?: {
     pacingProfile?: PacingProfile;
     stylePrompt?: string;
-    apiKey?: string;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   if (!script || !script.trim()) {
     throw new Error("Cannot break down an empty script.");
   }
+
+  const aiClient = client || getPollinationsClient();
 
   const VALID_SHOT_TYPES: ShotType[] = [
     'AERIAL_GEOMETRY',
@@ -342,66 +225,67 @@ export async function breakdownScriptToScenes(
     ? `Target total narration audio duration is ~${Math.round(targetDurationSec)} seconds. Generate approximately ${estimatedSceneCount} sequential scenes with natural variable lengths (${paceConfig.desc}) so that visual scene transitions span the entire ${Math.round(targetDurationSec)}-second narration smoothly.`
     : `Each scene represents roughly ${paceConfig.minSec} to ${paceConfig.maxSec} seconds of narration based on sentence length and shot emotion.`;
 
-  const systemInstruction = `You are an elite visual documentary director, scientific illustrator, and cinematography auteur (in the league of BBC Earth, National Geographic, and IMAX).
+  const systemInstruction = `You are an elite documentary film director and visual auteur (in the league of BBC Earth, National Geographic, and IMAX).
 Your job is to parse a video narration script into a sequential list of cinematographically rich visual scenes.
 ${durationGuidance}
 
-CRITICAL VISUAL RELEVANCE & ACCURACY RULES:
-1. DIRECT SUBJECT & CARTOGRAPHIC RELEVANCE:
-   - Visual prompts MUST depict exactly what the narration is describing at that exact moment.
-   - When geographical entities, continents, maps, or global oceans are mentioned (e.g., Pangaea, Panthalassa ocean, modern 7 continents, Australia outback, Sahara desert):
-     * The visual prompt MUST explicitly describe a realistic geological map, satellite orbit view from space, or cartographic diagram of that exact location.
-     * Example: "Scientifically accurate 3D Earth globe satellite view of the prehistoric supercontinent Pangaea surrounded by the vast blue Panthalassa ocean, clear continental drift outlines, soft dawn lighting, 8k documentary still."
-2. PALEONTOLOGICAL & CREATURE ANATOMICAL FIDELITY:
-   - When the narration mentions prehistoric life or animals (e.g., Rhynchosaurs, Dicynodonts, giant amphibians, bipedal crocodile cousins, early small dinosaurs, mass extinction aftermath):
-     * The visual prompt MUST accurately describe the animal's physical anatomy (beaks, armored scales, robust limbs, bipedal posture, skin textures) and its Triassic/ancient habitat.
-     * Example: "Stout barrel-bodied prehistoric reptile Rhynchosaur with distinct curved beak and powerful chewing jaws, grazing on ancient ferns along a dusty Triassic flood plain, Walking with Dinosaurs BBC style, cinematic 8k."
-3. RESOLVE METAPHORS (DO NOT TAKE FIGURATIVE SPEECH LITERALLY):
-   - If the narration uses a comparison or metaphor (e.g., "like Arizona and Louisiana" or "like the quiet kid in the back of the classroom"):
-     * DO NOT generate human classrooms, schools, modern cities, or alien planets.
-     * Instead, visualize the actual scientific subject being discussed (e.g., contrasting arid red-rock canyons and humid coastal wetlands, or a timid primitive turkey-sized dinosaur lurking behind giant ferns in the shadow of huge reptiles).
-4. UNIVERSAL B-ROLL SCALE VARIETY:
-   - Cut dynamically across scales: WIDE_ESTABLISHING (panoramas), AERIAL_GEOMETRY (drone/satellite maps), MACRO_TEXTURE (tactile close-ups), ATMOSPHERIC_MOOD (storms/mirages), HISTORICAL_HERITAGE (deep geological time/fossils).
-   - Never repeat the same shot_type twice consecutively.
-5. STUDIO-GRADE PROMPT SPECIFICATION:
-   - Each visual_prompt must be 35-65 words, detailing camera perspective, focal subject action, atmospheric lighting, and environment textures for an advanced image generator (Flux)${options?.stylePrompt ? ` aligned with style: "${options.stylePrompt.slice(0, 120)}..."` : ' (photorealistic 8k, masterwork, 35mm film look)'}.
+CINEMATIC PACING & UNIVERSAL B-ROLL MANDATE:
+Do NOT produce repetitive or literal visuals that depict only the primary subject from the same angle.
+First, dynamically analyze the core subject, ecosystem, or theme of the content (e.g. Sea, Desert, Mountain, Rainforest, Metropolis, Ancient Civilization, Deep Space, Technology, etc.).
+Then, as an expert director, cut dynamically across scales and perspectives, interleaving 6 universal B-roll lenses tailored directly to that specific world:
+
+1. "AERIAL_GEOMETRY": Grand scale bird's-eye (90° top-down drone or orbital satellite) revealing geometric patterns, natural contours, and vast topological scale (e.g., dune ridges in deserts, swell breaks in oceans, jagged ridgelines in mountains, canopy fractals in forests, street grid networks in cities).
+2. "MACRO_TEXTURE": Extreme tactile close-ups of micro details native to this environment (e.g., individual shifting sand grains, sea foam bubbles & salt crystals, glacial ice facets, moss spores & dew, weathered wood grain, microcircuit traces, stone carvings).
+3. "CULTURAL_HUMAN": The human and living heartbeat connected to this world — native dwellers, explorers, artisans, workers, or inhabitants interacting authentically with the environment (e.g., nomads brewing tea in desert tents, pearl divers, mountain climbers adjusting gear, monks in cliffside shrines, street artisans).
+4. "HISTORICAL_HERITAGE": Deep time, archaeology, and historical memory — ancient monuments, weathered ruins, fossil layers, petroglyphs, ancestral relics, or enduring architecture shaped by centuries.
+5. "ATMOSPHERIC_MOOD": Dramatic elemental weather and lighting transitions — shifting mirages, blizzards, rolling ocean fog, dust storms, sunbeams cutting through haze, twilight silhouettes, or native wildlife in the elements.
+6. "WIDE_ESTABLISHING": Majestic, expansive panoramic vista that anchors the viewer into the broader landscape and atmosphere.
 
 CRITICAL PACING & VARIABLE DURATION RULES:
-- Durations must vary dynamically based on spoken words (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
+- Images must NEVER have uniform durations (e.g. all 4s). Durations MUST dynamically vary based on spoken syllables and shot style:
+  * Short punchy clauses, quick action, or MACRO_TEXTURE: ${paceConfig.minSec}s - ${(paceConfig.minSec + 1.2).toFixed(1)}s
+  * Medium narrative exposition or CULTURAL_HUMAN / HISTORICAL_HERITAGE: ${(paceConfig.avgSec - 0.5).toFixed(1)}s - ${(paceConfig.avgSec + 0.8).toFixed(1)}s
+  * Wide panoramic vistas, AERIAL_GEOMETRY, or ATMOSPHERIC_MOOD: ${(paceConfig.avgSec + 0.8).toFixed(1)}s - ${paceConfig.maxSec}s
+- Rule: Estimate durationSec based on the spoken length of narration (approx 2.3 - 2.8 words per second) plus pause weight.
+- Never repeat the same shot_type twice in a row. Maintain an engaging, rhythmic visual montage.
 
 For every scene, output:
 - narration: The exact segment of script words read aloud during this scene.
-- visual_prompt: Studio-grade prompt detailing subject, camera framing, lighting, textures.
-- durationSec: Estimated duration in seconds (${paceConfig.minSec} to ${paceConfig.maxSec}).
+- visual_prompt: A studio-grade, exceptionally detailed prompt for an AI image generator (Flux/SDXL). Describe camera framing (e.g. 90-degree bird's-eye drone shot, extreme tactile macro close-up, intimate medium close-up, low-angle telephoto), subject action/elements, rich atmospheric lighting, and environment textures (photorealistic 8k, masterwork, 35mm film look).
+- durationSec: Estimated duration in seconds (between ${paceConfig.minSec} and ${paceConfig.maxSec}).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
-- b_roll_focus: Concise 3-6 word label of the visual focal motif.
+- b_roll_focus: A concise 3-7 word description of the specific visual motif featured (e.g., "Wind-rippled sand dune geometry", "Bedouin tea ceremony by fire", "Extreme macro sea salt crystals").
 
-CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
-{"scenes": [
-  { "narration": "...", "visual_prompt": "...", "durationSec": 4.0, "shot_type": "WIDE_ESTABLISHING", "b_roll_focus": "..." }
-]}`;
+CRITICAL: Return ONLY a valid JSON array of objects with keys "narration", "visual_prompt", "durationSec", "shot_type", "b_roll_focus".
+Do not include any explanation, intro text, or conversational markdown outside the JSON.`;
 
-  const userPrompt = `Break down the following narration script into scenes with diverse, accurate visual perspectives${targetDurationSec && targetDurationSec > 0 ? ` spanning approximately ${Math.round(targetDurationSec)} seconds` : ''}:\n\n"""\n${script.trim()}\n"""`;
+  const userPrompt = `Break down the following narration script into scenes with diverse B-roll cutaways${targetDurationSec && targetDurationSec > 0 ? ` spanning approximately ${Math.round(targetDurationSec)} seconds` : ''}:\n\n"""\n${script.trim()}\n"""`;
 
   try {
-    const rawContent = await callPollinationsText(
-      [
+    const response = await aiClient.chat.completions.create({
+      model: "openai",
+      messages: [
         { role: "system", content: systemInstruction },
         { role: "user", content: userPrompt },
       ],
-      {
-        apiKey: options?.apiKey,
-        temperature: 0.35,
-        jsonMode: true,
-      }
-    );
+      temperature: 0.35,
+    });
 
-    const parsedArray = parseScenesJson(rawContent);
-    if (!Array.isArray(parsedArray) || parsedArray.length === 0) {
-      throw new Error("No scenes extracted from LLM response");
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response returned from Pollinations text model.");
     }
 
-    return parsedArray.map((item: Record<string, unknown>, index: number) => {
+    // Strip markdown code fences if present (e.g. ```json ... ```)
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    const cleanedJson = jsonMatch ? jsonMatch[1].trim() : content.trim();
+
+    const parsed = JSON.parse(cleanedJson);
+    if (!Array.isArray(parsed)) {
+      throw new Error("LLM output is not a JSON array of scenes.");
+    }
+
+    return parsed.map((item: Record<string, unknown>, index: number) => {
       const narration = typeof item.narration === "string" ? item.narration.trim() : "";
       const visualPrompt =
         typeof item.visual_prompt === "string"
@@ -415,6 +299,7 @@ CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
         ? rawShotType
         : VALID_SHOT_TYPES[index % VALID_SHOT_TYPES.length];
 
+      // Calculate realistic variable duration based on spoken words if LLM gave uniform or invalid duration
       const wordCount = narration.split(/\s+/).filter(Boolean).length;
       const naturalDur = wordCount > 0
         ? Math.max(paceConfig.minSec, Math.min(paceConfig.maxSec, parseFloat((wordCount / 2.5).toFixed(1))))
@@ -427,6 +312,7 @@ CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
             ? Math.max(1.5, Math.min(10.0, item.duration_sec))
             : naturalDur;
 
+      // Adjust slightly by shot type pacing
       if (shot_type === 'MACRO_TEXTURE') {
         durationSec = Math.max(paceConfig.minSec, parseFloat((durationSec * 0.85).toFixed(1)));
       } else if (shot_type === 'WIDE_ESTABLISHING' || shot_type === 'ATMOSPHERIC_MOOD') {
@@ -449,7 +335,7 @@ CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
       };
     });
   } catch (error) {
-    console.warn("Pollinations scene breakdown error, using smart topic-aware fallback partition:", error);
+    console.warn("Pollinations scene breakdown error, using dynamic sentence partition:", error);
     const sentences = script.split(/(?<=[.!?\n])\s+/).filter((s) => s.trim().length > 0);
     const targetCount = targetDurationSec && targetDurationSec > 0
       ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
@@ -468,19 +354,9 @@ CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
         Math.min(paceConfig.maxSec, parseFloat(((Math.max(4, words) / 2.5) * shotFactor).toFixed(1)))
       );
 
-      const lower = narration.toLowerCase();
-      let contextualPrefix = `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} documentary shot, photorealistic 8k, dramatic lighting:`;
-      if (lower.includes("pangaea") || lower.includes("continent") || lower.includes("ocean")) {
-        contextualPrefix = "Scientifically accurate 3D Earth globe satellite map showing prehistoric supercontinent Pangaea and Panthalassa ocean, continental drift outlines, 8k:";
-      } else if (lower.includes("australia") || lower.includes("desert") || lower.includes("sahara")) {
-        contextualPrefix = "Expansive aerial landscape of vast arid red desert sand dunes and heat haze, National Geographic documentary still, 8k:";
-      } else if (lower.includes("rhynchosaur") || lower.includes("dicynodont") || lower.includes("dinosaur") || lower.includes("crocodile") || lower.includes("animal")) {
-        contextualPrefix = "Paleontological reconstruction of prehistoric Triassic wildlife with accurate scales, beaks, and anatomy in ancient fern habitat, Walking with Dinosaurs style, 8k:";
-      }
-
       return {
         narration,
-        visual_prompt: `${contextualPrefix} ${narration.slice(0, 140)}`,
+        visual_prompt: `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} shot, ultra detailed 8k, dramatic lighting, camera depth: ${narration.slice(0, 120)}`,
         durationSec: dur,
         shot_type,
         b_roll_focus: shot_type.replace('_', ' ').toLowerCase(),
@@ -722,10 +598,10 @@ export async function generateSceneImage(
 }
 
 /**
- * Splits long script text into natural semantic chunks (~60–90 words each),
- * respecting paragraph and sentence boundaries for optimal LLM context & zero token truncation.
+ * Splits long script text into natural semantic chunks (~120–160 words each),
+ * respecting paragraph and sentence boundaries.
  */
-export function splitIntoPacingChunks(text: string, targetWords = 75): string[] {
+export function splitIntoPacingChunks(text: string, targetWords = 140): string[] {
   const paragraphs = text.split(/\n\s*\n/).filter(Boolean);
   const chunks: string[] = [];
   let currentChunk: string[] = [];
@@ -756,7 +632,7 @@ export function splitIntoPacingChunks(text: string, targetWords = 75): string[] 
  * 5. breakdownRequirementToImageScenes
  * Takes user creative requirements or story prompt and breaks them down into
  * sequential visual scenes ready for image generation, without requiring voice generation.
- * Supports auto-batching for long scripts (e.g. 23+ minutes or multi-paragraph narrations).
+ * Supports auto-batching for long scripts (e.g. 23+ minutes).
  */
 export async function breakdownRequirementToImageScenes(
   requirement: string,
@@ -774,11 +650,11 @@ export async function breakdownRequirementToImageScenes(
   }
 
   const words = requirement.trim().split(/\s+/).filter(Boolean).length;
-  const isLongScript = !options?.sceneCount && (words > 85 || (options?.targetDurationSec && options.targetDurationSec > 40));
+  const isLongScript = !options?.sceneCount && (words > 180 || (options?.targetDurationSec && options.targetDurationSec > 90));
 
   // Multi-chunk batching for long scripts to prevent token truncation & enforce rich scene count
   if (isLongScript) {
-    const batches = splitIntoPacingChunks(requirement, 75);
+    const batches = splitIntoPacingChunks(requirement, 140);
     options?.onProgress?.(`Divided into ${batches.length} sequential story batches for high-density visual extraction…`);
 
     const totalTargetSec = options?.targetDurationSec || Math.max(15, Math.round((words / 135) * 60));
@@ -827,6 +703,7 @@ async function breakdownRequirementToImageScenesSingle(
     pacingProfile?: PacingProfile;
   }
 ): Promise<ScriptSceneBreakdown[]> {
+  const aiClient = getPollinationsClient(options?.apiKey);
   const targetDurationSec = options?.targetDurationSec;
 
   const pacing = options?.pacingProfile || 'balanced';
@@ -855,67 +732,66 @@ async function breakdownRequirementToImageScenesSingle(
     'WIDE_ESTABLISHING',
   ];
 
-  const systemInstruction = `You are an elite visual documentary director, scientific illustrator, and cinematography auteur (in the league of BBC Earth, National Geographic, and IMAX).
-Your task is to take a creative requirement, story, or script segment and break it down into sequential, cinematographically diverse visual scenes.
+  const systemInstruction = `You are an elite visual director for an AI film and documentary studio.
+Your task is to take a creative requirement, story, or script and break it down into sequential, cinematographically diverse visual scenes.
 ${countInstruction}
 ${targetDurationSec && targetDurationSec > 0 ? `Target total video duration is ~${Math.round(targetDurationSec)} seconds.` : ''}
 
-CRITICAL VISUAL RELEVANCE & ACCURACY RULES:
-1. DIRECT SUBJECT & CARTOGRAPHIC RELEVANCE:
-   - Visual prompts MUST depict exactly what the narration is describing at that exact moment.
-   - When geographical entities, continents, maps, or global oceans are mentioned (e.g., Pangaea, Panthalassa ocean, modern 7 continents, Australia outback, Sahara desert):
-     * The visual prompt MUST explicitly describe a realistic geological map, satellite orbit view from space, or cartographic diagram of that exact location.
-     * Example: "Scientifically accurate 3D Earth globe satellite view of prehistoric supercontinent Pangaea surrounded by the vast blue Panthalassa ocean, labelled continental drift outlines, soft dawn lighting, 8k documentary still."
-2. PALEONTOLOGICAL & CREATURE ANATOMICAL FIDELITY:
-   - When the narration mentions prehistoric life or animals (e.g., Rhynchosaurs, Dicynodonts, giant amphibians, bipedal crocodile cousins, early small dinosaurs, mass extinction aftermath):
-     * The visual prompt MUST accurately describe the animal's physical anatomy (beaks, armored scales, robust limbs, bipedal posture, skin textures) and its Triassic/ancient habitat.
-     * Example: "Stout barrel-bodied prehistoric reptile Rhynchosaur with distinct curved beak and powerful chewing jaws, grazing on ancient ferns along a dusty Triassic flood plain, Walking with Dinosaurs BBC style, cinematic 8k."
-3. RESOLVE METAPHORS (DO NOT TAKE FIGURATIVE SPEECH LITERALLY):
-   - If the narration uses a comparison or metaphor (e.g., "like Arizona and Louisiana" or "like the quiet kid in the back of the classroom"):
-     * DO NOT generate human classrooms, schools, modern cities, or alien planets.
-     * Instead, visualize the actual scientific subject being discussed (e.g., contrasting arid red-rock canyons and humid coastal wetlands, or a timid primitive turkey-sized dinosaur lurking behind giant ferns in the shadow of huge reptiles).
-4. UNIVERSAL B-ROLL SCALE VARIETY:
-   - Cut dynamically across scales: WIDE_ESTABLISHING (panoramas), AERIAL_GEOMETRY (drone/satellite maps), MACRO_TEXTURE (tactile close-ups), ATMOSPHERIC_MOOD (storms/mirages), HISTORICAL_HERITAGE (deep geological time/fossils).
-   - Never repeat the same shot_type twice consecutively.
-5. STUDIO-GRADE PROMPT SPECIFICATION:
-   - Each visual_prompt must be 35-65 words, detailing camera perspective, focal subject action, atmospheric lighting, and environment textures for an advanced image generator (Flux)${options?.stylePrompt ? ` aligned with style: "${options.stylePrompt.slice(0, 120)}..."` : ' (photorealistic 8k, masterwork, 35mm film look)'}.
+CINEMATIC PACING & UNIVERSAL B-ROLL MANDATE:
+Do NOT produce repetitive or literal visuals. A professional documentary cuts dynamically between scales and perspectives:
+First, analyze the core subject, ecosystem, or theme of the story (e.g. Sea, Desert, Mountain, Rainforest, Metropolis, Ancient Civilization, Deep Space, Technology, etc.).
+Then, as an elite visual director, interleave 6 universal B-roll lenses tailored directly to that specific world:
+
+1. "AERIAL_GEOMETRY": Grand scale bird's-eye (90° top-down drone or orbital satellite) revealing geometric patterns, natural contours, and vast topological scale (e.g., dune ridges in deserts, swell breaks in oceans, knife-edge mountain ridges, canopy fractals in forests, street grid networks in cities).
+2. "MACRO_TEXTURE": Extreme tactile close-ups of micro details native to this environment (e.g., individual shifting sand grains, sea foam bubbles & salt crystals, glacial ice facets, moss spores & dew, weathered wood grain, microcircuit traces, stone carvings).
+3. "CULTURAL_HUMAN": The human and living heartbeat connected to this world — native dwellers, explorers, artisans, workers, or inhabitants interacting authentically with the environment (e.g., nomads brewing tea in desert tents, pearl divers, mountain climbers adjusting gear, monks in cliffside shrines, street artisans).
+4. "HISTORICAL_HERITAGE": Deep time, archaeology, and historical memory — ancient monuments, weathered ruins, fossil layers, petroglyphs, ancestral relics, or enduring architecture shaped by centuries.
+5. "ATMOSPHERIC_MOOD": Dramatic elemental weather and lighting transitions — shifting mirages, blizzards, rolling ocean fog, dust storms, sunbeams cutting through haze, twilight silhouettes, or native wildlife in the elements.
+6. "WIDE_ESTABLISHING": Majestic panoramic establishing shots that orient the viewer to the broader landscape.
 
 CRITICAL PACING & VARIABLE DURATION RULES:
-- Durations must vary dynamically based on spoken words (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
+- Durations must NEVER be uniform! They must vary dynamically:
+  * Short action, punchy lines, or MACRO_TEXTURE: ${paceConfig.minSec}s - ${(paceConfig.minSec + 1.2).toFixed(1)}s
+  * Medium action or CULTURAL_HUMAN / HISTORICAL_HERITAGE: ${(paceConfig.avgSec - 0.5).toFixed(1)}s - ${(paceConfig.avgSec + 0.8).toFixed(1)}s
+  * Panoramic scenery, AERIAL_GEOMETRY, or ATMOSPHERIC_MOOD: ${(paceConfig.avgSec + 0.8).toFixed(1)}s - ${paceConfig.maxSec}s
+- Never use the same shot_type consecutively. Maintain visual rhythm.
 
 For every scene, output:
-- narration: The exact segment of script words read aloud during this scene.
-- visual_prompt: Studio-grade prompt detailing subject, camera framing, lighting, textures.
-- durationSec: Estimated duration in seconds (${paceConfig.minSec} to ${paceConfig.maxSec}).
+- narration: A brief narrative or caption line (1-2 sentences) summarizing what happens in this scene.
+- visual_prompt: A studio-grade, exceptionally detailed visual prompt for an AI image generator (Flux). Specifically describe subject pose/action, composition, atmospheric lighting, and rich textures${options?.stylePrompt ? ` aligned with the target visual style: "${options.stylePrompt.slice(0, 150)}..."` : ' (photorealistic 8k, masterwork, 35mm lens, sharp focus)'}.
+- durationSec: Estimated duration in seconds (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
-- b_roll_focus: Concise 3-6 word label of the visual focal motif.
+- b_roll_focus: A concise 3-7 word description of the specific B-roll focal motif.
 
-CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
-{"scenes": [
-  { "narration": "...", "visual_prompt": "...", "durationSec": 4.0, "shot_type": "WIDE_ESTABLISHING", "b_roll_focus": "..." }
-]}`;
+CRITICAL: Return ONLY a valid JSON array of scene objects with keys "narration", "visual_prompt", "durationSec", "shot_type", "b_roll_focus".
+No conversational text, markdown introduction, or backticks outside the JSON.`;
 
-  const userPrompt = `Break down this requirement into sequential cinematic visual scenes with diverse, accurate visual perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
+  const userPrompt = `Break down this requirement into sequential cinematic visual scenes with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
 
   try {
-    const rawContent = await callPollinationsText(
-      [
+    const response = await aiClient.chat.completions.create({
+      model: "openai",
+      messages: [
         { role: "system", content: systemInstruction },
         { role: "user", content: userPrompt },
       ],
-      {
-        apiKey: options?.apiKey,
-        temperature: 0.35,
-        jsonMode: true,
-      }
-    );
+      temperature: 0.4,
+    });
 
-    const parsedArray = parseScenesJson(rawContent);
-    if (!Array.isArray(parsedArray) || parsedArray.length === 0) {
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response returned from Pollinations text model.");
+    }
+
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    const cleanedJson = jsonMatch ? jsonMatch[1].trim() : content.trim();
+
+    const parsed = JSON.parse(cleanedJson);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
       throw new Error("LLM output is not a non-empty JSON array of scenes.");
     }
 
-    return parsedArray.map((item: Record<string, unknown>, index: number) => {
+    return parsed.map((item: Record<string, unknown>, index: number) => {
       const narration = typeof item.narration === "string" ? item.narration.trim() : `Scene ${index + 1}`;
       const visualPrompt =
         typeof item.visual_prompt === "string"
@@ -962,8 +838,7 @@ CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
         b_roll_focus,
       };
     });
-  } catch (err) {
-    console.warn("Pollinations single breakdown error, using smart topic-aware fallback partition:", err);
+  } catch {
     const lines = requirement.split(/(?<=[.!?\n])\s+/).filter((l) => l.trim().length > 3);
     const count = typeof options?.sceneCount === "number" && options.sceneCount > 0
       ? options.sceneCount
@@ -982,19 +857,9 @@ CRITICAL: Return ONLY a valid JSON object with a "scenes" array:
         Math.min(paceConfig.maxSec, parseFloat(((Math.max(4, words) / 2.5) * shotFactor).toFixed(1)))
       );
 
-      const lower = chunkText.toLowerCase();
-      let contextualPrefix = `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} documentary shot, photorealistic 8k, dramatic lighting:`;
-      if (lower.includes("pangaea") || lower.includes("continent") || lower.includes("ocean")) {
-        contextualPrefix = "Scientifically accurate 3D Earth globe satellite map showing prehistoric supercontinent Pangaea and Panthalassa ocean, continental drift outlines, 8k:";
-      } else if (lower.includes("australia") || lower.includes("desert") || lower.includes("sahara")) {
-        contextualPrefix = "Expansive aerial landscape of vast arid red desert sand dunes and heat haze, National Geographic documentary still, 8k:";
-      } else if (lower.includes("rhynchosaur") || lower.includes("dicynodont") || lower.includes("dinosaur") || lower.includes("crocodile") || lower.includes("animal")) {
-        contextualPrefix = "Paleontological reconstruction of prehistoric Triassic wildlife with accurate scales, beaks, and anatomy in ancient fern habitat, Walking with Dinosaurs style, 8k:";
-      }
-
       return {
         narration: chunkText,
-        visual_prompt: `${contextualPrefix} ${chunkText.slice(0, 140)}`,
+        visual_prompt: `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} movie still, photorealistic 8k, dramatic lighting: ${chunkText}`,
         durationSec: dur,
         shot_type,
         b_roll_focus: shot_type.replace('_', ' ').toLowerCase(),

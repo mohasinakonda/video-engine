@@ -354,7 +354,7 @@ export default function ExportInner() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
-        <Loader2 size={24} className="animate-spin text-accent-purple" />
+        <Loader2 size={24} className="animate-spin text-zinc-400" />
       </div>
     );
   }
@@ -374,12 +374,12 @@ export default function ExportInner() {
               <ChevronLeft size={16} />
             </button>
 
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-purple/30 to-accent-cyan/20 border border-accent-purple/30 flex items-center justify-center">
-              <Download size={16} className="text-accent-cyan" />
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+              <Download size={16} className="text-zinc-200" />
             </div>
             <div>
               <h1 className="text-sm font-bold text-white leading-tight">{project?.title}</h1>
-              <p className="text-[10px] text-slate-500">Phase 3 · Assembly, Audio Sync & Hardware Render</p>
+              <p className="text-[10px] text-zinc-400">Phase 3 · Assembly, Audio Sync & Hardware Render</p>
             </div>
           </div>
         </header>
@@ -389,7 +389,7 @@ export default function ExportInner() {
 
             {/* Render Progress Overlay / Card */}
             {(isExporting || progress.stage === 'completed' || progress.stage === 'failed') && (
-              <div className="card p-6 bg-gradient-to-br from-bg-surface to-bg-elevated border-accent-purple/40 glow-purple animate-slide-up">
+              <div className="card p-6 bg-zinc-900 border-zinc-700 shadow-xl animate-slide-up">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     {progress.stage === 'completed' ? (
@@ -397,7 +397,7 @@ export default function ExportInner() {
                     ) : progress.stage === 'failed' ? (
                       <AlertTriangle size={24} className="text-red-400" />
                     ) : (
-                      <Loader2 size={24} className="animate-spin text-accent-cyan" />
+                      <Loader2 size={24} className="animate-spin text-zinc-400" />
                     )}
                     <div>
                       <h2 className="text-base font-bold text-white">
@@ -407,7 +407,7 @@ export default function ExportInner() {
                           ? 'Export Failed'
                           : 'Rendering Final Video...'}
                       </h2>
-                      <p className="text-xs text-slate-400">{progress.currentStepMessage}</p>
+                      <p className="text-xs text-zinc-400">{progress.currentStepMessage}</p>
                     </div>
                   </div>
 
@@ -424,16 +424,16 @@ export default function ExportInner() {
 
                 {/* Progress Bar */}
                 <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-slate-400">
+                  <div className="flex justify-between text-xs text-zinc-400">
                     <span>Progress: {progress.percentage}%</span>
                     {progress.fps > 0 && <span>Speed: {progress.fps} FPS</span>}
                     {progress.etaSeconds > 0 && (
-                      <span className="font-mono text-accent-cyan">ETA: {formatEta(progress.etaSeconds)}</span>
+                      <span className="font-mono text-zinc-300">ETA: {formatEta(progress.etaSeconds)}</span>
                     )}
                   </div>
-                  <div className="h-3 bg-bg-base rounded-full overflow-hidden border border-bg-border">
+                  <div className="h-2.5 bg-zinc-800 rounded-full overflow-hidden border border-zinc-700">
                     <div
-                      className="h-full bg-gradient-to-r from-accent-purple via-accent-purple-light to-accent-cyan transition-all duration-300 rounded-full"
+                      className="h-full bg-white transition-all duration-300 rounded-full"
                       style={{ width: `${progress.percentage}%` }}
                     />
                   </div>
@@ -462,7 +462,7 @@ export default function ExportInner() {
 
                     {/* In-App Video Player Preview */}
                     {finalVideoUrl && (
-                      <div className="relative rounded-2xl overflow-hidden border border-accent-purple/30 bg-black aspect-video shadow-2xl shadow-purple-950/40">
+                      <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black aspect-video shadow-2xl">
                         <video
                           src={finalVideoUrl}
                           controls
@@ -539,7 +539,7 @@ export default function ExportInner() {
                   {/* 1. Resolution Profile */}
                   <div className="card space-y-3">
                     <div className="flex items-center gap-2">
-                      <Film size={15} className="text-accent-purple-light" />
+                      <Film size={15} className="text-zinc-300" />
                       <h2 className="text-xs font-bold text-white uppercase tracking-wider">Output Resolution</h2>
                     </div>
 
@@ -549,13 +549,13 @@ export default function ExportInner() {
                         onClick={() => setResolution('1080p')}
                         className={`p-4 rounded-xl border text-left transition-all ${
                           resolution === '1080p'
-                            ? 'bg-accent-purple/20 border-accent-purple-light text-white glow-purple'
-                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                            ? 'bg-zinc-800 border-zinc-500 text-white'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                         }`}
                       >
                         <p className="text-sm font-bold text-white">1080p Full HD</p>
-                        <p className="text-[11px] text-slate-400 mt-1">1920×1080 · 30 FPS · 8–10 Mbps</p>
-                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-accent-purple/30 text-purple-200">
+                        <p className="text-[11px] text-zinc-400 mt-1">1920×1080 · 30 FPS · 8–10 Mbps</p>
+                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
                           Recommended
                         </span>
                       </button>
@@ -565,13 +565,13 @@ export default function ExportInner() {
                         onClick={() => setResolution('4k')}
                         className={`p-4 rounded-xl border text-left transition-all ${
                           resolution === '4k'
-                            ? 'bg-accent-cyan/20 border-accent-cyan text-white glow-cyan'
-                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                            ? 'bg-zinc-800 border-zinc-500 text-white'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                         }`}
                       >
                         <p className="text-sm font-bold text-white">4K Ultra HD</p>
-                        <p className="text-[11px] text-slate-400 mt-1">3840×2160 · 30 FPS · 25–35 Mbps</p>
-                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                        <p className="text-[11px] text-zinc-400 mt-1">3840×2160 · 30 FPS · 25–35 Mbps</p>
+                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
                           Ultra Quality
                         </span>
                       </button>
@@ -581,7 +581,7 @@ export default function ExportInner() {
                   {/* 2. Hardware Acceleration */}
                   <div className="card space-y-3">
                     <div className="flex items-center gap-2">
-                      <Cpu size={15} className="text-accent-cyan" />
+                      <Cpu size={15} className="text-zinc-400" />
                       <h2 className="text-xs font-bold text-white uppercase tracking-wider">Hardware Encoder</h2>
                     </div>
 
@@ -602,10 +602,10 @@ export default function ExportInner() {
                   <div className="card space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Sparkles size={15} className="text-purple-400" />
+                        <Sparkles size={15} className="text-zinc-400" />
                         <h2 className="text-xs font-bold text-white uppercase tracking-wider">Scene Transitions & Blending</h2>
                       </div>
-                      <span className="text-[10px] font-mono text-purple-300 font-semibold bg-purple-950/70 border border-purple-800/40 px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-mono text-zinc-300 font-semibold bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded">
                         {transitionType === 'crossfade' ? 'Cross-Dissolve' : transitionType === 'fade_black' ? 'Dip to Black' : 'Direct Cut'} · {transitionDuration}s
                       </span>
                     </div>
@@ -616,13 +616,13 @@ export default function ExportInner() {
                         onClick={() => setTransitionType('crossfade')}
                         className={`p-3 rounded-xl border text-left transition-all ${
                           transitionType === 'crossfade'
-                            ? 'bg-accent-purple/20 border-accent-purple text-white shadow-lg shadow-purple-950/40 glow-purple'
-                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                            ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                         }`}
                       >
                         <p className="text-xs font-bold text-white">Cross-Dissolve</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Smooth, seamless blending between images</p>
-                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-accent-purple/30 text-purple-200 font-medium">
+                        <p className="text-[10px] text-zinc-400 mt-0.5">Smooth, seamless blending between images</p>
+                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
                           Recommended
                         </span>
                       </button>
@@ -632,13 +632,13 @@ export default function ExportInner() {
                         onClick={() => setTransitionType('fade_black')}
                         className={`p-3 rounded-xl border text-left transition-all ${
                           transitionType === 'fade_black'
-                            ? 'bg-accent-cyan/20 border-accent-cyan text-white shadow-lg shadow-cyan-950/40 glow-cyan'
-                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                            ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                         }`}
                       >
                         <p className="text-xs font-bold text-white">Dip to Black</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Gentle fade to black breath between scenes</p>
-                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-medium">
+                        <p className="text-[10px] text-zinc-400 mt-0.5">Gentle fade to black breath between scenes</p>
+                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
                           Classic Film
                         </span>
                       </button>
@@ -648,13 +648,13 @@ export default function ExportInner() {
                         onClick={() => setTransitionType('cut')}
                         className={`p-3 rounded-xl border text-left transition-all ${
                           transitionType === 'cut'
-                            ? 'bg-slate-800 border-slate-500 text-white shadow-lg'
-                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:border-slate-600'
+                            ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                         }`}
                       >
                         <p className="text-xs font-bold text-white">Hard Cut</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Instant switch without transition blending</p>
-                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-medium">
+                        <p className="text-[10px] text-zinc-400 mt-0.5">Instant switch without transition blending</p>
+                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-medium">
                           Fast Montage
                         </span>
                       </button>
@@ -662,17 +662,17 @@ export default function ExportInner() {
 
                     {transitionType !== 'cut' && (
                       <div className="pt-2 border-t border-bg-border flex items-center justify-between">
-                        <span className="text-xs text-slate-400 font-medium">Transition Duration:</span>
+                        <span className="text-xs text-zinc-400 font-medium">Transition Duration:</span>
                         <div className="flex items-center gap-1.5">
                           {[0.4, 0.6, 0.8].map((sec) => (
                             <button
                               key={sec}
                               type="button"
                               onClick={() => setTransitionDuration(sec)}
-                              className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-all ${
+                              className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors ${
                                 transitionDuration === sec
-                                  ? 'bg-purple-600 text-white shadow-md font-bold'
-                                  : 'bg-bg-elevated text-slate-400 hover:text-white'
+                                  ? 'bg-white text-zinc-950 font-bold shadow-sm'
+                                  : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
                               }`}
                             >
                               {sec}s {sec === 0.4 ? '(Snappy)' : sec === 0.6 ? '(Natural)' : '(Cinematic)'}
@@ -740,7 +740,7 @@ export default function ExportInner() {
                             step="0.01"
                             value={bgmVolume}
                             onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
-                            className="w-full accent-accent-purple"
+                            className="w-full accent-white"
                           />
                         </div>
 
@@ -750,7 +750,7 @@ export default function ExportInner() {
                             type="checkbox"
                             checked={enableAutoDucking}
                             onChange={(e) => setEnableAutoDucking(e.target.checked)}
-                            className="rounded accent-accent-purple w-4 h-4"
+                            className="rounded accent-white w-4 h-4"
                           />
                           <div>
                             <p className="text-xs font-medium text-white">Enable Dynamic Auto-Ducking</p>
@@ -816,7 +816,7 @@ export default function ExportInner() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400">Motion Video Clips:</span>
-                        <span className="text-cyan-400 font-mono">{readyClips}/{totalScenes} ready</span>
+                        <span className="text-zinc-300 font-mono">{readyClips}/{totalScenes} ready</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400">Est. Export Size:</span>
@@ -830,15 +830,14 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={handleStartExport}
-                      className="w-full py-4 rounded-xl font-bold text-sm text-white
-                                 bg-gradient-to-r from-accent-purple via-accent-purple-light to-accent-cyan
-                                 hover:shadow-xl hover:shadow-purple-900/50 transition-all duration-200
-                                 flex items-center justify-center gap-2 glow-purple active:scale-95"
+                      className="w-full py-3.5 rounded-xl font-medium text-sm text-zinc-950
+                                 bg-white hover:bg-zinc-200 transition-colors
+                                 flex items-center justify-center gap-2 shadow-sm active:scale-[0.99]"
                     >
                       <Sparkles size={18} />
                       Export Final Video (.mp4)
                     </button>
-                    <p className="text-[10px] text-center text-slate-500">
+                    <p className="text-[10px] text-center text-zinc-400">
                       Renders full composite video with voiceover, BGM & motion
                     </p>
                   </div>
@@ -853,52 +852,52 @@ export default function ExportInner() {
                   </div>
 
                   {/* Universal Timeline Package Card */}
-                  <div className="card p-4 space-y-3 bg-gradient-to-br from-bg-surface to-cyan-950/20 border-accent-cyan/30">
+                  <div className="card p-4 space-y-3 bg-zinc-900/90 border-zinc-800">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-accent-cyan/20 border border-accent-cyan/40 flex items-center justify-center text-accent-cyan">
+                        <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
                           <Layers size={15} />
                         </div>
                         <div>
                           <h3 className="text-xs font-bold text-white leading-tight">Universal Timeline Package</h3>
-                          <p className="text-[10px] text-accent-cyan/80">CapCut · Premiere · DaVinci · FCP</p>
+                          <p className="text-[10px] text-zinc-400">CapCut · Premiere · DaVinci · FCP</p>
                         </div>
                       </div>
-                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan">
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
                         ZIP Bundle
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                    <p className="text-[11px] text-zinc-300 leading-relaxed">
                       Exports multi-track project with <strong>FCP 7 XML</strong>, <strong>CapCut SRT captions</strong>, <strong>CMX 3600 EDL</strong>, master audio WAV, and numbered scene artwork.
                     </p>
 
                     {/* Editor Compatibility Badges */}
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
                         🎬 CapCut
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
                         ⚡ Premiere Pro
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
                         🎨 DaVinci Resolve
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-bg-base/80 border border-bg-border text-slate-300">
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
                         🍎 Final Cut Pro
                       </span>
                     </div>
 
                     {/* Progress Bar when packaging timeline */}
                     {isExportingTimeline && timelineProgress && (
-                      <div className="space-y-1.5 pt-2 border-t border-accent-cyan/20">
-                        <div className="flex justify-between text-[11px] text-slate-300">
+                      <div className="space-y-1.5 pt-2 border-t border-zinc-800">
+                        <div className="flex justify-between text-[11px] text-zinc-300">
                           <span className="truncate pr-2">{timelineProgress.message}</span>
-                          <span className="font-mono text-accent-cyan">{timelineProgress.percentage}%</span>
+                          <span className="font-mono text-zinc-300">{timelineProgress.percentage}%</span>
                         </div>
-                        <div className="h-1.5 bg-bg-base rounded-full overflow-hidden border border-bg-border">
+                        <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden border border-zinc-700">
                           <div
-                            className="h-full bg-gradient-to-r from-accent-cyan to-emerald-400 transition-all duration-300 rounded-full"
+                            className="h-full bg-white transition-all duration-300 rounded-full"
                             style={{ width: `${timelineProgress.percentage}%` }}
                           />
                         </div>
@@ -918,10 +917,10 @@ export default function ExportInner() {
                       type="button"
                       disabled={isExportingTimeline}
                       onClick={handleExportTimeline}
-                      className="w-full py-3 rounded-xl font-bold text-xs text-white
-                                 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500
+                      className="w-full py-2.5 rounded-lg font-medium text-xs text-zinc-200
+                                 bg-zinc-800 border border-zinc-700 hover:bg-zinc-750 hover:text-white
                                  disabled:opacity-50 disabled:cursor-not-allowed
-                                 transition-all duration-200 flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-cyan-950/30"
+                                 transition-colors flex items-center justify-center gap-2 active:scale-[0.99]"
                     >
                       {isExportingTimeline ? (
                         <>
@@ -944,7 +943,7 @@ export default function ExportInner() {
                         className="w-full flex items-center justify-between text-[11px] text-slate-400 hover:text-white py-1 transition-colors"
                       >
                         <span className="flex items-center gap-1.5">
-                          <HelpCircle size={12} className="text-accent-cyan" />
+                          <HelpCircle size={12} className="text-zinc-400" />
                           How to import in CapCut & Premiere?
                         </span>
                         {showImportGuide ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -955,20 +954,20 @@ export default function ExportInner() {
                           <div>
                             <strong className="text-white block mb-0.5">🎬 In CapCut (Desktop/Mobile):</strong>
                             <p className="text-slate-400 text-[10px] leading-relaxed">
-                              1. Drag all images from <code className="text-accent-cyan">media/images/</code> and <code className="text-accent-cyan">master_voice.wav</code> to the timeline.<br />
+                              1. Drag all images from <code className="text-zinc-200">media/images/</code> and <code className="text-zinc-200">master_voice.wav</code> to the timeline.<br />
                               2. Go to <strong>Text &gt; Local Captions &gt; Import</strong> and select <code className="text-emerald-400">subtitles.srt</code>. CapCut will automatically create and sync all animated subtitle cards!
                             </p>
                           </div>
                           <div className="pt-1.5 border-t border-bg-border/60">
                             <strong className="text-white block mb-0.5">⚡ In Adobe Premiere Pro:</strong>
                             <p className="text-slate-400 text-[10px] leading-relaxed">
-                              Go to <strong>File &gt; Import</strong> and choose <code className="text-accent-purple-light">timeline.xml</code>. Premiere will automatically generate a sequence with all cuts and audio synced to the exact frame.
+                              Go to <strong>File &gt; Import</strong> and choose <code className="text-zinc-200">timeline.xml</code>. Premiere will automatically generate a sequence with all cuts and audio synced to the exact frame.
                             </p>
                           </div>
                           <div className="pt-1.5 border-t border-bg-border/60">
                             <strong className="text-white block mb-0.5">🎨 In DaVinci Resolve:</strong>
                             <p className="text-slate-400 text-[10px] leading-relaxed">
-                              Go to <strong>File &gt; Import Timeline &gt; Import AAF, EDL, XML...</strong> and select <code className="text-accent-purple-light">timeline.xml</code>.
+                              Go to <strong>File &gt; Import Timeline &gt; Import AAF, EDL, XML...</strong> and select <code className="text-zinc-200">timeline.xml</code>.
                             </p>
                           </div>
                         </div>

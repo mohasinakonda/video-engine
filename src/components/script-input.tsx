@@ -111,7 +111,7 @@ function Metric({
 }) {
   return (
     <div>
-      <span className={`text-sm font-semibold ${accent ? 'text-accent-purple-light' : 'text-white'}`}>
+      <span className={`text-sm font-semibold ${accent ? 'text-zinc-100 font-bold' : 'text-zinc-200'}`}>
         {value}
       </span>
       <span className="text-[10px] text-slate-500 ml-1.5">{label}</span>

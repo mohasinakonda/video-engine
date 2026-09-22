@@ -93,19 +93,19 @@ function AudioPlayer({ audioUrl }: { audioUrl: string }) {
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
       <button
         onClick={toggle}
-        className="w-7 h-7 rounded-full bg-accent-purple flex items-center justify-center flex-shrink-0
-                   hover:bg-accent-purple-light transition-colors"
+        className="w-7 h-7 rounded-full bg-white text-zinc-950 flex items-center justify-center flex-shrink-0
+                   hover:bg-zinc-200 transition-colors shadow-sm"
       >
         {playing
-          ? <Pause size={12} className="text-white" />
-          : <Play size={12} className="text-white ml-0.5" />
+          ? <Pause size={12} className="text-zinc-950" />
+          : <Play size={12} className="text-zinc-950 ml-0.5" />
         }
       </button>
 
       {/* Timeline */}
       <div className="flex-1">
         <div
-          className="h-1.5 bg-bg-border rounded-full overflow-hidden cursor-pointer"
+          className="h-1.5 bg-zinc-800 rounded-full overflow-hidden cursor-pointer"
           onClick={(e) => {
             const el = audioRef.current;
             if (!el || !duration) return;
@@ -115,7 +115,7 @@ function AudioPlayer({ audioUrl }: { audioUrl: string }) {
           }}
         >
           <div
-            className="h-full bg-gradient-to-r from-accent-purple to-accent-purple-light rounded-full transition-all duration-150"
+            className="h-full bg-white rounded-full transition-all duration-150"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -142,10 +142,10 @@ function ChunkCard({ chunk, onRetry, onTextChange, editingEnabled }: ChunkCardPr
   const cfg = STATUS_CFG[chunk.status];
 
   return (
-    <div className={`card transition-all duration-200 animate-slide-up
-                     ${chunk.status === 'PROCESSING' ? 'border-blue-800/50 glow-cyan' : ''}
-                     ${chunk.status === 'COMPLETED' ? 'border-emerald-800/30' : ''}
-                     ${chunk.status === 'FAILED' ? 'border-red-800/40' : ''}`}>
+    <div className={`card transition-colors duration-150 animate-slide-up
+                     ${chunk.status === 'PROCESSING' ? 'border-zinc-500' : ''}
+                     ${chunk.status === 'COMPLETED' ? 'border-zinc-800' : ''}
+                     ${chunk.status === 'FAILED' ? 'border-red-900/40' : ''}`}>
       {/* Chunk Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
@@ -200,8 +200,8 @@ function ChunkCard({ chunk, onRetry, onTextChange, editingEnabled }: ChunkCardPr
 
       {/* Processing bar */}
       {chunk.status === 'PROCESSING' && (
-        <div className="h-1 bg-bg-border rounded-full overflow-hidden mb-2 animate-fade-in">
-          <div className="h-full bg-gradient-to-r from-accent-purple to-accent-cyan rounded-full animate-pulse w-2/3" />
+        <div className="h-1 bg-zinc-800 rounded-full overflow-hidden mb-2 animate-fade-in">
+          <div className="h-full bg-zinc-400 rounded-full animate-pulse w-2/3" />
         </div>
       )}
 
@@ -276,15 +276,15 @@ export default function AudioTimeline({
         <div className="flex items-center gap-5 px-1 mb-2 animate-fade-in">
           <span className="text-sm font-semibold text-white">{completed}/{chunks.length} chunks</span>
           {totalDurationMs > 0 && (
-            <span className="flex items-center gap-1 text-xs text-accent-purple-light">
+            <span className="flex items-center gap-1 text-xs text-zinc-300">
               <Clock size={12} />
               {formatMs(totalDurationMs)} total
             </span>
           )}
           {/* Progress mini bar */}
-          <div className="flex-1 h-1.5 bg-bg-border rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-accent-purple to-emerald-500 rounded-full transition-all duration-700"
+              className="h-full bg-white rounded-full transition-all duration-700"
               style={{ width: chunks.length > 0 ? `${(completed / chunks.length) * 100}%` : '0%' }}
             />
           </div>

@@ -226,7 +226,7 @@ export default function SettingsPage() {
               <div className="pt-4 mt-4 border-t border-bg-border/60 mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-purple-400" />
+                    <Sparkles size={13} className="text-zinc-300" />
                     Pollinations Image Model
                   </label>
                   {savedModelToast && (
@@ -248,7 +248,7 @@ export default function SettingsPage() {
                   ))}
                 </select>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Model used across Storyboard &amp; Images-Only mode via <code className="text-purple-300 font-mono text-[10px]">https://gen.pollinations.ai/image/&#123;prompt&#125;</code>
+                  Model used across Storyboard &amp; Images-Only mode via <code className="text-zinc-300 font-mono text-[10px]">https://gen.pollinations.ai/image/&#123;prompt&#125;</code>
                 </p>
               </div>
 
@@ -274,13 +274,13 @@ export default function SettingsPage() {
               {/* Section Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
-                    <Palette size={16} className="text-purple-400" />
+                  <div className="w-9 h-9 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+                    <Palette size={16} className="text-zinc-200" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-sm font-semibold text-white">Image Generation Base-Style</h2>
-                      <span className="text-[10px] text-purple-400 bg-purple-950/60 border border-purple-800/40 px-1.5 py-0.5 rounded font-mono">
+                      <span className="text-[10px] text-zinc-300 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded font-mono">
                         Global
                       </span>
                     </div>
@@ -301,11 +301,11 @@ export default function SettingsPage() {
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label htmlFor="photo-image-style-select" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                    <Palette size={13} className="text-purple-400" />
+                    <Palette size={13} className="text-zinc-400" />
                     Select Photo / Image Style
                   </label>
                   {matchingPreset ? (
-                    <span className="text-[11px] text-purple-400 font-mono">
+                    <span className="text-[11px] text-zinc-300 font-mono">
                       Active: {matchingPreset.name}
                     </span>
                   ) : (
@@ -345,8 +345,8 @@ export default function SettingsPage() {
                       onClick={() => handleApplyShortcut(s)}
                       className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
                         baseStylePrompt.trim() === s.prompt.trim()
-                          ? 'bg-purple-600/30 border-purple-500 text-purple-200 shadow-sm ring-1 ring-purple-500/50'
-                          : 'bg-bg-base/60 border-bg-border text-slate-400 hover:text-white hover:bg-bg-elevated'
+                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm ring-1 ring-zinc-500/50'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
                       }`}
                     >
                       {s.name}
@@ -393,9 +393,9 @@ export default function SettingsPage() {
                   How Image Prompts Will Be Formed:
                 </span>
                 <p className="text-slate-300 font-mono text-[11px] leading-relaxed">
-                  <span className="text-cyan-400">[Scene visual description]</span>
+                  <span className="text-zinc-400">[Scene visual description]</span>
                   <span className="text-slate-500">. </span>
-                  <span className="text-purple-300">{baseStylePrompt || '(No base style prompt)'}</span>
+                  <span className="text-zinc-200">{baseStylePrompt || '(No base style prompt)'}</span>
                 </p>
                 {negativePrompt && (
                   <p className="text-slate-400 font-mono text-[10px] mt-1 pt-1 border-t border-bg-border/50">
@@ -441,10 +441,10 @@ export default function SettingsPage() {
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">AI Engine Status</h3>
               <div className="space-y-2">
                 {[
-                  { label: 'Script Chunking & Parsing', model: 'Pollinations AI (Semantic Chunker)', color: 'text-blue-400' },
-                  { label: 'Scene Extraction & Visual Prompts', model: 'Pollinations AI (Scene Extractor)', color: 'text-indigo-400' },
-                  { label: 'Voice Generation (TTS)', model: 'Pollinations Audio (TTS)', color: 'text-accent-purple-light' },
-                  { label: 'Image Engine', model: `Pollinations AI (${imageModel})`, color: 'text-purple-400' },
+                  { label: 'Script Chunking & Parsing', model: 'Pollinations AI (Semantic Chunker)', color: 'text-zinc-400' },
+                  { label: 'Scene Extraction & Visual Prompts', model: 'Pollinations AI (Scene Extractor)', color: 'text-zinc-400' },
+                  { label: 'Voice Generation (TTS)', model: 'Pollinations Audio (TTS)', color: 'text-zinc-300' },
+                  { label: 'Image Engine', model: `Pollinations AI (${imageModel})`, color: 'text-zinc-300' },
                 ].map(({ label, model, color }) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className="text-xs text-slate-500">{label}</span>

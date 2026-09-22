@@ -130,8 +130,8 @@ export default function StylePresetModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-bg-border flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-purple/30 to-accent-cyan/20 border border-accent-purple/30 flex items-center justify-center">
-              <Palette size={15} className="text-accent-purple-light" />
+            <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
+              <Palette size={15} className="text-zinc-200" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white">Base Style Presets</h2>
@@ -270,8 +270,8 @@ export default function StylePresetModal({
                         onClick={() => !editing.isBuiltIn && setEditing({ ...editing, aspectRatio: ar })}
                         className={`px-4 py-2 rounded-lg text-xs font-medium border transition-all duration-150 ${
                           editing.aspectRatio === ar
-                            ? 'bg-accent-purple/20 border-accent-purple/50 text-accent-purple-light'
-                            : 'bg-bg-elevated border-bg-border text-slate-400 hover:text-white'
+                            ? 'bg-zinc-800 border-zinc-600 text-white font-medium'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
                         }`}
                       >
                         {ar}
@@ -377,8 +377,8 @@ function PresetListItem({
     <div
       className={`group relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150
         ${isEditing
-          ? 'bg-accent-purple/15 border border-accent-purple/30'
-          : 'hover:bg-bg-elevated border border-transparent'
+          ? 'bg-zinc-800/80 border border-zinc-700 text-white'
+          : 'hover:bg-zinc-800/40 border border-transparent'
         }`}
       onClick={onEdit}
     >
@@ -405,7 +405,7 @@ function PresetListItem({
         {/* Use button */}
         <button
           onClick={(e) => { e.stopPropagation(); onSelect(); }}
-          className="text-[10px] px-2 py-0.5 rounded bg-accent-purple/20 text-accent-purple-light border border-accent-purple/30 hover:bg-accent-purple/30 transition-colors"
+          className="text-[10px] px-2 py-0.5 rounded bg-white text-zinc-950 font-medium hover:bg-zinc-200 transition-colors shadow-sm"
         >
           Use
         </button>

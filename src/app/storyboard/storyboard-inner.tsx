@@ -611,7 +611,7 @@ export default function StoryboardInner() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
-        <Loader2 size={24} className="animate-spin text-accent-purple" />
+        <Loader2 size={24} className="animate-spin text-zinc-400" />
       </div>
     );
   }
@@ -632,12 +632,12 @@ export default function StoryboardInner() {
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent-purple/30 to-accent-cyan/20 border border-accent-purple/30 flex items-center justify-center">
-              <Film size={13} className="text-accent-purple-light" />
+            <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-100">
+              <Film size={13} className="text-zinc-200" />
             </div>
             <div>
               <h1 className="text-sm font-bold text-white leading-tight">{project?.title}</h1>
-              <p className="text-[10px] text-slate-500">Phase 2 · Image Engine & Storyboard</p>
+              <p className="text-[10px] text-zinc-400">Phase 2 · Image Engine & Storyboard</p>
             </div>
           </div>
 
@@ -669,7 +669,7 @@ export default function StoryboardInner() {
               <button
                 onClick={handleDownloadAllImages}
                 disabled={downloadingAll}
-                className="flex items-center gap-1.5 text-xs text-white px-3 py-1.5 rounded-lg bg-bg-elevated border border-bg-border hover:border-accent-purple/50 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-zinc-200 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition-colors"
                 title="Download all generated scene images"
               >
                 {downloadingAll ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} className="text-emerald-400" />}
@@ -705,7 +705,7 @@ export default function StoryboardInner() {
                       Custom Voice
                     </span>
                   ) : hasAudio ? (
-                    <span className="text-[10px] font-medium text-purple-400 bg-purple-950/60 border border-purple-800/50 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] font-medium text-zinc-300 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded">
                       AI TTS Voice
                     </span>
                   ) : (
@@ -755,8 +755,8 @@ export default function StoryboardInner() {
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 rounded-lg bg-purple-950/20 border border-purple-800/30 text-center space-y-2">
-                    <p className="text-xs text-purple-300 leading-snug">
+                  <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center space-y-2">
+                    <p className="text-xs text-zinc-300 leading-snug">
                       No voice file uploaded yet. You can upload an audio recording to auto-fit scene timings!
                     </p>
                     <button
@@ -815,10 +815,10 @@ export default function StoryboardInner() {
                     <button
                       onClick={() => handleSyncTimelineToAudio()}
                       disabled={isWorking}
-                      className="btn-secondary w-full justify-center text-xs text-purple-300 border-purple-800/30 hover:border-purple-700 hover:text-purple-200"
+                      className="btn-secondary w-full justify-center text-xs text-zinc-200 border-zinc-700 hover:bg-zinc-800 hover:text-white"
                       title="Proportionally scale all scene cuts to match voice length"
                     >
-                      <Zap size={11} className="text-purple-400" />
+                      <Zap size={11} className="text-zinc-400" />
                       <span>Auto-Fit Scenes to Voice</span>
                     </button>
                   )}
@@ -836,20 +836,20 @@ export default function StoryboardInner() {
 
                 {stylePreset ? (
                   <div
-                    className="card-elevated cursor-pointer hover:border-accent-purple/40 transition-all duration-150 group"
+                    className="card-elevated cursor-pointer hover:border-zinc-600 transition-colors group"
                     onClick={() => setShowStyleModal(true)}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-white truncate">{stylePreset.name}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{stylePreset.aspectRatio}</p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">{stylePreset.aspectRatio}</p>
                       </div>
-                      <Palette size={12} className="text-slate-600 group-hover:text-accent-purple-light transition-colors flex-shrink-0 mt-0.5" />
+                      <Palette size={12} className="text-zinc-400 group-hover:text-white transition-colors flex-shrink-0 mt-0.5" />
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2 line-clamp-2 leading-relaxed">
+                    <p className="text-[10px] text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
                       {stylePreset.stylePrompt}
                     </p>
-                    <p className="text-[10px] text-accent-purple-light/70 hover:text-accent-purple-light mt-2 transition-colors">
+                    <p className="text-[10px] text-zinc-300 hover:text-white mt-2 transition-colors">
                       Change style →
                     </p>
                   </div>
@@ -974,8 +974,7 @@ export default function StoryboardInner() {
                 <button
                   id="generate-motion-btn"
                   onClick={() => handleGenerateMotion(scenes)}
-                  className="btn-primary w-full justify-center"
-                  style={{ background: 'linear-gradient(135deg, #0e7490, #06b6d4)' }}
+                  className="btn-secondary w-full justify-center text-xs"
                 >
                   <Clapperboard size={15} />
                   {`Animate ${readyForMotion} Clips (Ken Burns)`}
@@ -987,10 +986,9 @@ export default function StoryboardInner() {
                 <button
                   id="proceed-export-btn"
                   onClick={() => router.push(`/export?id=${projectId}`)}
-                  className="w-full py-2.5 rounded-lg text-sm font-semibold text-white
-                             bg-gradient-to-r from-amber-600 via-accent-purple to-accent-cyan
-                             hover:shadow-lg hover:shadow-cyan-900/40 transition-all duration-200
-                             flex items-center justify-center gap-2 glow-purple"
+                  className="w-full py-2.5 rounded-lg text-sm font-medium text-zinc-950
+                             bg-white hover:bg-zinc-200 transition-colors shadow-sm
+                             flex items-center justify-center gap-2"
                 >
                   <Zap size={15} />
                   Proceed to Final Export →

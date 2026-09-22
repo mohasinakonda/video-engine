@@ -55,37 +55,37 @@ export const SHOT_TYPE_CONFIG: Record<
     label: 'Drone / Aerial Geometry',
     shortLabel: 'Aerial',
     icon: Compass,
-    badgeColor: 'bg-indigo-950/70 text-indigo-300 border-indigo-700/50 hover:bg-indigo-900/60',
+    badgeColor: 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800',
   },
   MACRO_TEXTURE: {
     label: 'Macro & Texture Detail',
     shortLabel: 'Macro',
     icon: Sparkles,
-    badgeColor: 'bg-emerald-950/70 text-emerald-300 border-emerald-700/50 hover:bg-emerald-900/60',
+    badgeColor: 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800',
   },
   CULTURAL_HUMAN: {
     label: 'Culture & Daily Life',
     shortLabel: 'Culture',
     icon: Users,
-    badgeColor: 'bg-amber-950/70 text-amber-300 border-amber-700/50 hover:bg-amber-900/60',
+    badgeColor: 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800',
   },
   HISTORICAL_HERITAGE: {
     label: 'History & Heritage',
     shortLabel: 'Heritage',
     icon: Landmark,
-    badgeColor: 'bg-violet-950/70 text-violet-300 border-violet-700/50 hover:bg-violet-900/60',
+    badgeColor: 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800',
   },
   ATMOSPHERIC_MOOD: {
     label: 'Atmospheric Mood & Light',
     shortLabel: 'Mood',
     icon: CloudSun,
-    badgeColor: 'bg-sky-950/70 text-sky-300 border-sky-700/50 hover:bg-sky-900/60',
+    badgeColor: 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800',
   },
   WIDE_ESTABLISHING: {
     label: 'Wide Establishing Shot',
     shortLabel: 'Establishing',
     icon: Mountain,
-    badgeColor: 'bg-teal-950/70 text-teal-300 border-teal-700/50 hover:bg-teal-900/60',
+    badgeColor: 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800',
   },
 };
 
@@ -93,13 +93,13 @@ export const SHOT_TYPE_CONFIG: Record<
 
 function statusClass(status: SceneItem['status']): string {
   switch (status) {
-    case 'PENDING': return 'bg-slate-800 text-slate-400 border-slate-700';
-    case 'GENERATING_IMAGE': return 'bg-blue-950/80 text-blue-400 border-blue-800/50';
-    case 'IMAGE_READY': return 'bg-emerald-950/80 text-emerald-400 border-emerald-800/50';
-    case 'GENERATING_MOTION': return 'bg-violet-950/80 text-violet-400 border-violet-800/50';
-    case 'MOTION_READY': return 'bg-cyan-950/80 text-cyan-400 border-cyan-800/50';
-    case 'FAILED': return 'bg-red-950/80 text-red-400 border-red-800/50';
-    default: return 'bg-slate-800 text-slate-400 border-slate-700';
+    case 'PENDING': return 'bg-zinc-900 text-zinc-400 border-zinc-800';
+    case 'GENERATING_IMAGE': return 'bg-zinc-800 text-zinc-200 border-zinc-700';
+    case 'IMAGE_READY': return 'bg-emerald-950/40 text-emerald-400 border-emerald-900/50';
+    case 'GENERATING_MOTION': return 'bg-zinc-800 text-zinc-200 border-zinc-700';
+    case 'MOTION_READY': return 'bg-zinc-800 text-zinc-100 border-zinc-600';
+    case 'FAILED': return 'bg-red-950/40 text-red-400 border-red-900/50';
+    default: return 'bg-zinc-900 text-zinc-400 border-zinc-800';
   }
 }
 
@@ -187,7 +187,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
   return (
     <div
       className={`relative group rounded-xl border overflow-hidden transition-all duration-200
-        ${hovering ? 'border-accent-purple/40 shadow-lg shadow-purple-900/20' : 'border-bg-border'}
+        ${hovering ? 'border-zinc-500 shadow-md' : 'border-bg-border'}
         ${isGenerating ? 'animate-pulse-border' : ''}`}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => { setHovering(false); if (editingPrompt) setEditingPrompt(false); }}
@@ -210,13 +210,13 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
           <div className="w-full h-full flex items-center justify-center">
             {isGenerating ? (
               <div className="flex flex-col items-center gap-2">
-                <Loader2 size={20} className="text-accent-purple animate-spin" />
-                <p className="text-[10px] text-slate-500">
+                <Loader2 size={20} className="text-zinc-400 animate-spin" />
+                <p className="text-[10px] text-zinc-400">
                   {scene.status === 'GENERATING_IMAGE' ? 'Generating image…' : 'Animating…'}
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-1.5 text-slate-700">
+              <div className="flex flex-col items-center gap-1.5 text-zinc-600">
                 <ImageIcon size={20} />
                 <p className="text-[10px]">No image</p>
               </div>
@@ -225,13 +225,13 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
         )}
 
         {/* Scene number badge */}
-        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-[10px] font-bold text-white">
+        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/80 backdrop-blur-sm text-[10px] font-bold text-white border border-white/10">
           #{scene.sceneId}
         </div>
 
         {/* Motion profile badge */}
         {scene.motionProfile && (
-          <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-sm text-[9px] font-medium text-cyan-300">
+          <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/80 backdrop-blur-sm text-[9px] font-medium text-zinc-300 border border-white/10">
             {MOTION_LABELS[scene.motionProfile].icon}
             {MOTION_LABELS[scene.motionProfile].label}
           </div>
@@ -239,8 +239,8 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
 
         {/* Motion Ready icon */}
         {scene.status === 'MOTION_READY' && (
-          <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
-            <Video size={11} className="text-cyan-400" />
+          <div className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-zinc-800/90 border border-zinc-700 flex items-center justify-center">
+            <Video size={11} className="text-zinc-200" />
           </div>
         )}
 
@@ -253,7 +253,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
             {scene.imageUrl && (
               <button
                 onClick={(e) => { e.stopPropagation(); setPreviewOpen(true); }}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-600/90 text-white text-[11px] font-medium hover:bg-sky-500 transition-colors shadow-sm"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-[11px] font-medium hover:bg-zinc-700 transition-colors shadow-sm"
                 title="Preview in high resolution"
               >
                 <Maximize2 size={11} />
@@ -262,7 +262,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
             )}
             <button
               onClick={handleRegenerate}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent-purple/80 text-white text-[11px] font-medium hover:bg-accent-purple transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white text-zinc-950 text-[11px] font-medium hover:bg-zinc-200 transition-colors shadow-sm"
               title="Regenerate image"
             >
               <RefreshCw size={11} />
@@ -270,7 +270,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
             </button>
             <button
               onClick={() => { setEditingPrompt(true); setPromptDraft(scene.visualPrompt); }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-elevated/90 text-slate-300 text-[11px] font-medium hover:text-white transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800/90 text-zinc-300 text-[11px] font-medium hover:text-white transition-colors"
               title="Edit prompt"
             >
               <Edit2 size={11} />
@@ -317,7 +317,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
                 >
                   −
                 </button>
-                <span className="font-semibold px-0.5 text-purple-300">{duration}s</span>
+                <span className="font-semibold px-0.5 text-zinc-200">{duration}s</span>
                 <button
                   type="button"
                   onClick={() => onUpdateDuration(scene.sceneId, 0.5)}
@@ -329,7 +329,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
                 </button>
               </div>
             ) : (
-              <span className="text-[10px] text-purple-300/90 font-mono font-medium">{duration}s</span>
+              <span className="text-[10px] text-zinc-300 font-mono font-medium">{duration}s</span>
             )}
             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium border ${statusClass(scene.status)}`}>
               {isGenerating && <Loader2 size={8} className="animate-spin" />}
@@ -348,12 +348,12 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium border transition-all ${
                 scene.shotType && SHOT_TYPE_CONFIG[scene.shotType]
                   ? SHOT_TYPE_CONFIG[scene.shotType].badgeColor
-                  : 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700/60'
+                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800'
               }`}
               title="Change B-roll perspective (Drone, Macro, Culture, History, etc.)"
             >
               {isSwitchingBRoll ? (
-                <Loader2 size={9} className="animate-spin text-accent-purple" />
+                <Loader2 size={9} className="animate-spin text-zinc-300" />
               ) : scene.shotType && SHOT_TYPE_CONFIG[scene.shotType] ? (
                 <>
                   {(() => {
@@ -401,15 +401,15 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
                     onClick={() => handleSwitchShotType(type)}
                     className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-[10px] transition-colors text-left ${
                       isSelected
-                        ? 'bg-accent-purple/20 text-white font-medium'
-                        : 'text-slate-300 hover:bg-bg-elevated hover:text-white'
+                        ? 'bg-zinc-800 text-white font-medium'
+                        : 'text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-1.5">
-                      <IconComponent size={11} className={isSelected ? 'text-accent-purple' : 'text-slate-400'} />
+                      <IconComponent size={11} className={isSelected ? 'text-white' : 'text-zinc-400'} />
                       <span>{conf.label}</span>
                     </div>
-                    {isSelected && <Check size={10} className="text-accent-purple" />}
+                    {isSelected && <Check size={10} className="text-white" />}
                   </button>
                 );
               })}
@@ -486,7 +486,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-bg-border bg-bg-elevated/80">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="px-2 py-0.5 rounded-md bg-accent-purple/20 text-accent-purple text-xs font-bold">
+                <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-bold">
                   Scene #{scene.sceneId}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
