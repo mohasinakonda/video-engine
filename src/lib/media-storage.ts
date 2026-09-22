@@ -81,3 +81,57 @@ export async function deleteMediaBlob(key: string): Promise<void> {
     console.warn('Failed to delete media blob from IndexedDB:', err);
   }
 }
+
+/**
+ * Accurately determines audio duration (in seconds) for any audio Blob/File
+ * using HTML5 Audio element with fallback to Web Audio API AudioContext.
+ */
+export async function getAudioDuration(blob: Blob | File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      resolve(0);
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio();
+    audio.preload = 'metadata';
+
+    const cleanUp = () => {
+      URL.revokeObjectURL(url);
+    };
+
+    audio.onloadedmetadata = () => {
+      const dur = audio.duration;
+      cleanUp();
+      if (typeof dur === 'number' && !isNaN(dur) && isFinite(dur) && dur > 0) {
+        resolve(dur);
+      } else {
+        decodeViaAudioContext(blob).then(resolve).catch(reject);
+      }
+    };
+
+    audio.onerror = () => {
+      cleanUp();
+      decodeViaAudioContext(blob).then(resolve).catch(reject);
+    };
+
+    audio.src = url;
+  });
+}
+
+async function decodeViaAudioContext(blob: Blob | File): Promise<number> {
+  const AudioCtx =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  if (!AudioCtx) throw new Error('AudioContext not supported');
+  const ctx = new AudioCtx();
+  try {
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(arrayBuffer.slice(0));
+    return audioBuf.duration;
+  } finally {
+    ctx.close().catch(() => {});
+  }
+}
+

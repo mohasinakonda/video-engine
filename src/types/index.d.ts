@@ -59,6 +59,10 @@ export interface ProjectManifest {
   finalVideoPath?: string;
   /** Scene cutting pace profile */
   pacingProfile?: PacingProfile;
+  /** Custom uploaded voiceover audio filename */
+  customAudioFileName?: string;
+  /** Flag indicating whether project uses user-uploaded voiceover */
+  hasCustomVoice?: boolean;
 }
 
 // ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────

@@ -18,6 +18,11 @@ import {
   Download,
   Plus,
   Images,
+  Mic,
+  Upload,
+  Play,
+  Pause,
+  FileAudio,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import StoryboardGrid from '@/components/storyboard-grid';
@@ -33,13 +38,22 @@ import {
 import { extractScenes } from '@/lib/gemini';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
-import { getMediaBlobUrl } from '@/lib/media-storage';
+import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
 import type {
   ProjectManifest,
   SceneItem,
   SceneStatus,
+  AudioChunk,
   BaseStylePreset,
 } from '@/types';
+
+function formatDuration(ms: number): string {
+  if (!ms) return '0:00';
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -68,6 +82,26 @@ export default function StoryboardInner() {
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatingMotion, setGeneratingMotion] = useState(false);
   const [pauseMsg, setPauseMsg] = useState('');
+
+  // Voiceover audio preview & upload state
+  const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [voiceCurrentTime, setVoiceCurrentTime] = useState(0);
+  const [voiceDuration, setVoiceDuration] = useState(0);
+  const [uploadingVoice, setUploadingVoice] = useState(false);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const voiceInputRef = useRef<HTMLInputElement | null>(null);
+
+  const togglePlayVoice = useCallback(() => {
+    if (!audioPlayerRef.current || !voiceAudioUrl) return;
+    if (isPlayingVoice) {
+      audioPlayerRef.current.pause();
+      setIsPlayingVoice(false);
+    } else {
+      audioPlayerRef.current.play().catch(console.warn);
+      setIsPlayingVoice(true);
+    }
+  }, [isPlayingVoice, voiceAudioUrl]);
 
   const imageQueueRef = useRef<ImageQueue | null>(null);
   const motionQueueRef = useRef<MotionQueue | null>(null);
@@ -189,6 +223,17 @@ export default function StoryboardInner() {
       presetRef.current = preset;
       setStylePreset(preset);
 
+      // Restore voice audio URL from IndexedDB or first chunk
+      const audioUrl = await getMediaBlobUrl(`audio_${p.projectId}_0`);
+      if (audioUrl) {
+        setVoiceAudioUrl(audioUrl);
+      } else if (p.audioChunks && p.audioChunks.length > 0 && p.audioChunks[0].audioUrl) {
+        setVoiceAudioUrl(p.audioChunks[0].audioUrl);
+      }
+      if (p.totalDurationMs && p.totalDurationMs > 0) {
+        setVoiceDuration(p.totalDurationMs / 1000);
+      }
+
       // Auto-start image generation if requested via query param
       const isAutoGenerate = searchParams.get('autoGenerate') === 'true';
       if (isAutoGenerate) {
@@ -276,16 +321,18 @@ export default function StoryboardInner() {
 
   // ─── Sync Scene Durations to Voice Audio ──────────────────────────────────
 
-  async function handleSyncTimelineToAudio() {
+  async function handleSyncTimelineToAudio(forcedDurationSec?: number) {
     const proj = projectRef.current;
     if (!proj || scenes.length === 0) return;
 
     const words = proj.rawScript?.trim().split(/\s+/).filter(Boolean).length || 0;
     const wordEstSec = Math.max(15, Math.round((words / 135) * 60));
     const targetDurationSec =
-      proj.totalDurationMs && proj.totalDurationMs > 0
-        ? proj.totalDurationMs / 1000
-        : wordEstSec;
+      forcedDurationSec && forcedDurationSec > 0
+        ? forcedDurationSec
+        : (proj.totalDurationMs && proj.totalDurationMs > 0
+            ? proj.totalDurationMs / 1000
+            : wordEstSec);
 
     const currentDurations = scenes.map((s) => {
       const lineWords = (s.narrationLine || '').split(/\s+/).filter(Boolean).length;
@@ -312,6 +359,65 @@ export default function StoryboardInner() {
     setScenes(resynced);
     await persistScenes(resynced);
     setExtractMsg(`Timeline synchronized: all ${scenes.length} scenes now span ${targetDurationSec.toFixed(1)}s.`);
+  }
+
+  // ─── Custom Voiceover Upload ──────────────────────────────────────────────
+
+  async function handleUploadVoiceover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !projectId) return;
+
+    setUploadingVoice(true);
+    setExtractError('');
+    try {
+      const durSec = await getAudioDuration(file);
+      const durMs = Math.round(durSec * 1000);
+
+      // Save audio to IndexedDB under audio_${projectId}_0
+      await saveMediaBlob(`audio_${projectId}_0`, file);
+      const audioUrl = URL.createObjectURL(file);
+
+      const ext = file.name.split('.').pop() || 'mp3';
+      const customChunk: AudioChunk = {
+        index: 0,
+        text: `Custom Voice: ${file.name}`,
+        filePath: `projects/${projectId}/audio/custom_voice.${ext}`,
+        durationMs: durMs,
+        status: 'COMPLETED',
+        audioUrl,
+      };
+
+      const proj = projectRef.current;
+      if (!proj) return;
+
+      const updatedManifest: ProjectManifest = {
+        ...proj,
+        hasCustomVoice: true,
+        customAudioFileName: file.name,
+        totalDurationMs: durMs,
+        audioChunks: [customChunk],
+        updatedAt: Date.now(),
+      };
+
+      projectRef.current = updatedManifest;
+      setProject(updatedManifest);
+      await saveProject(updatedManifest);
+
+      setVoiceAudioUrl(audioUrl);
+      setVoiceDuration(durSec);
+      setVoiceCurrentTime(0);
+
+      if (scenes.length > 0) {
+        await handleSyncTimelineToAudio(durSec);
+      }
+      setExtractMsg(`Voiceover "${file.name}" loaded (${durSec.toFixed(1)}s). All scenes synchronized!`);
+    } catch (err) {
+      console.error('Failed to upload voiceover:', err);
+      setExtractError('Could not process audio file. Please upload an MP3, WAV, or M4A file.');
+    } finally {
+      setUploadingVoice(false);
+      if (voiceInputRef.current) voiceInputRef.current.value = '';
+    }
   }
 
   // ─── Manual Adjust Scene Duration ─────────────────────────────────────────
@@ -536,6 +642,29 @@ export default function StoryboardInner() {
           </div>
 
           <div className="ml-auto flex items-center gap-3">
+            {/* Hidden file input for uploading custom voiceover */}
+            <input
+              ref={voiceInputRef}
+              type="file"
+              accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg"
+              className="hidden"
+              onChange={handleUploadVoiceover}
+            />
+
+            <button
+              onClick={() => voiceInputRef.current?.click()}
+              disabled={uploadingVoice || isWorking}
+              className="flex items-center gap-1.5 text-xs text-emerald-300 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/50 hover:border-emerald-600/60 hover:text-emerald-200 transition-colors disabled:opacity-50"
+              title="Upload custom recorded voiceover audio file and auto-sync scenes"
+            >
+              {uploadingVoice ? (
+                <Loader2 size={12} className="animate-spin text-emerald-400" />
+              ) : (
+                <Mic size={12} className="text-emerald-400" />
+              )}
+              <span>{uploadingVoice ? 'Reading Audio…' : project?.hasCustomVoice ? 'Replace Voice' : 'Upload Voice'}</span>
+            </button>
+
             {scenes.some((s) => !!s.imageUrl) && (
               <button
                 onClick={handleDownloadAllImages}
@@ -567,34 +696,133 @@ export default function StoryboardInner() {
           <div className="w-80 flex-shrink-0 border-r border-bg-border flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
-              {/* Audio summary */}
-              <div className="card space-y-2">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Audio / Timeline</p>
-                {hasAudio ? (
-                  <>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Total Duration</span>
-                      <span className="text-white font-mono">
-                        {Math.floor(totalDurationSec / 60)}m {Math.round(totalDurationSec % 60)}s
-                      </span>
+              {/* Audio summary & Player */}
+              <div className="card space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Audio / Timeline</p>
+                  {project?.hasCustomVoice ? (
+                    <span className="text-[10px] font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">
+                      Custom Voice
+                    </span>
+                  ) : hasAudio ? (
+                    <span className="text-[10px] font-medium text-purple-400 bg-purple-950/60 border border-purple-800/50 px-1.5 py-0.5 rounded">
+                      AI TTS Voice
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700/50 px-1.5 py-0.5 rounded">
+                      No Audio
+                    </span>
+                  )}
+                </div>
+
+                {voiceAudioUrl ? (
+                  <div className="p-2.5 rounded-lg bg-bg-base border border-bg-border space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileAudio size={14} className="text-emerald-400 flex-shrink-0" />
+                        <span className="text-xs font-medium text-slate-200 truncate">
+                          {project?.customAudioFileName || 'Master Voiceover'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={togglePlayVoice}
+                        className="w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 transition-colors shadow"
+                        title={isPlayingVoice ? 'Pause voiceover' : 'Play voiceover'}
+                      >
+                        {isPlayingVoice ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
+                      </button>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Audio Chunks</span>
-                      <span className="text-white font-mono">{project?.audioChunks?.length ?? 0}</span>
+
+                    {/* Scrubber & Time */}
+                    <div className="space-y-1">
+                      <input
+                        type="range"
+                        min={0}
+                        max={voiceDuration > 0 ? voiceDuration : totalDurationSec > 0 ? totalDurationSec : 1}
+                        step={0.1}
+                        value={voiceCurrentTime}
+                        onChange={(e) => {
+                          const t = parseFloat(e.target.value);
+                          setVoiceCurrentTime(t);
+                          if (audioPlayerRef.current) audioPlayerRef.current.currentTime = t;
+                        }}
+                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                        <span>{formatDuration(voiceCurrentTime * 1000)}</span>
+                        <span>{formatDuration((voiceDuration || totalDurationSec) * 1000)}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Est. Scenes (~3.5s each)</span>
-                      <span className="text-white font-mono">~{estimatedScenes}</span>
-                    </div>
-                  </>
+                  </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-purple-950/20 border border-purple-800/30">
-                    <Images size={13} className="text-purple-400 flex-shrink-0" />
-                    <p className="text-xs text-purple-300">
-                      Images-only mode active (skips voice generation).
+                  <div className="p-3 rounded-lg bg-purple-950/20 border border-purple-800/30 text-center space-y-2">
+                    <p className="text-xs text-purple-300 leading-snug">
+                      No voice file uploaded yet. You can upload an audio recording to auto-fit scene timings!
                     </p>
+                    <button
+                      onClick={() => voiceInputRef.current?.click()}
+                      disabled={uploadingVoice}
+                      className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/40 hover:border-emerald-600/60 hover:text-emerald-200"
+                    >
+                      <Upload size={12} />
+                      <span>Upload Voiceover (MP3/WAV)</span>
+                    </button>
                   </div>
                 )}
+
+                <audio
+                  ref={audioPlayerRef}
+                  src={voiceAudioUrl || undefined}
+                  onTimeUpdate={() => {
+                    if (audioPlayerRef.current) setVoiceCurrentTime(audioPlayerRef.current.currentTime);
+                  }}
+                  onLoadedMetadata={() => {
+                    if (audioPlayerRef.current) setVoiceDuration(audioPlayerRef.current.duration);
+                  }}
+                  onEnded={() => {
+                    setIsPlayingVoice(false);
+                    setVoiceCurrentTime(0);
+                  }}
+                  className="hidden"
+                />
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-slate-400">Total Duration</span>
+                  <span className="text-white font-mono">
+                    {Math.floor(totalDurationSec / 60)}m {Math.round(totalDurationSec % 60)}s
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Scenes Pacing</span>
+                  <span className="text-white font-mono">
+                    {scenes.length > 0 ? (totalDurationSec / scenes.length).toFixed(1) : 3.5}s avg
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="pt-2 border-t border-bg-border/60 flex flex-col gap-1.5">
+                  <button
+                    onClick={() => voiceInputRef.current?.click()}
+                    disabled={uploadingVoice || isWorking}
+                    className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/30 hover:border-emerald-700 hover:text-emerald-200"
+                  >
+                    <Upload size={11} />
+                    <span>{project?.hasCustomVoice ? 'Replace Voiceover File' : 'Upload Voiceover File'}</span>
+                  </button>
+
+                  {scenes.length > 0 && (hasAudio || project?.hasCustomVoice || voiceAudioUrl) && (
+                    <button
+                      onClick={() => handleSyncTimelineToAudio()}
+                      disabled={isWorking}
+                      className="btn-secondary w-full justify-center text-xs text-purple-300 border-purple-800/30 hover:border-purple-700 hover:text-purple-200"
+                      title="Proportionally scale all scene cuts to match voice length"
+                    >
+                      <Zap size={11} className="text-purple-400" />
+                      <span>Auto-Fit Scenes to Voice</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Base Style Preset */}
@@ -789,7 +1017,7 @@ export default function StoryboardInner() {
                   </span>
                 </div>
                 <button
-                  onClick={handleSyncTimelineToAudio}
+                  onClick={() => handleSyncTimelineToAudio()}
                   disabled={isWorking}
                   className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition-colors flex-shrink-0 shadow disabled:opacity-50"
                   title="Scale all scenes proportionally to cover full audio length"

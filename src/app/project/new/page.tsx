@@ -11,12 +11,16 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
+  Mic,
   Mic2,
   Settings,
   RotateCcw,
   FileText,
   Images,
   Gauge,
+  Upload,
+  X,
+  FileAudio,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import ScriptInput from '@/components/script-input';
@@ -25,7 +29,7 @@ import { getPollinationsApiKey, getPresets, getProject, saveProject, getAllProje
 import { chunkScript } from '@/lib/gemini';
 import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import { AudioQueue } from '@/lib/queue';
-import { getMediaBlobUrl } from '@/lib/media-storage';
+import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
 import type { AudioChunk, VoicePreset, ProjectManifest, SceneItem, PacingProfile } from '@/types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -37,6 +41,14 @@ function generateId(): string {
 function generateTitle(): string {
   const now = new Date();
   return `Project ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function formatDuration(ms: number): string {
+  if (!ms) return '0s';
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
 // ─── Stage Type ───────────────────────────────────────────────────────────────
@@ -71,6 +83,12 @@ function ProjectPageInner() {
   // Generate Only Images state
   const [generatingOnlyImages, setGeneratingOnlyImages] = useState(false);
   const [generatingOnlyImagesMsg, setGeneratingOnlyImagesMsg] = useState('');
+
+  // Custom Voiceover Upload state
+  const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
+  const [customAudioDurationMs, setCustomAudioDurationMs] = useState<number>(0);
+  const [readingAudioDuration, setReadingAudioDuration] = useState(false);
+  const voiceFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const queueRef = useRef<AudioQueue | null>(null);
   const existingProjectRef = useRef<ProjectManifest | null>(null);
@@ -257,6 +275,110 @@ function ProjectPageInner() {
       router.push(`/storyboard?id=${projectId}&autoGenerate=true`);
     } catch (err) {
       setSplitError(err instanceof Error ? err.message : 'Scene extraction failed.');
+      setGeneratingOnlyImages(false);
+      setGeneratingOnlyImagesMsg('');
+    }
+  }
+
+  async function handleCustomVoiceSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setReadingAudioDuration(true);
+    setSplitError('');
+    try {
+      const durSec = await getAudioDuration(file);
+      setCustomAudioFile(file);
+      setCustomAudioDurationMs(Math.round(durSec * 1000));
+    } catch (err) {
+      console.error('Failed to read audio duration:', err);
+      setSplitError('Could not read audio file. Please upload an MP3, WAV, or M4A file.');
+    } finally {
+      setReadingAudioDuration(false);
+      if (voiceFileInputRef.current) voiceFileInputRef.current.value = '';
+    }
+  }
+
+  async function handleCreateWithCustomVoice() {
+    if (!customAudioFile || !script.trim()) return;
+
+    setGeneratingOnlyImages(true);
+    setSplitError('');
+    setGeneratingOnlyImagesMsg('Saving custom voiceover…');
+
+    try {
+      const apiKey = (await getPollinationsApiKey()) || '';
+      const stylePreset = await getDefaultStylePreset();
+
+      // Save custom voice to IndexedDB under audio_${projectId}_0
+      await saveMediaBlob(`audio_${projectId}_0`, customAudioFile);
+      const audioUrl = URL.createObjectURL(customAudioFile);
+
+      const targetDurationSec = customAudioDurationMs / 1000;
+      setGeneratingOnlyImagesMsg(`Extracting scenes synced to ${targetDurationSec.toFixed(1)}s voice…`);
+
+      const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
+        targetDurationSec,
+        stylePrompt: stylePreset.stylePrompt,
+        apiKey,
+        pacingProfile,
+        onProgress: (msg) => setGeneratingOnlyImagesMsg(msg),
+      });
+
+      const rawTotal = breakdown.reduce(
+        (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
+        0
+      );
+      const scale = rawTotal > 0 ? targetDurationSec / rawTotal : 1;
+
+      let cumSec = 0;
+      const newScenes: SceneItem[] = breakdown.map((item, idx) => {
+        const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
+        const dur = rawDur * scale;
+        const start = cumSec;
+        const end = idx === breakdown.length - 1 ? targetDurationSec : cumSec + dur;
+        cumSec = end;
+
+        return {
+          sceneId: idx + 1,
+          audioStartSec: parseFloat(start.toFixed(1)),
+          audioEndSec: parseFloat(end.toFixed(1)),
+          narrationLine: item.narration,
+          visualPrompt: item.visual_prompt,
+          fullPrompt: `${item.visual_prompt}. ${stylePreset.stylePrompt}`,
+          shotType: item.shot_type,
+          bRollFocus: item.b_roll_focus,
+          status: 'PENDING',
+        };
+      });
+
+      const customChunk: AudioChunk = {
+        index: 0,
+        text: `Custom Voice: ${customAudioFile.name}`,
+        filePath: `projects/${projectId}/audio/custom_voice.${customAudioFile.name.split('.').pop() || 'mp3'}`,
+        durationMs: customAudioDurationMs,
+        status: 'COMPLETED',
+        audioUrl,
+      };
+
+      const manifest: ProjectManifest = {
+        projectId,
+        title: projectTitle || `Voice: ${customAudioFile.name.replace(/\.[^/.]+$/, '')}`,
+        rawScript: script,
+        voicePresetId: selectedPresetId,
+        pacingProfile,
+        hasCustomVoice: true,
+        customAudioFileName: customAudioFile.name,
+        audioChunks: [customChunk],
+        totalDurationMs: customAudioDurationMs,
+        scenes: newScenes,
+        baseStylePresetId: stylePreset.id,
+        updatedAt: Date.now(),
+      };
+
+      await saveProject(manifest);
+      router.push(`/storyboard?id=${projectId}&autoGenerate=true`);
+    } catch (err) {
+      setSplitError(err instanceof Error ? err.message : 'Custom voice sync failed.');
       setGeneratingOnlyImages(false);
       setGeneratingOnlyImagesMsg('');
     }
@@ -581,7 +703,7 @@ function ProjectPageInner() {
                       disabled={generatingOnlyImages || splitting || !script.trim()}
                       className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 hover:from-purple-500 hover:via-indigo-500 hover:to-pink-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20 transition-all active:scale-[0.98]"
                     >
-                      {generatingOnlyImages ? (
+                      {generatingOnlyImages && !customAudioFile ? (
                         <>
                           <Loader2 size={14} className="animate-spin" />
                           <span>{generatingOnlyImagesMsg || 'Extracting Scenes…'}</span>
@@ -595,6 +717,93 @@ function ProjectPageInner() {
                     </button>
                     <p className="text-[10px] text-slate-500 mt-1.5 text-center">
                       Directly creates visual storyboard &amp; generates images with Pollinations AI (free, skips voice)
+                    </p>
+                  </div>
+
+                  {/* Custom Voiceover Upload Option */}
+                  <div className="pt-3 border-t border-bg-border/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <Mic size={13} className="text-emerald-400" />
+                        Custom Voiceover
+                      </span>
+                      <span className="text-[10px] text-emerald-400/80 bg-emerald-950/60 border border-emerald-800/40 px-1.5 py-0.5 rounded font-mono">
+                        MP3 / WAV / M4A
+                      </span>
+                    </div>
+
+                    <input
+                      ref={voiceFileInputRef}
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg"
+                      className="hidden"
+                      onChange={handleCustomVoiceSelected}
+                    />
+
+                    {customAudioFile ? (
+                      <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-700/40 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileAudio size={16} className="text-emerald-400 flex-shrink-0" />
+                            <div className="truncate">
+                              <p className="text-xs font-medium text-white truncate">{customAudioFile.name}</p>
+                              <p className="text-[10px] text-emerald-400 font-mono">
+                                {formatDuration(customAudioDurationMs)}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setCustomAudioFile(null); setCustomAudioDurationMs(0); }}
+                            className="text-slate-400 hover:text-red-400 p-1"
+                            title="Remove audio file"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+
+                        <button
+                          id="sync-custom-voice-btn"
+                          type="button"
+                          onClick={handleCreateWithCustomVoice}
+                          disabled={generatingOnlyImages || splitting || !script.trim()}
+                          className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all active:scale-[0.98]"
+                        >
+                          {generatingOnlyImages && customAudioFile ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              <span>{generatingOnlyImagesMsg || 'Syncing to Voice…'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 size={14} />
+                              <span>Sync Script &amp; Generate Storyboard</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => voiceFileInputRef.current?.click()}
+                        disabled={generatingOnlyImages || splitting || readingAudioDuration}
+                        className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/40 hover:border-emerald-600/60 hover:text-emerald-200"
+                      >
+                        {readingAudioDuration ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>Reading Audio Duration…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={13} />
+                            <span>Upload Your Recorded Voice</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <p className="text-[10px] text-slate-500 mt-1.5 text-center">
+                      Have your own recording? Upload it and scenes will sync to its exact duration.
                     </p>
                   </div>
                 </>
