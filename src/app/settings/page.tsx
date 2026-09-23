@@ -181,7 +181,7 @@ export default function SettingsPage() {
                     Pollinations AI{' '}
                     <span className="text-[11px] font-normal text-emerald-400 font-mono">(Free by Default)</span>
                   </h2>
-                  <p className="text-xs text-slate-500">Powers script splitting, scene extraction, voices, and image rendering</p>
+                  <p className="text-xs text-slate-500">Powers script splitting, Whisper voice transcription &amp; scene sync, and image rendering</p>
                 </div>
               </div>
 
@@ -189,7 +189,7 @@ export default function SettingsPage() {
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="label mb-0">Pollinations API Key (Optional)</label>
-                  <span className="text-[11px] text-slate-500">Only needed for Pro models</span>
+                  <span className="text-[11px] text-slate-500">Needed for Whisper voice sync &amp; Pro models</span>
                 </div>
                 <div className="relative">
                   <input

@@ -127,7 +127,9 @@ export default function StoryboardInner() {
       apiKey,
       projectId,
       scenes: currentScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED'),
+      stylePrompt: preset?.stylePrompt,
       negativePrompt: preset?.negativePrompt,
+      aspectRatio: preset?.aspectRatio,
       model: chosenModel,
       concurrency: 3,
       callbacks: {
@@ -500,15 +502,12 @@ export default function StoryboardInner() {
     const chosenModel = await getPollinationsImageModel();
 
     const preset = presetRef.current;
+    const effectiveVisual = newPrompt && newPrompt.trim() ? newPrompt.trim() : scene.visualPrompt;
     const targetScene: SceneItem = {
       ...scene,
       status: 'PENDING' as const,
-      ...(newPrompt && newPrompt !== scene.visualPrompt
-        ? {
-            visualPrompt: newPrompt,
-            fullPrompt: `${newPrompt}. ${preset?.stylePrompt ?? ''}`,
-          }
-        : {}),
+      visualPrompt: effectiveVisual,
+      fullPrompt: preset?.stylePrompt ? `${effectiveVisual}. ${preset.stylePrompt}` : effectiveVisual,
     };
     setScenes((prev) => prev.map((s) => s.sceneId === scene.sceneId ? targetScene : s));
     persistScenes(scenes.map((s) => s.sceneId === scene.sceneId ? targetScene : s));
@@ -519,7 +518,9 @@ export default function StoryboardInner() {
       apiKey,
       projectId,
       model: chosenModel,
+      stylePrompt: preset?.stylePrompt,
       negativePrompt: preset?.negativePrompt,
+      aspectRatio: preset?.aspectRatio,
       callbacks: {
         onSceneUpdate: (sceneId, update) => {
           setScenes((prev) => {
@@ -545,7 +546,9 @@ export default function StoryboardInner() {
       audioEndSec: endSec,
       narrationLine: `Scene ${nextId}`,
       visualPrompt: `Detailed cinematic visual for scene ${nextId}`,
-      fullPrompt: `Detailed cinematic visual for scene ${nextId}. ${presetRef.current?.stylePrompt ?? ''}`,
+      fullPrompt: presetRef.current?.stylePrompt
+        ? `Detailed cinematic visual for scene ${nextId}. ${presetRef.current.stylePrompt}`
+        : `Detailed cinematic visual for scene ${nextId}`,
       status: 'PENDING',
     };
     const updated = [...scenes, newScene];
@@ -1027,6 +1030,7 @@ export default function StoryboardInner() {
 
             <StoryboardGrid
               scenes={scenes}
+              stylePrompt={stylePreset?.stylePrompt}
               onRegenerate={handleRegenerate}
               onUpload={handleUpload}
               onUpdateDuration={handleUpdateSceneDuration}
@@ -1040,10 +1044,32 @@ export default function StoryboardInner() {
       {showStyleModal && (
         <StylePresetModal
           onClose={() => setShowStyleModal(false)}
-          onSelect={(preset) => {
+          onSelect={async (preset) => {
             presetRef.current = preset;
             setStylePreset(preset);
             setShowStyleModal(false);
+
+            // Update all existing scenes to use the newly selected style preset
+            const updatedScenes = scenes.map((s) => ({
+              ...s,
+              fullPrompt: preset.stylePrompt ? `${s.visualPrompt}. ${preset.stylePrompt}` : s.visualPrompt,
+            }));
+            setScenes(updatedScenes);
+
+            // Immediately persist new baseStylePresetId and updated scenes to project
+            const proj = projectRef.current;
+            if (proj) {
+              const stripped = updatedScenes.map(({ imageUrl: _imageUrl, ...s }) => s);
+              const updatedManifest: ProjectManifest = {
+                ...proj,
+                baseStylePresetId: preset.id,
+                scenes: stripped,
+                updatedAt: Date.now(),
+              };
+              projectRef.current = updatedManifest;
+              setProject(updatedManifest);
+              await saveProject(updatedManifest);
+            }
           }}
           selectedId={stylePreset?.id}
         />

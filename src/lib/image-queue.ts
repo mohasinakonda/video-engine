@@ -39,7 +39,9 @@ export interface ImageQueueOptions {
   apiKey: string;
   projectId: string;
   scenes: SceneItem[];
+  stylePrompt?: string;
   negativePrompt?: string;
+  aspectRatio?: '16:9' | '9:16';
   model?: string;
   concurrency?: number;
   forceRegenerate?: boolean;
@@ -107,8 +109,12 @@ async function processScene(
   callbacks.onSceneUpdate(scene.sceneId, { status: 'GENERATING_IMAGE' as SceneStatus });
 
   try {
-    const prompt = scene.fullPrompt ?? scene.visualPrompt;
-    const result = await generateImage(apiKey, prompt, negativePrompt, { model: options.model });
+    const rawVisual = scene.visualPrompt || scene.fullPrompt || '';
+    const result = await generateImage(apiKey, rawVisual, negativePrompt, {
+      model: options.model,
+      baseStyle: options.stylePrompt,
+      aspectRatio: options.aspectRatio,
+    });
 
     // Decode + save to disk
     const bytes = base64ToUint8Array(result.base64Image);

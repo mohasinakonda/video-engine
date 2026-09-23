@@ -24,7 +24,15 @@ async function storeGet<T>(store: unknown, key: string): Promise<T | null> {
   if (isTauri()) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const s = store as any;
-    return s.get(key) as Promise<T | null>;
+    const val = (await s.get(key)) as T | null;
+    if (val !== null && val !== undefined && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(key, JSON.stringify(val));
+      } catch {
+        // ignore storage error
+      }
+    }
+    return val;
   }
 
   const raw = localStorage.getItem(key);
@@ -37,13 +45,20 @@ async function storeGet<T>(store: unknown, key: string): Promise<T | null> {
 }
 
 async function storeSet(store: unknown, key: string, value: unknown): Promise<void> {
+  // Always mirror to localStorage so synchronous accessors have instant access
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // ignore storage error
+    }
+  }
+
   if (isTauri()) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (store as any).set(key, value);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (store as any).save();
-  } else {
-    localStorage.setItem(key, JSON.stringify(value));
   }
 }
 

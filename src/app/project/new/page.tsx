@@ -21,13 +21,15 @@ import {
   Upload,
   X,
   FileAudio,
+  Subtitles,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import ScriptInput from '@/components/script-input';
 import AudioTimeline from '@/components/audio-timeline';
 import { getPollinationsApiKey, getPresets, getProject, saveProject, getAllProjects, getDefaultStylePreset } from '@/lib/store';
 import { chunkScript } from '@/lib/gemini';
-import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
+import { breakdownRequirementToImageScenes, generatePromptsForTimedSegments } from '@/lib/pollinations';
+import { transcribeAudioWithWhisper, parseSrtContent, clusterSegmentsIntoScenes, directScenesFromAudioAndScript, SpokenSegment } from '@/lib/audio-transcriber';
 import { AudioQueue } from '@/lib/queue';
 import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
 import type { AudioChunk, VoicePreset, ProjectManifest, SceneItem, PacingProfile } from '@/types';
@@ -87,8 +89,11 @@ function ProjectPageInner() {
   // Custom Voiceover Upload state
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
   const [customAudioDurationMs, setCustomAudioDurationMs] = useState<number>(0);
+  const [customSrtFile, setCustomSrtFile] = useState<File | null>(null);
+  const [customSrtText, setCustomSrtText] = useState<string>('');
   const [readingAudioDuration, setReadingAudioDuration] = useState(false);
   const voiceFileInputRef = useRef<HTMLInputElement | null>(null);
+  const srtFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const queueRef = useRef<AudioQueue | null>(null);
   const existingProjectRef = useRef<ProjectManifest | null>(null);
@@ -298,8 +303,24 @@ function ProjectPageInner() {
     }
   }
 
+  async function handleSrtSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setCustomSrtFile(file);
+      setCustomSrtText(text);
+      setSplitError('');
+    } catch (err) {
+      console.error('Failed to read SRT file:', err);
+      setSplitError('Could not read subtitle file (.srt).');
+    } finally {
+      if (srtFileInputRef.current) srtFileInputRef.current.value = '';
+    }
+  }
+
   async function handleCreateWithCustomVoice() {
-    if (!customAudioFile || !script.trim()) return;
+    if (!customAudioFile) return;
 
     setGeneratingOnlyImages(true);
     setSplitError('');
@@ -314,42 +335,57 @@ function ProjectPageInner() {
       const audioUrl = URL.createObjectURL(customAudioFile);
 
       const targetDurationSec = customAudioDurationMs / 1000;
-      setGeneratingOnlyImagesMsg(`Extracting scenes synced to ${targetDurationSec.toFixed(1)}s voice…`);
 
-      const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
-        targetDurationSec,
+      let spokenSegments: SpokenSegment[] = [];
+      let transcriptionText = '';
+
+      // Mode 1: Fast direct sync from .SRT subtitles if uploaded
+      if (customSrtText.trim()) {
+        setGeneratingOnlyImagesMsg('Parsing subtitle timestamps from .SRT file…');
+        spokenSegments = parseSrtContent(customSrtText);
+        transcriptionText = spokenSegments.map((s) => s.text).join(' ');
+      } else {
+        // Mode 2: Whisper AI transcription with word/sentence timestamps
+        setGeneratingOnlyImagesMsg('Transcribing audio with Whisper AI (extracting timestamps)…');
+        const whisperResult = await transcribeAudioWithWhisper(customAudioFile, {
+          pollinationsApiKey: apiKey,
+          onProgress: (msg) => setGeneratingOnlyImagesMsg(msg),
+        });
+        spokenSegments = whisperResult.segments;
+        transcriptionText = whisperResult.fullText;
+      }
+
+      if (!spokenSegments || spokenSegments.length === 0) {
+        throw new Error('No speech detected in this audio file. Please verify audio content or attach an .SRT subtitle file.');
+      }
+
+      const effectiveScript = script.trim() || transcriptionText;
+      if (!script.trim()) {
+        setScript(effectiveScript);
+      }
+
+      setGeneratingOnlyImagesMsg('AI Director analyzing speech tempo, pauses, and script narrative…');
+      const visualScenes = await directScenesFromAudioAndScript(spokenSegments, {
+        userScript: effectiveScript,
+        totalAudioDurationSec: targetDurationSec,
+        pacingProfile,
         stylePrompt: stylePreset.stylePrompt,
         apiKey,
-        pacingProfile,
         onProgress: (msg) => setGeneratingOnlyImagesMsg(msg),
       });
 
-      const rawTotal = breakdown.reduce(
-        (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
-        0
-      );
-      const scale = rawTotal > 0 ? targetDurationSec / rawTotal : 1;
-
-      let cumSec = 0;
-      const newScenes: SceneItem[] = breakdown.map((item, idx) => {
-        const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
-        const dur = rawDur * scale;
-        const start = cumSec;
-        const end = idx === breakdown.length - 1 ? targetDurationSec : cumSec + dur;
-        cumSec = end;
-
-        return {
-          sceneId: idx + 1,
-          audioStartSec: parseFloat(start.toFixed(1)),
-          audioEndSec: parseFloat(end.toFixed(1)),
-          narrationLine: item.narration,
-          visualPrompt: item.visual_prompt,
-          fullPrompt: `${item.visual_prompt}. ${stylePreset.stylePrompt}`,
-          shotType: item.shot_type,
-          bRollFocus: item.b_roll_focus,
-          status: 'PENDING',
-        };
-      });
+      const newScenes: SceneItem[] = visualScenes.map((item, idx) => ({
+        sceneId: idx + 1,
+        audioStartSec: item.audioStartSec,
+        audioEndSec: item.audioEndSec,
+        narrationLine: item.narrationLine,
+        visualPrompt: item.visualPrompt || `Cinematic frame capturing: ${item.narrationLine.slice(0, 100)}`,
+        fullPrompt: `${item.visualPrompt || ''}. ${stylePreset.stylePrompt}`,
+        shotType: item.shotType,
+        bRollFocus: item.bRollFocus,
+        cutPace: item.cutPace,
+        status: 'PENDING',
+      }));
 
       const customChunk: AudioChunk = {
         index: 0,
@@ -363,7 +399,7 @@ function ProjectPageInner() {
       const manifest: ProjectManifest = {
         projectId,
         title: projectTitle || `Voice: ${customAudioFile.name.replace(/\.[^/.]+$/, '')}`,
-        rawScript: script,
+        rawScript: effectiveScript,
         voicePresetId: selectedPresetId,
         pacingProfile,
         hasCustomVoice: true,
@@ -740,21 +776,35 @@ function ProjectPageInner() {
                       onChange={handleCustomVoiceSelected}
                     />
 
+                    <input
+                      ref={srtFileInputRef}
+                      type="file"
+                      accept=".srt,text/plain"
+                      className="hidden"
+                      onChange={handleSrtSelected}
+                    />
+
                     {customAudioFile ? (
-                      <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-700/40 space-y-2">
+                      <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-700/40 space-y-2.5">
+                        {/* Audio File Item */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0">
                             <FileAudio size={16} className="text-emerald-400 flex-shrink-0" />
                             <div className="truncate">
                               <p className="text-xs font-medium text-white truncate">{customAudioFile.name}</p>
                               <p className="text-[10px] text-emerald-400 font-mono">
-                                {formatDuration(customAudioDurationMs)}
+                                {formatDuration(customAudioDurationMs)} • Uploaded
                               </p>
                             </div>
                           </div>
                           <button
                             type="button"
-                            onClick={() => { setCustomAudioFile(null); setCustomAudioDurationMs(0); }}
+                            onClick={() => {
+                              setCustomAudioFile(null);
+                              setCustomAudioDurationMs(0);
+                              setCustomSrtFile(null);
+                              setCustomSrtText('');
+                            }}
                             className="text-slate-400 hover:text-red-400 p-1"
                             title="Remove audio file"
                           >
@@ -762,12 +812,42 @@ function ProjectPageInner() {
                           </button>
                         </div>
 
+                        {/* Optional SRT Subtitle Attachment */}
+                        <div className="pt-2 border-t border-emerald-800/30">
+                          {customSrtFile ? (
+                            <div className="flex items-center justify-between px-2 py-1.5 rounded bg-emerald-900/40 border border-emerald-600/40">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Subtitles size={13} className="text-emerald-300 flex-shrink-0" />
+                                <span className="text-[11px] text-emerald-200 truncate">{customSrtFile.name}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => { setCustomSrtFile(null); setCustomSrtText(''); }}
+                                className="text-slate-400 hover:text-red-400 p-0.5"
+                                title="Remove subtitle file"
+                              >
+                                <X size={11} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => srtFileInputRef.current?.click()}
+                              className="w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded border border-dashed border-emerald-800/50 hover:border-emerald-600/70 text-[11px] text-emerald-400/90 hover:text-emerald-300 transition-colors"
+                            >
+                              <Subtitles size={12} />
+                              <span>Attach .SRT Subtitles (Optional - Instant Sync)</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Sync & Generate Button */}
                         <button
                           id="sync-custom-voice-btn"
                           type="button"
                           onClick={handleCreateWithCustomVoice}
-                          disabled={generatingOnlyImages || splitting || !script.trim()}
-                          className="w-full py-2.5 px-3 rounded-lg text-xs font-medium text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm transition-colors active:scale-[0.98]"
+                          disabled={generatingOnlyImages || splitting}
+                          className="w-full py-2.5 px-3 rounded-lg text-xs font-semibold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
                         >
                           {generatingOnlyImages && customAudioFile ? (
                             <>
@@ -777,7 +857,13 @@ function ProjectPageInner() {
                           ) : (
                             <>
                               <Wand2 size={14} />
-                              <span>Sync Script &amp; Generate Storyboard</span>
+                              <span>
+                                {customSrtFile
+                                  ? 'Sync Subtitles & Direct Storyboard'
+                                  : script.trim()
+                                    ? 'Direct Scenes with AI (Audio + Script Sync)'
+                                    : 'Transcribe & Direct with Whisper AI'}
+                              </span>
                             </>
                           )}
                         </button>
@@ -803,7 +889,7 @@ function ProjectPageInner() {
                       </button>
                     )}
                     <p className="text-[10px] text-slate-500 mt-1.5 text-center">
-                      Have your own recording? Upload it and scenes will sync to its exact duration.
+                      Whisper AI listens to your voice and cuts scenes to the exact spoken words.
                     </p>
                   </div>
                 </>

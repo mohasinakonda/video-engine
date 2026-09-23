@@ -145,6 +145,23 @@ export function getStoredGlobalNegativePrompt(): string {
   return "";
 }
 
+export function getStoredPollinationsImageModel(): string {
+  if (typeof window === "undefined") return "flux";
+  try {
+    const raw = localStorage.getItem("pollinations-image-model");
+    if (!raw) return "flux";
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "string") return parsed.trim() || "flux";
+    } catch {
+      return raw.trim() || "flux";
+    }
+  } catch {
+    return "flux";
+  }
+  return "flux";
+}
+
 /**
  * 1. getPollinationsClient
  * Returns an OpenAI client instance pointing to Pollinations Unified Endpoint
@@ -485,6 +502,42 @@ export async function generateVoiceChunk(
 }
 
 /**
+ * Helper to assemble a clean final prompt without duplicating base style
+ * or adding conflicting tokens.
+ */
+export function assembleFinalImagePrompt(
+  prompt: string,
+  baseStyle?: string,
+  negativePrompt?: string
+): string {
+  const trimmedPrompt = (prompt || "").trim().replace(/\.+$/, "");
+  const resolvedBaseStyle = (baseStyle && baseStyle.trim().length > 0)
+    ? baseStyle.trim().replace(/\.+$/, "")
+    : (getStoredGlobalBaseStyle() || "photorealistic, 8k resolution, cinematic lighting, masterpiece, hyper-detailed, sharp focus, 35mm lens");
+
+  const resolvedNegative = (negativePrompt && negativePrompt.trim().length > 0)
+    ? negativePrompt.trim()
+    : (getStoredGlobalNegativePrompt() || "blurry, low resolution, distorted faces, bad anatomy, deformed limbs, pixelated, noisy, artifacts, amateur, watermark, low quality, cartoon, anime");
+
+  let finalPrompt = trimmedPrompt;
+
+  // Only append base style if it is not already present in the prompt
+  if (resolvedBaseStyle) {
+    const styleSnippet = resolvedBaseStyle.toLowerCase().slice(0, 35);
+    if (!trimmedPrompt.toLowerCase().includes(styleSnippet)) {
+      finalPrompt = `${trimmedPrompt}. ${resolvedBaseStyle}`;
+    }
+  }
+
+  // Append negative prompt if avoid constraint isn't already included
+  if (resolvedNegative && !finalPrompt.toLowerCase().includes("avoid:")) {
+    finalPrompt += `, avoid: ${resolvedNegative}`;
+  }
+
+  return finalPrompt;
+}
+
+/**
  * 4. generateSceneImage
  * Fetches an image generated with Pollinations image API.
  * Follows docs: https://gen.pollinations.ai/docs#tag/image/GET/image/{prompt}
@@ -500,28 +553,15 @@ export async function generateSceneImage(
     throw new Error("Image prompt cannot be empty.");
   }
 
-
-  // Resolve Base Style (from arguments or stored global settings)
-  const resolvedBaseStyle = (baseStyle && baseStyle.trim().length > 0)
-    ? baseStyle.trim()
-    : (getStoredGlobalBaseStyle() || "photorealistic, 8k resolution, cinematic lighting, masterpiece, hyper-detailed, sharp focus, 35mm lens");
-
-  // Resolve Negative Prompt
-  const resolvedNegative = (options?.negativePrompt && options.negativePrompt.trim().length > 0)
-    ? options.negativePrompt.trim()
-    : (getStoredGlobalNegativePrompt() || "blurry, low resolution, distorted faces, bad anatomy, deformed limbs, pixelated, noisy, artifacts, amateur, watermark, low quality, cartoon, anime");
-
-  let finalPrompt = `${prompt.trim()}, ${resolvedBaseStyle}`;
-  if (resolvedNegative) {
-    finalPrompt += `, avoid: ${resolvedNegative}`;
-  }
-
+  // Assemble clean final prompt with guaranteed base style and negative constraints
+  const finalPrompt = assembleFinalImagePrompt(prompt, baseStyle, options?.negativePrompt);
   const encodedPrompt = encodeURIComponent(finalPrompt);
+
   const resolvedSeed = typeof seed === "number" && !isNaN(seed)
     ? seed
     : (typeof options?.seed === "number" && !isNaN(options.seed) ? options.seed : Math.floor(Math.random() * 1000000));
 
-  const model = options?.model || "flux";
+  const model = options?.model || getStoredPollinationsImageModel();
   // MANDATORY MINIMUM RESOLUTION: Full HD (1920x1080 landscape, or 1080x1920 vertical)
   // Never generate images below 1920x1080.
   const isVertical = options?.aspectRatio === '9:16';
@@ -875,7 +915,8 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
 export async function generateBRollPrompt(
   context: string,
   targetShotType: ShotType,
-  apiKey?: string
+  apiKey?: string,
+  stylePrompt?: string
 ): Promise<{ visual_prompt: string; b_roll_focus: string }> {
   const aiClient = getPollinationsClient(apiKey);
 
@@ -891,9 +932,10 @@ export async function generateBRollPrompt(
   const systemInstruction = `You are a world-class documentary visual artist.
 Convert the given scene context into a specific B-Roll visual prompt for an AI image generator (Flux/SDXL).
 Target Shot Type: ${targetShotType} (${shotDescriptions[targetShotType]}).
+${stylePrompt ? `Project Artistic Style Mandate: Strictly align camera framing, medium, and aesthetic details with the project visual style: "${stylePrompt.slice(0, 150)}..."` : 'Visual Style: Studio-grade, evocative, atmospheric lighting and textures.'}
 Adapt the perspective organically to the subject's environment (e.g. desert, sea, mountain, forest, city, space, etc.).
 Return ONLY a valid JSON object with:
-- "visual_prompt": Studio-grade prompt detailing camera framing, subject action/elements, lighting, textures, photorealistic 8k, masterwork.
+- "visual_prompt": Studio-grade prompt detailing camera framing, subject action/elements, lighting, textures${stylePrompt ? '' : ', photorealistic 8k, masterwork'}.
 - "b_roll_focus": Concise 3-6 word label of the specific focal motif.`;
 
   const userPrompt = `Context: "${context.trim()}"`;
@@ -925,32 +967,188 @@ Return ONLY a valid JSON object with:
 
   // High quality fallback
   const cleanContext = context.slice(0, 100).trim();
+  const styleSuffix = stylePrompt ? ` ${stylePrompt}` : '';
   const fallbackTemplates: Record<ShotType, { visual_prompt: string; b_roll_focus: string }> = {
     AERIAL_GEOMETRY: {
-      visual_prompt: `Breathtaking 90-degree bird's-eye drone overhead shot capturing geometric contours, topological patterns, and sweeping environmental scale of: ${cleanContext}. Top-down cinematic photography, 8k resolution, National Geographic style.`,
+      visual_prompt: `Breathtaking 90-degree bird's-eye drone overhead shot capturing geometric contours, topological patterns, and sweeping environmental scale of: ${cleanContext}.${styleSuffix || ' Top-down cinematic photography, 8k resolution.'}`,
       b_roll_focus: "Overhead Drone Geometry",
     },
     MACRO_TEXTURE: {
-      visual_prompt: `Extreme tactile macro close-up revealing intricate surface textures, micro details, and fine organic elements of: ${cleanContext}. Razor-sharp focus, shallow depth of field, 8k photorealistic.`,
+      visual_prompt: `Extreme tactile macro close-up revealing intricate surface textures, micro details, and fine organic elements of: ${cleanContext}.${styleSuffix || ' Razor-sharp focus, shallow depth of field, 8k photorealistic.'}`,
       b_roll_focus: "Tactile Macro Details",
     },
     CULTURAL_HUMAN: {
-      visual_prompt: `Intimate cinematic documentary shot of people, native dwellers, or travelers engaged in authentic practices related to: ${cleanContext}. Authentic cultural clothing, candid realism, evocative lighting.`,
+      visual_prompt: `Intimate cinematic documentary shot of people, native dwellers, or travelers engaged in authentic practices related to: ${cleanContext}.${styleSuffix || ' Authentic cultural clothing, candid realism, evocative lighting.'}`,
       b_roll_focus: "Human Culture & Life",
     },
     HISTORICAL_HERITAGE: {
-      visual_prompt: `Atmospheric historical documentary frame showcasing ancient architecture, weathered monuments, and archaeological relics related to: ${cleanContext}. Timeless chiaroscuro lighting, 35mm film look.`,
+      visual_prompt: `Atmospheric historical documentary frame showcasing ancient architecture, weathered monuments, and archaeological relics related to: ${cleanContext}.${styleSuffix || ' Timeless chiaroscuro lighting, 35mm film look.'}`,
       b_roll_focus: "Ancient Heritage & History",
     },
     ATMOSPHERIC_MOOD: {
-      visual_prompt: `Cinematic atmospheric composition capturing evocative weather, volumetric lighting, and dramatic mood transitions surrounding: ${cleanContext}. Poetic color grading, 8k.`,
+      visual_prompt: `Cinematic atmospheric composition capturing evocative weather, volumetric lighting, and dramatic mood transitions surrounding: ${cleanContext}.${styleSuffix || ' Poetic color grading, 8k.'}`,
       b_roll_focus: "Atmospheric Mood & Weather",
     },
     WIDE_ESTABLISHING: {
-      visual_prompt: `Expansive panoramic cinematic wide establishing shot capturing the breathtaking horizon and vast environmental expanse of: ${cleanContext}. IMAX 70mm cinematography, dramatic sky.`,
+      visual_prompt: `Expansive panoramic cinematic wide establishing shot capturing the breathtaking horizon and vast environmental expanse of: ${cleanContext}.${styleSuffix || ' IMAX 70mm cinematography, dramatic sky.'}`,
       b_roll_focus: "Wide Establishing Vista",
     },
   };
 
   return fallbackTemplates[targetShotType];
+}
+
+/**
+ * 7. generatePromptsForTimedSegments
+ * Takes timed audio segments (with exact start and end times from Whisper or SRT)
+ * and generates cinematic visual prompts and B-roll shot types for each scene
+ * without altering the audio timing.
+ */
+export async function generatePromptsForTimedSegments(
+  scenes: { sceneId: number; audioStartSec: number; audioEndSec: number; narrationLine: string }[],
+  options?: {
+    stylePrompt?: string;
+    apiKey?: string;
+    creativeContext?: string;
+    onProgress?: (msg: string) => void;
+  }
+): Promise<{
+  sceneId: number;
+  audioStartSec: number;
+  audioEndSec: number;
+  narrationLine: string;
+  visualPrompt: string;
+  shotType: ShotType;
+  bRollFocus: string;
+}[]> {
+  if (!scenes || scenes.length === 0) return [];
+
+  const VALID_SHOT_TYPES: ShotType[] = [
+    'AERIAL_GEOMETRY',
+    'MACRO_TEXTURE',
+    'CULTURAL_HUMAN',
+    'HISTORICAL_HERITAGE',
+    'ATMOSPHERIC_MOOD',
+    'WIDE_ESTABLISHING',
+  ];
+
+  const aiClient = getPollinationsClient(options?.apiKey);
+  const results: {
+    sceneId: number;
+    audioStartSec: number;
+    audioEndSec: number;
+    narrationLine: string;
+    visualPrompt: string;
+    shotType: ShotType;
+    bRollFocus: string;
+  }[] = [];
+
+  // Batch process in chunks of 8 scenes to keep prompt size & response quality optimal
+  const BATCH_SIZE = 8;
+  for (let b = 0; b < scenes.length; b += BATCH_SIZE) {
+    const batch = scenes.slice(b, b + BATCH_SIZE);
+    const batchNum = Math.floor(b / BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(scenes.length / BATCH_SIZE);
+
+    options?.onProgress?.(`Generating cinematic visual prompts (Batch ${batchNum}/${totalBatches})…`);
+
+    const systemPrompt = `You are an elite visual director for an AI film and documentary studio.
+You are given a list of consecutive spoken narration lines from a real voiceover track, with their exact duration.
+For each scene, craft an exceptional visual prompt for an AI image generator (Flux), pick a diverse shot_type, and provide a b_roll_focus.
+
+AVAILABLE SHOT TYPES:
+1. "AERIAL_GEOMETRY": Grand 90° top-down drone or orbital satellite view.
+2. "MACRO_TEXTURE": Extreme tactile close-up of micro textures, organic details, or artifacts.
+3. "CULTURAL_HUMAN": Authentic human life, native dwellers, artisans, or travelers.
+4. "HISTORICAL_HERITAGE": Ancient monuments, relics, ruins, and deep archaeological memory.
+5. "ATMOSPHERIC_MOOD": Dramatic weather, volumetric light beams, fog, or twilight mood.
+6. "WIDE_ESTABLISHING": Majestic panoramic establishing vistas orienting the landscape.
+
+MANDATE:
+- Interleave different shot_types across scenes for dynamic pacing.
+- visual_prompt must be studio-grade, specific, atmospheric, and cinematic${options?.stylePrompt ? ` adhering to: "${options.stylePrompt.slice(0, 120)}"` : ''}.
+- Return ONLY a JSON array with objects matching:
+  [ { "sceneId": number, "visual_prompt": string, "shot_type": string, "b_roll_focus": string }, ... ]`;
+
+    const userContent = `Here are the scenes:
+${JSON.stringify(
+  batch.map((s) => ({
+    sceneId: s.sceneId,
+    durationSec: parseFloat((s.audioEndSec - s.audioStartSec).toFixed(1)),
+    narration: s.narrationLine,
+  })),
+  null,
+  2
+)}${options?.creativeContext ? `\n\nOverall Creative Story Context: ${options.creativeContext.slice(0, 500)}` : ''}`;
+
+    try {
+      const response = await aiClient.chat.completions.create({
+        model: "openai",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        temperature: 0.4,
+      });
+
+      const raw = response.choices[0]?.message?.content || "";
+      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      const cleaned = jsonMatch ? jsonMatch[1].trim() : raw.trim();
+      const parsed = JSON.parse(cleaned);
+
+      const parsedMap = new Map<number, { visual_prompt: string; shot_type: string; b_roll_focus: string }>();
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && typeof item.sceneId === "number") {
+            parsedMap.set(item.sceneId, {
+              visual_prompt: item.visual_prompt || item.visualPrompt || "",
+              shot_type: item.shot_type || item.shotType || "",
+              b_roll_focus: item.b_roll_focus || item.bRollFocus || "",
+            });
+          }
+        }
+      }
+
+      for (let i = 0; i < batch.length; i++) {
+        const orig = batch[i];
+        const match = parsedMap.get(orig.sceneId);
+        const shotTypeRaw = (match?.shot_type || "") as ShotType;
+        const shotType = VALID_SHOT_TYPES.includes(shotTypeRaw)
+          ? shotTypeRaw
+          : VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
+
+        const visualPrompt = match?.visual_prompt?.trim() ||
+          `Cinematic documentary frame depicting: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, 35mm lens, atmospheric volumetric lighting.`;
+
+        const bRollFocus = match?.b_roll_focus?.trim() || shotType.replace('_', ' ').toLowerCase();
+
+        results.push({
+          sceneId: orig.sceneId,
+          audioStartSec: orig.audioStartSec,
+          audioEndSec: orig.audioEndSec,
+          narrationLine: orig.narrationLine,
+          visualPrompt,
+          shotType,
+          bRollFocus,
+        });
+      }
+    } catch (batchErr) {
+      console.warn(`Batch prompt generation error, using fallback prompts:`, batchErr);
+      for (let i = 0; i < batch.length; i++) {
+        const orig = batch[i];
+        const shotType = VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
+        results.push({
+          sceneId: orig.sceneId,
+          audioStartSec: orig.audioStartSec,
+          audioEndSec: orig.audioEndSec,
+          narrationLine: orig.narrationLine,
+          visualPrompt: `Cinematic frame capturing: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, beautiful natural lighting, 35mm photography.`,
+          shotType,
+          bRollFocus: shotType.replace('_', ' ').toLowerCase(),
+        });
+      }
+    }
+  }
+
+  return results;
 }

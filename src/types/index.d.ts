@@ -158,6 +158,8 @@ export type ShotType =
   | 'ATMOSPHERIC_MOOD'   // Weather, fog, lighting transitions, ambient mood
   | 'WIDE_ESTABLISHING'; // Broad cinematic scene-setting landscape
 
+export type CutPace = 'FAST_CUT' | 'NORMAL' | 'ATMOSPHERIC_HOLD';
+
 // ─── Phase 2: Scene Item ──────────────────────────────────────────────────────
 
 export interface SceneItem {
@@ -185,6 +187,8 @@ export interface SceneItem {
   shotType?: ShotType;
   /** Short summary of the specific B-Roll focal motif */
   bRollFocus?: string;
+  /** Dynamic directorial pacing decision */
+  cutPace?: CutPace;
   status: SceneStatus;
   error?: string;
   retryCount?: number;

@@ -383,14 +383,15 @@ export async function generateImage(
   apiKey: string,
   prompt: string,
   negativePrompt?: string,
-  options?: { model?: string; width?: number; height?: number; seed?: number }
+  options?: { model?: string; width?: number; height?: number; seed?: number; baseStyle?: string; aspectRatio?: '16:9' | '9:16' }
 ): Promise<ImageGenerationResult> {
-  const imageBuffer = await generateSceneImage(prompt, undefined, options?.seed, {
+  const imageBuffer = await generateSceneImage(prompt, options?.baseStyle, options?.seed, {
     negativePrompt,
     model: options?.model,
     width: Math.max(1920, options?.width || 1920),
     height: Math.max(1080, options?.height || 1080),
     apiKey,
+    aspectRatio: options?.aspectRatio,
   });
 
   return {

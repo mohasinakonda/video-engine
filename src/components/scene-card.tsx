@@ -119,6 +119,7 @@ function statusLabel(status: SceneItem['status']): string {
 
 interface SceneCardProps {
   scene: SceneItem;
+  stylePrompt?: string;
   onRegenerate: (scene: SceneItem, newPrompt?: string) => void;
   onUpload: (scene: SceneItem, file: File) => void;
   onUpdateDuration?: (sceneId: number, deltaSec: number) => void;
@@ -127,7 +128,7 @@ interface SceneCardProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDuration, disabled }: SceneCardProps) {
+export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, onUpdateDuration, disabled }: SceneCardProps) {
   const [hovering, setHovering] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(false);
   const [promptDraft, setPromptDraft] = useState(scene.visualPrompt);
@@ -168,12 +169,13 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
     setIsSwitchingBRoll(true);
     try {
       const context = scene.narrationLine || scene.visualPrompt;
-      const res = await generateBRollPrompt(context, targetType);
+      const res = await generateBRollPrompt(context, targetType, undefined, stylePrompt);
       const updatedScene: SceneItem = {
         ...scene,
         shotType: targetType,
         bRollFocus: res.b_roll_focus,
         visualPrompt: res.visual_prompt,
+        fullPrompt: stylePrompt ? `${res.visual_prompt}. ${stylePrompt}` : res.visual_prompt,
       };
       setPromptDraft(res.visual_prompt);
       onRegenerate(updatedScene, res.visual_prompt);
@@ -257,7 +259,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
                 title="Preview in high resolution"
               >
                 <Maximize2 size={11} />
-                View
+
               </button>
             )}
             <button
@@ -266,7 +268,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
               title="Regenerate image"
             >
               <RefreshCw size={11} />
-              Regen
+
             </button>
             <button
               onClick={() => { setEditingPrompt(true); setPromptDraft(scene.visualPrompt); }}
@@ -274,7 +276,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
               title="Edit prompt"
             >
               <Edit2 size={11} />
-              Edit
+
             </button>
             <button
               onClick={handleUploadClick}
@@ -282,7 +284,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
               title="Upload replacement image"
             >
               <Upload size={11} />
-              Upload
+
             </button>
             {scene.imageUrl && (
               <a
@@ -293,7 +295,7 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
                 onClick={(e) => e.stopPropagation()}
               >
                 <Download size={11} />
-                Save
+
               </a>
             )}
           </div>
@@ -331,6 +333,22 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
             ) : (
               <span className="text-[10px] text-zinc-300 font-mono font-medium">{duration}s</span>
             )}
+            {scene.cutPace && (
+              <span
+                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-mono tracking-tight font-semibold border ${
+                  scene.cutPace === 'FAST_CUT'
+                    ? 'bg-amber-950/50 text-amber-300 border-amber-800/40'
+                    : scene.cutPace === 'ATMOSPHERIC_HOLD'
+                    ? 'bg-indigo-950/50 text-indigo-300 border-indigo-800/40'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800'
+                }`}
+                title={`AI Director Pace: ${scene.cutPace}`}
+              >
+                {scene.cutPace === 'FAST_CUT' && '⚡ Fast'}
+                {scene.cutPace === 'NORMAL' && '🎬 Normal'}
+                {scene.cutPace === 'ATMOSPHERIC_HOLD' && '🌄 Hold'}
+              </span>
+            )}
             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium border ${statusClass(scene.status)}`}>
               {isGenerating && <Loader2 size={8} className="animate-spin" />}
               {statusLabel(scene.status)}
@@ -345,11 +363,10 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
               type="button"
               onClick={() => setBRollMenuOpen((v) => !v)}
               disabled={disabled || isGenerating || isSwitchingBRoll}
-              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium border transition-all ${
-                scene.shotType && SHOT_TYPE_CONFIG[scene.shotType]
-                  ? SHOT_TYPE_CONFIG[scene.shotType].badgeColor
-                  : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800'
-              }`}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-medium border transition-all ${scene.shotType && SHOT_TYPE_CONFIG[scene.shotType]
+                ? SHOT_TYPE_CONFIG[scene.shotType].badgeColor
+                : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800'
+                }`}
               title="Change B-roll perspective (Drone, Macro, Culture, History, etc.)"
             >
               {isSwitchingBRoll ? (
@@ -399,11 +416,10 @@ export default function SceneCard({ scene, onRegenerate, onUpload, onUpdateDurat
                     key={type}
                     type="button"
                     onClick={() => handleSwitchShotType(type)}
-                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-[10px] transition-colors text-left ${
-                      isSelected
-                        ? 'bg-zinc-800 text-white font-medium'
-                        : 'text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
-                    }`}
+                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-md text-[10px] transition-colors text-left ${isSelected
+                      ? 'bg-zinc-800 text-white font-medium'
+                      : 'text-zinc-300 hover:bg-zinc-800/50 hover:text-white'
+                      }`}
                   >
                     <div className="flex items-center gap-1.5">
                       <IconComponent size={11} className={isSelected ? 'text-white' : 'text-zinc-400'} />
