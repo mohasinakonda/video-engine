@@ -21,15 +21,14 @@ import {
   Upload,
   X,
   FileAudio,
-  Subtitles,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import ScriptInput from '@/components/script-input';
 import AudioTimeline from '@/components/audio-timeline';
-import { getPollinationsApiKey, getPresets, getProject, saveProject, getAllProjects, getDefaultStylePreset } from '@/lib/store';
+import { getPollinationsApiKey, getPresets, getProject, saveProject, getDefaultStylePreset } from '@/lib/store';
 import { chunkScript } from '@/lib/gemini';
-import { breakdownRequirementToImageScenes, generatePromptsForTimedSegments } from '@/lib/pollinations';
-import { transcribeAudioWithWhisper, parseSrtContent, clusterSegmentsIntoScenes, directScenesFromAudioAndScript, SpokenSegment } from '@/lib/audio-transcriber';
+import { breakdownRequirementToImageScenes, } from '@/lib/pollinations';
+import { transcribeAudioWithWhisper, parseSrtContent, directScenesFromAudioAndScript, SpokenSegment, TimedWord } from '@/lib/audio-transcriber';
 import { AudioQueue } from '@/lib/queue';
 import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
 import type { AudioChunk, VoicePreset, ProjectManifest, SceneItem, PacingProfile } from '@/types';
@@ -63,9 +62,6 @@ function ProjectPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectIdParam = searchParams.get('id');
-
-  // ─── State ─────────────────────────────────────────────────────────────────
-
   const [stage, setStage] = useState<Stage>('input');
   const [script, setScript] = useState('');
   const [chunks, setChunks] = useState<AudioChunk[]>([]);
@@ -90,9 +86,9 @@ function ProjectPageInner() {
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
   const [customAudioDurationMs, setCustomAudioDurationMs] = useState<number>(0);
   const [customSrtFile, setCustomSrtFile] = useState<File | null>(null);
-  const [customSrtText, setCustomSrtText] = useState<string>('');
   const [readingAudioDuration, setReadingAudioDuration] = useState(false);
-  const voiceFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const voiceFileInputRef = useRef<HTMLInputElement | null>(null)
   const srtFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const queueRef = useRef<AudioQueue | null>(null);
@@ -303,21 +299,7 @@ function ProjectPageInner() {
     }
   }
 
-  async function handleSrtSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      setCustomSrtFile(file);
-      setCustomSrtText(text);
-      setSplitError('');
-    } catch (err) {
-      console.error('Failed to read SRT file:', err);
-      setSplitError('Could not read subtitle file (.srt).');
-    } finally {
-      if (srtFileInputRef.current) srtFileInputRef.current.value = '';
-    }
-  }
+
 
   async function handleCreateWithCustomVoice() {
     if (!customAudioFile) return;
@@ -338,22 +320,19 @@ function ProjectPageInner() {
 
       let spokenSegments: SpokenSegment[] = [];
       let transcriptionText = '';
+      let timedWords: TimedWord[] = [];
 
-      // Mode 1: Fast direct sync from .SRT subtitles if uploaded
-      if (customSrtText.trim()) {
-        setGeneratingOnlyImagesMsg('Parsing subtitle timestamps from .SRT file…');
-        spokenSegments = parseSrtContent(customSrtText);
-        transcriptionText = spokenSegments.map((s) => s.text).join(' ');
-      } else {
-        // Mode 2: Whisper AI transcription with word/sentence timestamps
-        setGeneratingOnlyImagesMsg('Transcribing audio with Whisper AI (extracting timestamps)…');
-        const whisperResult = await transcribeAudioWithWhisper(customAudioFile, {
-          pollinationsApiKey: apiKey,
-          onProgress: (msg) => setGeneratingOnlyImagesMsg(msg),
-        });
-        spokenSegments = whisperResult.segments;
-        transcriptionText = whisperResult.fullText;
-      }
+
+      // Mode 2: Whisper AI transcription with word/sentence timestamps
+      setGeneratingOnlyImagesMsg('Transcribing audio with Whisper AI (extracting word timestamps)…');
+      const whisperResult = await transcribeAudioWithWhisper(customAudioFile, {
+        pollinationsApiKey: apiKey,
+        onProgress: (msg) => setGeneratingOnlyImagesMsg(msg),
+      });
+      spokenSegments = whisperResult.segments;
+      transcriptionText = whisperResult.fullText;
+      timedWords = whisperResult.words;
+
 
       if (!spokenSegments || spokenSegments.length === 0) {
         throw new Error('No speech detected in this audio file. Please verify audio content or attach an .SRT subtitle file.');
@@ -363,16 +342,19 @@ function ProjectPageInner() {
       if (!script.trim()) {
         setScript(effectiveScript);
       }
+      console.log("spoken", spokenSegments)
 
-      setGeneratingOnlyImagesMsg('AI Director analyzing speech tempo, pauses, and script narrative…');
+      setGeneratingOnlyImagesMsg('AI Director aligning scenes with audio word timestamps…');
       const visualScenes = await directScenesFromAudioAndScript(spokenSegments, {
         userScript: effectiveScript,
         totalAudioDurationSec: targetDurationSec,
         pacingProfile,
         stylePrompt: stylePreset.stylePrompt,
         apiKey,
+        words: timedWords,
         onProgress: (msg) => setGeneratingOnlyImagesMsg(msg),
       });
+      console.log("visualScenes", visualScenes)
 
       const newScenes: SceneItem[] = visualScenes.map((item, idx) => ({
         sceneId: idx + 1,
@@ -663,33 +645,30 @@ function ProjectPageInner() {
                   <button
                     type="button"
                     onClick={() => setPacingProfile('fast')}
-                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${
-                      pacingProfile === 'fast'
-                        ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${pacingProfile === 'fast'
+                      ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
                     Fast (2–3s)
                   </button>
                   <button
                     type="button"
                     onClick={() => setPacingProfile('balanced')}
-                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${
-                      pacingProfile === 'balanced'
-                        ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${pacingProfile === 'balanced'
+                      ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
                     Balanced
                   </button>
                   <button
                     type="button"
                     onClick={() => setPacingProfile('cinematic')}
-                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${
-                      pacingProfile === 'cinematic'
-                        ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`py-1.5 px-2 rounded-md text-[11px] font-medium transition-colors ${pacingProfile === 'cinematic'
+                      ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
                     Cinematic
                   </button>
@@ -771,18 +750,13 @@ function ProjectPageInner() {
                     <input
                       ref={voiceFileInputRef}
                       type="file"
+                      id='voicefileinput'
                       accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg"
                       className="hidden"
                       onChange={handleCustomVoiceSelected}
                     />
 
-                    <input
-                      ref={srtFileInputRef}
-                      type="file"
-                      accept=".srt,text/plain"
-                      className="hidden"
-                      onChange={handleSrtSelected}
-                    />
+
 
                     {customAudioFile ? (
                       <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-700/40 space-y-2.5">
@@ -803,7 +777,7 @@ function ProjectPageInner() {
                               setCustomAudioFile(null);
                               setCustomAudioDurationMs(0);
                               setCustomSrtFile(null);
-                              setCustomSrtText('');
+
                             }}
                             className="text-slate-400 hover:text-red-400 p-1"
                             title="Remove audio file"
@@ -812,34 +786,7 @@ function ProjectPageInner() {
                           </button>
                         </div>
 
-                        {/* Optional SRT Subtitle Attachment */}
-                        <div className="pt-2 border-t border-emerald-800/30">
-                          {customSrtFile ? (
-                            <div className="flex items-center justify-between px-2 py-1.5 rounded bg-emerald-900/40 border border-emerald-600/40">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Subtitles size={13} className="text-emerald-300 flex-shrink-0" />
-                                <span className="text-[11px] text-emerald-200 truncate">{customSrtFile.name}</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => { setCustomSrtFile(null); setCustomSrtText(''); }}
-                                className="text-slate-400 hover:text-red-400 p-0.5"
-                                title="Remove subtitle file"
-                              >
-                                <X size={11} />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => srtFileInputRef.current?.click()}
-                              className="w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded border border-dashed border-emerald-800/50 hover:border-emerald-600/70 text-[11px] text-emerald-400/90 hover:text-emerald-300 transition-colors"
-                            >
-                              <Subtitles size={12} />
-                              <span>Attach .SRT Subtitles (Optional - Instant Sync)</span>
-                            </button>
-                          )}
-                        </div>
+
 
                         {/* Sync & Generate Button */}
                         <button
@@ -869,10 +816,11 @@ function ProjectPageInner() {
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => voiceFileInputRef.current?.click()}
-                        disabled={generatingOnlyImages || splitting || readingAudioDuration}
+                      <label
+                        // type="button"
+                        // onClick={() => voiceFileInputRef.current?.click()}
+                        // disabled={generatingOnlyImages || splitting || readingAudioDuration}
+                        htmlFor='voicefileinput'
                         className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/40 hover:border-emerald-600/60 hover:text-emerald-200"
                       >
                         {readingAudioDuration ? (
@@ -886,11 +834,9 @@ function ProjectPageInner() {
                             <span>Upload Your Recorded Voice</span>
                           </>
                         )}
-                      </button>
+                      </label>
                     )}
-                    <p className="text-[10px] text-slate-500 mt-1.5 text-center">
-                      Whisper AI listens to your voice and cuts scenes to the exact spoken words.
-                    </p>
+
                   </div>
                 </>
               )}

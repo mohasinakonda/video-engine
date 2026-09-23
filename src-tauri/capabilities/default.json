@@ -15,6 +15,16 @@
     "fs:allow-app-local-data-read-recursive",
     "fs:allow-app-local-data-write-recursive",
     "dialog:default",
-    "notification:default"
+    "notification:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/ffmpeg",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
   ]
 }
