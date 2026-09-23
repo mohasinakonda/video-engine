@@ -12,8 +12,20 @@
     "fs:allow-mkdir",
     "fs:allow-read-file",
     "fs:allow-write-file",
-    "fs:allow-app-local-data-read-recursive",
-    "fs:allow-app-local-data-write-recursive",
+    "fs:allow-exists",
+    "fs:allow-remove",
+    {
+      "identifier": "fs:allow-app-read-recursive",
+      "allow": [
+        { "path": "$APPLOCALDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-app-write-recursive",
+      "allow": [
+        { "path": "$APPLOCALDATA/**" }
+      ]
+    },
     "dialog:default",
     "notification:default",
     {
