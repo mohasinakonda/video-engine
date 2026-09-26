@@ -186,13 +186,12 @@ export class ExportEngine {
     const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
 
     const baseDir = await appLocalDataDir();
-
-    // Build audio file list for FFmpeg concat filter
-    const fileListLines = chunks.map((c) => `file '${baseDir}${c.filePath}'`).join('\n');
+    const cleanBaseDir = baseDir.replace(/\\/g, '/');
+    const fileListLines = chunks.map((c) => `file '${cleanBaseDir}${c.filePath.replace(/\\/g, '/')}'`).join('\n');
     const audioListPath = `projects/${projectId}/audio_concat.txt`;
     await writeTextFile(audioListPath, fileListLines, { baseDir: BaseDirectory.AppLocalData });
 
-    const fullAudioListPath = `${baseDir}${audioListPath}`;
+    const fullAudioListPath = `${cleanBaseDir}${audioListPath}`;
 
     // FFmpeg args for stitching & silence trimming
     const args = [
@@ -205,7 +204,7 @@ export class ExportEngine {
       outputPath,
     ];
 
-    const command = Command.sidecar('ffmpeg', args);
+    const command = Command.sidecar('binaries/ffmpeg', args);
     const output = await command.execute();
 
     if (output.code !== 0) {
@@ -222,10 +221,11 @@ export class ExportEngine {
     const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
 
     const baseDir = await appLocalDataDir();
+    const cleanBaseDir = baseDir.replace(/\\/g, '/');
 
     const lines = scenes
       .filter((s) => s.motionClipPath)
-      .map((s) => `file '${baseDir}${s.motionClipPath}'`)
+      .map((s) => `file '${cleanBaseDir}${s.motionClipPath!.replace(/\\/g, '/')}'`)
       .join('\n');
 
     const relativePath = `projects/${projectId}/concat_list.txt`;
@@ -255,8 +255,8 @@ export class ExportEngine {
     else if (settings.encoder === 'h264_qsv') videoCodec = 'h264_qsv';
     else if (settings.encoder === 'h264_videotoolbox') videoCodec = 'h264_videotoolbox';
     else if (settings.encoder === 'auto') {
-      // Auto-detect preference order
-      videoCodec = 'h264_videotoolbox'; // macOS default hardware accel
+      // Cross-platform universal CPU encoder (libx264) unless specific HW specified
+      videoCodec = 'libx264';
     }
 
     // Build FFmpeg command args
@@ -299,7 +299,7 @@ export class ExportEngine {
 
     args.push('-c:a', 'aac', '-b:a', '192k', '-y', finalOutputPath);
 
-    const command = Command.sidecar('ffmpeg', args);
+    const command = Command.sidecar('binaries/ffmpeg', args);
 
     // Live progress parsing via stderr stream
     command.stderr.on('data', (line: string) => {

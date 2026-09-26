@@ -98,8 +98,8 @@ async function runFFmpegSidecar(args: string[]): Promise<void> {
 
   const { Command } = await import('@tauri-apps/plugin-shell');
 
-  // The sidecar binary is registered as "ffmpeg" in tauri.conf.json
-  const command = Command.sidecar('ffmpeg', args);
+  // The sidecar binary is registered as "binaries/ffmpeg" in tauri.conf.json
+  const command = Command.sidecar('binaries/ffmpeg', args);
   const output = await command.execute();
 
   if (output.code !== 0) {
@@ -113,7 +113,8 @@ async function resolveProjectPath(projectId: string): Promise<string> {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
     const { appLocalDataDir } = await import('@tauri-apps/api/path');
     const base = await appLocalDataDir();
-    return `${base}projects/${projectId}`;
+    const cleanBase = base.endsWith('\\') || base.endsWith('/') ? base : `${base}/`;
+    return `${cleanBase}projects/${projectId}`;
   }
   // Web dev: return placeholder path
   return `/data/projects/${projectId}`;
@@ -134,13 +135,39 @@ async function renderSceneMotion(
 
   try {
     const profile = scene.motionProfile ?? 'zoom_in';
-    const durationSec = scene.audioEndSec - scene.audioStartSec;
+    const durationSec = Math.max(1, scene.audioEndSec - scene.audioStartSec);
     const filter = buildZoompanFilter(profile, durationSec, fps, width, height);
 
     const projectPath = await resolveProjectPath(projectId);
-    const inputPath = `${projectPath}/scenes/scene_${scene.sceneId}.jpg`;
+    let inputPath = `${projectPath}/scenes/scene_${scene.sceneId}.jpg`;
     const outputDir = `${projectPath}/motion_clips`;
     const outputPath = `${outputDir}/clip_${scene.sceneId}.mp4`;
+
+    // In Tauri: verify image existence and create output directory
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      const { mkdir, exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+      const { appLocalDataDir } = await import('@tauri-apps/api/path');
+      const base = await appLocalDataDir();
+      const cleanBase = base.endsWith('\\') || base.endsWith('/') ? base : `${base}/`;
+
+      await mkdir(`projects/${projectId}/motion_clips`, {
+        baseDir: BaseDirectory.AppLocalData,
+        recursive: true,
+      }).catch(() => {});
+
+      const relJpg = `projects/${projectId}/scenes/scene_${scene.sceneId}.jpg`;
+      const relPng = `projects/${projectId}/scenes/scene_${scene.sceneId}.png`;
+
+      if (scene.imagePath && await exists(scene.imagePath, { baseDir: BaseDirectory.AppLocalData })) {
+        inputPath = `${cleanBase}${scene.imagePath}`;
+      } else if (await exists(relJpg, { baseDir: BaseDirectory.AppLocalData })) {
+        inputPath = `${cleanBase}${relJpg}`;
+      } else if (await exists(relPng, { baseDir: BaseDirectory.AppLocalData })) {
+        inputPath = `${cleanBase}${relPng}`;
+      } else {
+        throw new Error(`Scene #${scene.sceneId} image file not found on disk. Please generate image first.`);
+      }
+    }
 
     // Build FFmpeg args
     const args = [
@@ -155,15 +182,6 @@ async function renderSceneMotion(
       '-y',   // overwrite if exists
       outputPath,
     ];
-
-    // In Tauri: create output directory first
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      const { mkdir, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-      await mkdir(`projects/${projectId}/motion_clips`, {
-        baseDir: BaseDirectory.AppLocalData,
-        recursive: true,
-      }).catch(() => {});
-    }
 
     await runFFmpegSidecar(args);
 
