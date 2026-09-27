@@ -22,7 +22,6 @@ import {
   X,
   FileAudio,
 } from 'lucide-react';
-import Sidebar from '@/components/sidebar';
 import ScriptInput from '@/components/script-input';
 import AudioTimeline from '@/components/audio-timeline';
 import { getPollinationsApiKey, getPresets, getProject, saveProject, getDefaultStylePreset } from '@/lib/store';
@@ -495,10 +494,8 @@ function ProjectPageInner() {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
         <header className="px-8 py-5 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <input
@@ -912,7 +909,6 @@ function ProjectPageInner() {
             )}
           </div>
         </div>
-      </main>
     </div>
   );
 }

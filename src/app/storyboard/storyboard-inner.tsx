@@ -24,7 +24,6 @@ import {
   Pause,
   FileAudio,
 } from 'lucide-react';
-import Sidebar from '@/components/sidebar';
 import StoryboardGrid from '@/components/storyboard-grid';
 import StylePresetModal from '@/components/style-preset-modal';
 import {
@@ -644,11 +643,9 @@ export default function StoryboardInner() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* ── Header ──────────────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
         <header className="px-6 py-4 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm flex items-center gap-4 flex-shrink-0">
           <button
             onClick={() => router.push(`/project/new?id=${projectId}`)}
@@ -1062,7 +1059,6 @@ export default function StoryboardInner() {
             />
           </div>
         </div>
-      </main>
 
       {/* Style Preset Modal */}
       {showStyleModal && (

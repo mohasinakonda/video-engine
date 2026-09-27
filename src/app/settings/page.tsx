@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Key, CheckCircle, Loader2, Eye, EyeOff, Sparkles, Palette, RotateCcw } from 'lucide-react';
-import Sidebar from '@/components/sidebar';
 import {
   getPollinationsApiKey,
   savePollinationsApiKey,
@@ -158,10 +157,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
         <header className="px-8 py-6 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm">
           <h1 className="text-xl font-bold text-white">Settings</h1>
           <p className="text-sm text-slate-500 mt-0.5">Configure Pollinations AI models, visual base-styles, and preferences</p>
@@ -456,7 +453,6 @@ export default function SettingsPage() {
 
           </div>
         </div>
-      </main>
     </div>
   );
 }

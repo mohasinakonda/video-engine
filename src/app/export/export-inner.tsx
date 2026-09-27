@@ -29,7 +29,6 @@ import {
   ChevronUp,
   HardDrive,
 } from 'lucide-react';
-import Sidebar from '@/components/sidebar';
 import { getProject, saveProject } from '@/lib/store';
 import { ExportEngine } from '@/lib/export-engine';
 import { getMediaBlobUrl } from '@/lib/media-storage';
@@ -339,10 +338,8 @@ export default function ExportInner() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
         <header className="px-6 py-4 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <button
@@ -956,7 +953,6 @@ export default function ExportInner() {
 
           </div>
         </div>
-      </main>
     </div>
   );
 }

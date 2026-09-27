@@ -59,7 +59,7 @@ export default function Sidebar() {
     : 100;
 
   return (
-    <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border min-h-screen">
+    <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border min-h-screen sticky top-0 h-screen overflow-y-auto z-30">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-bg-border">
         <div className="flex items-center gap-2.5">
