@@ -165,51 +165,27 @@ export default function ExportInner() {
     load();
   }, [load]);
 
-  // ─── File Pickers (Tauri / Browser) ─────────────────────────────────────────
+  // ─── File Pickers (Browser) ────────────────────────────────────────────────
 
-  async function handleSelectBgmFile() {
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'aac', 'm4a'] }],
-      });
-      if (selected && typeof selected === 'string') {
-        setBgmFilePath(selected);
-        setBgmFileName(selected.split('/').pop() || selected.split('\\').pop() || 'Background Music');
+  function handleSelectBgmFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'audio/*';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        setBgmFilePath(url);
+        setBgmFileName(file.name);
       }
-    } else {
-      // Browser input fallback
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'audio/*';
-      input.onchange = (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const url = URL.createObjectURL(file);
-          setBgmFilePath(url);
-          setBgmFileName(file.name);
-        }
-      };
-      input.click();
-    }
+    };
+    input.click();
   }
 
   const downloadFileName = `${project?.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${resolution}.mp4`;
 
-  async function handleSelectOutputPath() {
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      const { save } = await import('@tauri-apps/plugin-dialog');
-      const selected = await save({
-        defaultPath: downloadFileName,
-        filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
-      });
-      if (selected) {
-        setOutputPath(selected);
-      }
-    } else {
-      setOutputPath(downloadFileName);
-    }
+  function handleSelectOutputPath() {
+    setOutputPath(downloadFileName);
   }
 
   // ─── Start Export ──────────────────────────────────────────────────────────
@@ -299,15 +275,8 @@ export default function ExportInner() {
 
   // ─── Open Folder / Play Video ──────────────────────────────────────────────
 
-  async function handleOpenFolder() {
-    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      const { Command } = await import('@tauri-apps/plugin-shell');
-      const target = finalVideoUrl || outputPath;
-      if (target) {
-        Command.create('open', ['-R', target]).execute().catch(() => {});
-      }
-    } else if (finalVideoUrl) {
-      // In browser: open video in a new tab for playback and viewing
+  function handleOpenFolder() {
+    if (finalVideoUrl) {
       window.open(finalVideoUrl, '_blank');
     }
   }
@@ -782,7 +751,7 @@ export default function ExportInner() {
                         <h2 className="text-xs font-bold text-white uppercase tracking-wider">Export Destination</h2>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded bg-bg-base text-slate-400 border border-bg-border">
-                        {typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window ? 'Local Disk Path' : 'Downloads Folder (~/Downloads)'}
+                        Downloads Folder (~/Downloads)
                       </span>
                     </div>
 
@@ -793,17 +762,11 @@ export default function ExportInner() {
                         placeholder={downloadFileName}
                         value={outputPath || downloadFileName}
                         onChange={(e) => setOutputPath(e.target.value)}
+                        readOnly
                       />
-                      {typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window && (
-                        <button type="button" onClick={handleSelectOutputPath} className="btn-secondary text-xs">
-                          Select Path
-                        </button>
-                      )}
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      {typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-                        ? 'Choose the file destination path on your system.'
-                        : "Rendered videos are automatically saved directly into your computer's Downloads folder."}
+                      Rendered videos are automatically saved directly into your computer's Downloads folder.
                     </p>
                   </div>
 

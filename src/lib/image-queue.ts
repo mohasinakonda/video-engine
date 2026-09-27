@@ -48,7 +48,7 @@ export interface ImageQueueOptions {
   callbacks: ImageQueueCallbacks;
 }
 
-// ─── Tauri FS Helper ──────────────────────────────────────────────────────────
+// ─── Media Storage Helper ───────────────────────────────────────────────────
 
 import { saveMediaBlob, getMediaBlob } from '@/lib/media-storage';
 
