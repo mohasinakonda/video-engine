@@ -1,3 +1,0 @@
-# FFmpeg binaries are too large for git (~80-130MB)
-# Download via: pwsh scripts/download-ffmpeg.ps1
-*.exe
