@@ -1,0 +1,697 @@
+/**
+ * subscription-store.ts — Subscription, Credits, Dynamic Plans, Promo Codes & Affiliate Engine
+ */
+
+import type {
+  SubscriptionPlan,
+  CreditTopupPack,
+  PromoCode,
+  PaymentSubmission,
+  UserSubscription,
+  UserProfile,
+  AffiliatePayoutRequest,
+  AdminSettings,
+  RevenueAnalytics,
+  PlanTier,
+  BillingCycle,
+} from '@/types/subscription';
+
+// ─── Default Admin Settings ──────────────────────────────────────────────────
+
+export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
+  whatsappNumber: '8801712345678', // Replace with real admin WhatsApp
+  bkashNumber: '01712345678',
+  nagadNumber: '01712345678',
+  bankDetails: 'City Bank PLC | Hazrat AI Studio | A/C: 1503204928001 | Dhanmondi Branch',
+  globalDiscountPercent: 0,
+  globalDiscountActive: false,
+  globalBannerText: '🎉 Launch Celebration: Get 50 Free Image Credits on any subscription plan!',
+  globalBannerActive: true,
+};
+
+// ─── Default Plans & Packs ───────────────────────────────────────────────────
+
+export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'STARTER',
+    name: 'Starter',
+    badge: 'Popular for Beginners',
+    priceMonthly: 500,
+    priceYearly: 5000,
+    creditsPerMonth: 200,
+    maxVideoDurationSec: 180, // 3 mins
+    maxResolution: '1080p',
+    isActive: true,
+    features: [
+      '200 Image Credits / month (~12-15 videos)',
+      'Up to 3-minute video duration',
+      '1080p Full HD rendering',
+      'AI Script-to-Scenes Director',
+      'Ken Burns cinematic camera motion',
+      'Standard customer support',
+    ],
+  },
+  {
+    id: 'CREATOR',
+    name: 'Creator',
+    badge: 'Most Popular',
+    popular: true,
+    priceMonthly: 1200,
+    priceYearly: 12000,
+    creditsPerMonth: 600,
+    maxVideoDurationSec: 480, // 8 mins
+    maxResolution: '1080p',
+    isActive: true,
+    features: [
+      '600 Image Credits / month (~35-45 videos)',
+      'Up to 8-minute video duration',
+      '1080p Full HD rendering',
+      'Custom visual art style presets',
+      'Fast AI Director processing',
+      'Commercial usage license',
+      'Priority WhatsApp customer support',
+    ],
+  },
+  {
+    id: 'STUDIO',
+    name: 'Studio Pro',
+    badge: 'Full Power',
+    priceMonthly: 2500,
+    priceYearly: 25000,
+    creditsPerMonth: 1500,
+    maxVideoDurationSec: 1200, // 20 mins
+    maxResolution: '4k',
+    isActive: true,
+    features: [
+      '1,500 Image Credits / month (~100+ videos)',
+      'Up to 20-minute video duration',
+      '4K Ultra HD crisp rendering',
+      'Unrestricted visual style prompts',
+      'VIP rendering speed queue',
+      'Commercial usage license',
+      'Direct WhatsApp VIP support',
+    ],
+  },
+];
+
+export const DEFAULT_TOPUP_PACKS: CreditTopupPack[] = [
+  {
+    id: 'topup_50',
+    name: 'Quick Top-up',
+    credits: 50,
+    priceBDT: 50,
+    perCreditBDT: 1.0,
+  },
+  {
+    id: 'topup_100',
+    name: 'Standard Boost',
+    credits: 100,
+    priceBDT: 100,
+    popular: true,
+    perCreditBDT: 1.0,
+  },
+  {
+    id: 'topup_250',
+    name: 'Power Pack',
+    credits: 250,
+    priceBDT: 200, // Discounted: ৳0.80 per credit
+    perCreditBDT: 0.8,
+  },
+];
+
+const DEFAULT_PROMO_CODES: PromoCode[] = [
+  {
+    code: 'EARLY50',
+    type: 'PERCENTAGE',
+    discountValue: 50,
+    validUntil: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    maxUses: 50,
+    currentUses: 14,
+    description: 'Launch special: 50% flat discount for early adopters',
+    isActive: true,
+    commissionPercent: 15,
+  },
+  {
+    code: 'LAUNCH20',
+    type: 'PERCENTAGE',
+    discountValue: 20,
+    validUntil: Date.now() + 60 * 24 * 60 * 60 * 1000,
+    maxUses: 500,
+    currentUses: 38,
+    description: '20% off on all monthly and yearly subscription plans',
+    isActive: true,
+    commissionPercent: 15,
+  },
+  {
+    code: 'FREE30',
+    type: 'CREDIT_BONUS',
+    discountValue: 0,
+    bonusCredits: 30,
+    validUntil: Date.now() + 90 * 24 * 60 * 60 * 1000,
+    maxUses: 200,
+    currentUses: 52,
+    description: 'Unlocks +30 free bonus credits for new creators',
+    isActive: true,
+  },
+];
+
+// Initial default user
+const DEFAULT_CURRENT_USER: UserProfile = {
+  id: 'usr_me',
+  name: 'Current Creator',
+  email: 'creator@example.com',
+  phone: '01700000000',
+  tier: 'TRIAL',
+  creditsRemaining: 30,
+  creditsUsed: 0,
+  totalSpentBDT: 0,
+  joinedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+  isBlocked: false,
+  referralCode: 'HAZRAT25',
+  referralCount: 4,
+  referralEarningsBDT: 720,
+  referralPendingBDT: 720,
+  referralPaidBDT: 0,
+};
+
+const DEFAULT_USER_LIST: UserProfile[] = [
+  DEFAULT_CURRENT_USER,
+  {
+    id: 'usr_1',
+    name: 'Rahim Content Creator',
+    email: 'rahim@youtube.com',
+    phone: '01711223344',
+    tier: 'CREATOR',
+    creditsRemaining: 480,
+    creditsUsed: 120,
+    totalSpentBDT: 1200,
+    joinedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
+    isBlocked: false,
+    referralCode: 'RAHIM50',
+    referralCount: 6,
+    referralEarningsBDT: 1080,
+    referralPendingBDT: 360,
+    referralPaidBDT: 720,
+  },
+  {
+    id: 'usr_2',
+    name: 'Karim Media Studio',
+    email: 'karim@production.com',
+    phone: '01899887766',
+    tier: 'STUDIO',
+    creditsRemaining: 1350,
+    creditsUsed: 150,
+    totalSpentBDT: 2500,
+    joinedAt: Date.now() - 22 * 24 * 60 * 60 * 1000,
+    isBlocked: false,
+    referralCode: 'KARIMVIP',
+    referralCount: 2,
+    referralEarningsBDT: 360,
+    referralPendingBDT: 360,
+    referralPaidBDT: 0,
+  },
+];
+
+// ─── Storage Helpers ──────────────────────────────────────────────────────────
+
+function safeGet<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeSet(key: string, value: unknown): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+// ─── Admin Settings Operations ───────────────────────────────────────────────
+
+export function getAdminSettings(): AdminSettings {
+  return safeGet<AdminSettings>('admin_app_settings', DEFAULT_ADMIN_SETTINGS);
+}
+
+export function saveAdminSettings(settings: AdminSettings): void {
+  safeSet('admin_app_settings', settings);
+}
+
+// ─── Dynamic Plans Operations ────────────────────────────────────────────────
+
+export function getSubscriptionPlans(): SubscriptionPlan[] {
+  return safeGet<SubscriptionPlan[]>('custom_subscription_plans', DEFAULT_SUBSCRIPTION_PLANS);
+}
+
+export function saveSubscriptionPlans(plans: SubscriptionPlan[]): void {
+  safeSet('custom_subscription_plans', plans);
+}
+
+export function getTopupPacks(): CreditTopupPack[] {
+  return safeGet<CreditTopupPack[]>('custom_topup_packs', DEFAULT_TOPUP_PACKS);
+}
+
+export function saveTopupPacks(packs: CreditTopupPack[]): void {
+  safeSet('custom_topup_packs', packs);
+}
+
+// ─── User Profile & Registry Operations ──────────────────────────────────────
+
+export function getAllUsers(): UserProfile[] {
+  return safeGet<UserProfile[]>('all_registered_users', DEFAULT_USER_LIST);
+}
+
+export function saveAllUsers(users: UserProfile[]): void {
+  safeSet('all_registered_users', users);
+}
+
+export function getCurrentUserProfile(): UserProfile {
+  const users = getAllUsers();
+  const current = users.find((u) => u.id === 'usr_me') || users[0] || DEFAULT_CURRENT_USER;
+  return current;
+}
+
+export function updateCurrentUserProfile(update: Partial<UserProfile>): void {
+  const users = getAllUsers();
+  const idx = users.findIndex((u) => u.id === 'usr_me');
+  if (idx >= 0) {
+    users[idx] = { ...users[idx], ...update };
+  } else {
+    users.unshift({ ...DEFAULT_CURRENT_USER, ...update });
+  }
+  saveAllUsers(users);
+}
+
+export function setUserBlockStatus(userId: string, isBlocked: boolean, reason?: string): boolean {
+  const users = getAllUsers();
+  const u = users.find((item) => item.id === userId);
+  if (!u) return false;
+  u.isBlocked = isBlocked;
+  u.blockReason = isBlocked ? (reason || 'Blocked by admin for violating terms') : undefined;
+  saveAllUsers(users);
+  return true;
+}
+
+export function adjustUserCredits(userId: string, deltaCredits: number): boolean {
+  const users = getAllUsers();
+  const u = users.find((item) => item.id === userId);
+  if (!u) return false;
+  u.creditsRemaining = Math.max(0, u.creditsRemaining + deltaCredits);
+  saveAllUsers(users);
+  return true;
+}
+
+export function assignUserPromoCode(userId: string, promoCode: string): boolean {
+  const users = getAllUsers();
+  const u = users.find((item) => item.id === userId);
+  if (!u) return false;
+  u.assignedPromoCode = promoCode.toUpperCase();
+  saveAllUsers(users);
+  return true;
+}
+
+// ─── Current User Subscription & Anti-Abuse ─────────────────────────────────
+
+export function getUserSubscription(): UserSubscription {
+  const profile = getCurrentUserProfile();
+  return {
+    tier: profile.tier,
+    creditsRemaining: profile.creditsRemaining,
+    creditsUsed: profile.creditsUsed,
+    totalCreditsPurchased: profile.creditsRemaining + profile.creditsUsed,
+    startDate: profile.joinedAt,
+    expiresAt: profile.joinedAt + 30 * 24 * 60 * 60 * 1000,
+    billingCycle: 'monthly',
+    status: profile.isBlocked ? 'EXPIRED' : 'ACTIVE',
+  };
+}
+
+export function hasEnoughCredits(requiredCredits: number): boolean {
+  const profile = getCurrentUserProfile();
+  if (profile.isBlocked) return false;
+  return profile.creditsRemaining >= requiredCredits;
+}
+
+export function deductUserCredits(amount: number, reason = 'image_generation'): boolean {
+  const profile = getCurrentUserProfile();
+  if (profile.isBlocked || profile.creditsRemaining < amount) {
+    return false;
+  }
+  profile.creditsRemaining = Math.max(0, profile.creditsRemaining - amount);
+  profile.creditsUsed += amount;
+  updateCurrentUserProfile(profile);
+  console.log(`[Subscription] Deducted ${amount} credits for "${reason}". Remaining: ${profile.creditsRemaining}`);
+  return true;
+}
+
+export function grantUserCredits(amount: number, reason = 'credit_grant'): void {
+  const profile = getCurrentUserProfile();
+  profile.creditsRemaining += amount;
+  updateCurrentUserProfile(profile);
+  console.log(`[Subscription] Granted ${amount} credits ("${reason}"). New balance: ${profile.creditsRemaining}`);
+}
+
+// ─── Promo Codes ────────────────────────────────────────────────────────────
+
+export function getAllPromoCodes(): PromoCode[] {
+  return safeGet<PromoCode[]>('promo_codes_list', DEFAULT_PROMO_CODES);
+}
+
+export function savePromoCodes(codes: PromoCode[]): void {
+  safeSet('promo_codes_list', codes);
+}
+
+export interface PromoValidationResult {
+  valid: boolean;
+  message: string;
+  promo?: PromoCode;
+  discountedPriceBDT?: number;
+  bonusCredits?: number;
+}
+
+export function validateAndApplyPromoCode(
+  inputCode: string,
+  originalPriceBDT: number
+): PromoValidationResult {
+  const settings = getAdminSettings();
+  const cleanCode = inputCode.trim().toUpperCase();
+
+  // Check if global discount is enabled and overrides/applies
+  let basePrice = originalPriceBDT;
+  if (settings.globalDiscountActive && settings.globalDiscountPercent > 0) {
+    basePrice = Math.round(originalPriceBDT * (1 - settings.globalDiscountPercent / 100));
+  }
+
+  if (!cleanCode) {
+    return {
+      valid: true,
+      message: settings.globalDiscountActive ? `Global sale active: ${settings.globalDiscountPercent}% off` : '',
+      discountedPriceBDT: basePrice,
+    };
+  }
+
+  // Check user referral codes as well!
+  const users = getAllUsers();
+  const referralOwner = users.find((u) => u.referralCode?.toUpperCase() === cleanCode);
+  if (referralOwner) {
+    // 20% discount for anyone using a user referral code
+    const discountedPriceBDT = Math.max(0, Math.round(basePrice * 0.8));
+    return {
+      valid: true,
+      message: `Referral code by ${referralOwner.name}: 20% discount applied!`,
+      discountedPriceBDT,
+      bonusCredits: 15,
+      promo: {
+        code: cleanCode,
+        type: 'PERCENTAGE',
+        discountValue: 20,
+        bonusCredits: 15,
+        validUntil: Date.now() + 365 * 24 * 3600 * 1000,
+        maxUses: 9999,
+        currentUses: referralOwner.referralCount,
+        description: `Referral discount from ${referralOwner.name}`,
+        isActive: true,
+        ownerUserId: referralOwner.id,
+        commissionPercent: 15,
+      },
+    };
+  }
+
+  const allCodes = getAllPromoCodes();
+  const promo = allCodes.find((p) => p.code.toUpperCase() === cleanCode);
+
+  if (!promo) {
+    return { valid: false, message: 'Invalid promo code. Please check spelling.' };
+  }
+  if (!promo.isActive) {
+    return { valid: false, message: 'This promo code is currently disabled.' };
+  }
+  if (promo.validUntil < Date.now()) {
+    return { valid: false, message: 'This promo code has expired.' };
+  }
+  if (promo.maxUses > 0 && promo.currentUses >= promo.maxUses) {
+    return { valid: false, message: 'This promo code has reached its maximum limit.' };
+  }
+
+  let discountedPriceBDT = basePrice;
+  let bonusCredits = 0;
+
+  if (promo.type === 'PERCENTAGE') {
+    const discountAmount = (basePrice * promo.discountValue) / 100;
+    discountedPriceBDT = Math.max(0, Math.round(basePrice - discountAmount));
+  } else if (promo.type === 'FIXED') {
+    discountedPriceBDT = Math.max(0, basePrice - promo.discountValue);
+  } else if (promo.type === 'CREDIT_BONUS') {
+    bonusCredits = promo.bonusCredits || 0;
+  }
+
+  return {
+    valid: true,
+    message: promo.description,
+    promo,
+    discountedPriceBDT,
+    bonusCredits,
+  };
+}
+
+export function incrementPromoCodeUsage(code: string): void {
+  const codes = getAllPromoCodes();
+  const target = codes.find((p) => p.code.toUpperCase() === code.trim().toUpperCase());
+  if (target) {
+    target.currentUses += 1;
+    savePromoCodes(codes);
+  }
+
+  // Also check referral user
+  const users = getAllUsers();
+  const refOwner = users.find((u) => u.referralCode?.toUpperCase() === code.trim().toUpperCase());
+  if (refOwner) {
+    refOwner.referralCount += 1;
+    saveAllUsers(users);
+  }
+}
+
+export function createNewPromoCode(newCode: PromoCode): void {
+  const codes = getAllPromoCodes();
+  const exists = codes.findIndex((c) => c.code.toUpperCase() === newCode.code.toUpperCase());
+  if (exists >= 0) {
+    codes[exists] = newCode;
+  } else {
+    codes.unshift(newCode);
+  }
+  savePromoCodes(codes);
+}
+
+export function deletePromoCode(code: string): void {
+  const codes = getAllPromoCodes().filter((c) => c.code.toUpperCase() !== code.toUpperCase());
+  savePromoCodes(codes);
+}
+
+// ─── Manual Payment Submissions (WhatsApp Assisted) ─────────────────────────
+
+export function getAllPaymentSubmissions(): PaymentSubmission[] {
+  return safeGet<PaymentSubmission[]>('payment_submissions_list', []);
+}
+
+export function savePaymentSubmissions(submissions: PaymentSubmission[]): void {
+  safeSet('payment_submissions_list', submissions);
+}
+
+export function submitPaymentRequest(
+  submission: Omit<PaymentSubmission, 'id' | 'status' | 'submittedAt'>
+): PaymentSubmission {
+  const newSubmission: PaymentSubmission = {
+    ...submission,
+    id: `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    status: 'PENDING',
+    submittedAt: Date.now(),
+  };
+
+  const list = getAllPaymentSubmissions();
+  list.unshift(newSubmission);
+  savePaymentSubmissions(list);
+
+  if (submission.promoCodeApplied) {
+    incrementPromoCodeUsage(submission.promoCodeApplied);
+  }
+
+  return newSubmission;
+}
+
+/** Admin Action: Approve Payment Request */
+export function approvePaymentRequest(submissionId: string, adminNote?: string): boolean {
+  const list = getAllPaymentSubmissions();
+  const sub = list.find((s) => s.id === submissionId);
+  if (!sub || sub.status === 'APPROVED') return false;
+
+  sub.status = 'APPROVED';
+  sub.reviewedAt = Date.now();
+  if (adminNote) sub.adminNote = adminNote;
+  savePaymentSubmissions(list);
+
+  // Grant plan / credits to the target user
+  const users = getAllUsers();
+  const targetUser = users.find((u) => u.id === sub.userId) || getCurrentUserProfile();
+
+  if (sub.itemType === 'subscription' && sub.planId) {
+    targetUser.tier = sub.planId;
+    targetUser.creditsRemaining += sub.creditsToGrant;
+    targetUser.totalSpentBDT += sub.discountedPriceBDT;
+  } else if (sub.itemType === 'topup') {
+    targetUser.creditsRemaining += sub.creditsToGrant;
+    targetUser.totalSpentBDT += sub.discountedPriceBDT;
+  }
+  updateCurrentUserProfile(targetUser);
+
+  // If promo code belonged to an affiliate/referral, credit their pending earnings!
+  if (sub.promoCodeApplied) {
+    const code = sub.promoCodeApplied.toUpperCase();
+    const refOwner = users.find((u) => u.referralCode?.toUpperCase() === code);
+    if (refOwner) {
+      const commission = Math.round(sub.discountedPriceBDT * 0.15); // 15% commission
+      refOwner.referralEarningsBDT += commission;
+      refOwner.referralPendingBDT += commission;
+      saveAllUsers(users);
+      console.log(`[Affiliate] Credited ৳${commission} commission to ${refOwner.name} for code ${code}`);
+    }
+  }
+
+  return true;
+}
+
+export function rejectPaymentRequest(submissionId: string, reason?: string): boolean {
+  const list = getAllPaymentSubmissions();
+  const sub = list.find((s) => s.id === submissionId);
+  if (!sub || sub.status === 'REJECTED') return false;
+
+  sub.status = 'REJECTED';
+  sub.reviewedAt = Date.now();
+  sub.adminNote = reason || 'Payment could not be verified.';
+  savePaymentSubmissions(list);
+
+  return true;
+}
+
+// ─── WhatsApp Direct Link Generator ─────────────────────────────────────────
+
+export function getWhatsAppVerificationUrl(
+  senderPhone: string,
+  amountBDT: number,
+  itemName: string,
+  userEmail: string
+): string {
+  const settings = getAdminSettings();
+  const rawNumber = settings.whatsappNumber.replace(/[^0-9]/g, '');
+  const text = encodeURIComponent(
+    `Hello Admin! I have sent ৳${amountBDT} via bKash/Nagad.\n` +
+      `Phone Number: ${senderPhone}\n` +
+      `Item: ${itemName}\n` +
+      `My Account Email: ${userEmail}\n` +
+      `Please verify and approve my credits/subscription!`
+  );
+  return `https://wa.me/${rawNumber}?text=${text}`;
+}
+
+// ─── Affiliate Payout System ────────────────────────────────────────────────
+
+export function getAllPayoutRequests(): AffiliatePayoutRequest[] {
+  return safeGet<AffiliatePayoutRequest[]>('affiliate_payout_requests', []);
+}
+
+export function savePayoutRequests(requests: AffiliatePayoutRequest[]): void {
+  safeSet('affiliate_payout_requests', requests);
+}
+
+export function submitPayoutRequest(
+  userId: string,
+  userEmail: string,
+  amountBDT: number,
+  paymentMethod: 'bkash' | 'nagad' | 'bank',
+  accountNumber: string
+): boolean {
+  const users = getAllUsers();
+  const u = users.find((item) => item.id === userId);
+  if (!u || u.referralPendingBDT < amountBDT) return false;
+
+  u.referralPendingBDT -= amountBDT;
+  saveAllUsers(users);
+
+  const req: AffiliatePayoutRequest = {
+    id: `payout_${Date.now()}`,
+    userId,
+    userEmail,
+    amountBDT,
+    paymentMethod,
+    accountNumber,
+    requestedAt: Date.now(),
+    status: 'PENDING',
+  };
+
+  const allReqs = getAllPayoutRequests();
+  allReqs.unshift(req);
+  savePayoutRequests(allReqs);
+  return true;
+}
+
+export function approvePayoutRequest(payoutId: string, note?: string): boolean {
+  const reqs = getAllPayoutRequests();
+  const req = reqs.find((r) => r.id === payoutId);
+  if (!req || req.status === 'PAID') return false;
+
+  req.status = 'PAID';
+  req.paidAt = Date.now();
+  req.note = note || 'Paid via bKash/Nagad';
+  savePayoutRequests(reqs);
+
+  // Update user paid total
+  const users = getAllUsers();
+  const u = users.find((item) => item.id === req.userId);
+  if (u) {
+    u.referralPaidBDT += req.amountBDT;
+    saveAllUsers(users);
+  }
+
+  return true;
+}
+
+// ─── Revenue Analytics ──────────────────────────────────────────────────────
+
+export function getRevenueAnalytics(): RevenueAnalytics {
+  const submissions = getAllPaymentSubmissions();
+  const approved = submissions.filter((s) => s.status === 'APPROVED');
+  const promoCodes = getAllPromoCodes();
+  const users = getAllUsers();
+
+  const totalRevenueBDT = approved.reduce((sum, s) => sum + s.discountedPriceBDT, 0);
+
+  const currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const monthlyRevenueBDT = approved
+    .filter((s) => s.submittedAt >= currentMonthStart)
+    .reduce((sum, s) => sum + s.discountedPriceBDT, 0);
+
+  const pendingApprovals = submissions.filter((s) => s.status === 'PENDING').length;
+  const activeSubscribers = users.filter((u) => u.tier !== 'TRIAL' && !u.isBlocked).length;
+  const totalCreditsUsed = users.reduce((sum, u) => sum + u.creditsUsed, 0);
+
+  const topPromoCodes = promoCodes.map((p) => {
+    const uses = p.currentUses;
+    const revenueBDT = approved
+      .filter((s) => s.promoCodeApplied?.toUpperCase() === p.code.toUpperCase())
+      .reduce((sum, s) => sum + s.discountedPriceBDT, 0);
+    return { code: p.code, uses, revenueBDT };
+  });
+
+  return {
+    totalRevenueBDT,
+    monthlyRevenueBDT,
+    activeSubscribers,
+    pendingApprovals,
+    totalCreditsUsed,
+    totalImagesGenerated: totalCreditsUsed,
+    topPromoCodes,
+  };
+}

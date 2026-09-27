@@ -39,6 +39,7 @@ import { extractScenes } from '@/lib/gemini';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
 import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
+import { hasEnoughCredits, deductUserCredits } from '@/lib/subscription-store';
 import type {
   ProjectManifest,
   SceneItem,
@@ -82,6 +83,8 @@ export default function StoryboardInner() {
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatingMotion, setGeneratingMotion] = useState(false);
   const [pauseMsg, setPauseMsg] = useState('');
+  const [creditModalOpen, setCreditModalOpen] = useState(false);
+  const [requiredCreditsNeeded, setRequiredCreditsNeeded] = useState(0);
 
   // Voiceover audio preview & upload state
   const [voiceAudioUrl, setVoiceAudioUrl] = useState<string | null>(null);
@@ -114,6 +117,15 @@ export default function StoryboardInner() {
   // ─── Step 2: Generate Images ─────────────────────────────────────────────
 
   const handleGenerateImages = useCallback(async (currentScenes: SceneItem[]) => {
+    const pendingScenes = currentScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED');
+    if (pendingScenes.length === 0) return;
+
+    if (!hasEnoughCredits(pendingScenes.length)) {
+      setRequiredCreditsNeeded(pendingScenes.length);
+      setCreditModalOpen(true);
+      return;
+    }
+
     const apiKey = (await getPollinationsApiKey()) || '';
     const chosenModel = await getPollinationsImageModel();
 
@@ -126,7 +138,7 @@ export default function StoryboardInner() {
     await imageQueueRef.current.run({
       apiKey,
       projectId,
-      scenes: currentScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED'),
+      scenes: pendingScenes,
       stylePrompt: preset?.stylePrompt,
       negativePrompt: preset?.negativePrompt,
       aspectRatio: preset?.aspectRatio,
@@ -134,6 +146,9 @@ export default function StoryboardInner() {
       concurrency: 3,
       callbacks: {
         onSceneUpdate: (sceneId, update) => {
+          if (update.status === 'IMAGE_READY') {
+            deductUserCredits(1, `Scene ${sceneId} generation`);
+          }
           setScenes((prev) => {
             const next = prev.map((s) =>
               s.sceneId === sceneId ? { ...s, ...update } : s
@@ -498,6 +513,12 @@ export default function StoryboardInner() {
   // ─── Per-scene actions ────────────────────────────────────────────────────
 
   async function handleRegenerate(scene: SceneItem, newPrompt?: string) {
+    if (!hasEnoughCredits(1)) {
+      setRequiredCreditsNeeded(1);
+      setCreditModalOpen(true);
+      return;
+    }
+
     const apiKey = (await getPollinationsApiKey()) || '';
     const chosenModel = await getPollinationsImageModel();
 
@@ -523,6 +544,9 @@ export default function StoryboardInner() {
       aspectRatio: preset?.aspectRatio,
       callbacks: {
         onSceneUpdate: (sceneId, update) => {
+          if (update.status === 'IMAGE_READY') {
+            deductUserCredits(1, `Scene ${scene.sceneId} regenerate`);
+          }
           setScenes((prev) => {
             const next = prev.map((s) => s.sceneId === sceneId ? { ...s, ...update } : s);
             persistScenes(next);
@@ -1073,6 +1097,45 @@ export default function StoryboardInner() {
           }}
           selectedId={stylePreset?.id}
         />
+      )}
+
+      {/* Insufficient Credits Modal */}
+      {creditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-zinc-900 border border-zinc-700/80 rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
+              <Zap size={28} className="fill-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white">Insufficient Image Credits</h3>
+              <p className="text-xs text-zinc-300 mt-1.5 leading-relaxed">
+                You need <strong className="text-amber-400 font-bold">{requiredCreditsNeeded} credits</strong> to generate these images, but your current balance is lower.
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-400 leading-relaxed">
+              Top up credits for as low as ৳50 or subscribe to Creator/Studio plans with instant bKash or Nagad payment!
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => setCreditModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setCreditModalOpen(false);
+                  router.push('/pricing');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition-colors shadow-md shadow-emerald-500/20"
+              >
+                Top-up Credits
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
