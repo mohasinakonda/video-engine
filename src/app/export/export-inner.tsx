@@ -219,6 +219,16 @@ export default function ExportInner() {
     setIsExporting(true);
     setErrorMsg('');
     setCleanedCache(false);
+    setFinalVideoUrl('');
+    setProgress({
+      stage: 'idle',
+      percentage: 0,
+      fps: 0,
+      frame: 0,
+      totalFrames: 0,
+      etaSeconds: 0,
+      currentStepMessage: 'Initializing audio and visual engines...',
+    });
 
     const settings: ExportSettings = {
       resolution,
@@ -464,6 +474,7 @@ export default function ExportInner() {
                     {finalVideoUrl && (
                       <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black aspect-video shadow-2xl">
                         <video
+                          key={finalVideoUrl}
                           src={finalVideoUrl}
                           controls
                           playsInline

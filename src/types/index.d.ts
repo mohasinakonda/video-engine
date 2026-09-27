@@ -71,11 +71,11 @@ export type PacingProfile = 'fast' | 'balanced' | 'cinematic';
 
 // ─── Phase 3: Export Types ───────────────────────────────────────────────────
 
-export type ExportResolution = '1080p' | '4k';
+export type ExportResolution = '720p' | '1080p' | '4k';
 
 export type HardwareEncoder = 'auto' | 'h264_nvenc' | 'h264_qsv' | 'h264_videotoolbox' | 'libx264';
 
-export type TransitionType = 'crossfade' | 'fade_black' | 'cut';
+export type TransitionType = 'crossfade' | 'fade_black' | 'cut' | 'slide_left' | 'fade_to_black' | 'none';
 
 export interface ExportSettings {
   resolution: ExportResolution;
@@ -86,6 +86,7 @@ export interface ExportSettings {
   outputPath: string;
   transitionType?: TransitionType;
   transitionDurationSec?: number;
+  aspectRatio?: '16:9' | '9:16' | '1:1';
 }
 
 export type ExportStage =

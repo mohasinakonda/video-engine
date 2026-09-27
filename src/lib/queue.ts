@@ -39,7 +39,7 @@ export interface BatchImageQueueOptions<T extends BatchSceneItem = BatchSceneIte
   onComplete?: () => void;
 }
 
-// ─── Tauri FS Helper ──────────────────────────────────────────────────────────
+// ─── Web Image Media Helper ───────────────────────────────────────────────────
 
 async function saveImageToDisk(
   projectId: string,
@@ -47,16 +47,8 @@ async function saveImageToDisk(
   buffer: ArrayBuffer
 ): Promise<string> {
   const filePath = `projects/${projectId}/scenes/scene_${sceneId}.jpg`;
-  const uint8Data = new Uint8Array(buffer);
-
-  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
-    const { writeFile, mkdir, BaseDirectory } = await import("@tauri-apps/plugin-fs");
-    const dir = `projects/${projectId}/scenes`;
-
-    await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => { });
-    await writeFile(filePath, uint8Data, { baseDir: BaseDirectory.AppLocalData });
-  }
-
+  const blob = new Blob([buffer], { type: 'image/jpeg' });
+  await saveMediaBlob(`scene_${projectId}_${sceneId}`, blob);
   return filePath;
 }
 
@@ -222,14 +214,6 @@ async function saveAudioFile(
   mimeType = "audio/wav"
 ): Promise<string> {
   const filePath = `projects/${projectId}/audio/chunk_${chunkIndex}.wav`;
-
-  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
-    const { writeFile, mkdir, BaseDirectory } = await import("@tauri-apps/plugin-fs");
-    const dir = `projects/${projectId}/audio`;
-
-    await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => { });
-    await writeFile(filePath, data, { baseDir: BaseDirectory.AppLocalData });
-  }
 
   // Persist to IndexedDB so browser reload and export have access to full audio
   const blob = new Blob([data.buffer as ArrayBuffer], { type: mimeType });

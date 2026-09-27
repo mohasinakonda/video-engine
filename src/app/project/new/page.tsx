@@ -89,8 +89,6 @@ function ProjectPageInner() {
   const [readingAudioDuration, setReadingAudioDuration] = useState(false);
 
   const voiceFileInputRef = useRef<HTMLInputElement | null>(null)
-  const srtFileInputRef = useRef<HTMLInputElement | null>(null);
-
   const queueRef = useRef<AudioQueue | null>(null);
   const existingProjectRef = useRef<ProjectManifest | null>(null);
 
@@ -201,7 +199,7 @@ function ProjectPageInner() {
   }
 
   // ─── Image Only Mode: Direct to Storyboard ─────────────────────────────────
-
+  console.log('chunks', chunks)
   async function handleGenerateOnlyImages() {
     if (!script.trim()) return;
 

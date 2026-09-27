@@ -61,13 +61,6 @@ async function saveImageFile(
   const ext = mimeType.includes('png') ? 'png' : 'jpg';
   const filePath = `projects/${projectId}/scenes/scene_${sceneId}.${ext}`;
 
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-    const { writeFile, mkdir, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-    const dir = `projects/${projectId}/scenes`;
-    await mkdir(dir, { baseDir: BaseDirectory.AppLocalData, recursive: true }).catch(() => {});
-    await writeFile(filePath, data, { baseDir: BaseDirectory.AppLocalData });
-  }
-
   // Persist to IndexedDB for persistent browser access in Storyboard and Export
   const blob = new Blob([data.buffer as ArrayBuffer], { type: mimeType });
   await saveMediaBlob(`scene_${projectId}_${sceneId}`, blob);

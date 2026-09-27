@@ -1,14 +1,13 @@
 /**
- * export-engine.ts — Final Video Assembly, Sync & Hardware Export (Phase 3)
+ * export-engine.ts — Pure Web SaaS Video Export Engine
  *
- * Handles:
- *  1. Master Audio Assembly: Stitches Phase 1 .wav audio chunks into master_voice.wav with silence trimming.
- *  2. Video Concatenation: Generates FFmpeg concat demuxer / filter pipeline for scene motion clips.
- *  3. BGM & Auto-Ducking Engine: Mixes background music, loops it, applies 3s fade out, and
- *     ducks BGM volume (-18dB to -24dB) when voice is active using sidechaincompress/amix filter graph.
- *  4. Hardware Accelerated Export: Encodes 1080p / 4K MP4 using NVENC, QuickSync, VideoToolbox or libx264.
- *  5. Live Progress Parser: Parses stderr line-by-line for frame count, FPS, percentage, and ETA.
- *  6. OS Notification & Disk Cache Cleaner: Sends desktop notification and purges intermediate files.
+ * Provides:
+ *  1. Single-Pass Encoding with Main-Thread Yielding: Renders full-length videos without tab hangs.
+ *     Uses ONE muxer for the entire video (multi-blob concatenation is invalid for MP4).
+ *     Yields the main thread every 10 frames (via setTimeout 0) to keep the browser responsive.
+ *  2. Hardware Accelerated Encoding: WebCodecs (H.264/AVC) + mp4-muxer with MediaRecorder fallback.
+ *  3. Ken Burns & Transition Animations: Smooth crossfade and pan/zoom cinema effects.
+ *  4. Direct Browser Download: Saves rendered MP4 directly to user's Downloads folder.
  */
 
 import type {
@@ -21,22 +20,6 @@ import type {
 import { Muxer as Mp4Muxer, ArrayBufferTarget as Mp4Target } from 'mp4-muxer';
 import { getMediaBlob } from '@/lib/media-storage';
 
-// ─── Utility: Detect Tauri ───────────────────────────────────────────────────
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
-async function resolveProjectPath(projectId: string): Promise<string> {
-  if (isTauri()) {
-    const { appLocalDataDir } = await import('@tauri-apps/api/path');
-    const base = await appLocalDataDir();
-    return `${base}projects/${projectId}`;
-  }
-  return `/data/projects/${projectId}`;
-}
-
-// ─── Export Controller ────────────────────────────────────────────────────────
 
 export class ExportEngine {
   private cancelled = false;
@@ -49,8 +32,12 @@ export class ExportEngine {
     return this.cancelled;
   }
 
+  public async cleanProjectCache(projectId: string): Promise<{ freedMB: number }> {
+    return { freedMB: 0 };
+  }
+
   /**
-   * Main export execution pipeline.
+   * Main export execution pipeline for Web SaaS
    */
   public async execute(
     projectId: string,
@@ -64,7 +51,6 @@ export class ExportEngine {
 
     const completedChunks = audioChunks.filter((c) => c.status === 'COMPLETED');
     const usableChunks = completedChunks.length > 0 ? completedChunks : audioChunks;
-    const readyClips = (scenes || []).filter((s) => s.status === 'MOTION_READY' || s.motionClipPath);
 
     const totalDurationMs = usableChunks.reduce((sum, c) => sum + (c.durationMs || 0), 0);
     const sceneMaxSec = scenes.length > 0 ? Math.max(...scenes.map((s) => s.audioEndSec || 0)) : 0;
@@ -74,89 +60,14 @@ export class ExportEngine {
     const fps = 30;
     const totalFrames = Math.max(1, Math.round(totalDurationSec * fps));
 
-    if (!isTauri()) {
-      // High-performance browser pipeline (WebCodecs + mp4-muxer offline rendering)
-      const browserUrl = await this.renderFinalVideoBrowser({
-        projectId,
-        projectTitle,
-        scenes,
-        audioChunks: usableChunks,
-        settings,
-        totalDurationSec,
-        totalFrames,
-        onProgress,
-      });
-
-      onProgress({
-        stage: 'completed',
-        percentage: 100,
-        fps: 30,
-        frame: totalFrames,
-        totalFrames,
-        etaSeconds: 0,
-        currentStepMessage: 'Render complete! Video saved to your Downloads folder.',
-      });
-
-      await this.sendOSNotification('AI Video Studio', 'Your video export is ready and downloaded!');
-      return browserUrl;
-    }
-
-    // ─── STAGE 1 (Tauri): Stitch Master Audio ──────────────────────────────────
-    onProgress({
-      stage: 'audio_stitch',
-      percentage: 10,
-      fps: 0,
-      frame: 0,
-      totalFrames,
-      etaSeconds: Math.round(totalDurationSec * 0.2),
-      currentStepMessage: 'Stitching voice audio chunks & trimming silence...',
-    });
-
-    if (this.cancelled) throw new Error('Export cancelled by user.');
-
-    const projectPath = await resolveProjectPath(projectId);
-    const masterAudioPath = `${projectPath}/master_voice.wav`;
-    await this.stitchMasterAudioTauri(projectId, completedChunks, masterAudioPath);
-
-    // ─── STAGE 2 (Tauri): Video Concatenation & Concat Script ────────────────
-    onProgress({
-      stage: 'video_concat',
-      percentage: 30,
-      fps: 0,
-      frame: 0,
-      totalFrames,
-      etaSeconds: Math.round(totalDurationSec * 0.15),
-      currentStepMessage: 'Preparing video timeline & crossfade transitions...',
-    });
-
-    if (this.cancelled) throw new Error('Export cancelled by user.');
-
-    const concatTxtPath = `${projectPath}/concat_list.txt`;
-    await this.prepareConcatFileTauri(projectId, readyClips, concatTxtPath);
-
-    // ─── STAGE 3 (Tauri): Final Hardware Accelerated Render ──────────────────
-    onProgress({
-      stage: 'final_render',
-      percentage: 45,
-      fps: 30,
-      frame: Math.round(totalFrames * 0.45),
-      totalFrames,
-      etaSeconds: Math.round(totalDurationSec * 0.4),
-      currentStepMessage: `Encoding final MP4 (${settings.resolution.toUpperCase()}, ${settings.encoder})...`,
-    });
-
-    if (this.cancelled) throw new Error('Export cancelled by user.');
-
-    const finalOutputPath = settings.outputPath || `${projectPath}/final_export_${Date.now()}.mp4`;
-
-    await this.renderFinalVideoTauri({
+    const browserUrl = await this.renderFinalVideoBrowser({
       projectId,
-      concatTxtPath,
-      masterAudioPath,
+      projectTitle,
+      scenes,
+      audioChunks: usableChunks,
       settings,
       totalDurationSec,
       totalFrames,
-      finalOutputPath,
       onProgress,
     });
 
@@ -167,167 +78,19 @@ export class ExportEngine {
       frame: totalFrames,
       totalFrames,
       etaSeconds: 0,
-      currentStepMessage: 'Render complete! Video is ready.',
+      currentStepMessage: 'Render complete! Video saved to your Downloads folder.',
     });
 
-    await this.sendOSNotification('AI Video Studio', 'Your video export is ready!');
-    return finalOutputPath;
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('AI Video Studio', { body: 'Your video export is ready and downloaded!' });
+    }
+
+    return browserUrl;
   }
 
-  // ─── Tauri Sidecar Operations ──────────────────────────────────────────────
-
-  private async stitchMasterAudioTauri(
-    projectId: string,
-    chunks: AudioChunk[],
-    outputPath: string
-  ): Promise<void> {
-    const { Command } = await import('@tauri-apps/plugin-shell');
-    const { appLocalDataDir } = await import('@tauri-apps/api/path');
-    const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-
-    const baseDir = await appLocalDataDir();
-    const cleanBaseDir = baseDir.replace(/\\/g, '/');
-    const fileListLines = chunks.map((c) => `file '${cleanBaseDir}${c.filePath.replace(/\\/g, '/')}'`).join('\n');
-    const audioListPath = `projects/${projectId}/audio_concat.txt`;
-    await writeTextFile(audioListPath, fileListLines, { baseDir: BaseDirectory.AppLocalData });
-
-    const fullAudioListPath = `${cleanBaseDir}${audioListPath}`;
-
-    // FFmpeg args for stitching & silence trimming
-    const args = [
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', fullAudioListPath,
-      '-af', 'silenceremove=start_periods=1:start_silence=0.1:start_threshold=-50dB:stop_periods=1:stop_silence=0.1:stop_threshold=-50dB',
-      '-c:a', 'pcm_s16le',
-      '-y',
-      outputPath,
-    ];
-
-    const command = Command.sidecar('binaries/ffmpeg', args);
-    const output = await command.execute();
-
-    if (output.code !== 0) {
-      throw new Error(`Audio stitching failed: ${output.stderr}`);
-    }
-  }
-
-  private async prepareConcatFileTauri(
-    projectId: string,
-    scenes: SceneItem[],
-    outputPath: string
-  ): Promise<void> {
-    const { appLocalDataDir } = await import('@tauri-apps/api/path');
-    const { writeTextFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-
-    const baseDir = await appLocalDataDir();
-    const cleanBaseDir = baseDir.replace(/\\/g, '/');
-
-    const lines = scenes
-      .filter((s) => s.motionClipPath)
-      .map((s) => `file '${cleanBaseDir}${s.motionClipPath!.replace(/\\/g, '/')}'`)
-      .join('\n');
-
-    const relativePath = `projects/${projectId}/concat_list.txt`;
-    await writeTextFile(relativePath, lines, { baseDir: BaseDirectory.AppLocalData });
-  }
-
-  private async renderFinalVideoTauri(options: {
-    projectId: string;
-    concatTxtPath: string;
-    masterAudioPath: string;
-    settings: ExportSettings;
-    totalDurationSec: number;
-    totalFrames: number;
-    finalOutputPath: string;
-    onProgress: (p: ExportProgress) => void;
-  }): Promise<void> {
-    const { Command } = await import('@tauri-apps/plugin-shell');
-    const { settings, totalDurationSec, totalFrames, finalOutputPath, onProgress } = options;
-
-    const width = settings.resolution === '4k' ? 3840 : 1920;
-    const height = settings.resolution === '4k' ? 2160 : 1080;
-    const videoBitrate = settings.resolution === '4k' ? '30M' : '10M';
-
-    // Encoder selection
-    let videoCodec = 'libx264';
-    if (settings.encoder === 'h264_nvenc') videoCodec = 'h264_nvenc';
-    else if (settings.encoder === 'h264_qsv') videoCodec = 'h264_qsv';
-    else if (settings.encoder === 'h264_videotoolbox') videoCodec = 'h264_videotoolbox';
-    else if (settings.encoder === 'auto') {
-      // Cross-platform universal CPU encoder (libx264) unless specific HW specified
-      videoCodec = 'libx264';
-    }
-
-    // Build FFmpeg command args
-    const args = [
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', options.concatTxtPath,
-      '-i', options.masterAudioPath,
-    ];
-
-    // Optional BGM input
-    let filterGraph = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
-
-    if (settings.bgmFilePath) {
-      args.push('-stream_loop', '-1', '-i', settings.bgmFilePath);
-
-      const bgmVol = settings.bgmVolume ?? 0.15;
-      if (settings.enableAutoDucking) {
-        // Voice triggers sidechaincompress on BGM track
-        filterGraph += `;[2:a]volume=${bgmVol},afade=t=out:st=${Math.max(0, totalDurationSec - 3)}:d=3[bgm];[1:a][bgm]sidechaincompress=threshold=0.08:ratio=10:attack=15:release=300[outa]`;
-      } else {
-        filterGraph += `;[2:a]volume=${bgmVol},afade=t=out:st=${Math.max(0, totalDurationSec - 3)}:d=3[bgm];[1:a][bgm]amix=inputs=2:duration=first[outa]`;
-      }
-    }
-
-    args.push(
-      '-vf', filterGraph,
-      '-c:v', videoCodec,
-      '-b:v', videoBitrate,
-      '-r', '30',
-      '-pix_fmt', 'yuv420p',
-      '-t', totalDurationSec.toFixed(2)
-    );
-
-    if (settings.bgmFilePath) {
-      args.push('-map', '0:v', '-map', '[outa]');
-    } else {
-      args.push('-map', '0:v', '-map', '1:a');
-    }
-
-    args.push('-c:a', 'aac', '-b:a', '192k', '-y', finalOutputPath);
-
-    const command = Command.sidecar('binaries/ffmpeg', args);
-
-    // Live progress parsing via stderr stream
-    command.stderr.on('data', (line: string) => {
-      const parsed = parseFFmpegProgress(line, totalFrames);
-      if (parsed) {
-        onProgress({
-          stage: 'final_render',
-          percentage: Math.min(99, Math.max(45, Math.round(45 + parsed.percent * 0.54))),
-          fps: parsed.fps,
-          frame: parsed.frame,
-          totalFrames,
-          etaSeconds: parsed.etaSeconds,
-          currentStepMessage: `Encoding frame ${parsed.frame}/${totalFrames} (${parsed.fps} fps)...`,
-        });
-      }
-    });
-
-    const output = await command.execute();
-
-    if (output.code !== 0) {
-      throw new Error(`FFmpeg final render failed: ${output.stderr}`);
-    }
-  }
-
-  // ─── Browser Video Rendering & Download ──────────────────────────────────────
-
-  // ─── Browser Video Rendering & Download ──────────────────────────────────────
-
+  /**
+   * High-Performance Segmented Chunk Browser Pipeline
+   */
   private async renderFinalVideoBrowser(options: {
     projectId: string;
     projectTitle: string;
@@ -336,137 +99,109 @@ export class ExportEngine {
     settings: ExportSettings;
     totalDurationSec: number;
     totalFrames: number;
-    onProgress: (p: ExportProgress) => void;
+    onProgress: (progress: ExportProgress) => void;
   }): Promise<string> {
     const { projectId, projectTitle, scenes, audioChunks, settings, onProgress } = options;
-    const width = settings.resolution === '4k' ? 3840 : 1920;
-    const height = settings.resolution === '4k' ? 2160 : 1080;
-
-    // ─── Step 1: Gather and Decode Voice Audio Chunks ─────────────────────────
-    onProgress({
-      stage: 'audio_stitch',
-      percentage: 5,
-      fps: 0,
-      frame: 0,
-      totalFrames: options.totalFrames,
-      etaSeconds: 12,
-      currentStepMessage: 'Restoring voice audio & assembling master audio track...',
-    });
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const win = typeof window !== 'undefined' ? (window as any) : {};
-    const AudioContextClass = win.AudioContext || win.webkitAudioContext;
 
-    if (!AudioContextClass) {
-      throw new Error('Web Audio API is not supported in this browser.');
-    }
-
-    const audioContext = new AudioContextClass();
-    const sortedChunks = [...audioChunks].sort((a, b) => a.index - b.index);
-    const decodedAudioBuffers: AudioBuffer[] = [];
-
-    for (let i = 0; i < sortedChunks.length; i++) {
-      if (this.cancelled) {
-        audioContext.close().catch(() => {});
-        throw new Error('Export cancelled by user.');
-      }
-
-      const chunk = sortedChunks[i];
-      let arrayBuf: ArrayBuffer | null = null;
-
-      if (chunk.audioUrl) {
-        try {
-          const res = await fetch(chunk.audioUrl);
-          if (res.ok) arrayBuf = await res.arrayBuffer();
-        } catch {
-          // Fall back to IndexedDB
-        }
-      }
-
-      if (!arrayBuf) {
-        const blob = await getMediaBlob(`audio_${projectId}_${chunk.index}`);
-        if (blob) {
-          arrayBuf = await blob.arrayBuffer();
-        }
-      }
-
-      if (arrayBuf && arrayBuf.byteLength > 0) {
-        try {
-          // slice(0) avoids detached ArrayBuffer edge cases in some browsers
-          const decoded = await audioContext.decodeAudioData(arrayBuf.slice(0));
-          decodedAudioBuffers.push(decoded);
-        } catch (decErr) {
-          console.warn(`Failed to decode audio chunk ${chunk.index}:`, decErr);
-        }
-      }
-    }
-
-    // Mix/stitch all chunks into master AudioBuffer using OfflineAudioContext
-    let totalAudioDuration = decodedAudioBuffers.reduce((sum, b) => sum + b.duration, 0);
+    // ─── Step 1: Decode Master Audio Track ──────────────────────────────────────
     let masterAudioBuffer: AudioBuffer | null = null;
+    const AudioContextClass = win.AudioContext || win.webkitAudioContext;
+    const audioContext = typeof AudioContextClass !== 'undefined'
+      ? new AudioContextClass({ sampleRate: 44100 })
+      : null;
 
-    if (totalAudioDuration > 0) {
-      const sampleRate = 44100;
-      const totalSamples = Math.ceil(totalAudioDuration * sampleRate);
-      const offlineCtx = new OfflineAudioContext(2, Math.max(1, totalSamples), sampleRate);
+    if (audioContext && audioChunks.length > 0) {
+      try {
+        const decodedBuffers: AudioBuffer[] = [];
+        for (let i = 0; i < audioChunks.length; i++) {
+          const chunk = audioChunks[i];
+          const chunkIdx = chunk.index !== undefined ? chunk.index : i;
+          let arrayBuffer: ArrayBuffer | null = null;
 
-      let playhead = 0;
-      for (const buf of decodedAudioBuffers) {
-        const src = offlineCtx.createBufferSource();
-        src.buffer = buf;
-        src.connect(offlineCtx.destination);
-        src.start(playhead);
-        playhead += buf.duration;
-      }
-
-      // Optional BGM mixing
-      if (settings.bgmFilePath) {
-        try {
-          let bgmBlob: Blob | null = null;
-          if (settings.bgmFilePath.startsWith('blob:') || settings.bgmFilePath.startsWith('http')) {
-            const r = await fetch(settings.bgmFilePath);
-            if (r.ok) bgmBlob = await r.blob();
+          // 1. Try persistent IndexedDB blob
+          const blob = await getMediaBlob(`audio_${projectId}_${chunkIdx}`);
+          if (blob) {
+            arrayBuffer = await blob.arrayBuffer().catch(() => null);
           }
-          if (bgmBlob) {
-            const bgmBuf = await audioContext.decodeAudioData((await bgmBlob.arrayBuffer()).slice(0));
-            const bgmSrc = offlineCtx.createBufferSource();
-            bgmSrc.buffer = bgmBuf;
-            bgmSrc.loop = true;
-            const bgmGain = offlineCtx.createGain();
-            bgmGain.gain.value = settings.bgmVolume ?? 0.15;
-            bgmSrc.connect(bgmGain);
-            bgmGain.connect(offlineCtx.destination);
-            bgmSrc.start(0);
+
+          // 2. Fall back to chunk.audioUrl
+          if (!arrayBuffer && chunk.audioUrl) {
+            try {
+              const res = await fetch(chunk.audioUrl);
+              if (res.ok) arrayBuffer = await res.arrayBuffer();
+            } catch {}
           }
-        } catch (bgmErr) {
-          console.warn('BGM mixing error:', bgmErr);
+
+          if (arrayBuffer && arrayBuffer.byteLength > 0) {
+            try {
+              const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+              if (decoded) decodedBuffers.push(decoded);
+            } catch (decErr) {
+              console.warn(`[ExportEngine] Failed to decode audio chunk ${chunkIdx}:`, decErr);
+            }
+          }
         }
-      }
 
-      masterAudioBuffer = await offlineCtx.startRendering();
-      totalAudioDuration = masterAudioBuffer.duration;
+        if (decodedBuffers.length > 0) {
+          const totalLength = decodedBuffers.reduce((acc, b) => acc + b.length, 0);
+          const createdBuffer = audioContext.createBuffer(2, totalLength, 44100);
+          let offset = 0;
+          for (const buf of decodedBuffers) {
+            const ch0 = buf.getChannelData(0);
+            // If audio is mono (1 channel), clone to both Left and Right channels
+            const ch1 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : ch0;
+            createdBuffer.getChannelData(0).set(ch0, offset);
+            createdBuffer.getChannelData(1).set(ch1, offset);
+            offset += buf.length;
+          }
+          masterAudioBuffer = createdBuffer;
+        }
+      } catch (err) {
+        console.warn('[ExportEngine] Audio stitching fallback:', err);
+      }
     }
 
-    // ─── Step 2: Determine Duration & Timeline ─────────────────────────────────
+    const totalAudioDuration = masterAudioBuffer ? masterAudioBuffer.duration : 0;
     const sceneMaxSec = scenes.length > 0 ? Math.max(...scenes.map((s) => s.audioEndSec || 0)) : 0;
     const durationSec = totalAudioDuration > 0
       ? totalAudioDuration
-      : (options.totalDurationSec > 0
-          ? options.totalDurationSec
-          : (sceneMaxSec > 0 ? sceneMaxSec : 60));
+      : (options.totalDurationSec > 0 ? options.totalDurationSec : (sceneMaxSec > 0 ? sceneMaxSec : 60));
 
     const renderFps = 30;
     const totalFrames = Math.max(1, Math.round(durationSec * renderFps));
 
-    // ─── Step 3: Pre-load Scene Images from Memory / IndexedDB ────────────────
+    console.log(
+      `[ExportEngine] Final timeline duration: ${durationSec.toFixed(2)}s (${Math.floor(durationSec / 60)}m ${Math.round(durationSec % 60)}s), totalFrames: ${totalFrames}, audioDuration: ${totalAudioDuration.toFixed(2)}s, optionsTotalSec: ${options.totalDurationSec}s`
+    );
+
+    // Dimensions based on resolution & ratio
+    let width = 1920;
+    let height = 1080;
+    if (settings.aspectRatio === '9:16') {
+      width = 1080;
+      height = 1920;
+    } else if (settings.aspectRatio === '1:1') {
+      width = 1080;
+      height = 1080;
+    }
+    if (settings.resolution === '4k') {
+      width *= 2;
+      height *= 2;
+    } else if (settings.resolution === '720p') {
+      width = Math.round(width * 0.666);
+      height = Math.round(height * 0.666);
+    }
+
+    // ─── Step 2: Pre-load Scene Images into Memory ──────────────────────────────
     onProgress({
       stage: 'video_concat',
-      percentage: 20,
+      percentage: 15,
       fps: 0,
       frame: 0,
       totalFrames,
       etaSeconds: Math.round(durationSec * 0.1),
-      currentStepMessage: 'Loading scene images and Ken Burns motion profiles...',
+      currentStepMessage: `Loading scene assets for ${Math.floor(durationSec / 60)}m ${Math.round(durationSec % 60)}s timeline...`,
     });
 
     const imageMap = new Map<number, HTMLImageElement>();
@@ -478,11 +213,8 @@ export class ExportEngine {
           let url = scene.imageUrl;
           if (!url) {
             const blob = await getMediaBlob(`scene_${projectId}_${scene.sceneId}`);
-            if (blob) {
-              url = URL.createObjectURL(blob);
-            }
+            if (blob) url = URL.createObjectURL(blob);
           }
-
           if (!url) return;
 
           return new Promise<void>((resolve) => {
@@ -500,7 +232,7 @@ export class ExportEngine {
       );
     }
 
-    // ─── Step 4: WebCodecs + mp4-muxer Offline Hardware Encoding ──────────────
+    // ─── Step 3: Single-Pass WebCodecs Encoding with Main-Thread Yielding ──────────────────
     const hasWebCodecs =
       typeof win.VideoEncoder !== 'undefined' &&
       typeof win.AudioEncoder !== 'undefined' &&
@@ -509,47 +241,91 @@ export class ExportEngine {
 
     if (hasWebCodecs) {
       try {
+        const YIELD_EVERY_FRAMES = 10; // yield every 10 frames so tab never hangs
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        if (!ctx) throw new Error('Failed to create 2D canvas context');
+
         const target = new Mp4Target();
         const hasAudio = !!masterAudioBuffer && masterAudioBuffer.duration > 0;
 
+        // Check supported audio codec
+        let audioCodec = 'mp4a.40.2';
+        let audioMuxerCodec: 'aac' | 'opus' = 'aac';
+        let canEncodeAudio = false;
+
+        if (hasAudio) {
+          try {
+            if (win.AudioEncoder.isConfigSupported) {
+              const checkAac = await win.AudioEncoder.isConfigSupported({
+                codec: 'mp4a.40.2',
+                sampleRate: 44100,
+                numberOfChannels: 2,
+                bitrate: 192000,
+              });
+              if (checkAac.supported) {
+                canEncodeAudio = true;
+                audioCodec = 'mp4a.40.2';
+                audioMuxerCodec = 'aac';
+              } else {
+                const checkOpus = await win.AudioEncoder.isConfigSupported({
+                  codec: 'opus',
+                  sampleRate: 44100,
+                  numberOfChannels: 2,
+                  bitrate: 128000,
+                });
+                if (checkOpus.supported) {
+                  canEncodeAudio = true;
+                  audioCodec = 'opus';
+                  audioMuxerCodec = 'opus';
+                }
+              }
+            } else {
+              canEncodeAudio = true;
+            }
+          } catch {
+            canEncodeAudio = true;
+          }
+        }
+
         const muxer = new Mp4Muxer({
           target,
-          video: {
-            codec: 'avc',
-            width,
-            height,
-            frameRate: renderFps,
-          },
-          audio: hasAudio
-            ? {
-                codec: 'aac',
-                numberOfChannels: 2,
-                sampleRate: 44100,
-              }
-            : undefined,
+          video: { codec: 'avc', width, height, frameRate: renderFps },
+          audio: canEncodeAudio && hasAudio ? { codec: audioMuxerCodec, numberOfChannels: 2, sampleRate: 44100 } : undefined,
           fastStart: 'in-memory',
           firstTimestampBehavior: 'offset',
         });
 
-        // Configure VideoEncoder (avc1.42001f = H.264 Baseline Profile Level 3.1)
-        let videoCodec = 'avc1.42001f';
-        try {
-          const configCheck = await win.VideoEncoder.isConfigSupported({
-            codec: 'avc1.42001f',
-            width,
-            height,
-            bitrate: settings.resolution === '4k' ? 25_000_000 : 8_000_000,
-          });
-          if (!configCheck.supported) {
-            videoCodec = 'avc1.4d002a'; // Main Profile Level 4.2
-          }
-        } catch {
-          videoCodec = 'avc1.42001f';
+        // Negotiate highest supported H.264 Level
+        const candidateCodecs = [
+          'avc1.4d002a', // Main Profile Level 4.2
+          'avc1.640028', // High Profile Level 4.0
+          'avc1.420028', // Baseline Level 4.0
+          'avc1.42001f', // Baseline Level 3.1
+        ];
+
+        let videoCodec = 'avc1.4d002a';
+        for (const candidate of candidateCodecs) {
+          try {
+            const check = await win.VideoEncoder.isConfigSupported({
+              codec: candidate,
+              width,
+              height,
+              bitrate: settings.resolution === '4k' ? 25_000_000 : 8_000_000,
+            });
+            if (check.supported) {
+              videoCodec = candidate;
+              break;
+            }
+          } catch {}
         }
 
         const videoEncoder = new win.VideoEncoder({
           output: (chunk: unknown, meta: unknown) => muxer.addVideoChunk(chunk as any, meta as any),
-          error: (err: unknown) => console.error('VideoEncoder error:', err),
+          error: (err: unknown) => console.error('[ExportEngine] VideoEncoder error:', err),
         });
 
         videoEncoder.configure({
@@ -560,68 +336,84 @@ export class ExportEngine {
           framerate: renderFps,
         });
 
-        // Encode voice audio track with AudioEncoder if available
-        if (hasAudio && masterAudioBuffer) {
-          const audioEncoder = new win.AudioEncoder({
-            output: (chunk: unknown, meta: unknown) => muxer.addAudioChunk(chunk as any, meta as any),
-            error: (err: unknown) => console.error('AudioEncoder error:', err),
-          });
-
-          audioEncoder.configure({
-            codec: 'mp4a.40.2',
-            sampleRate: 44100,
-            numberOfChannels: 2,
-            bitrate: 192000,
-          });
-
-          const left = masterAudioBuffer.getChannelData(0);
-          const right = masterAudioBuffer.numberOfChannels > 1 ? masterAudioBuffer.getChannelData(1) : left;
-          const chunkSize = 2048;
-          const totalAudioSamples = masterAudioBuffer.length;
-          let frameOffset = 0;
-
-          while (frameOffset < totalAudioSamples) {
-            if (this.cancelled) {
-              videoEncoder.close();
-              audioEncoder.close();
-              throw new Error('Export cancelled by user.');
-            }
-
-            const curFrames = Math.min(chunkSize, totalAudioSamples - frameOffset);
-            const planarData = new Float32Array(curFrames * 2);
-            planarData.set(left.subarray(frameOffset, frameOffset + curFrames), 0);
-            planarData.set(right.subarray(frameOffset, frameOffset + curFrames), curFrames);
-
-            const audioData = new win.AudioData({
-              format: 'f32-planar',
-              sampleRate: 44100,
-              numberOfFrames: curFrames,
-              numberOfChannels: 2,
-              timestamp: Math.round((frameOffset / 44100) * 1_000_000), // microseconds
-              data: planarData,
+        // 1. Encode full audio track first if available
+        if (canEncodeAudio && hasAudio && masterAudioBuffer) {
+          try {
+            const audioEncoder = new win.AudioEncoder({
+              output: (chunk: unknown, meta: unknown) => muxer.addAudioChunk(chunk as any, meta as any),
+              error: (err: unknown) => console.error('[ExportEngine] AudioEncoder error:', err),
             });
 
-            audioEncoder.encode(audioData);
-            audioData.close();
-            frameOffset += curFrames;
+            audioEncoder.configure({
+              codec: audioCodec,
+              sampleRate: 44100,
+              numberOfChannels: 2,
+              bitrate: audioCodec === 'opus' ? 128000 : 192000,
+            });
 
-            if (audioEncoder.encodeQueueSize > 25) {
-              await new Promise((r) => setTimeout(r, 8));
+            const left = masterAudioBuffer.getChannelData(0);
+            let right = masterAudioBuffer.numberOfChannels > 1 ? masterAudioBuffer.getChannelData(1) : left;
+
+            // Extra safety: verify right channel has signal; if silent, clone left so both ears play sound
+            let rightHasSignal = false;
+            const sampleCheckCount = Math.min(44100, masterAudioBuffer.length);
+            for (let k = 0; k < sampleCheckCount; k++) {
+              if (Math.abs(right[k]) > 0.0001) {
+                rightHasSignal = true;
+                break;
+              }
             }
-          }
+            if (!rightHasSignal) {
+              right = left;
+            }
+            const chunkSize = 2048; // Multiple of 1024 for AAC
+            let frameOffset = 0;
+            const totalSamples = masterAudioBuffer.length;
 
-          await audioEncoder.flush();
-          audioEncoder.close();
+            while (frameOffset < totalSamples) {
+              if (this.cancelled) {
+                videoEncoder.close();
+                audioEncoder.close();
+                throw new Error('Export cancelled by user.');
+              }
+
+              const rawFrames = totalSamples - frameOffset;
+              const curFrames = Math.min(chunkSize, rawFrames);
+              // Pad to multiple of 1024 for strict AAC encoder compliance
+              const paddedFrames = audioCodec === 'mp4a.40.2'
+                ? Math.ceil(curFrames / 1024) * 1024
+                : curFrames;
+
+              const planarData = new Float32Array(paddedFrames * 2);
+              planarData.set(left.subarray(frameOffset, frameOffset + curFrames), 0);
+              planarData.set(right.subarray(frameOffset, frameOffset + curFrames), paddedFrames);
+
+              const audioData = new win.AudioData({
+                format: 'f32-planar',
+                sampleRate: 44100,
+                numberOfFrames: paddedFrames,
+                numberOfChannels: 2,
+                timestamp: Math.round((frameOffset / 44100) * 1_000_000),
+                data: planarData,
+              });
+
+              audioEncoder.encode(audioData);
+              audioData.close();
+              frameOffset += curFrames;
+
+              if (audioEncoder.encodeQueueSize > 30) {
+                await new Promise((r) => setTimeout(r, 5));
+              }
+            }
+
+            await audioEncoder.flush();
+            audioEncoder.close();
+          } catch (audioEncErr) {
+            console.warn('[ExportEngine] Audio encoding warning (video will proceed):', audioEncErr);
+          }
         }
 
-        // Setup 2D Canvas for frame generation
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d', { alpha: false });
-        if (!ctx) throw new Error('Failed to create 2D canvas context');
-
-        // Render each frame offline with exact timestamp
+        // 2. Encode all video frames with periodic main-thread yield
         for (let f = 0; f < totalFrames; f++) {
           if (this.cancelled) {
             videoEncoder.close();
@@ -630,7 +422,6 @@ export class ExportEngine {
 
           const t = f / renderFps;
 
-          // Render cinema frame with smooth transitions & Ken Burns motion
           renderSceneWithTransitions(
             ctx,
             imageMap,
@@ -643,34 +434,40 @@ export class ExportEngine {
             settings.transitionDurationSec ?? 0.6
           );
 
-          // Clean video render (no title/subtitle or watermark overlays)
-
-          // Encode frame with WebCodecs
           const vFrame = new win.VideoFrame(canvas, {
-            timestamp: Math.round(t * 1_000_000), // microseconds
+            timestamp: Math.round(t * 1_000_000),
             duration: Math.round((1 / renderFps) * 1_000_000),
           });
           videoEncoder.encode(vFrame, { keyFrame: f % 60 === 0 });
           vFrame.close();
 
-          // Control queue backpressure
-          if (videoEncoder.encodeQueueSize > 15) {
-            await new Promise((r) => setTimeout(r, 8));
+          // Yield to browser main thread every N frames — keeps tab responsive
+          if (f % YIELD_EVERY_FRAMES === 0) {
+            await new Promise((r) => setTimeout(r, 0));
           }
 
-          // Smooth progress update every 12 frames
-          if (f % 12 === 0 || f === totalFrames - 1) {
-            const pct = Math.min(99, Math.round(25 + ((f + 1) / totalFrames) * 72));
+          // Back-pressure: pause if encoder falls behind
+          if (videoEncoder.encodeQueueSize > 20) {
+            await new Promise((r) => setTimeout(r, 5));
+          }
+
+          // Progress update every 30 frames (1s of video)
+          if (f % 30 === 0 || f === totalFrames - 1) {
+            const pct = Math.min(99, Math.round(20 + ((f + 1) / totalFrames) * 78));
+            const currentSec = Math.floor((f + 1) / renderFps);
+            const totalSec = Math.floor(totalFrames / renderFps);
+            const currentFormatted = `${Math.floor(currentSec / 60)}:${String(currentSec % 60).padStart(2, '0')}`;
+            const totalFormatted = `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`;
+
             onProgress({
               stage: 'final_render',
               percentage: pct,
               fps: 30,
               frame: f + 1,
               totalFrames,
-              etaSeconds: Math.max(0, Math.round(((totalFrames - f) / totalFrames) * 15)),
-              currentStepMessage: `Encoding frame ${f + 1}/${totalFrames} (${Math.round(((f + 1) / totalFrames) * 100)}%)...`,
+              etaSeconds: Math.max(0, Math.round(((totalFrames - f - 1) / renderFps) * 0.12)),
+              currentStepMessage: `Encoding ${currentFormatted} / ${totalFormatted} (${pct}%)...`,
             });
-            await new Promise((r) => setTimeout(r, 0)); // yield to event loop
           }
         }
 
@@ -678,10 +475,9 @@ export class ExportEngine {
         videoEncoder.close();
         muxer.finalize();
 
-        const mp4Blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
-        const blobUrl = URL.createObjectURL(mp4Blob);
+        const finalMp4Blob = new Blob([target.buffer], { type: 'video/mp4' });
+        const blobUrl = URL.createObjectURL(finalMp4Blob);
 
-        // Automatic download to user's ~/Downloads directory
         const cleanTitle = (projectTitle || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
         const downloadFileName = `${cleanTitle}_${settings.resolution}.mp4`;
 
@@ -692,19 +488,17 @@ export class ExportEngine {
           a.style.display = 'none';
           document.body.appendChild(a);
           a.click();
-          setTimeout(() => {
-            document.body.removeChild(a);
-          }, 2000);
+          setTimeout(() => { document.body.removeChild(a); }, 2000);
         }
 
-        audioContext.close().catch(() => {});
+        if (audioContext) audioContext.close().catch(() => {});
         return blobUrl;
       } catch (encodeErr) {
-        console.warn('WebCodecs encoding error, falling back to MediaRecorder:', encodeErr);
+        console.warn('[ExportEngine] WebCodecs encoding error, falling back to MediaRecorder:', encodeErr);
       }
     }
 
-    // ─── Step 5: Fallback MediaRecorder Pipeline ──────────────────────────────
+    // ─── Step 4: Fallback MediaRecorder Pipeline ──────────────────────────────
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -715,14 +509,15 @@ export class ExportEngine {
     if (canvasStream) streamTracks.push(...canvasStream.getVideoTracks());
 
     let mediaStreamDest: MediaStreamAudioDestinationNode | null = null;
-    if (masterAudioBuffer) {
-      mediaStreamDest = audioContext.createMediaStreamDestination();
-      const source = audioContext.createBufferSource();
-      source.buffer = masterAudioBuffer;
-      source.connect(mediaStreamDest);
-      if (mediaStreamDest) {
-        streamTracks.push(...mediaStreamDest.stream.getAudioTracks());
-      }
+    let audioSourceNode: AudioBufferSourceNode | null = null;
+    if (masterAudioBuffer && audioContext) {
+      const dest = audioContext.createMediaStreamDestination();
+      const srcNode = audioContext.createBufferSource();
+      srcNode.buffer = masterAudioBuffer;
+      srcNode.connect(dest);
+      mediaStreamDest = dest;
+      audioSourceNode = srcNode;
+      streamTracks.push(...dest.stream.getAudioTracks());
     }
 
     const combinedStream = new MediaStream(streamTracks);
@@ -750,22 +545,20 @@ export class ExportEngine {
           if (e.data && e.data.size > 0) recordedBlobs.push(e.data);
         };
         recorder.start(100);
-      } catch (recInitErr) {
-        console.warn('MediaRecorder init error:', recInitErr);
+        if (audioSourceNode) audioSourceNode.start(0);
+      } catch (recErr) {
+        console.warn('[ExportEngine] MediaRecorder init error:', recErr);
       }
     }
 
-    // Playback loop for MediaRecorder fallback
-    const frameDelayMs = Math.round(1000 / renderFps);
     for (let f = 0; f < totalFrames; f++) {
       if (this.cancelled) {
-        recorder?.stop();
-        audioContext?.close().catch(() => {});
+        if (recorder && recorder.state !== 'inactive') recorder.stop();
+        if (audioSourceNode) { try { audioSourceNode.stop(); } catch {} }
         throw new Error('Export cancelled by user.');
       }
 
       const t = f / renderFps;
-
       if (ctx) {
         renderSceneWithTransitions(
           ctx,
@@ -781,35 +574,40 @@ export class ExportEngine {
       }
 
       if (f % 15 === 0 || f === totalFrames - 1) {
+        const pct = Math.min(99, Math.round(20 + ((f + 1) / totalFrames) * 78));
+        const currentSec = Math.floor((f + 1) / renderFps);
+        const totalSec = Math.floor(totalFrames / renderFps);
+        const currentFormatted = `${Math.floor(currentSec / 60)}:${String(currentSec % 60).padStart(2, '0')}`;
+        const totalFormatted = `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, '0')}`;
+
         onProgress({
           stage: 'final_render',
-          percentage: Math.min(99, Math.round(25 + (f / totalFrames) * 72)),
+          percentage: pct,
           fps: 30,
-          frame: f,
+          frame: f + 1,
           totalFrames,
-          etaSeconds: Math.max(0, Math.round((totalFrames - f) / 30)),
-          currentStepMessage: `Rendering frame ${f}/${totalFrames}...`,
+          etaSeconds: Math.max(0, Math.round(((totalFrames - f) / totalFrames) * 15)),
+          currentStepMessage: `Rendering ${currentFormatted} / ${totalFormatted} (${pct}%)...`,
         });
+        await new Promise((r) => setTimeout(r, 16));
       }
-
-      await new Promise((r) => setTimeout(r, frameDelayMs));
     }
 
-    let finalBlob: Blob;
     if (recorder && recorder.state !== 'inactive') {
-      finalBlob = await new Promise<Blob>((resolve) => {
-        recorder!.onstop = () => resolve(new Blob(recordedBlobs, { type: mimeType }));
+      await new Promise<void>((resolve) => {
+        recorder!.onstop = () => resolve();
         recorder!.stop();
       });
-    } else {
-      finalBlob = new Blob(recordedBlobs.length > 0 ? recordedBlobs : ['video data'], { type: mimeType });
     }
+    if (audioSourceNode) { try { audioSourceNode.stop(); } catch {} }
 
-    audioContext.close().catch(() => {});
+    const finalBlob = recordedBlobs.length > 0
+      ? new Blob(recordedBlobs, { type: mimeType })
+      : new Blob([], { type: 'video/mp4' });
     const blobUrl = URL.createObjectURL(finalBlob);
+
     const cleanTitle = (projectTitle || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-    const downloadFileName = `${cleanTitle}_${settings.resolution}.${ext}`;
+    const downloadFileName = `${cleanTitle}_${settings.resolution}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
 
     if (typeof document !== 'undefined') {
       const a = document.createElement('a');
@@ -818,293 +616,136 @@ export class ExportEngine {
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
-      setTimeout(() => document.body.removeChild(a), 2000);
+      setTimeout(() => {
+        document.body.removeChild(a);
+      }, 2000);
     }
 
+    if (audioContext) audioContext.close().catch(() => {});
     return blobUrl;
   }
-
-  // ─── Desktop Notification ──────────────────────────────────────────────────
-
-  public async sendOSNotification(title: string, body: string): Promise<void> {
-    try {
-      if (isTauri()) {
-        const { isPermissionGranted, requestPermission, sendNotification } = await import(
-          '@tauri-apps/plugin-notification'
-        );
-        let permissionGranted = await isPermissionGranted();
-        if (!permissionGranted) {
-          const permission = await requestPermission();
-          permissionGranted = permission === 'granted';
-        }
-        if (permissionGranted) {
-          sendNotification({ title, body });
-          return;
-        }
-      }
-
-      // Web Notification API fallback
-      if (typeof window !== 'undefined' && 'Notification' in window) {
-        if (Notification.permission === 'granted') {
-          new Notification(title, { body });
-        } else if (Notification.permission !== 'denied') {
-          const p = await Notification.requestPermission();
-          if (p === 'granted') new Notification(title, { body });
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to send desktop notification:', err);
-    }
-  }
-
-  // ─── Disk Space & Cache Management ──────────────────────────────────────────
-
-  public async cleanProjectCache(projectId: string): Promise<{ freedMB: number }> {
-    if (!isTauri()) {
-      return { freedMB: 4200 };
-    }
-
-    try {
-      const { remove, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-
-      // Purge intermediate scenes and motion clips directories
-      await remove(`projects/${projectId}/scenes`, {
-        baseDir: BaseDirectory.AppLocalData,
-        recursive: true,
-      }).catch(() => {});
-
-      await remove(`projects/${projectId}/motion_clips`, {
-        baseDir: BaseDirectory.AppLocalData,
-        recursive: true,
-      }).catch(() => {});
-
-      await remove(`projects/${projectId}/master_voice.wav`, {
-        baseDir: BaseDirectory.AppLocalData,
-      }).catch(() => {});
-
-      await remove(`projects/${projectId}/concat_list.txt`, {
-        baseDir: BaseDirectory.AppLocalData,
-      }).catch(() => {});
-
-      return { freedMB: 4200 };
-    } catch (err) {
-      console.warn('Failed to clean project cache:', err);
-      return { freedMB: 0 };
-    }
-  }
 }
 
-// ─── Helper: FFmpeg Stderr Progress Parser ───────────────────────────────────
+// ─── Ken Burns & Cinema Frame Renderer ────────────────────────────────────────
 
-function parseFFmpegProgress(
-  line: string,
-  totalFrames: number
-): { frame: number; fps: number; percent: number; etaSeconds: number } | null {
-  const frameMatch = line.match(/frame=\s*(\d+)/);
-  const fpsMatch = line.match(/fps=\s*([\d.]+)/);
-
-  if (!frameMatch) return null;
-
-  const frame = parseInt(frameMatch[1], 10);
-  const fps = fpsMatch ? parseFloat(fpsMatch[1]) : 30;
-  const percent = Math.min(100, (frame / totalFrames) * 100);
-
-  const remainingFrames = Math.max(0, totalFrames - frame);
-  const etaSeconds = fps > 0 ? Math.round(remainingFrames / fps) : 0;
-
-  return { frame, fps, percent, etaSeconds };
-}
-
-// ─── Visual Rendering Helpers: Ken Burns & Subtitle Lower-Third ───────────────
-
-function drawKenBurnsScene(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  scene: SceneItem,
-  width: number,
-  height: number,
-  t: number
-) {
-  const sStart = scene.audioStartSec ?? 0;
-  const sEnd = scene.audioEndSec > sStart ? scene.audioEndSec : sStart + 4;
-  const sDur = Math.max(0.1, sEnd - sStart);
-  // Allow slight smooth lead-in and lead-out (-0.15 to 1.15) so Ken Burns motion
-  // never freezes at cut boundaries and camera is already gliding during dissolves
-  const progress = Math.min(1.15, Math.max(-0.15, (t - sStart) / sDur));
-
-  // Determine motion profile
-  const motionProfiles = ['zoom_in', 'zoom_out', 'pan_left', 'pan_right'] as const;
-  const motion = scene.motionProfile || motionProfiles[scene.sceneId % motionProfiles.length];
-
-  // Aspect ratio calculation to cover canvas without distortion
-  const imgW = img.naturalWidth || img.width || 1920;
-  const imgH = img.naturalHeight || img.height || 1080;
-  const imgAspect = imgW / imgH;
-  const canvasAspect = width / height;
-
-  let baseW = width;
-  let baseH = height;
-  if (imgAspect > canvasAspect) {
-    baseH = height;
-    baseW = height * imgAspect;
-  } else {
-    baseW = width;
-    baseH = width / imgAspect;
-  }
-
-  let scale = 1.0;
-  let shiftX = 0;
-  let shiftY = 0;
-
-  if (motion === 'zoom_in') {
-    scale = 1.02 + progress * 0.13;
-  } else if (motion === 'zoom_out') {
-    scale = 1.15 - progress * 0.13;
-  } else if (motion === 'pan_left') {
-    scale = 1.12;
-    const maxShift = width * 0.04;
-    shiftX = (0.5 - progress) * 2 * maxShift;
-  } else if (motion === 'pan_right') {
-    scale = 1.12;
-    const maxShift = width * 0.04;
-    shiftX = (progress - 0.5) * 2 * maxShift;
-  }
-
-  const curW = baseW * scale;
-  const curH = baseH * scale;
-  const curX = (width - curW) / 2 + shiftX;
-  const curY = (height - curH) / 2 + shiftY;
-
-  ctx.drawImage(img, curX, curY, curW, curH);
-}
-
-function drawAmbientCard(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const grad = ctx.createLinearGradient(0, 0, width, height);
-  grad.addColorStop(0, '#1e1b4b');
-  grad.addColorStop(0.5, '#090d16');
-  grad.addColorStop(1, '#020617');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, width, height);
-}
-
-/**
- * Renders scenes with broadcast-grade smooth transitions (Cross-Dissolve, Dip-to-Black, or Hard Cut),
- * preserving continuous Ken Burns motion and applying subtle cinematic intro/outro fades.
- */
 function renderSceneWithTransitions(
   ctx: CanvasRenderingContext2D,
   imageMap: Map<number, HTMLImageElement>,
-  sortedScenes: SceneItem[],
+  scenes: SceneItem[],
   width: number,
   height: number,
   t: number,
-  durationSec: number,
-  transitionType: TransitionType = 'crossfade',
-  targetTransSec = 0.6
+  totalDurationSec: number,
+  transitionType: TransitionType,
+  transitionDurationSec: number
 ) {
-  // Clear backdrop
-  ctx.fillStyle = '#06070d';
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, width, height);
 
-  if (sortedScenes.length === 0) {
-    drawAmbientCard(ctx, width, height);
+  if (scenes.length === 0) return;
+
+  let currentIdx = scenes.findIndex((s) => t >= (s.audioStartSec || 0) && t <= (s.audioEndSec || 0));
+  if (currentIdx === -1) {
+    if (t < (scenes[0].audioStartSec || 0)) currentIdx = 0;
+    else currentIdx = scenes.length - 1;
+  }
+
+  const currentScene = scenes[currentIdx];
+  const nextScene = scenes[currentIdx + 1];
+  const sceneStart = currentScene.audioStartSec || 0;
+  const sceneEnd = currentScene.audioEndSec || totalDurationSec;
+  const sceneDuration = Math.max(0.1, sceneEnd - sceneStart);
+
+  const timeInScene = t - sceneStart;
+  const timeUntilEnd = sceneEnd - t;
+
+  const currentImg = imageMap.get(currentScene.sceneId);
+
+  // Check if we are in transition window to next scene
+  const inTransition =
+    nextScene &&
+    transitionType !== 'none' &&
+    timeUntilEnd <= transitionDurationSec &&
+    imageMap.has(nextScene.sceneId);
+
+  if (!inTransition) {
+    if (currentImg) {
+      drawKenBurnsImage(ctx, currentImg, width, height, timeInScene / sceneDuration, currentScene.motionProfile);
+    }
     return;
   }
 
-  // 1. Check if t falls inside any cut's transition window across all scene boundaries
-  let activeTransition: {
-    fromScene: SceneItem;
-    toScene: SceneItem;
-    progress: number;
-  } | null = null;
+  // Draw transition between current and next scene
+  const nextImg = imageMap.get(nextScene.sceneId)!;
+  const transitionProgress = 1 - timeUntilEnd / transitionDurationSec; // 0 to 1
 
-  if (transitionType !== 'cut' && sortedScenes.length > 1) {
-    for (let i = 0; i < sortedScenes.length - 1; i++) {
-      const sceneA = sortedScenes[i];
-      const sceneB = sortedScenes[i + 1];
-      const boundary = (sceneA.audioEndSec + sceneB.audioStartSec) / 2;
-      const durA = Math.max(0.5, sceneA.audioEndSec - sceneA.audioStartSec);
-      const durB = Math.max(0.5, sceneB.audioEndSec - sceneB.audioStartSec);
-      // Safe clamp: never exceed 35% of either scene
-      const actualTrans = Math.min(targetTransSec, durA * 0.35, durB * 0.35);
-
-      if (actualTrans > 0.05) {
-        const transStart = boundary - actualTrans / 2;
-        const transEnd = boundary + actualTrans / 2;
-
-        if (t >= transStart && t < transEnd) {
-          const linearP = Math.max(0, Math.min(1, (t - transStart) / actualTrans));
-          // Cosine S-curve easing: silky smooth 0.0 -> 1.0 with no abrupt jumps
-          const progress = 0.5 * (1 - Math.cos(linearP * Math.PI));
-          activeTransition = {
-            fromScene: sceneA,
-            toScene: sceneB,
-            progress,
-          };
-          break;
-        }
-      }
-    }
-  }
-
-  // 2. Render Scene(s)
-  if (activeTransition) {
-    const { fromScene, toScene, progress } = activeTransition;
-    const imgA = imageMap.get(fromScene.sceneId);
-    const imgB = imageMap.get(toScene.sceneId);
-
-    if (transitionType === 'crossfade') {
-      // Outgoing scene A rendered as base (continuous motion)
+  if (transitionType === 'crossfade' || transitionType === 'fade_to_black') {
+    if (currentImg) {
       ctx.globalAlpha = 1.0;
-      if (imgA) drawKenBurnsScene(ctx, imgA, fromScene, width, height, t);
-      else drawAmbientCard(ctx, width, height);
-
-      // Incoming scene B dissolving smoothly on top from 0.0 to 1.0 (continuous motion)
-      ctx.globalAlpha = progress;
-      if (imgB) drawKenBurnsScene(ctx, imgB, toScene, width, height, t);
-      else drawAmbientCard(ctx, width, height);
-    } else if (transitionType === 'fade_black') {
-      // Dip to black: first half fades out to black, second half fades in from black
-      if (progress < 0.5) {
-        ctx.globalAlpha = Math.max(0, 1.0 - progress * 2);
-        if (imgA) drawKenBurnsScene(ctx, imgA, fromScene, width, height, t);
-        else drawAmbientCard(ctx, width, height);
-      } else {
-        ctx.globalAlpha = Math.min(1.0, (progress - 0.5) * 2);
-        if (imgB) drawKenBurnsScene(ctx, imgB, toScene, width, height, t);
-        else drawAmbientCard(ctx, width, height);
-      }
+      drawKenBurnsImage(ctx, currentImg, width, height, timeInScene / sceneDuration, currentScene.motionProfile);
     }
-  } else {
-    // Normal single-scene frame outside any transition window
-    let currentScene = sortedScenes[0];
-    for (let i = 0; i < sortedScenes.length; i++) {
-      const s = sortedScenes[i];
-      if (t >= s.audioStartSec && (t < s.audioEndSec || i === sortedScenes.length - 1)) {
-        currentScene = s;
-        break;
-      }
-    }
-
+    ctx.globalAlpha = Math.max(0, Math.min(1, transitionProgress));
+    drawKenBurnsImage(ctx, nextImg, width, height, 0, nextScene.motionProfile);
     ctx.globalAlpha = 1.0;
-    const img = imageMap.get(currentScene.sceneId);
-    if (img) drawKenBurnsScene(ctx, img, currentScene, width, height, t);
-    else drawAmbientCard(ctx, width, height);
+  } else if (transitionType === 'slide_left') {
+    const offsetX = width * transitionProgress;
+    ctx.save();
+    ctx.translate(-offsetX, 0);
+    if (currentImg) drawKenBurnsImage(ctx, currentImg, width, height, timeInScene / sceneDuration, currentScene.motionProfile);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(width - offsetX, 0);
+    drawKenBurnsImage(ctx, nextImg, width, height, 0, nextScene.motionProfile);
+    ctx.restore();
+  } else {
+    if (currentImg) {
+      drawKenBurnsImage(ctx, currentImg, width, height, timeInScene / sceneDuration, currentScene.motionProfile);
+    }
+  }
+}
+
+function drawKenBurnsImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  canvasWidth: number,
+  canvasHeight: number,
+  progress: number, // 0 to 1
+  motionProfile = 'zoom_in'
+) {
+  const p = Math.max(0, Math.min(1, progress));
+  let scale = 1.0;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  if (motionProfile === 'zoom_in') {
+    scale = 1.0 + p * 0.12; // 1.0 to 1.12
+  } else if (motionProfile === 'zoom_out') {
+    scale = 1.12 - p * 0.12; // 1.12 to 1.0
+  } else if (motionProfile === 'pan_left') {
+    scale = 1.1;
+    offsetX = (1 - p) * (canvasWidth * 0.05);
+  } else if (motionProfile === 'pan_right') {
+    scale = 1.1;
+    offsetX = -p * (canvasWidth * 0.05);
+  } else {
+    scale = 1.0 + p * 0.08;
   }
 
-  // 3. Subtle Cinematic Intro (0.5s) & Outro (0.8s) Fades to/from Black
-  const introSec = 0.5;
-  const outroSec = 0.8;
+  const imgAspect = img.width / img.height;
+  const canvasAspect = canvasWidth / canvasHeight;
 
-  if (t < introSec) {
-    const blackAlpha = Math.max(0, Math.min(1, 1.0 - t / introSec));
-    ctx.fillStyle = `rgba(6, 7, 13, ${blackAlpha.toFixed(3)})`;
-    ctx.fillRect(0, 0, width, height);
-  } else if (t > durationSec - outroSec) {
-    const blackAlpha = Math.max(0, Math.min(1, (t - (durationSec - outroSec)) / outroSec));
-    ctx.fillStyle = `rgba(6, 7, 13, ${blackAlpha.toFixed(3)})`;
-    ctx.fillRect(0, 0, width, height);
+  let drawW = canvasWidth * scale;
+  let drawH = canvasHeight * scale;
+
+  if (imgAspect > canvasAspect) {
+    drawW = drawH * imgAspect;
+  } else {
+    drawH = drawW / imgAspect;
   }
 
-  ctx.globalAlpha = 1.0;
+  const x = (canvasWidth - drawW) / 2 + offsetX;
+  const y = (canvasHeight - drawH) / 2 + offsetY;
+
+  ctx.drawImage(img, x, y, drawW, drawH);
 }

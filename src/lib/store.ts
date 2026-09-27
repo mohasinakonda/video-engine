@@ -1,40 +1,19 @@
 /**
- * store.ts — Tauri plugin-store accessors
+ * store.ts — Web SaaS Persistent Data Storage Engine
  *
- * Wraps @tauri-apps/plugin-store for all persistent data:
- *  - Gemini API key
+ * Backed by browser localStorage & IndexedDB for instant, persistent access:
+ *  - Settings & API keys
  *  - Voice presets
  *  - Project manifests
- *  - Base Style Presets (Phase 2)
- *
- * In development (non-Tauri context), falls back to localStorage.
+ *  - Base Style Presets
  */
 
 import type { VoicePreset, ProjectManifest, BaseStylePreset } from '@/types';
 
-// ─── Tauri Detection ──────────────────────────────────────────────────────────
+// ─── Generic Web Store Helpers ────────────────────────────────────────────────
 
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-}
-
-// ─── Generic Store Helpers ────────────────────────────────────────────────────
-
-async function storeGet<T>(store: unknown, key: string): Promise<T | null> {
-  if (isTauri()) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const s = store as any;
-    const val = (await s.get(key)) as T | null;
-    if (val !== null && val !== undefined && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(key, JSON.stringify(val));
-      } catch {
-        // ignore storage error
-      }
-    }
-    return val;
-  }
-
+function storeGet<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(key);
   if (!raw) return null;
   try {
@@ -44,111 +23,45 @@ async function storeGet<T>(store: unknown, key: string): Promise<T | null> {
   }
 }
 
-async function storeSet(store: unknown, key: string, value: unknown): Promise<void> {
-  // Always mirror to localStorage so synchronous accessors have instant access
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // ignore storage error
-    }
-  }
-
-  if (isTauri()) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (store as any).set(key, value);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (store as any).save();
+function storeSet(key: string, value: unknown): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore quota error
   }
 }
 
-// ─── Store Instances ──────────────────────────────────────────────────────────
-
-let _settingsStore: unknown = null;
-let _presetsStore: unknown = null;
-let _projectsStore: unknown = null;
-let _stylePresetsStore: unknown = null;
-
-async function getSettingsStore() {
-  if (!isTauri()) return null;
-  if (!_settingsStore) {
-    const { Store } = await import('@tauri-apps/plugin-store');
-    _settingsStore = await Store.load('settings.json', { autoSave: true });
-  }
-  return _settingsStore;
-}
-
-async function getPresetsStore() {
-  if (!isTauri()) return null;
-  if (!_presetsStore) {
-    const { Store } = await import('@tauri-apps/plugin-store');
-    _presetsStore = await Store.load('presets.json', { autoSave: true });
-  }
-  return _presetsStore;
-}
-
-async function getProjectsStore() {
-  if (!isTauri()) return null;
-  if (!_projectsStore) {
-    const { Store } = await import('@tauri-apps/plugin-store');
-    _projectsStore = await Store.load('projects.json', { autoSave: true });
-  }
-  return _projectsStore;
-}
-
-async function getStylePresetsStore() {
-  if (!isTauri()) return null;
-  if (!_stylePresetsStore) {
-    const { Store } = await import('@tauri-apps/plugin-store');
-    _stylePresetsStore = await Store.load('style-presets.json', { autoSave: true });
-  }
-  return _stylePresetsStore;
-}
-
-// ─── API Key ──────────────────────────────────────────────────────────────────
+// ─── API Key & Settings Accessors ─────────────────────────────────────────────
 
 export async function getApiKey(): Promise<string> {
-  const store = await getSettingsStore();
-  const polKey = await storeGet<string>(store, 'pollinations-api-key');
-  if (polKey && typeof polKey === 'string' && polKey.trim().length > 0) {
-    return polKey.trim();
-  }
-  return '';
+  return storeGet<string>('pollinations-api-key') || '';
 }
 
 export async function saveApiKey(apiKey: string): Promise<void> {
-  const store = await getSettingsStore();
-  await storeSet(store, 'pollinations-api-key', apiKey);
+  storeSet('pollinations-api-key', apiKey);
 }
 
 export async function getPollinationsApiKey(): Promise<string> {
-  const store = await getSettingsStore();
-  const key = await storeGet<string>(store, 'pollinations-api-key');
-  return key ?? '';
+  return storeGet<string>('pollinations-api-key') || '';
 }
 
 export async function savePollinationsApiKey(apiKey: string): Promise<void> {
-  const store = await getSettingsStore();
-  await storeSet(store, 'pollinations-api-key', apiKey);
+  storeSet('pollinations-api-key', apiKey);
 }
 
 export async function getPollinationsImageModel(): Promise<string> {
-  const store = await getSettingsStore();
-  const model = await storeGet<string>(store, 'pollinations-image-model');
-  return model ?? 'flux';
+  return storeGet<string>('pollinations-image-model') || 'flux';
 }
 
 export async function savePollinationsImageModel(model: string): Promise<void> {
-  const store = await getSettingsStore();
-  await storeSet(store, 'pollinations-image-model', model);
+  storeSet('pollinations-image-model', model);
 }
 
-// ─── Voice Presets ────────────────────────────────────────────────────────────
+// ─── Voice Presets Accessors ──────────────────────────────────────────────────
 
 export async function getPresets(): Promise<VoicePreset[]> {
-  const store = await getPresetsStore();
-  const presets = await storeGet<VoicePreset[]>(store, 'voice-presets');
-  return presets ?? [];
+  return storeGet<VoicePreset[]>('voice-presets') || [];
 }
 
 export async function savePreset(preset: VoicePreset): Promise<void> {
@@ -159,21 +72,18 @@ export async function savePreset(preset: VoicePreset): Promise<void> {
   } else {
     presets.push(preset);
   }
-  const store = await getPresetsStore();
-  await storeSet(store, 'voice-presets', presets);
+  storeSet('voice-presets', presets);
 }
 
 export async function deletePreset(id: string): Promise<void> {
   const presets = await getPresets();
-  const store = await getPresetsStore();
-  await storeSet(store, 'voice-presets', presets.filter((p) => p.id !== id));
+  storeSet('voice-presets', presets.filter((p) => p.id !== id));
 }
 
 export async function setDefaultPreset(id: string): Promise<void> {
   const presets = await getPresets();
   const updated = presets.map((p) => ({ ...p, isDefault: p.id === id }));
-  const store = await getPresetsStore();
-  await storeSet(store, 'voice-presets', updated);
+  storeSet('voice-presets', updated);
 }
 
 export async function getDefaultPreset(): Promise<VoicePreset | null> {
@@ -181,12 +91,11 @@ export async function getDefaultPreset(): Promise<VoicePreset | null> {
   return presets.find((p) => p.isDefault) ?? presets[0] ?? null;
 }
 
-// ─── Project Manifests ────────────────────────────────────────────────────────
+// ─── Project Manifests Accessors ──────────────────────────────────────────────
 
 export async function getAllProjects(): Promise<ProjectManifest[]> {
-  const store = await getProjectsStore();
-  const projects = await storeGet<ProjectManifest[]>(store, 'projects');
-  return (projects ?? []).sort((a, b) => b.updatedAt - a.updatedAt);
+  const projects = storeGet<ProjectManifest[]>('projects') || [];
+  return projects.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export async function getProject(projectId: string): Promise<ProjectManifest | null> {
@@ -202,18 +111,12 @@ export async function saveProject(manifest: ProjectManifest): Promise<void> {
   } else {
     projects.push(manifest);
   }
-  const store = await getProjectsStore();
-  await storeSet(store, 'projects', projects);
+  storeSet('projects', projects);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
   const projects = await getAllProjects();
-  const store = await getProjectsStore();
-  await storeSet(
-    store,
-    'projects',
-    projects.filter((p) => p.projectId !== projectId)
-  );
+  storeSet('projects', projects.filter((p) => p.projectId !== projectId));
 }
 
 // ─── Phase 2: Built-in Style Presets ──────────────────────────────────────────
@@ -223,10 +126,21 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     id: 'builtin_cinematic',
     name: 'Dark Cinematic Documentary',
     stylePrompt:
-      'Photorealistic, cinematic lighting, 8k resolution, muted color palette, high-end documentary look, shot on 35mm anamorphic lens, dramatic shadows, film grain',
-    negativePrompt: 'cartoon, anime, blurry, distorted faces, low resolution, CGI, oversaturated',
+      'Cinematic 35mm anamorphic photography, photorealistic 8k ultra-detailed, dramatic chiaroscuro lighting, muted desaturated color grade, deep shadows with warm highlight accents, masterwork composition with rule-of-thirds framing, film grain texture, shallow depth of field, professional documentary cinematography, IMAX quality',
+    negativePrompt: 'cartoon, anime, blurry, distorted faces, low resolution, CGI, oversaturated, watermark, text, flat illustration, modern UI elements',
     aspectRatio: '16:9',
     isDefault: true,
+    isBuiltIn: true,
+    createdAt: 0,
+  },
+  {
+    id: 'builtin_artisan_linocut',
+    name: 'Artisan Linocut Masterwork',
+    stylePrompt:
+      'Intricate masterwork linocut relief print by an artisan printmaker, deeply carved woodblock print style. Chiseled relief grooves, rough tactile ink press texture on fibrous cream archival paper, heavy contrasting black ink, sharp carved contours, rich hatching and crosshatching, master printmaking aesthetic, award-winning linoleum block art',
+    negativePrompt: 'photorealism, 3D render, CGI, glossy digital illustration, smooth vector gradients, plastic textures, modern UI, neon colors, oversaturated, pure white background, blurry, text, watermark, bad anatomy, no modern graphics, no flat vectors',
+    aspectRatio: '16:9',
+    isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
   },
@@ -288,20 +202,16 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
   },
 ];
 
-// ─── Phase 2: Style Preset CRUD ───────────────────────────────────────────────
+// ─── Style Preset CRUD Accessors ──────────────────────────────────────────────
 
 export async function getStylePresets(): Promise<BaseStylePreset[]> {
-  const store = await getStylePresetsStore();
-  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets');
-  // Merge built-ins (first) + custom presets, deduplicating by id
-  const customList = custom ?? [];
-  const allIds = new Set(customList.map((p) => p.id));
+  const custom = storeGet<BaseStylePreset[]>('style-presets') || [];
+  const allIds = new Set(custom.map((p) => p.id));
   const merged = [
     ...BUILT_IN_STYLE_PRESETS.filter((p) => !allIds.has(p.id)),
-    ...customList,
+    ...custom,
   ];
 
-  // Inject global base style prompt into default preset if customized
   const customPrompt = await getGlobalBaseStylePrompt();
   const customNeg = await getGlobalNegativePrompt();
   if (customPrompt && customPrompt.trim()) {
@@ -321,30 +231,25 @@ export async function getStylePresets(): Promise<BaseStylePreset[]> {
 }
 
 export async function saveStylePreset(preset: BaseStylePreset): Promise<void> {
-  // Only save non-built-in presets to the store
-  const store = await getStylePresetsStore();
-  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets') ?? [];
+  const custom = storeGet<BaseStylePreset[]>('style-presets') || [];
   const idx = custom.findIndex((p) => p.id === preset.id);
   if (idx >= 0) {
     custom[idx] = preset;
   } else {
     custom.push(preset);
   }
-  await storeSet(store, 'style-presets', custom);
+  storeSet('style-presets', custom);
 }
 
 export async function deleteStylePreset(id: string): Promise<void> {
-  const store = await getStylePresetsStore();
-  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets') ?? [];
-  await storeSet(store, 'style-presets', custom.filter((p) => p.id !== id));
+  const custom = storeGet<BaseStylePreset[]>('style-presets') || [];
+  storeSet('style-presets', custom.filter((p) => p.id !== id));
 }
 
 export async function setDefaultStylePreset(id: string): Promise<void> {
-  // Update custom presets
-  const store = await getStylePresetsStore();
-  const custom = await storeGet<BaseStylePreset[]>(store, 'style-presets') ?? [];
+  const custom = storeGet<BaseStylePreset[]>('style-presets') || [];
   const updated = custom.map((p) => ({ ...p, isDefault: p.id === id }));
-  await storeSet(store, 'style-presets', updated);
+  storeSet('style-presets', updated);
 }
 
 export const DEFAULT_BASE_STYLE_PROMPT =
@@ -354,25 +259,19 @@ export const DEFAULT_NEGATIVE_PROMPT =
   'cartoon, anime, blurry, distorted faces, low resolution, CGI, oversaturated, watermark, text, signature';
 
 export async function getGlobalBaseStylePrompt(): Promise<string> {
-  const store = await getSettingsStore();
-  const prompt = await storeGet<string>(store, 'global-base-style-prompt');
-  return prompt ?? DEFAULT_BASE_STYLE_PROMPT;
+  return storeGet<string>('global-base-style-prompt') || DEFAULT_BASE_STYLE_PROMPT;
 }
 
 export async function saveGlobalBaseStylePrompt(prompt: string): Promise<void> {
-  const store = await getSettingsStore();
-  await storeSet(store, 'global-base-style-prompt', prompt);
+  storeSet('global-base-style-prompt', prompt);
 }
 
 export async function getGlobalNegativePrompt(): Promise<string> {
-  const store = await getSettingsStore();
-  const neg = await storeGet<string>(store, 'global-negative-prompt');
-  return neg ?? DEFAULT_NEGATIVE_PROMPT;
+  return storeGet<string>('global-negative-prompt') || DEFAULT_NEGATIVE_PROMPT;
 }
 
 export async function saveGlobalNegativePrompt(prompt: string): Promise<void> {
-  const store = await getSettingsStore();
-  await storeSet(store, 'global-negative-prompt', prompt);
+  storeSet('global-negative-prompt', prompt);
 }
 
 export async function getDefaultStylePreset(): Promise<BaseStylePreset> {

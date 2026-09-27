@@ -402,21 +402,25 @@ export async function directScenesFromAudioAndScript(
     console.log(`[AudioSync] Built ${sentenceSegments.length} sentence segments from ${options.words!.length} words`);
 
     if (sentenceSegments.length > 0) {
-      // Cluster sentences into scenes using real audio timestamps
+      // Cluster sentences into scenes using real audio timestamps.
+      // IMPORTANT: pass totalAudioDurationSec so the last scene is extended
+      // to cover any trailing silence after the last spoken word.
       options.onProgress?.('Clustering sentences into scenes using real audio timing…');
       const candidateScenes = clusterSegmentsIntoScenes(
         sentenceSegments,
         pacing,
-        options.totalAudioDurationSec
+        options.totalAudioDurationSec  // extends last scene to full audio length
       );
-      console.log(`[AudioSync] Clustered into ${candidateScenes.length} scenes with real timestamps`);
+      console.log(`[AudioSync] Clustered into ${candidateScenes.length} scenes (last ends at ${candidateScenes[candidateScenes.length - 1]?.audioEndSec}s, audio is ${options.totalAudioDurationSec}s)`);
 
-      // Replace segments with the real-timed sentence segments
-      // so the AI Director batch below uses them with real timestamps
-      segments = sentenceSegments;
-
-      // Fall through to the AI Director batch below (lines starting at "Fallback")
-      // which will add visual prompts while keeping the real timestamps
+      // Use candidateScenes (which has correct end times) as the segments
+      // for the AI Director batching below — NOT the raw sentenceSegments.
+      segments = candidateScenes.map((cs) => ({
+        id: cs.sceneId,
+        start: cs.audioStartSec,
+        end: cs.audioEndSec,
+        text: cs.narrationLine,
+      }));
     }
   }
 
@@ -476,7 +480,7 @@ export async function directScenesFromAudioAndScript(
   const candidateScenes = clusterSegmentsIntoScenes(
     segments,
     pacing,
-    options.totalAudioDurationSec
+    options.totalAudioDurationSec  // ensures last scene covers full audio including trailing silence
   );
 
   options.onProgress?.('AI Director aligning narrative beats with audio…');

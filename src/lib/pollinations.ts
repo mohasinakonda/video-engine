@@ -266,12 +266,20 @@ CRITICAL PACING & VARIABLE DURATION RULES:
 - Rule: Estimate durationSec based on the spoken length of narration (approx 2.3 - 2.8 words per second) plus pause weight.
 - Never repeat the same shot_type twice in a row. Maintain an engaging, rhythmic visual montage.
 
+VISUAL PROMPT MASTERY RULES:
+The visual_prompt field is the most critical output. It must be long (60-120 words), specific, and follow this structure:
+1. ARTISTIC MEDIUM/TECHNIQUE: Start with the rendering medium and technique (e.g., "Intricate masterwork linocut relief print", "Dramatic oil painting", "Cinematic 35mm photography"). Match the project's base style.
+2. SUBJECT & ACTION: Precisely describe what is happening and what is shown — specific subjects, poses, interactions, and scene composition.
+3. TEXTURE & MATERIAL: Enumerate tactile details — surface grain, material quality, ink/paint/light characteristics (e.g., "chiseled relief grooves, rough fibrous paper, heavy contrasting ink").
+4. QUALITY MODIFIERS: End with craft and quality anchors (e.g., "award-winning artisan printmaking", "museum-quality", "masterwork").
+5. NEGATIVE CONSTRAINTS: Always end with what to exclude: "zero text, no watermarks, no modern UI, no flat vectors."
+
 For every scene, output:
 - narration: The exact segment of script words read aloud during this scene.
-- visual_prompt: A studio-grade, exceptionally detailed prompt for an AI image generator (Flux/SDXL). Describe camera framing (e.g. 90-degree bird's-eye drone shot, extreme tactile macro close-up, intimate medium close-up, low-angle telephoto), subject action/elements, rich atmospheric lighting, and environment textures (photorealistic 8k, masterwork, 35mm film look).
+- visual_prompt: Studio-grade, 60-120 word prompt following the VISUAL PROMPT MASTERY RULES above.
 - durationSec: Estimated duration in seconds (between ${paceConfig.minSec} and ${paceConfig.maxSec}).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
-- b_roll_focus: A concise 3-7 word description of the specific visual motif featured (e.g., "Wind-rippled sand dune geometry", "Bedouin tea ceremony by fire", "Extreme macro sea salt crystals").
+- b_roll_focus: A concise 3-7 word description of the specific visual motif featured.
 
 CRITICAL: Return ONLY a valid JSON array of objects with keys "narration", "visual_prompt", "durationSec", "shot_type", "b_roll_focus".
 Do not include any explanation, intro text, or conversational markdown outside the JSON.`;
@@ -796,9 +804,17 @@ CRITICAL PACING & VARIABLE DURATION RULES:
   * Panoramic scenery, AERIAL_GEOMETRY, or ATMOSPHERIC_MOOD: ${(paceConfig.avgSec + 0.8).toFixed(1)}s - ${paceConfig.maxSec}s
 - Never use the same shot_type consecutively. Maintain visual rhythm.
 
+VISUAL PROMPT MASTERY RULES — MANDATORY:
+The visual_prompt is the single most important output. Each must be 60-120 words, richly detailed, and follow this exact structure:
+1. ARTISTIC MEDIUM/TECHNIQUE FIRST: Open with the rendering medium matching the project style${options?.stylePrompt ? ` ("${options.stylePrompt.slice(0, 80)}...")` : ' (cinematic 35mm film photography, photorealistic 8k)'}.
+2. SUBJECT & COMPOSITION: Describe precisely what is depicted — subjects, spatial relationships, foreground/background, action.
+3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities — grain, ink, paper, light, material surfaces.
+4. CRAFT QUALITY ANCHORS: Include mastery indicators — "award-winning", "museum-quality", "masterwork", "artisan-crafted".
+5. NEGATIVE EXCLUSIONS: Always end with: "zero text, no watermarks, no modern UI elements, no flat digital vectors."
+
 For every scene, output:
 - narration: A brief narrative or caption line (1-2 sentences) summarizing what happens in this scene.
-- visual_prompt: A studio-grade, exceptionally detailed visual prompt for an AI image generator (Flux). Specifically describe subject pose/action, composition, atmospheric lighting, and rich textures${options?.stylePrompt ? ` aligned with the target visual style: "${options.stylePrompt.slice(0, 150)}..."` : ' (photorealistic 8k, masterwork, 35mm lens, sharp focus)'}.
+- visual_prompt: Studio-grade 60-120 word prompt following VISUAL PROMPT MASTERY RULES above.
 - durationSec: Estimated duration in seconds (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
 - b_roll_focus: A concise 3-7 word description of the specific B-roll focal motif.
@@ -1064,9 +1080,16 @@ AVAILABLE SHOT TYPES:
 5. "ATMOSPHERIC_MOOD": Dramatic weather, volumetric light beams, fog, or twilight mood.
 6. "WIDE_ESTABLISHING": Majestic panoramic establishing vistas orienting the landscape.
 
+VISUAL PROMPT MASTERY RULES — MANDATORY FOR EVERY SCENE:
+Each visual_prompt must be 60-120 words, richly detailed, following this EXACT structure:
+1. ARTISTIC MEDIUM/TECHNIQUE FIRST: Open with the rendering medium matching the project style${options?.stylePrompt ? `: "${options.stylePrompt.slice(0, 100)}"` : ': cinematic 35mm film photography, photorealistic 8k, masterwork cinematography'}.
+2. SUBJECT & COMPOSITION: Precisely describe what is depicted — subjects, spatial arrangement, foreground/background, action occurring.
+3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities — grain, paper, ink, light, material surfaces.
+4. CRAFT QUALITY ANCHORS: Include mastery indicators like "award-winning", "museum-quality", "masterwork", "artisan-crafted".
+5. NEGATIVE EXCLUSIONS: Always end with "zero text, no watermarks, no modern UI elements, no flat digital vectors."
+
 MANDATE:
 - Interleave different shot_types across scenes for dynamic pacing.
-- visual_prompt must be studio-grade, specific, atmospheric, and cinematic${options?.stylePrompt ? ` adhering to: "${options.stylePrompt.slice(0, 120)}"` : ''}.
 - Return ONLY a JSON array with objects matching:
   [ { "sceneId": number, "visual_prompt": string, "shot_type": string, "b_roll_focus": string }, ... ]`;
 
