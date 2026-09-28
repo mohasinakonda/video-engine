@@ -317,6 +317,12 @@ export function hasEnoughCredits(requiredCredits: number): boolean {
   return profile.creditsRemaining >= requiredCredits;
 }
 
+export function getUserCreditsRemaining(): number {
+  const profile = getCurrentUserProfile();
+  if (!profile || profile.isBlocked) return 0;
+  return profile.creditsRemaining ?? 0;
+}
+
 export function deductUserCredits(amount: number, reason = 'image_generation'): boolean {
   const profile = getCurrentUserProfile();
   if (!profile || profile.isBlocked || profile.creditsRemaining < amount) {

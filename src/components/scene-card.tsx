@@ -140,7 +140,6 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
   const [isSubmittingRegenerate, setIsSubmittingRegenerate] = useState(false);
 
   const isGenerating =
-    scene.status === 'PENDING' ||
     scene.status === 'GENERATING_IMAGE' ||
     scene.status === 'GENERATING_MOTION';
 
@@ -222,11 +221,7 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
               <div className="flex flex-col items-center gap-2">
                 <Loader2 size={20} className="text-zinc-400 animate-spin" />
                 <p className="text-[10px] text-zinc-400">
-                  {scene.status === 'GENERATING_IMAGE'
-                    ? 'Generating image…'
-                    : scene.status === 'GENERATING_MOTION'
-                    ? 'Animating…'
-                    : 'Queued…'}
+                  {scene.status === 'GENERATING_IMAGE' ? 'Generating image…' : 'Animating…'}
                 </p>
               </div>
             ) : (

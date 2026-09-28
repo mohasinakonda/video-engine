@@ -38,7 +38,7 @@ import { extractScenes } from '@/lib/gemini';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
 import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
-import { hasEnoughCredits, deductUserCredits, grantUserCredits } from '@/lib/subscription-store';
+import { hasEnoughCredits, deductUserCredits, grantUserCredits, getUserCreditsRemaining } from '@/lib/subscription-store';
 import type {
   ProjectManifest,
   SceneItem,
@@ -122,16 +122,21 @@ export default function StoryboardInner() {
     const pendingScenes = currentScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED');
     if (pendingScenes.length === 0) return;
 
-    if (!hasEnoughCredits(pendingScenes.length)) {
+    const availableCredits = getUserCreditsRemaining();
+
+    if (availableCredits <= 0) {
       setRequiredCreditsNeeded(pendingScenes.length);
       setCreditModalOpen(true);
       return;
     }
 
-    const totalCount = pendingScenes.length;
-    const deducted = deductUserCredits(totalCount, `Batch generate ${totalCount} scenes`);
+    // Process up to available credits (e.g. if user has 10 credits and 15 scenes, generate 10 scenes)
+    const scenesToProcess = pendingScenes.slice(0, availableCredits);
+    const count = scenesToProcess.length;
+
+    const deducted = deductUserCredits(count, `Batch generate ${count} scenes`);
     if (!deducted) {
-      setRequiredCreditsNeeded(totalCount);
+      setRequiredCreditsNeeded(count);
       setCreditModalOpen(true);
       return;
     }
@@ -148,7 +153,7 @@ export default function StoryboardInner() {
     await imageQueueRef.current.run({
       apiKey,
       projectId,
-      scenes: pendingScenes,
+      scenes: scenesToProcess,
       stylePrompt: preset?.stylePrompt,
       negativePrompt: preset?.negativePrompt,
       aspectRatio: preset?.aspectRatio,
@@ -171,6 +176,11 @@ export default function StoryboardInner() {
             persistScenes(latest);
             return latest;
           });
+          // If there are still pending scenes remaining after exhausting credits, prompt with remaining count
+          if (pendingScenes.length > count) {
+            setRequiredCreditsNeeded(pendingScenes.length - count);
+            setCreditModalOpen(true);
+          }
         },
         onError: (sceneId, error) => {
           console.warn(`Scene ${sceneId} failed:`, error);
@@ -552,7 +562,7 @@ export default function StoryboardInner() {
     const effectiveVisual = newPrompt && newPrompt.trim() ? newPrompt.trim() : scene.visualPrompt;
     const targetScene: SceneItem = {
       ...scene,
-      status: 'PENDING' as const,
+      status: 'GENERATING_IMAGE' as const,
       visualPrompt: effectiveVisual,
       fullPrompt: preset?.stylePrompt ? `${effectiveVisual}. ${preset.stylePrompt}` : effectiveVisual,
     };
