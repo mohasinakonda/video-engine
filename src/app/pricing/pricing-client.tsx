@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   Coins,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import {
   getSubscriptionPlans,
@@ -28,13 +29,14 @@ import {
   getAdminSettings,
   getUserSubscription,
   getCurrentUserProfile,
+  setActiveUserProfile,
   validateAndApplyPromoCode,
-  submitPaymentRequest,
   getAllPaymentSubmissions,
   getWhatsAppVerificationUrl,
   type PromoValidationResult,
 } from '@/lib/subscription-store';
 import { createClient } from '@/lib/supabase/client';
+import { fetchSupabaseProfile } from '@/lib/supabase-service';
 import type { User } from '@supabase/supabase-js';
 import type {
   SubscriptionPlan,
@@ -75,6 +77,8 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [lastSubmittedReq, setLastSubmittedReq] = useState<PaymentSubmission | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const refreshData = async () => {
     setPlans(getSubscriptionPlans());
@@ -86,13 +90,44 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     setUserProfile(profile);
     setSubmissions(getAllPaymentSubmissions());
 
-    // Verify authentication via Supabase client session
+    // Fetch live plans and settings from API (Supabase or synced storage)
+    try {
+      const res = await fetch('/api/admin/plan');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.plans && data.plans.length > 0) setPlans(data.plans);
+        if (data.topupPacks && data.topupPacks.length > 0) setTopupPacks(data.topupPacks);
+        if (data.settings) setSettings(data.settings);
+      }
+    } catch {
+      // Fallback already populated
+    }
+
+    // Verify authentication via Supabase client session & fetch live profile
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setIsLoggedIn(true);
         setUserEmail(session.user.email || '');
+
+        try {
+          const liveProfile = await fetchSupabaseProfile(session.user.id);
+          if (liveProfile) {
+            setUserProfile(liveProfile);
+            setActiveUserProfile(liveProfile);
+          }
+        } catch { }
+
+        try {
+          const payRes = await fetch(`/api/payments?userId=${session.user.id}&userEmail=${encodeURIComponent(session.user.email || '')}`);
+          if (payRes.ok) {
+            const payData = await payRes.json();
+            if (payData.success && payData.payments) {
+              setSubmissions(payData.payments);
+            }
+          }
+        } catch { }
       } else {
         // Fallback to initialUser from server if available
         setIsLoggedIn(Boolean(initialUser));
@@ -155,7 +190,21 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     setPaymentModalOpen(true);
   };
 
+  const hasActiveSubscription = Boolean(
+    (userProfile?.tier && userProfile.tier !== 'TRIAL') ||
+    (userSub?.tier && userSub.tier !== 'TRIAL')
+  );
+
   const openCheckoutForTopup = (pack: CreditTopupPack) => {
+    if (!hasActiveSubscription) {
+      const plansElement = document.getElementById('plans-section');
+      if (plansElement) {
+        plansElement.scrollIntoView({ behavior: 'smooth' });
+      }
+      setToastMessage('🔒 Top-up packs are available exclusively for active plan subscribers. Please choose a subscription plan below to unlock top-ups!');
+      setTimeout(() => setToastMessage(null), 5000);
+      return;
+    }
     setSelectedTopup(pack);
     setSelectedPlan(null);
     setSubmitSuccess(false);
@@ -198,7 +247,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     };
   };
 
-  const handleSubmitPayment = (e: React.FormEvent) => {
+  const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
 
@@ -207,11 +256,17 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
       return;
     }
 
+    if (selectedTopup && !hasActiveSubscription) {
+      setSubmitError('Credit top-ups are exclusively available for active plan subscribers. Please subscribe to a plan first.');
+      return;
+    }
+
     const { originalPrice, finalPrice, creditsToGrant } = calculateFinalPrice();
+    setIsSubmitting(true);
 
     try {
-      const created = submitPaymentRequest({
-        userId: initialUser?.id || userProfile?.id || ('user_' + Date.now()),
+      const payload = {
+        userId: initialUser?.id || userProfile?.id || undefined,
         userEmail: userEmail.trim() || initialUser?.email || 'user@creator.com',
         userName: userProfile?.name || 'Creator',
         itemType: selectedPlan ? 'subscription' : 'topup',
@@ -224,13 +279,28 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
         creditsToGrant,
         paymentMethod,
         senderNumber: senderNumber.trim(),
+      };
+
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to submit payment. Please try again.');
+      }
+
+      const created: PaymentSubmission = data.payment;
       setLastSubmittedReq(created);
       setSubmitSuccess(true);
-      setSubmissions(getAllPaymentSubmissions());
+      setSubmissions((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
     } catch (err: unknown) {
       setSubmitError((err as Error).message || 'Failed to submit payment. Try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -315,13 +385,12 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                     Current Plan
                   </span>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      isExpired
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isExpired
                         ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                         : isExpiringSoon
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                        : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    }`}
+                          ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      }`}
                   >
                     {userSub?.status || 'ACTIVE'}
                   </span>
@@ -332,11 +401,11 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                   <p className="text-xs text-zinc-400 mt-1">
                     {userSub?.status === 'ACTIVE'
                       ? `Active cycle · Renews in ${Math.round(
-                          (userSub.expiresAt - Date.now()) / (24 * 3600 * 1000)
-                        )} days`
+                        (userSub.expiresAt - Date.now()) / (24 * 3600 * 1000)
+                      )} days`
                       : isExpired
-                      ? 'Subscription has expired. Renew to resume 1080p rendering.'
-                      : 'Free trial tier (30 starter credits)'}
+                        ? 'Subscription has expired. Renew to resume 1080p rendering.'
+                        : 'Free trial tier (30 starter credits)'}
                   </p>
                 </div>
 
@@ -370,23 +439,21 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                 <div className="space-y-1.5">
                   <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-800">
                     <div
-                      className={`h-full transition-all duration-500 ${
-                        creditsRemaining > 20 ? 'bg-emerald-400' : 'bg-rose-500'
-                      }`}
+                      className={`h-full transition-all duration-500 ${creditsRemaining > 20 ? 'bg-emerald-400' : 'bg-rose-500'
+                        }`}
                       style={{ width: `${Math.max(5, creditsPercent)}%` }}
                     />
                   </div>
                   <div className="flex justify-between items-center text-[11px]">
                     <span
-                      className={`font-semibold ${
-                        creditsRemaining > 20 ? 'text-emerald-400' : 'text-rose-400'
-                      }`}
+                      className={`font-semibold ${creditsRemaining > 20 ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
                     >
                       {creditsRemaining > 50
                         ? '🟢 Ready for ~15+ videos'
                         : creditsRemaining > 10
-                        ? '🟡 Low credits warning'
-                        : '🔴 Recharging needed'}
+                          ? '🟡 Low credits warning'
+                          : '🔴 Recharging needed'}
                     </span>
                     <a href="#topup-section" className="text-amber-400 hover:underline font-semibold">
                       + Top Up &rarr;
@@ -436,7 +503,9 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                     Instant Credit Top-Up Packs
                   </h2>
                   <p className="text-xs text-zinc-400">
-                    Add image credits immediately via bKash or Nagad. Credits never expire!
+                    {hasActiveSubscription
+                      ? 'Add image credits immediately via bKash or Nagad. Credits never expire!'
+                      : 'Credit top-up packs are exclusively available for active plan subscribers. Subscribe to a plan below to unlock top-ups!'}
                   </p>
                 </div>
               </div>
@@ -445,17 +514,24 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                 {topupPacks.map((pack) => (
                   <div
                     key={pack.id}
-                    className={`rounded-3xl p-6 bg-zinc-900/80 border transition-all relative ${
-                      pack.popular
-                        ? 'border-amber-400/60 shadow-lg shadow-amber-950/20'
-                        : 'border-zinc-800 hover:border-zinc-700'
-                    }`}
+                    className={`rounded-3xl p-6 bg-zinc-900/80 border transition-all relative ${!hasActiveSubscription
+                        ? 'border-zinc-800/80 opacity-90'
+                        : pack.popular
+                          ? 'border-amber-400/60 shadow-lg shadow-amber-950/20'
+                          : 'border-zinc-800 hover:border-zinc-700'
+                      }`}
                   >
-                    {pack.popular && (
+                    {!hasActiveSubscription ? (
+                      <div className="mb-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-800 text-amber-400/90 border border-amber-500/20 text-[10px] font-bold uppercase tracking-wider">
+                          <Lock size={10} /> Subscriber Exclusive
+                        </span>
+                      </div>
+                    ) : pack.popular ? (
                       <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full bg-amber-400 text-zinc-950 font-bold text-[10px] uppercase tracking-wider">
                         Most Popular
                       </span>
-                    )}
+                    ) : null}
                     <h4 className="text-base font-bold text-white">{pack.name}</h4>
                     <div className="mt-3 flex items-baseline gap-2">
                       <span className="text-3xl font-extrabold text-white">৳{pack.priceBDT}</span>
@@ -468,13 +544,23 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                       ৳{pack.perCreditBDT.toFixed(2)} per credit
                     </p>
 
-                    <button
-                      onClick={() => openCheckoutForTopup(pack)}
-                      className="w-full mt-5 py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                    >
-                      <Zap size={14} className="fill-zinc-950" />
-                      Top-up {pack.credits} Credits
-                    </button>
+                    {hasActiveSubscription ? (
+                      <button
+                        onClick={() => openCheckoutForTopup(pack)}
+                        className="w-full mt-5 py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <Zap size={14} className="fill-zinc-950" />
+                        Top-up {pack.credits} Credits
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => openCheckoutForTopup(pack)}
+                        className="w-full mt-5 py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 border border-zinc-700/80 group"
+                      >
+                        <Lock size={13} className="text-amber-400 group-hover:scale-110 transition-transform" />
+                        Subscribe to Unlock
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -496,17 +582,15 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setBillingCycle('monthly')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                      billingCycle === 'monthly' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${billingCycle === 'monthly' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
                     Monthly
                   </button>
                   <button
                     onClick={() => setBillingCycle('yearly')}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 ${
-                      billingCycle === 'yearly' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 ${billingCycle === 'yearly' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
                     <span>Yearly</span>
                     <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-white text-[9px] font-bold">
@@ -524,13 +608,12 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                   return (
                     <div
                       key={plan.id}
-                      className={`p-6 rounded-3xl border transition-all flex flex-col ${
-                        isCurrent
+                      className={`p-6 rounded-3xl border transition-all flex flex-col ${isCurrent
                           ? 'bg-zinc-850/60 border-emerald-500'
                           : plan.popular
-                          ? 'bg-zinc-900 border-zinc-700'
-                          : 'bg-zinc-900/40 border-zinc-800'
-                      }`}
+                            ? 'bg-zinc-900 border-zinc-700'
+                            : 'bg-zinc-900/40 border-zinc-800'
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <span className="font-bold text-white text-base">{plan.name}</span>
@@ -560,11 +643,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
 
                       <button
                         onClick={() => openCheckoutForPlan(plan)}
-                        className={`w-full py-2.5 rounded-xl font-bold text-xs transition-colors ${
-                          isCurrent
+                        className={`w-full py-2.5 rounded-xl font-bold text-xs transition-colors ${isCurrent
                             ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                             : 'bg-white hover:bg-zinc-200 text-zinc-950'
-                        }`}
+                          }`}
                       >
                         {isCurrent ? 'Renew This Plan' : `Switch to ${plan.name}`}
                       </button>
@@ -611,13 +693,12 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                             ৳{sub.discountedPriceBDT} BDT
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              sub.status === 'APPROVED'
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${sub.status === 'APPROVED'
                                 ? 'bg-emerald-500/20 text-emerald-400'
                                 : sub.status === 'REJECTED'
-                                ? 'bg-rose-500/20 text-rose-400'
-                                : 'bg-amber-500/20 text-amber-400'
-                            }`}
+                                  ? 'bg-rose-500/20 text-rose-400'
+                                  : 'bg-amber-500/20 text-amber-400'
+                              }`}
                           >
                             {sub.status}
                           </span>
@@ -654,7 +735,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                 Simple, Transparent Subscriptions
               </h1>
               <p className="text-zinc-400 text-base sm:text-lg">
-                Pay easily via <strong className="text-zinc-200">bKash</strong>, <strong className="text-zinc-200">Nagad</strong>, or <strong className="text-zinc-200">Bank Transfer</strong>. 
+                Pay easily via <strong className="text-zinc-200">bKash</strong>, <strong className="text-zinc-200">Nagad</strong>, or <strong className="text-zinc-200">Bank Transfer</strong>.
                 Instant WhatsApp verification with zero hidden charges.
               </p>
 
@@ -697,11 +778,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
 
               {promoResult && (
                 <div
-                  className={`mt-3 text-xs p-2.5 rounded-lg flex items-center gap-2 ${
-                    promoResult.valid
+                  className={`mt-3 text-xs p-2.5 rounded-lg flex items-center gap-2 ${promoResult.valid
                       ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
                       : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
-                  }`}
+                    }`}
                 >
                   {promoResult.valid ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
                   <span>{promoResult.message}</span>
@@ -718,21 +798,19 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
             <div className="flex justify-center items-center gap-3">
               <button
                 onClick={() => setBillingCycle('monthly')}
-                className={`px-5 py-2 rounded-xl text-sm font-medium transition-all ${
-                  billingCycle === 'monthly'
+                className={`px-5 py-2 rounded-xl text-sm font-medium transition-all ${billingCycle === 'monthly'
                     ? 'bg-white text-zinc-950 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
-                }`}
+                  }`}
               >
                 Monthly Billing
               </button>
               <button
                 onClick={() => setBillingCycle('yearly')}
-                className={`px-5 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
-                  billingCycle === 'yearly'
+                className={`px-5 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${billingCycle === 'yearly'
                     ? 'bg-white text-zinc-950 shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
-                }`}
+                  }`}
               >
                 <span>Yearly Billing</span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase">
@@ -758,11 +836,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                 return (
                   <div
                     key={plan.id}
-                    className={`relative flex flex-col rounded-3xl p-6 sm:p-8 transition-all ${
-                      plan.popular
+                    className={`relative flex flex-col rounded-3xl p-6 sm:p-8 transition-all ${plan.popular
                         ? 'bg-zinc-900 border-2 border-emerald-500/70 shadow-2xl'
                         : 'bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700'
-                    }`}
+                      }`}
                   >
                     {plan.badge && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-emerald-500 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-md">
@@ -800,11 +877,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
 
                     <button
                       onClick={() => openCheckoutForPlan(plan)}
-                      className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                        plan.popular
+                      className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${plan.popular
                           ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20'
                           : 'bg-white hover:bg-zinc-200 text-zinc-950'
-                      }`}
+                        }`}
                     >
                       <span>Choose {plan.name}</span>
                       <ArrowRight size={15} />
@@ -835,7 +911,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                 </div>
                 <h3 className="text-xl font-bold text-white">Payment Request Submitted!</h3>
                 <p className="text-xs text-zinc-300 leading-relaxed max-w-sm mx-auto">
-                  Click the button below to message the admin directly on WhatsApp with your phone number. 
+                  Click the button below to message the admin directly on WhatsApp with your phone number.
                   Your credits will be activated immediately!
                 </p>
 
@@ -916,11 +992,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('bkash')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all ${
-                        paymentMethod === 'bkash'
+                      className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all ${paymentMethod === 'bkash'
                           ? 'border-pink-500 bg-pink-500/10 text-white shadow-sm'
                           : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <Smartphone size={16} className="text-pink-400" />
                       <span>bKash</span>
@@ -928,11 +1003,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('nagad')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all ${
-                        paymentMethod === 'nagad'
+                      className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all ${paymentMethod === 'nagad'
                           ? 'border-orange-500 bg-orange-500/10 text-white shadow-sm'
                           : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <Smartphone size={16} className="text-orange-400" />
                       <span>Nagad</span>
@@ -940,11 +1014,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
                     <button
                       type="button"
                       onClick={() => setPaymentMethod('bank')}
-                      className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all ${
-                        paymentMethod === 'bank'
+                      className={`py-2 px-3 rounded-xl border text-xs font-medium flex flex-col items-center gap-1 transition-all ${paymentMethod === 'bank'
                           ? 'border-blue-500 bg-blue-500/10 text-white shadow-sm'
                           : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white'
-                      }`}
+                        }`}
                     >
                       <Building size={16} className="text-blue-400" />
                       <span>Bank</span>
@@ -1043,13 +1116,29 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
 
                 <button
                   type="submit"
-                  className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm transition-colors shadow-lg shadow-emerald-500/20"
+                  disabled={isSubmitting}
+                  className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Submit & Open WhatsApp
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                      <span>Recording Payment...</span>
+                    </>
+                  ) : (
+                    <span>Submit & Open WhatsApp</span>
+                  )}
                 </button>
               </form>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom border border-amber-300">
+          <AlertCircle size={16} className="text-zinc-950 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

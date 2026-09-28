@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Gift,
   Coins,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getAllUsers,
@@ -33,6 +34,8 @@ export default function AdminUsersPage() {
   const [payouts, setPayouts] = useState<AffiliatePayoutRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLiveSupabase, setIsLiveSupabase] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Modal State for Credits / Promo assignment
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -42,9 +45,31 @@ export default function AdminUsersPage() {
   const [promoModalOpen, setPromoModalOpen] = useState(false);
   const [assignedCode, setAssignedCode] = useState('');
 
-  const refreshData = () => {
-    setUsers(getAllUsers());
-    setPayouts(getAllPayoutRequests());
+  const refreshData = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setUsers(data.users || []);
+          setPayouts(data.payouts || []);
+          setIsLiveSupabase(!!data.isLiveSupabase);
+        } else {
+          setUsers([]);
+          setPayouts([]);
+        }
+      } else {
+        setUsers([]);
+        setPayouts([]);
+      }
+    } catch (err) {
+      console.warn('Error fetching users from API, falling back:', err);
+      setUsers([]);
+      setPayouts([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -56,33 +81,70 @@ export default function AdminUsersPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleToggleBlock = (user: UserProfile) => {
+  const handleToggleBlock = async (user: UserProfile) => {
     if (user.isBlocked) {
+      try {
+        await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'toggleBlock', userId: user.id, isBlocked: false }),
+        });
+      } catch (err) {
+        console.warn('Remote unblock failed:', err);
+      }
       setUserBlockStatus(user.id, false);
       showToast(`Unblocked user ${user.name}`);
     } else {
       const reason = prompt(`Enter reason for blocking ${user.name}:`, 'Suspected fake payment submissions or terms violation');
       if (reason === null) return;
+      try {
+        await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'toggleBlock', userId: user.id, isBlocked: true, reason }),
+        });
+      } catch (err) {
+        console.warn('Remote block failed:', err);
+      }
       setUserBlockStatus(user.id, true, reason);
       showToast(`Blocked user ${user.name}`);
     }
     refreshData();
   };
 
-  const handleGrantCredits = (e: React.FormEvent) => {
+  const handleGrantCredits = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+    try {
+      await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'adjustCredits', userId: selectedUser.id, amount: creditAmount }),
+      });
+    } catch (err) {
+      console.warn('Remote credit grant failed:', err);
+    }
     adjustUserCredits(selectedUser.id, creditAmount);
     showToast(`Granted ${creditAmount > 0 ? `+${creditAmount}` : creditAmount} credits to ${selectedUser.name}`);
     setCreditModalOpen(false);
     refreshData();
   };
 
-  const handleAssignPromo = (e: React.FormEvent) => {
+  const handleAssignPromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser || !assignedCode.trim()) return;
-    assignUserPromoCode(selectedUser.id, assignedCode.trim().toUpperCase());
-    showToast(`Assigned promo code ${assignedCode.toUpperCase()} to ${selectedUser.name}`);
+    const code = assignedCode.trim().toUpperCase();
+    try {
+      await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'assignPromo', userId: selectedUser.id, promoCode: code }),
+      });
+    } catch (err) {
+      console.warn('Remote promo assign failed:', err);
+    }
+    assignUserPromoCode(selectedUser.id, code);
+    showToast(`Assigned promo code ${code} to ${selectedUser.name}`);
     setPromoModalOpen(false);
     refreshData();
   };
@@ -96,12 +158,13 @@ export default function AdminUsersPage() {
   };
 
   const filteredUsers = users.filter((u) => {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
     return (
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
       (u.phone && u.phone.includes(q)) ||
-      u.referralCode.toLowerCase().includes(q)
+      (u.referralCode || '').toLowerCase().includes(q)
     );
   });
 
@@ -117,22 +180,43 @@ export default function AdminUsersPage() {
             >
               <ArrowLeft size={13} /> Back to Admin Hub
             </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
-              <Users size={26} className="text-blue-400" />
-              User Directory & Anti-Abuse Manager
-            </h1>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                <Users size={26} className="text-blue-400" />
+                User Directory & Anti-Abuse Manager
+              </h1>
+              {isLiveSupabase ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Supabase Database Live
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  Local Storage Mode
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-400 mt-1">
               Monitor active users, block fraudulent accounts, grant credits, and manage affiliate payouts
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Link
               href="/admin/plan"
               className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-700/80 text-xs font-semibold text-zinc-200 transition-colors"
             >
               Edit Plans & Pricing
             </Link>
+            <button
+              onClick={refreshData}
+              disabled={isLoading}
+              className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
           </div>
         </div>
 
@@ -176,20 +260,50 @@ export default function AdminUsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/60">
-                  {filteredUsers.map((user) => (
-                    <tr
-                      key={user.id}
-                      className={`hover:bg-zinc-850/40 transition-colors ${
-                        user.isBlocked ? 'bg-rose-950/20' : ''
-                      }`}
-                    >
-                      <td className="py-3.5 px-4">
-                        <span className="font-semibold text-white block">{user.name}</span>
-                        <span className="text-[11px] text-zinc-400 font-mono">{user.email}</span>
-                        {user.phone && (
-                          <span className="text-[10px] text-zinc-500 block font-mono">📱 {user.phone}</span>
-                        )}
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-zinc-500">
+                        <Users size={32} className="mx-auto mb-2 opacity-30 text-zinc-400" />
+                        <p className="font-medium text-zinc-400 text-sm">
+                          {searchQuery ? 'No users matching your search' : 'No registered users found'}
+                        </p>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {searchQuery
+                            ? 'Try clearing the search query'
+                            : 'When users sign up with Google or Email, they will appear here.'}
+                        </p>
                       </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <tr
+                        key={user.id}
+                        className={`hover:bg-zinc-850/40 transition-colors ${
+                          user.isBlocked ? 'bg-rose-950/20' : ''
+                        }`}
+                      >
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            {user.avatarUrl ? (
+                              <img
+                                src={user.avatarUrl}
+                                alt={user.name}
+                                className="w-8 h-8 rounded-full border border-zinc-700 object-cover shrink-0"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-xs shrink-0">
+                                {(user.name || 'C').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <span className="font-semibold text-white block truncate">{user.name}</span>
+                              <span className="text-[11px] text-zinc-400 font-mono block truncate">{user.email}</span>
+                              {user.phone && (
+                                <span className="text-[10px] text-zinc-500 block font-mono">📱 {user.phone}</span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
                       <td className="py-3.5 px-4">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-300">
                           {user.tier}
@@ -201,6 +315,11 @@ export default function AdminUsersPage() {
                         ) : (
                           <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                             ACTIVE
+                          </span>
+                        )}
+                        {user.role === 'admin' && (
+                          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                            ADMIN
                           </span>
                         )}
                       </td>
@@ -272,7 +391,8 @@ export default function AdminUsersPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                )}
                 </tbody>
               </table>
             </div>

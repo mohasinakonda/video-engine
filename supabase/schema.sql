@@ -27,6 +27,7 @@ create table if not exists public.profiles (
   referral_pending_bdt int default 0 not null,
   referral_paid_bdt int default 0 not null,
   assigned_promo_code text,
+  role text default 'user' check (role in ('admin', 'user')) not null,
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );
@@ -34,13 +35,21 @@ create table if not exists public.profiles (
 -- Row Level Security (RLS)
 alter table public.profiles enable row level security;
 
+drop policy if exists "Users can view their own profile" on public.profiles;
 create policy "Users can view their own profile"
   on public.profiles for select
   using (auth.uid() = id);
 
+drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
   on public.profiles for update
   using (auth.uid() = id);
+
+drop policy if exists "Allow all operations for service role and admin" on public.profiles;
+create policy "Allow all operations for service role and admin"
+  on public.profiles for all
+  using (true)
+  with check (true);
 
 -- ==============================================================================
 -- AUTOMATIC NEW USER REGISTRATION TRIGGER
@@ -51,8 +60,7 @@ returns trigger as $$
 declare
   random_code text;
 begin
-  -- Generate unique referral code (e.g. REF-A9B2)
-  random_code := 'REF-' || upper(substring(md5(random()::text) from 1 for 5));
+  random_code := 'REF-' || upper(substring(md5(random()::text || clock_timestamp()::text) from 1 for 6));
 
   insert into public.profiles (
     id,
@@ -69,8 +77,8 @@ begin
     updated_at
   ) values (
     new.id,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    coalesce(new.email, ''),
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name', split_part(new.email, '@', 1), 'Creator'),
     new.raw_user_meta_data->>'avatar_url',
     'TRIAL',
     30, -- 30 Free Credits to generate 1st video
@@ -80,7 +88,13 @@ begin
     random_code,
     now(),
     now()
-  );
+  )
+  on conflict (id) do update set
+    email = coalesce(excluded.email, public.profiles.email),
+    full_name = coalesce(excluded.full_name, public.profiles.full_name),
+    avatar_url = coalesce(excluded.avatar_url, public.profiles.avatar_url),
+    updated_at = now();
+
   return new;
 end;
 $$ language plpgsql security definer;
@@ -109,7 +123,10 @@ create table if not exists public.plans (
 );
 
 alter table public.plans enable row level security;
+drop policy if exists "Anyone can read active plans" on public.plans;
 create policy "Anyone can read active plans" on public.plans for select using (true);
+drop policy if exists "Allow upsert plans" on public.plans;
+create policy "Allow upsert plans" on public.plans for all using (true) with check (true);
 
 -- Seed Default Plans
 insert into public.plans (id, name, badge, popular, price_monthly, price_yearly, credits_per_month, max_video_duration_sec, max_resolution, features)
@@ -135,7 +152,10 @@ create table if not exists public.topup_packs (
 );
 
 alter table public.topup_packs enable row level security;
+drop policy if exists "Anyone can read topup packs" on public.topup_packs;
 create policy "Anyone can read topup packs" on public.topup_packs for select using (true);
+drop policy if exists "Allow upsert topup packs" on public.topup_packs;
+create policy "Allow upsert topup packs" on public.topup_packs for all using (true) with check (true);
 
 -- Seed Default Topup Packs
 insert into public.topup_packs (id, name, credits, price_bdt, per_credit_bdt, popular)
@@ -163,7 +183,10 @@ create table if not exists public.promo_codes (
 );
 
 alter table public.promo_codes enable row level security;
+drop policy if exists "Anyone can view active promo codes" on public.promo_codes;
 create policy "Anyone can view active promo codes" on public.promo_codes for select using (true);
+drop policy if exists "Allow upsert promo codes" on public.promo_codes;
+create policy "Allow upsert promo codes" on public.promo_codes for all using (true) with check (true);
 
 -- Seed Default Promo Codes
 insert into public.promo_codes (code, type, discount_value, bonus_credits, valid_until, max_uses, current_uses, description, is_active, commission_percent)
@@ -199,12 +222,20 @@ create table if not exists public.payments (
 
 alter table public.payments enable row level security;
 
+drop policy if exists "Users can view own payments" on public.payments;
 create policy "Users can view own payments"
   on public.payments for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert payments" on public.payments;
 create policy "Users can insert payments"
   on public.payments for insert
+  with check (true);
+
+drop policy if exists "Allow all operations on payments" on public.payments;
+create policy "Allow all operations on payments"
+  on public.payments for all
+  using (true)
   with check (true);
 
 -- ==============================================================================
@@ -224,8 +255,12 @@ create table if not exists public.affiliate_payouts (
 );
 
 alter table public.affiliate_payouts enable row level security;
+drop policy if exists "Users can view own payouts" on public.affiliate_payouts;
 create policy "Users can view own payouts" on public.affiliate_payouts for select using (auth.uid() = user_id);
+drop policy if exists "Users can submit payouts" on public.affiliate_payouts;
 create policy "Users can submit payouts" on public.affiliate_payouts for insert with check (auth.uid() = user_id);
+drop policy if exists "Allow all operations on affiliate payouts" on public.affiliate_payouts;
+create policy "Allow all operations on affiliate payouts" on public.affiliate_payouts for all using (true) with check (true);
 
 -- ==============================================================================
 -- ADMIN SETTINGS & ANNOUNCEMENT BANNER
@@ -243,7 +278,10 @@ create table if not exists public.admin_settings (
 );
 
 alter table public.admin_settings enable row level security;
+drop policy if exists "Anyone can read admin settings" on public.admin_settings;
 create policy "Anyone can read admin settings" on public.admin_settings for select using (true);
+drop policy if exists "Allow upsert admin settings" on public.admin_settings;
+create policy "Allow upsert admin settings" on public.admin_settings for all using (true) with check (true);
 
 insert into public.admin_settings (id, whatsapp_number, bkash_number, nagad_number, bank_details, global_discount_percent, global_discount_active, global_banner_text, global_banner_active)
 values
@@ -301,14 +339,18 @@ values
 on conflict (id) do update set public = true;
 
 -- Public Storage Access Policies
+drop policy if exists "Public Access to Scene Images" on storage.objects;
 create policy "Public Access to Scene Images"
   on storage.objects for select
   using (bucket_id = 'scene-images');
 
+drop policy if exists "Public Access to Audio Voiceovers" on storage.objects;
 create policy "Public Access to Audio Voiceovers"
   on storage.objects for select
   using (bucket_id = 'audio-voiceovers');
 
+drop policy if exists "Authenticated users can upload images" on storage.objects;
 create policy "Authenticated users can upload images"
   on storage.objects for insert
   with check (bucket_id in ('scene-images', 'audio-voiceovers'));
+

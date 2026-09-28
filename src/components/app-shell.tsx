@@ -1,38 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/sidebar';
-import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { AuthProvider, useAuth } from '@/contexts/auth-context';
 
-interface AppShellProps {
-  children: React.ReactNode;
-  initialUser?: User | null;
-}
-
-export default function AppShell({ children, initialUser }: AppShellProps) {
+function ShellLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(initialUser ?? null);
-
-  useEffect(() => {
-    try {
-      const supabase = createClient();
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-      });
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setUser(session?.user ?? null);
-      });
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    } catch {
-      // Fallback
-    }
-  }, []);
+  const { user } = useAuth();
 
   // Condition: Only hide sidebar on guest home ('/' when not logged in) and auth screens
   const isGuestHome = pathname === '/' && !user;
@@ -50,5 +25,13 @@ export default function AppShell({ children, initialUser }: AppShellProps) {
         {children}
       </div>
     </div>
+  );
+}
+
+export default function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <ShellLayout>{children}</ShellLayout>
+    </AuthProvider>
   );
 }

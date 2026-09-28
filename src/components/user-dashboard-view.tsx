@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { getAllProjects, deleteProject } from '@/lib/store';
 import { signOutUser } from '@/lib/supabase-service';
-import { getUserSubscription } from '@/lib/subscription-store';
+import { useAuth } from '@/contexts/auth-context';
 import type { ProjectManifest } from '@/types';
 
 function formatDuration(ms: number): string {
@@ -90,7 +90,7 @@ export default function UserDashboardView({ user }: UserDashboardViewProps) {
 
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Creator';
 
-  const sub = getUserSubscription();
+  const { subscription: sub } = useAuth();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-bg-base">
@@ -104,17 +104,19 @@ export default function UserDashboardView({ user }: UserDashboardViewProps) {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Link
-                href="/pricing"
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors shadow-sm group"
-                title="View Credits & Usage Summary"
-              >
-                <Zap size={14} className="text-amber-400 fill-amber-400 group-hover:scale-110 transition-transform" />
-                <span className="font-bold text-white">{sub.creditsRemaining} Credits</span>
-                <span className="text-[10px] text-emerald-400 font-semibold uppercase bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                  {sub.tier}
-                </span>
-              </Link>
+              {sub && (
+                <Link
+                  href="/pricing"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors shadow-sm group"
+                  title="View Credits & Usage Summary"
+                >
+                  <Zap size={14} className="text-amber-400 fill-amber-400 group-hover:scale-110 transition-transform" />
+                  <span className="font-bold text-white">{sub.creditsRemaining} Credits</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold uppercase bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                    {sub.tier}
+                  </span>
+                </Link>
+              )}
               <Link href="/project/new" className="btn-primary">
                 <PlusCircle size={15} />
                 New Project

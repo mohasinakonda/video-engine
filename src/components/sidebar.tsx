@@ -17,8 +17,7 @@ import {
   Users,
   TrendingUp,
 } from 'lucide-react';
-import { getUserSubscription } from '@/lib/subscription-store';
-import type { UserSubscription } from '@/types/subscription';
+import { useAuth } from '@/contexts/auth-context';
 
 const navItems = [
   { href: '/', label: 'Projects', icon: Video },
@@ -31,22 +30,8 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [sub, setSub] = useState<UserSubscription | null>(null);
-
-  useEffect(() => {
-    setSub(getUserSubscription());
-
-    const updateSub = () => {
-      setSub(getUserSubscription());
-    };
-
-    window.addEventListener('storage', updateSub);
-    const interval = setInterval(updateSub, 3000);
-    return () => {
-      window.removeEventListener('storage', updateSub);
-      clearInterval(interval);
-    };
-  }, []);
+  const { user, subscription: sub, isAdmin, isLoading } = useAuth();
+  const isLoggedIn = !!user;
 
   // Extract project ID from routes for context nav
   const storyboardMatch = pathname.startsWith('/storyboard');
@@ -56,7 +41,7 @@ export default function Sidebar() {
 
   const creditsPercent = sub
     ? Math.min(100, Math.round((sub.creditsRemaining / Math.max(1, sub.totalCreditsPurchased || 30)) * 100))
-    : 100;
+    : 0;
 
   return (
     <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border min-h-screen sticky top-0 h-screen overflow-y-auto z-30">
@@ -88,68 +73,67 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 pt-4 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive =
-            href === '/' ? pathname === '/' : pathname.startsWith(href);
+        {navItems
+          .filter(({ href }) => href !== '/admin' || isAdmin)
+          .map(({ href, label, icon: Icon }) => {
+            const isActive =
+              href === '/' ? pathname === '/' : pathname.startsWith(href);
 
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium
-                          transition-colors duration-150 group
-                          ${isActive
-                  ? 'bg-zinc-800/90 text-white border border-zinc-700/60'
-                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40'
-                }`}
-            >
-              <Icon
-                size={15}
-                className={isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}
-              />
-              {label}
-              {isActive && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />
-              )}
-            </Link>
-          );
-        })}
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium
+                            transition-colors duration-150 group
+                            ${isActive
+                    ? 'bg-zinc-800/90 text-white border border-zinc-700/60'
+                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40'
+                  }`}
+              >
+                <Icon
+                  size={15}
+                  className={isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}
+                />
+                {label}
+                {isActive && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />
+                )}
+              </Link>
+            );
+          })}
 
         {/* Contextual navigation when in Admin */}
-        {adminMatch && (
+        {isAdmin && adminMatch && (
           <div className="pt-4 mt-2 border-t border-bg-border/60 space-y-1">
             <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-3 pb-2">
               Admin Controls
             </p>
             <Link
               href="/admin"
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                pathname === '/admin'
-                  ? 'bg-zinc-850 text-white border border-zinc-800'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin'
+                ? 'bg-zinc-850 text-white border border-zinc-800'
+                : 'text-zinc-400 hover:text-white'
+                }`}
             >
               <TrendingUp size={13} className="text-emerald-400" />
               Overview & Queue
             </Link>
             <Link
               href="/admin/plan"
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                pathname === '/admin/plan'
-                  ? 'bg-zinc-850 text-white border border-zinc-800'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/plan'
+                ? 'bg-zinc-850 text-white border border-zinc-800'
+                : 'text-zinc-400 hover:text-white'
+                }`}
             >
               <Settings size={13} className="text-purple-400" />
               Plans & Pricing
             </Link>
             <Link
               href="/admin/users"
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                pathname === '/admin/users'
-                  ? 'bg-zinc-850 text-white border border-zinc-800'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/users'
+                ? 'bg-zinc-850 text-white border border-zinc-800'
+                : 'text-zinc-400 hover:text-white'
+                }`}
             >
               <Users size={13} className="text-blue-400" />
               User Directory
@@ -188,35 +172,59 @@ export default function Sidebar() {
       {/* Credit Balance Meter Card */}
       <div className="p-3 border-t border-bg-border/80">
         <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Zap size={14} className="text-amber-400 fill-amber-400" />
-              <span className="text-[11px] font-bold text-white">
-                {sub ? `${sub.creditsRemaining} Credits` : 'Loading...'}
-              </span>
+          {isLoading ? (
+            <div className="flex items-center gap-2 py-1">
+              <div className="w-3 h-3 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+              <span className="text-[11px] text-zinc-400">Loading balance...</span>
             </div>
-            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60">
-              {sub?.tier || 'TRIAL'}
-            </span>
-          </div>
+          ) : isLoggedIn && sub ? (
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Zap size={14} className="text-amber-400 fill-amber-400" />
+                  <span className="text-[11px] font-bold text-white">
+                    {sub.creditsRemaining} Credits
+                  </span>
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                  {sub.tier}
+                </span>
+              </div>
 
-          {/* Progress bar */}
-          <div className="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden border border-zinc-800/80">
-            <div
-              className={`h-full transition-all duration-500 ${
-                creditsPercent > 25 ? 'bg-emerald-400' : 'bg-rose-500'
-              }`}
-              style={{ width: `${Math.max(5, creditsPercent)}%` }}
-            />
-          </div>
+              {/* Progress bar */}
+              <div className="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden border border-zinc-800/80">
+                <div
+                  className={`h-full transition-all duration-500 ${creditsPercent > 25 ? 'bg-emerald-400' : 'bg-rose-500'
+                    }`}
+                  style={{ width: `${Math.max(5, creditsPercent)}%` }}
+                />
+              </div>
 
-          <Link
-            href="/pricing"
-            className="flex items-center justify-between w-full pt-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-          >
-            <span>Top-up / Upgrade</span>
-            <ChevronRight size={12} />
-          </Link>
+              <Link
+                href="/pricing"
+                className="flex items-center justify-between w-full pt-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                <span>Top-up / Upgrade</span>
+                <ChevronRight size={12} />
+              </Link>
+            </>
+          ) : (
+            <div className="space-y-2 py-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-zinc-400">Guest</span>
+                <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                  0 Credits
+                </span>
+              </div>
+              <Link
+                href="/dashboard"
+                className="flex items-center justify-between w-full text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                <span>Sign in</span>
+                <ChevronRight size={12} />
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </aside>

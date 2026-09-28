@@ -12,11 +12,12 @@ import {
   Plus,
   Trash2,
   Smartphone,
-  Building,
-  Sparkles,
   ArrowLeft,
   Megaphone,
-  Check,
+  Loader2,
+  Database,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getSubscriptionPlans,
@@ -43,6 +44,10 @@ export default function AdminPlanSettingsPage() {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isSupabaseLive, setIsSupabaseLive] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // New Promo Code state
   const [newPromoCode, setNewPromoCode] = useState('');
@@ -59,19 +64,74 @@ export default function AdminPlanSettingsPage() {
   const [newPackCredits, setNewPackCredits] = useState(500);
   const [newPackPriceBDT, setNewPackPriceBDT] = useState(350);
 
-  useEffect(() => {
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/plan');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.plans) setPlans(data.plans);
+        if (data.topupPacks) setTopupPacks(data.topupPacks);
+        if (data.settings) setSettings(data.settings);
+        if (data.promoCodes) setPromoCodes(data.promoCodes);
+        setIsSupabaseLive(Boolean(data.isLiveSupabase));
+        return;
+      }
+    } catch (err) {
+      console.warn('API error, using local fallback:', err);
+    }
+    // Fallback to local store defaults
     setPlans(getSubscriptionPlans());
     setTopupPacks(getTopupPacks());
     setSettings(getAdminSettings());
     setPromoCodes(getAllPromoCodes());
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData().finally(() => setLoading(false));
   }, []);
 
-  const handleSaveAll = () => {
-    if (settings) saveAdminSettings(settings);
-    saveSubscriptionPlans(plans);
-    saveTopupPacks(topupPacks);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+  const handleSaveAll = async () => {
+    setSaving(true);
+    setSaveMessage(null);
+    try {
+      const res = await fetch('/api/admin/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plans,
+          topupPacks,
+          settings,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setSavedSuccess(true);
+        setSaveMessage(data.message);
+        if (data.savedToSupabase) {
+          setIsSupabaseLive(true);
+        }
+      } else {
+        setSavedSuccess(true);
+        setSaveMessage('Saved locally in browser storage.');
+      }
+    } catch (err) {
+      console.error('Save failed:', err);
+      // Local fallback
+      if (settings) saveAdminSettings(settings);
+      saveSubscriptionPlans(plans);
+      saveTopupPacks(topupPacks);
+      setSavedSuccess(true);
+      setSaveMessage('Saved locally in browser storage.');
+    } finally {
+      setSaving(false);
+      setTimeout(() => {
+        setSavedSuccess(false);
+        setSaveMessage(null);
+      }, 5000);
+    }
   };
 
   const handleUpdatePlan = (index: number, field: keyof SubscriptionPlan, value: unknown) => {
@@ -112,7 +172,7 @@ export default function AdminPlanSettingsPage() {
     saveTopupPacks(updated);
   };
 
-  const handleCreatePromo = (e: React.FormEvent) => {
+  const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPromoCode.trim()) return;
 
@@ -129,17 +189,32 @@ export default function AdminPlanSettingsPage() {
       commissionPercent: 15,
     };
 
-    createNewPromoCode(code);
-    setPromoCodes(getAllPromoCodes());
+    try {
+      await fetch('/api/admin/promos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(code),
+      });
+    } catch {
+      createNewPromoCode(code);
+    }
+
+    setPromoCodes((prev) => [code, ...prev.filter((p) => p.code !== code.code)]);
     setShowPromoModal(false);
     setNewPromoCode('');
     setNewPromoDesc('');
   };
 
-  const handleDeletePromo = (code: string) => {
+  const handleDeletePromo = async (code: string) => {
     if (confirm(`Delete promo code "${code}"?`)) {
-      deletePromoCode(code);
-      setPromoCodes(getAllPromoCodes());
+      try {
+        await fetch(`/api/admin/promos?code=${encodeURIComponent(code)}`, {
+          method: 'DELETE',
+        });
+      } catch {
+        deletePromoCode(code);
+      }
+      setPromoCodes((prev) => prev.filter((p) => p.code !== code));
     }
   };
 
@@ -155,11 +230,23 @@ export default function AdminPlanSettingsPage() {
             >
               <ArrowLeft size={13} /> Back to Admin Hub
             </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
-              <Settings size={26} className="text-emerald-400" />
-              Plans, Pricing & Global Offers Control
-            </h1>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+                <Settings size={26} className="text-emerald-400" />
+                Plans, Pricing & Global Offers Control
+              </h1>
+              <div
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border ${
+                  isSupabaseLive
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                }`}
+              >
+                <Database size={12} />
+                <span>{isSupabaseLive ? 'Supabase Cloud Live' : 'Local Fallback Mode'}</span>
+              </div>
+            </div>
+            <p className="text-xs text-zinc-400 mt-1">
               Change subscription prices, credit counts, global banners, and payment receiver details live
             </p>
           </div>
@@ -167,18 +254,40 @@ export default function AdminPlanSettingsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleSaveAll}
-              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-bold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
             >
-              <Save size={15} />
-              Save All Changes
+              {saving ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  Saving to Cloud...
+                </>
+              ) : (
+                <>
+                  <Save size={15} />
+                  Save All Changes
+                </>
+              )}
             </button>
           </div>
         </div>
 
+        {/* Supabase Status Alert Notice if not yet live */}
+        {!isSupabaseLive && !loading && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle size={18} className="text-amber-400 shrink-0" />
+              <span>
+                <strong>Supabase Database Sync Pending:</strong> Changes are currently saved in browser storage. Run <code className="bg-amber-950/60 px-1.5 py-0.5 rounded text-amber-300 font-mono">supabase/schema.sql</code> in your Supabase SQL Editor to enable live cloud persistence across all devices.
+              </span>
+            </div>
+          </div>
+        )}
+
         {savedSuccess && (
           <div className="p-4 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-2 animate-in fade-in">
             <CheckCircle2 size={16} />
-            <span>All pricing, credit quotas, and settings have been saved successfully!</span>
+            <span>{saveMessage || 'All pricing, credit quotas, and settings have been saved successfully!'}</span>
           </div>
         )}
 
@@ -531,8 +640,8 @@ export default function AdminPlanSettingsPage() {
                     {promo.type === 'PERCENTAGE'
                       ? `${promo.discountValue}% OFF`
                       : promo.type === 'FIXED'
-                      ? `৳${promo.discountValue} OFF`
-                      : `+${promo.bonusCredits} Bonus Credits`}
+                        ? `৳${promo.discountValue} OFF`
+                        : `+${promo.bonusCredits} Bonus Credits`}
                   </span>
                   <span className="text-zinc-400 font-normal">
                     {promo.currentUses} / {promo.maxUses} used

@@ -137,8 +137,12 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
   const [previewOpen, setPreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isSubmittingRegenerate, setIsSubmittingRegenerate] = useState(false);
+
   const isGenerating =
-    scene.status === 'GENERATING_IMAGE' || scene.status === 'GENERATING_MOTION';
+    scene.status === 'PENDING' ||
+    scene.status === 'GENERATING_IMAGE' ||
+    scene.status === 'GENERATING_MOTION';
 
   const duration = (scene.audioEndSec - scene.audioStartSec).toFixed(1);
   const timeRange = `${scene.audioStartSec.toFixed(1)}s – ${scene.audioEndSec.toFixed(1)}s`;
@@ -156,6 +160,10 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
   }
 
   function handleRegenerate() {
+    if (disabled || isGenerating || isSubmittingRegenerate) return;
+    setIsSubmittingRegenerate(true);
+    setTimeout(() => setIsSubmittingRegenerate(false), 800);
+
     if (editingPrompt) {
       setEditingPrompt(false);
       onRegenerate({ ...scene, visualPrompt: promptDraft }, promptDraft);
@@ -214,7 +222,11 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
               <div className="flex flex-col items-center gap-2">
                 <Loader2 size={20} className="text-zinc-400 animate-spin" />
                 <p className="text-[10px] text-zinc-400">
-                  {scene.status === 'GENERATING_IMAGE' ? 'Generating image…' : 'Animating…'}
+                  {scene.status === 'GENERATING_IMAGE'
+                    ? 'Generating image…'
+                    : scene.status === 'GENERATING_MOTION'
+                    ? 'Animating…'
+                    : 'Queued…'}
                 </p>
               </div>
             ) : (
@@ -446,8 +458,8 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
             <div className="flex gap-1.5">
               <button
                 onClick={handleRegenerate}
-                disabled={!promptDraft.trim()}
-                className="flex-1 btn-primary text-[11px] py-1 justify-center"
+                disabled={!promptDraft.trim() || isGenerating || isSubmittingRegenerate || disabled}
+                className="flex-1 btn-primary text-[11px] py-1 justify-center disabled:opacity-50"
               >
                 <RefreshCw size={10} />
                 Regenerate

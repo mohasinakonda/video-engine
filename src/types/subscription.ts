@@ -83,6 +83,7 @@ export interface UserProfile {
   name: string;
   email: string;
   phone?: string;
+  avatarUrl?: string;
   tier: PlanTier;
   creditsRemaining: number;
   creditsUsed: number;
@@ -96,6 +97,7 @@ export interface UserProfile {
   referralPendingBDT: number; // pending payout
   referralPaidBDT: number; // paid out
   assignedPromoCode?: string;
+  role?: 'admin' | 'user';
 }
 
 export interface AffiliatePayoutRequest {

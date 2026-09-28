@@ -95,6 +95,12 @@ const DEFAULT_BASE_URL = "https://gen.pollinations.ai/v1";
 
 
 export function getStoredPollinationsKey(): string {
+  if (typeof process !== "undefined" && process.env?.POLLINATIONS_API_KEY) {
+    return process.env.POLLINATIONS_API_KEY.trim();
+  }
+  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_POLLINATIONS_API_KEY) {
+    return process.env.NEXT_PUBLIC_POLLINATIONS_API_KEY.trim();
+  }
   if (typeof window === "undefined") return "";
   try {
     const raw = localStorage.getItem("pollinations-api-key");

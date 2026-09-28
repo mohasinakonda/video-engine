@@ -17,6 +17,7 @@ import {
   AlertCircle,
   HelpCircle,
   MessageCircle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getCurrentUserProfile,
@@ -25,7 +26,16 @@ import {
   submitPayoutRequest,
   getAdminSettings,
   getWhatsAppVerificationUrl,
+  GUEST_USER_PROFILE,
 } from '@/lib/subscription-store';
+import {
+  getSupabaseUser,
+  ensureUserProfileRemote,
+  fetchUserPaymentsRemote,
+  fetchAdminSettingsRemote,
+  submitPayoutRemote,
+  isSupabaseConfigured,
+} from '@/lib/supabase-service';
 import type {
   UserProfile,
   UserSubscription,
@@ -40,6 +50,9 @@ export default function UserDashboardPage() {
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLiveSupabase, setIsLiveSupabase] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Payout request modal
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
@@ -48,13 +61,90 @@ export default function UserDashboardPage() {
   const [payoutAmount, setPayoutAmount] = useState(500);
   const [payoutError, setPayoutError] = useState('');
 
-  const refreshData = () => {
-    const prof = getCurrentUserProfile();
-    setProfile(prof);
-    setSub(getUserSubscription());
-    setSubmissions(getAllPaymentSubmissions().filter((s) => s.userId === prof.id || s.userId === 'current_user'));
-    setSettings(getAdminSettings());
-    setPayoutAmount(Math.min(prof.referralPendingBDT, 500) || 500);
+  const refreshData = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Check if Supabase Auth has an active user
+      if (isSupabaseConfigured()) {
+        const authUser = await getSupabaseUser();
+        if (authUser) {
+          setIsLoggedIn(true);
+          // 2. Fetch or create profile in Supabase
+          const remoteProf = await ensureUserProfileRemote(authUser);
+          if (remoteProf) {
+            setProfile(remoteProf);
+            setIsLiveSupabase(true);
+
+            // 3. User subscription derivation
+            const localSub = getUserSubscription();
+            setSub({
+              tier: remoteProf.tier,
+              creditsRemaining: remoteProf.creditsRemaining,
+              creditsUsed: remoteProf.creditsUsed,
+              totalCreditsPurchased: remoteProf.creditsRemaining + remoteProf.creditsUsed,
+              startDate: remoteProf.joinedAt,
+              expiresAt: Date.now() + 30 * 24 * 3600 * 1000,
+              billingCycle: localSub?.billingCycle || 'monthly',
+              status: remoteProf.tier === 'TRIAL' ? 'EXPIRED' : 'ACTIVE',
+            });
+
+            // 4. Fetch user payments from Supabase
+            const userPayments = await fetchUserPaymentsRemote(authUser.id, authUser.email);
+            if (userPayments) {
+              setSubmissions(userPayments);
+            } else {
+              setSubmissions(getAllPaymentSubmissions().filter((s) => s.userId === authUser.id || s.userEmail === authUser.email));
+            }
+
+            // 5. Admin Settings
+            const remoteSettings = await fetchAdminSettingsRemote();
+            setSettings(remoteSettings || getAdminSettings());
+            setPayoutAmount(Math.min(remoteProf.referralPendingBDT, 500) || 500);
+            return;
+          }
+        }
+      }
+
+      // Fallback if not logged in or Supabase offline
+      setIsLoggedIn(false);
+      setIsLiveSupabase(false);
+      const prof = getCurrentUserProfile() || GUEST_USER_PROFILE;
+      setProfile(prof);
+      const guestSub: UserSubscription = {
+        tier: 'TRIAL',
+        creditsRemaining: 0,
+        creditsUsed: 0,
+        totalCreditsPurchased: 0,
+        startDate: Date.now(),
+        expiresAt: Date.now() + 30 * 24 * 3600 * 1000,
+        billingCycle: 'monthly',
+        status: 'ACTIVE',
+      };
+      setSub(getUserSubscription() || guestSub);
+      setSubmissions([]);
+      setSettings(getAdminSettings());
+      setPayoutAmount(500);
+    } catch (err) {
+      console.warn('Dashboard fetch error, falling back:', err);
+      const prof = getCurrentUserProfile() || GUEST_USER_PROFILE;
+      setProfile(prof);
+      const guestSub: UserSubscription = {
+        tier: 'TRIAL',
+        creditsRemaining: 0,
+        creditsUsed: 0,
+        totalCreditsPurchased: 0,
+        startDate: Date.now(),
+        expiresAt: Date.now() + 30 * 24 * 3600 * 1000,
+        billingCycle: 'monthly',
+        status: 'ACTIVE',
+      };
+      setSub(getUserSubscription() || guestSub);
+      setSubmissions([]);
+      setSettings(getAdminSettings());
+      setPayoutAmount(500);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -74,7 +164,7 @@ export default function UserDashboardPage() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleRequestPayout = (e: React.FormEvent) => {
+  const handleRequestPayout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
     if (payoutAmount > profile.referralPendingBDT) {
@@ -88,6 +178,18 @@ export default function UserDashboardPage() {
     if (!payoutAccount.trim()) {
       setPayoutError('Please provide your bKash or Nagad phone number');
       return;
+    }
+
+    if (isLiveSupabase && isLoggedIn) {
+      const okRemote = await submitPayoutRemote(profile.id, profile.email, payoutAmount, payoutMethod, payoutAccount.trim());
+      if (okRemote) {
+        showToast('Payout request submitted to Supabase! Admin notified.');
+        setPayoutModalOpen(false);
+        setPayoutError('');
+        setPayoutAccount('');
+        await refreshData();
+        return;
+      }
     }
 
     const ok = submitPayoutRequest(profile.id, profile.email, payoutAmount, payoutMethod, payoutAccount.trim());
@@ -117,12 +219,30 @@ export default function UserDashboardPage() {
 
   return (
     <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
-      <div className="max-w-6xl mx-auto space-y-10">
+      <div className="max-w-6xl mx-auto space-y-8">
         {/* Toast */}
         {toastMessage && (
           <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl bg-emerald-500 text-zinc-950 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom">
             <CheckCircle2 size={16} />
             <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Guest Banner if not authenticated */}
+        {!isLoggedIn && (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-200 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle size={18} className="text-amber-400 shrink-0" />
+              <span>
+                You are currently browsing in <strong>Guest Demo Mode</strong>. Log in with Google or Email to link your personal bKash/Nagad payments, save generated scenes, and earn 15% affiliate cash.
+              </span>
+            </div>
+            <Link
+              href="/login"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold shrink-0 transition-colors"
+            >
+              Sign In Now &rarr;
+            </Link>
           </div>
         )}
 
@@ -145,15 +265,36 @@ export default function UserDashboardPage() {
         {/* Welcome Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Creator Dashboard
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                Creator Dashboard
+              </h1>
+              {isLoggedIn && isLiveSupabase ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Supabase Cloud Synced
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  Guest / Demo Mode
+                </span>
+              )}
+            </div>
             <p className="text-xs text-zinc-400 mt-1">
               Welcome back, <strong className="text-zinc-200">{profile.name}</strong> ({profile.email})
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={refreshData}
+              disabled={isLoading}
+              className="p-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors disabled:opacity-50"
+              title="Refresh Dashboard"
+            >
+              <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+            </button>
             <Link
               href="/project/new"
               className="px-4 py-2 rounded-xl bg-white text-zinc-950 font-bold text-xs hover:bg-zinc-200 transition-colors shadow-sm"

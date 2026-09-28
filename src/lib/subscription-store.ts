@@ -15,6 +15,7 @@ import type {
   PlanTier,
   BillingCycle,
 } from '@/types/subscription';
+import { deductCreditsRemote, grantCreditsRemote, isSupabaseConfigured } from '@/lib/supabase-service';
 
 // ─── Default Admin Settings ──────────────────────────────────────────────────
 
@@ -155,62 +156,26 @@ const DEFAULT_PROMO_CODES: PromoCode[] = [
   },
 ];
 
-// Initial default user
-const DEFAULT_CURRENT_USER: UserProfile = {
-  id: 'usr_me',
-  name: 'Current Creator',
-  email: 'creator@example.com',
-  phone: '01700000000',
+// Guest user profile fallback (no mock credits)
+export const GUEST_USER_PROFILE: UserProfile = {
+  id: 'guest',
+  name: 'Guest Creator',
+  email: '',
+  phone: '',
   tier: 'TRIAL',
-  creditsRemaining: 30,
+  creditsRemaining: 0,
   creditsUsed: 0,
   totalSpentBDT: 0,
-  joinedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+  joinedAt: Date.now(),
   isBlocked: false,
-  referralCode: 'HAZRAT25',
-  referralCount: 4,
-  referralEarningsBDT: 720,
-  referralPendingBDT: 720,
+  referralCode: '',
+  referralCount: 0,
+  referralEarningsBDT: 0,
+  referralPendingBDT: 0,
   referralPaidBDT: 0,
 };
 
-const DEFAULT_USER_LIST: UserProfile[] = [
-  DEFAULT_CURRENT_USER,
-  {
-    id: 'usr_1',
-    name: 'Rahim Content Creator',
-    email: 'rahim@youtube.com',
-    phone: '01711223344',
-    tier: 'CREATOR',
-    creditsRemaining: 480,
-    creditsUsed: 120,
-    totalSpentBDT: 1200,
-    joinedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
-    isBlocked: false,
-    referralCode: 'RAHIM50',
-    referralCount: 6,
-    referralEarningsBDT: 1080,
-    referralPendingBDT: 360,
-    referralPaidBDT: 720,
-  },
-  {
-    id: 'usr_2',
-    name: 'Karim Media Studio',
-    email: 'karim@production.com',
-    phone: '01899887766',
-    tier: 'STUDIO',
-    creditsRemaining: 1350,
-    creditsUsed: 150,
-    totalSpentBDT: 2500,
-    joinedAt: Date.now() - 22 * 24 * 60 * 60 * 1000,
-    isBlocked: false,
-    referralCode: 'KARIMVIP',
-    referralCount: 2,
-    referralEarningsBDT: 360,
-    referralPendingBDT: 360,
-    referralPaidBDT: 0,
-  },
-];
+const DEFAULT_USER_LIST: UserProfile[] = [];
 
 // ─── Storage Helpers ──────────────────────────────────────────────────────────
 
@@ -261,29 +226,43 @@ export function saveTopupPacks(packs: CreditTopupPack[]): void {
 
 // ─── User Profile & Registry Operations ──────────────────────────────────────
 
+export function notifyCreditsUpdated(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('credits_updated'));
+  }
+}
+
 export function getAllUsers(): UserProfile[] {
   return safeGet<UserProfile[]>('all_registered_users', DEFAULT_USER_LIST);
 }
 
 export function saveAllUsers(users: UserProfile[]): void {
   safeSet('all_registered_users', users);
+  notifyCreditsUpdated();
 }
 
-export function getCurrentUserProfile(): UserProfile {
-  const users = getAllUsers();
-  const current = users.find((u) => u.id === 'usr_me') || users[0] || DEFAULT_CURRENT_USER;
-  return current;
+/** Set the currently authenticated Supabase user profile into cache */
+export function setActiveUserProfile(profile: UserProfile | null, broadcast = true): void {
+  if (typeof window === 'undefined') return;
+  if (!profile) {
+    localStorage.removeItem('active_user_profile');
+  } else {
+    safeSet('active_user_profile', profile);
+  }
+  if (broadcast) {
+    notifyCreditsUpdated();
+  }
+}
+
+/** Get currently authenticated profile, or null if unauthenticated */
+export function getCurrentUserProfile(): UserProfile | null {
+  return safeGet<UserProfile | null>('active_user_profile', null);
 }
 
 export function updateCurrentUserProfile(update: Partial<UserProfile>): void {
-  const users = getAllUsers();
-  const idx = users.findIndex((u) => u.id === 'usr_me');
-  if (idx >= 0) {
-    users[idx] = { ...users[idx], ...update };
-  } else {
-    users.unshift({ ...DEFAULT_CURRENT_USER, ...update });
-  }
-  saveAllUsers(users);
+  const current = getCurrentUserProfile();
+  if (!current) return;
+  setActiveUserProfile({ ...current, ...update });
 }
 
 export function setUserBlockStatus(userId: string, isBlocked: boolean, reason?: string): boolean {
@@ -316,8 +295,10 @@ export function assignUserPromoCode(userId: string, promoCode: string): boolean 
 
 // ─── Current User Subscription & Anti-Abuse ─────────────────────────────────
 
-export function getUserSubscription(): UserSubscription {
+export function getUserSubscription(): UserSubscription | null {
   const profile = getCurrentUserProfile();
+  if (!profile) return null;
+
   return {
     tier: profile.tier,
     creditsRemaining: profile.creditsRemaining,
@@ -332,27 +313,49 @@ export function getUserSubscription(): UserSubscription {
 
 export function hasEnoughCredits(requiredCredits: number): boolean {
   const profile = getCurrentUserProfile();
-  if (profile.isBlocked) return false;
+  if (!profile || profile.isBlocked) return false;
   return profile.creditsRemaining >= requiredCredits;
 }
 
 export function deductUserCredits(amount: number, reason = 'image_generation'): boolean {
   const profile = getCurrentUserProfile();
-  if (profile.isBlocked || profile.creditsRemaining < amount) {
+  if (!profile || profile.isBlocked || profile.creditsRemaining < amount) {
     return false;
   }
   profile.creditsRemaining = Math.max(0, profile.creditsRemaining - amount);
   profile.creditsUsed += amount;
-  updateCurrentUserProfile(profile);
+  setActiveUserProfile(profile);
   console.log(`[Subscription] Deducted ${amount} credits for "${reason}". Remaining: ${profile.creditsRemaining}`);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('subscription_credits_updated', {
+      detail: { creditsRemaining: profile.creditsRemaining, creditsUsed: profile.creditsUsed },
+    }));
+  }
+
+  if (isSupabaseConfigured() && profile.id && profile.id !== 'guest') {
+    deductCreditsRemote(profile.id, amount).catch(console.error);
+  }
+
   return true;
 }
 
 export function grantUserCredits(amount: number, reason = 'credit_grant'): void {
   const profile = getCurrentUserProfile();
+  if (!profile) return;
   profile.creditsRemaining += amount;
-  updateCurrentUserProfile(profile);
+  setActiveUserProfile(profile);
   console.log(`[Subscription] Granted ${amount} credits ("${reason}"). New balance: ${profile.creditsRemaining}`);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('subscription_credits_updated', {
+      detail: { creditsRemaining: profile.creditsRemaining, creditsUsed: profile.creditsUsed },
+    }));
+  }
+
+  if (isSupabaseConfigured() && profile.id && profile.id !== 'guest') {
+    grantCreditsRemote(profile.id, amount).catch(console.error);
+  }
 }
 
 // ─── Promo Codes ────────────────────────────────────────────────────────────
@@ -537,15 +540,17 @@ export function approvePaymentRequest(submissionId: string, adminNote?: string):
   const users = getAllUsers();
   const targetUser = users.find((u) => u.id === sub.userId) || getCurrentUserProfile();
 
-  if (sub.itemType === 'subscription' && sub.planId) {
-    targetUser.tier = sub.planId;
-    targetUser.creditsRemaining += sub.creditsToGrant;
-    targetUser.totalSpentBDT += sub.discountedPriceBDT;
-  } else if (sub.itemType === 'topup') {
-    targetUser.creditsRemaining += sub.creditsToGrant;
-    targetUser.totalSpentBDT += sub.discountedPriceBDT;
+  if (targetUser) {
+    if (sub.itemType === 'subscription' && sub.planId) {
+      targetUser.tier = sub.planId;
+      targetUser.creditsRemaining += sub.creditsToGrant;
+      targetUser.totalSpentBDT += sub.discountedPriceBDT;
+    } else if (sub.itemType === 'topup') {
+      targetUser.creditsRemaining += sub.creditsToGrant;
+      targetUser.totalSpentBDT += sub.discountedPriceBDT;
+    }
+    updateCurrentUserProfile(targetUser);
   }
-  updateCurrentUserProfile(targetUser);
 
   // If promo code belonged to an affiliate/referral, credit their pending earnings!
   if (sub.promoCodeApplied) {
@@ -588,10 +593,10 @@ export function getWhatsAppVerificationUrl(
   const rawNumber = settings.whatsappNumber.replace(/[^0-9]/g, '');
   const text = encodeURIComponent(
     `Hello Admin! I have sent ৳${amountBDT} via bKash/Nagad.\n` +
-      `Phone Number: ${senderPhone}\n` +
-      `Item: ${itemName}\n` +
-      `My Account Email: ${userEmail}\n` +
-      `Please verify and approve my credits/subscription!`
+    `Phone Number: ${senderPhone}\n` +
+    `Item: ${itemName}\n` +
+    `My Account Email: ${userEmail}\n` +
+    `Please verify and approve my credits/subscription!`
   );
   return `https://wa.me/${rawNumber}?text=${text}`;
 }

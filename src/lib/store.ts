@@ -34,8 +34,10 @@ function storeSet(key: string, value: unknown): void {
 
 // ─── API Key & Settings Accessors ─────────────────────────────────────────────
 
+let cachedEnvPollinationsKey: string | null = null;
+
 export async function getApiKey(): Promise<string> {
-  return storeGet<string>('pollinations-api-key') || '';
+  return getPollinationsApiKey();
 }
 
 export async function saveApiKey(apiKey: string): Promise<void> {
@@ -43,6 +45,29 @@ export async function saveApiKey(apiKey: string): Promise<void> {
 }
 
 export async function getPollinationsApiKey(): Promise<string> {
+  if (typeof process !== 'undefined' && process.env?.POLLINATIONS_API_KEY) {
+    return process.env.POLLINATIONS_API_KEY.trim();
+  }
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_POLLINATIONS_API_KEY) {
+    return process.env.NEXT_PUBLIC_POLLINATIONS_API_KEY.trim();
+  }
+  if (cachedEnvPollinationsKey !== null) {
+    return cachedEnvPollinationsKey;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/pollinations-key');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.key) {
+          cachedEnvPollinationsKey = data.key;
+          return data.key;
+        }
+      }
+    } catch {
+      // fallback
+    }
+  }
   return storeGet<string>('pollinations-api-key') || '';
 }
 

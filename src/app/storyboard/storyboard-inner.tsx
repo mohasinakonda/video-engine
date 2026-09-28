@@ -38,7 +38,7 @@ import { extractScenes } from '@/lib/gemini';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
 import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
-import { hasEnoughCredits, deductUserCredits } from '@/lib/subscription-store';
+import { hasEnoughCredits, deductUserCredits, grantUserCredits } from '@/lib/subscription-store';
 import type {
   ProjectManifest,
   SceneItem,
@@ -113,6 +113,9 @@ export default function StoryboardInner() {
   const projectRef = useRef<ProjectManifest | null>(null);
   const presetRef = useRef<BaseStylePreset | null>(null);
 
+  // In-flight guard to prevent duplicate or rapid clicks on scenes
+  const generatingSceneIdsRef = useRef<Set<number>>(new Set());
+
   // ─── Step 2: Generate Images ─────────────────────────────────────────────
 
   const handleGenerateImages = useCallback(async (currentScenes: SceneItem[]) => {
@@ -121,6 +124,14 @@ export default function StoryboardInner() {
 
     if (!hasEnoughCredits(pendingScenes.length)) {
       setRequiredCreditsNeeded(pendingScenes.length);
+      setCreditModalOpen(true);
+      return;
+    }
+
+    const totalCount = pendingScenes.length;
+    const deducted = deductUserCredits(totalCount, `Batch generate ${totalCount} scenes`);
+    if (!deducted) {
+      setRequiredCreditsNeeded(totalCount);
       setCreditModalOpen(true);
       return;
     }
@@ -145,9 +156,6 @@ export default function StoryboardInner() {
       concurrency: 3,
       callbacks: {
         onSceneUpdate: (sceneId, update) => {
-          if (update.status === 'IMAGE_READY') {
-            deductUserCredits(1, `Scene ${sceneId} generation`);
-          }
           setScenes((prev) => {
             const next = prev.map((s) =>
               s.sceneId === sceneId ? { ...s, ...update } : s
@@ -166,6 +174,7 @@ export default function StoryboardInner() {
         },
         onError: (sceneId, error) => {
           console.warn(`Scene ${sceneId} failed:`, error);
+          grantUserCredits(1, `Refund: Scene ${sceneId} batch generation failed`);
         },
         onPause: (reason, resumeInMs) => {
           setPauseMsg(`${reason} — resuming in ${resumeInMs / 1000}s`);
@@ -500,23 +509,41 @@ export default function StoryboardInner() {
     setGeneratingImages(false);
     setGeneratingMotion(false);
     setPauseMsg('');
-    setScenes((prev) =>
-      prev.map((s) => {
+    setScenes((prev) => {
+      const cancelledCount = prev.filter((s) => s.status === 'GENERATING_IMAGE').length;
+      if (cancelledCount > 0) {
+        grantUserCredits(cancelledCount, `Refund: Batch generation stopped (${cancelledCount} scenes)`);
+      }
+      return prev.map((s) => {
         if (s.status === 'GENERATING_IMAGE') return { ...s, status: 'PENDING' as const };
         if (s.status === 'GENERATING_MOTION') return { ...s, status: 'IMAGE_READY' as const };
         return s;
-      })
-    );
+      });
+    });
   }
 
   // ─── Per-scene actions ────────────────────────────────────────────────────
 
   async function handleRegenerate(scene: SceneItem, newPrompt?: string) {
+    if (generatingSceneIdsRef.current.has(scene.sceneId)) {
+      console.warn(`[Storyboard] Scene ${scene.sceneId} is already generating.`);
+      return;
+    }
+
     if (!hasEnoughCredits(1)) {
       setRequiredCreditsNeeded(1);
       setCreditModalOpen(true);
       return;
     }
+
+    const deducted = deductUserCredits(1, `Scene ${scene.sceneId} regenerate`);
+    if (!deducted) {
+      setRequiredCreditsNeeded(1);
+      setCreditModalOpen(true);
+      return;
+    }
+
+    generatingSceneIdsRef.current.add(scene.sceneId);
 
     const apiKey = (await getPollinationsApiKey()) || '';
     const chosenModel = await getPollinationsImageModel();
@@ -534,29 +561,43 @@ export default function StoryboardInner() {
 
     if (!imageQueueRef.current) imageQueueRef.current = new ImageQueue();
 
-    await imageQueueRef.current.retryScene(targetScene, {
-      apiKey,
-      projectId,
-      model: chosenModel,
-      stylePrompt: preset?.stylePrompt,
-      negativePrompt: preset?.negativePrompt,
-      aspectRatio: preset?.aspectRatio,
-      callbacks: {
-        onSceneUpdate: (sceneId, update) => {
-          if (update.status === 'IMAGE_READY') {
-            deductUserCredits(1, `Scene ${scene.sceneId} regenerate`);
-          }
-          setScenes((prev) => {
-            const next = prev.map((s) => s.sceneId === sceneId ? { ...s, ...update } : s);
-            persistScenes(next);
-            return next;
-          });
+    let completedSuccessfully = false;
+
+    try {
+      await imageQueueRef.current.retryScene(targetScene, {
+        apiKey,
+        projectId,
+        model: chosenModel,
+        stylePrompt: preset?.stylePrompt,
+        negativePrompt: preset?.negativePrompt,
+        aspectRatio: preset?.aspectRatio,
+        callbacks: {
+          onSceneUpdate: (sceneId, update) => {
+            if (update.status === 'IMAGE_READY') {
+              completedSuccessfully = true;
+            }
+            setScenes((prev) => {
+              const next = prev.map((s) => s.sceneId === sceneId ? { ...s, ...update } : s);
+              persistScenes(next);
+              return next;
+            });
+          },
+          onComplete: () => {},
+          onError: (sceneId, err) => {
+            console.error(`[Storyboard] Scene ${sceneId} regenerate error:`, err);
+            grantUserCredits(1, `Refund: Scene ${sceneId} regenerate failed`);
+          },
+          onPause: () => {},
         },
-        onComplete: () => {},
-        onError: () => {},
-        onPause: () => {},
-      },
-    });
+      });
+    } catch (err) {
+      console.error(`[Storyboard] retryScene error for scene ${scene.sceneId}:`, err);
+      if (!completedSuccessfully) {
+        grantUserCredits(1, `Refund: Scene ${scene.sceneId} exception`);
+      }
+    } finally {
+      generatingSceneIdsRef.current.delete(scene.sceneId);
+    }
   }
 
   async function handleAddScene() {

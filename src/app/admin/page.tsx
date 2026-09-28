@@ -21,6 +21,8 @@ import {
   AlertCircle,
   Copy,
   ChevronDown,
+  Database,
+  Loader2,
 } from 'lucide-react';
 import {
   getAllPaymentSubmissions,
@@ -64,12 +66,50 @@ export default function AdminHubPage() {
   // Quick Credit Adjustment State
   const [creditAdjustmentAmount, setCreditAdjustmentAmount] = useState(100);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLiveSupabase, setIsLiveSupabase] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const refreshData = () => {
-    setAnalytics(getRevenueAnalytics());
-    setSubmissions(getAllPaymentSubmissions());
-    setPromoCodes(getAllPromoCodes());
-    setUserSub(getUserSubscription());
+  const refreshData = async () => {
+    setIsLoading(true);
+    try {
+      // 1. Fetch payments & revenue analytics
+      const payRes = await fetch('/api/admin/payments');
+      if (payRes.ok) {
+        const payData = await payRes.json();
+        if (payData.success) {
+          setSubmissions(payData.payments || []);
+          setAnalytics(payData.analytics || null);
+          setIsLiveSupabase(!!payData.isLiveSupabase);
+        } else {
+          setAnalytics(getRevenueAnalytics());
+          setSubmissions(getAllPaymentSubmissions());
+        }
+      } else {
+        setAnalytics(getRevenueAnalytics());
+        setSubmissions(getAllPaymentSubmissions());
+      }
+
+      // 2. Fetch promo codes
+      const promoRes = await fetch('/api/admin/promos');
+      if (promoRes.ok) {
+        const promoData = await promoRes.json();
+        if (promoData.success && promoData.promos) {
+          setPromoCodes(promoData.promos);
+        } else {
+          setPromoCodes(getAllPromoCodes());
+        }
+      } else {
+        setPromoCodes(getAllPromoCodes());
+      }
+    } catch (err) {
+      console.warn('Error fetching admin data, using local fallback:', err);
+      setAnalytics(getRevenueAnalytics());
+      setSubmissions(getAllPaymentSubmissions());
+      setPromoCodes(getAllPromoCodes());
+    } finally {
+      setUserSub(getUserSubscription());
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -87,25 +127,65 @@ export default function AdminHubPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleApprove = (submissionId: string) => {
+  const handleApprove = async (submissionId: string) => {
+    try {
+      const res = await fetch('/api/admin/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve', submissionId, adminNote: 'Approved by admin' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        approvePaymentRequest(submissionId, 'Approved by admin');
+        showToast(
+          data.remoteUpdated
+            ? 'Payment approved! Supabase database updated & user credited.'
+            : 'Payment approved! Account updated.'
+        );
+        refreshData();
+        return;
+      }
+    } catch (err) {
+      console.warn('Remote approve failed, applying fallback:', err);
+    }
+
     const ok = approvePaymentRequest(submissionId, 'Approved by admin');
     if (ok) {
-      showToast('Payment approved! Credits/Subscription granted to user.');
+      showToast('Payment approved in local store.');
       refreshData();
     }
   };
 
-  const handleReject = (submissionId: string) => {
-    const reason = prompt('Enter rejection reason (e.g. Invalid TrxID or amount mismatch):');
+  const handleReject = async (submissionId: string) => {
+    const reason = prompt('Enter rejection reason (e.g. Invalid sender number, TrxID mismatch, or unpaid):');
     if (reason === null) return;
-    const ok = rejectPaymentRequest(submissionId, reason || 'Transaction could not be verified.');
+    const finalReason = reason.trim() || 'Transaction could not be verified.';
+
+    try {
+      const res = await fetch('/api/admin/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', submissionId, adminNote: finalReason }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        rejectPaymentRequest(submissionId, finalReason);
+        showToast('Payment marked as rejected in database.');
+        refreshData();
+        return;
+      }
+    } catch (err) {
+      console.warn('Remote reject failed, applying fallback:', err);
+    }
+
+    const ok = rejectPaymentRequest(submissionId, finalReason);
     if (ok) {
       showToast('Payment submission marked as rejected.');
       refreshData();
     }
   };
 
-  const handleCreatePromo = (e: React.FormEvent) => {
+  const handleCreatePromo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPromoCode.trim()) return;
 
@@ -121,6 +201,16 @@ export default function AdminHubPage() {
       isActive: true,
     };
 
+    try {
+      await fetch('/api/admin/promos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(code),
+      });
+    } catch (err) {
+      console.warn('Remote promo creation failed:', err);
+    }
+
     createNewPromoCode(code);
     setPromoModalOpen(false);
     setNewPromoCode('');
@@ -129,12 +219,22 @@ export default function AdminHubPage() {
     refreshData();
   };
 
-  const handleDeletePromo = (code: string) => {
-    if (confirm(`Are you sure you want to delete promo code "${code}"?`)) {
-      deletePromoCode(code);
-      showToast(`Promo code "${code}" removed.`);
-      refreshData();
+  const handleDeletePromo = async (code: string) => {
+    if (!confirm(`Are you sure you want to delete promo code "${code}"?`)) return;
+
+    try {
+      await fetch('/api/admin/promos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+    } catch (err) {
+      console.warn('Remote promo deletion failed:', err);
     }
+
+    deletePromoCode(code);
+    showToast(`Promo code "${code}" removed.`);
+    refreshData();
   };
 
   const handleGrantCredits = (amount: number) => {
@@ -154,22 +254,35 @@ export default function AdminHubPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <ShieldCheck size={20} />
+            <div className="flex items-center gap-3">
+              <span className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <ShieldCheck size={22} />
               </span>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  Admin Monetization & Revenue Hub
-                </h1>
-                <p className="text-xs text-zinc-400">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                    Admin Monetization & Revenue Hub
+                  </h1>
+                  {isLiveSupabase ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      Supabase Database Live
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />
+                      Local Storage Mode
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">
                   Manage manual bKash/Nagad/Bank payments, promo codes, and credit quotas
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Link
               href="/admin/plan"
               className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-semibold text-emerald-400 transition-colors"
@@ -190,9 +303,10 @@ export default function AdminHubPage() {
             </Link>
             <button
               onClick={refreshData}
-              className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              disabled={isLoading}
+              className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               Refresh
             </button>
           </div>
@@ -273,11 +387,10 @@ export default function AdminHubPage() {
                 <button
                   key={filter}
                   onClick={() => setStatusFilter(filter)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                    statusFilter === filter
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === filter
                       ? 'bg-zinc-100 text-zinc-950 font-bold'
                       : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
-                  }`}
+                    }`}
                 >
                   {filter}
                 </button>
@@ -359,13 +472,12 @@ export default function AdminHubPage() {
                         </td>
                         <td className="py-3.5 px-4">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              sub.status === 'APPROVED'
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${sub.status === 'APPROVED'
                                 ? 'bg-emerald-500/20 text-emerald-400'
                                 : sub.status === 'REJECTED'
-                                ? 'bg-rose-500/20 text-rose-400'
-                                : 'bg-amber-500/20 text-amber-400 animate-pulse'
-                            }`}
+                                  ? 'bg-rose-500/20 text-rose-400'
+                                  : 'bg-amber-500/20 text-amber-400 animate-pulse'
+                              }`}
                           >
                             {sub.status}
                           </span>
@@ -449,8 +561,8 @@ export default function AdminHubPage() {
                       {promo.type === 'PERCENTAGE'
                         ? `${promo.discountValue}% OFF`
                         : promo.type === 'FIXED'
-                        ? `৳${promo.discountValue} OFF`
-                        : `+${promo.bonusCredits} Bonus Credits`}
+                          ? `৳${promo.discountValue} OFF`
+                          : `+${promo.bonusCredits} Bonus Credits`}
                     </span>
                     <span className="text-zinc-400">
                       Used: <strong className="text-white">{promo.currentUses}</strong> / {promo.maxUses}
@@ -462,9 +574,8 @@ export default function AdminHubPage() {
                       {isExpired ? 'Expired' : `Expires in ${Math.round((promo.validUntil - Date.now()) / (24 * 3600 * 1000))} days`}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        promo.isActive && !isExpired ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 bg-zinc-800'
-                      }`}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${promo.isActive && !isExpired ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 bg-zinc-800'
+                        }`}
                     >
                       {promo.isActive && !isExpired ? 'ACTIVE' : 'INACTIVE'}
                     </span>
