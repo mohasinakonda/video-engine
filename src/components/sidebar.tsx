@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Video,
   Mic2,
@@ -16,8 +16,10 @@ import {
   LayoutDashboard,
   Users,
   TrendingUp,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { signOutUser } from '@/lib/supabase-service';
 
 const navItems = [
   { href: '/', label: 'Projects', icon: Video },
@@ -30,8 +32,21 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, subscription: sub, isAdmin, isLoading } = useAuth();
   const isLoggedIn = !!user;
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOutUser();
+      router.push('/');
+      router.refresh();
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   // Extract project ID from routes for context nav
   const storyboardMatch = pathname.startsWith('/storyboard');
@@ -44,7 +59,7 @@ export default function Sidebar() {
     : 0;
 
   return (
-    <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border min-h-screen sticky top-0 h-screen overflow-y-auto z-30">
+    <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border h-full sticky top-0 self-start overflow-y-auto z-30">
       {/* Logo */}
       <div className="px-5 py-5 border-b border-bg-border">
         <div className="flex items-center gap-2.5">
@@ -227,6 +242,53 @@ export default function Sidebar() {
           )}
         </div>
       </div>
+
+      {/* User Profile & Sign Out Footer */}
+      {isLoggedIn && user && (
+        <div className="p-3 pt-0">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-zinc-900/80 border border-zinc-800/80 hover:border-zinc-700/80 transition-all">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2.5 min-w-0 flex-1 group"
+              title="Dashboard"
+            >
+              {user.user_metadata?.avatar_url ? (
+                <img
+                  src={user.user_metadata.avatar_url}
+                  alt={user.user_metadata?.full_name || 'User'}
+                  className="w-7 h-7 rounded-full object-cover border border-zinc-700/80 group-hover:border-zinc-500 transition-colors shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyan-500/30 text-cyan-300 flex items-center justify-center text-xs font-bold font-mono shrink-0">
+                  {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0 flex-1 text-left">
+                <p className="text-xs font-medium text-zinc-200 truncate group-hover:text-white transition-colors leading-tight">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                </p>
+                <p className="text-[10px] text-zinc-500 truncate leading-tight mt-0.5">
+                  {user.email}
+                </p>
+              </div>
+            </Link>
+
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-1 disabled:opacity-50 shrink-0"
+              title="Sign Out"
+            >
+              {signingOut ? (
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-rose-400 border-t-transparent animate-spin" />
+              ) : (
+                <LogOut size={14} />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

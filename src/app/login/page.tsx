@@ -29,15 +29,13 @@ export default function LoginPage() {
 
     if (!supabaseConfigured) {
       // Demo mode fallback when Supabase keys are not yet pasted
-      setTimeout(() => {
-        setLoading(false);
-        router.push('/dashboard');
-      }, 700);
+      setLoading(false);
+      router.push('/project/new');
       return;
     }
 
     try {
-      await signInWithGoogle(`${window.location.origin}/auth/callback?next=/dashboard`);
+      await signInWithGoogle(`${window.location.origin}/auth/callback?next=/project/new`);
     } catch (err: unknown) {
       setErrorMsg((err as Error).message || 'Failed to initialize Google Login');
       setLoading(false);

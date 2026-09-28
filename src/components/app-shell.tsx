@@ -19,11 +19,11 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-bg-base">
+    <div className="flex h-screen w-full bg-bg-base overflow-hidden">
       <Sidebar />
-      <div className="flex-1 min-w-0 flex flex-col overflow-y-auto">
+      <main className="flex-1 min-w-0 flex flex-col h-full overflow-y-auto">
         {children}
-      </div>
+      </main>
     </div>
   );
 }
