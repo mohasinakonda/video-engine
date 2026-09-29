@@ -156,7 +156,7 @@ export default function StoryboardInner() {
       scenes: scenesToProcess,
       stylePrompt: preset?.stylePrompt,
       negativePrompt: preset?.negativePrompt,
-      aspectRatio: preset?.aspectRatio,
+      aspectRatio: projectRef.current?.aspectRatio || preset?.aspectRatio || '16:9',
       model: chosenModel,
       concurrency: 3,
       callbacks: {
@@ -580,7 +580,7 @@ export default function StoryboardInner() {
         model: chosenModel,
         stylePrompt: preset?.stylePrompt,
         negativePrompt: preset?.negativePrompt,
-        aspectRatio: preset?.aspectRatio,
+        aspectRatio: projectRef.current?.aspectRatio || preset?.aspectRatio || '16:9',
         callbacks: {
           onSceneUpdate: (sceneId, update) => {
             if (update.status === 'IMAGE_READY') {
@@ -917,7 +917,7 @@ export default function StoryboardInner() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-white truncate">{stylePreset.name}</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">{stylePreset.aspectRatio}</p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">{project?.aspectRatio || stylePreset.aspectRatio}</p>
                       </div>
                       <Palette size={12} className="text-zinc-400 group-hover:text-white transition-colors flex-shrink-0 mt-0.5" />
                     </div>
@@ -1102,6 +1102,7 @@ export default function StoryboardInner() {
 
             <StoryboardGrid
               scenes={scenes}
+              aspectRatio={project?.aspectRatio || stylePreset?.aspectRatio || '16:9'}
               stylePrompt={stylePreset?.stylePrompt}
               onRegenerate={handleRegenerate}
               onUpload={handleUpload}

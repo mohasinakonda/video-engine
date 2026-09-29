@@ -579,8 +579,9 @@ export async function generateSceneImage(
   // MANDATORY MINIMUM RESOLUTION: Full HD (1920x1080 landscape, or 1080x1920 vertical)
   // Never generate images below 1920x1080.
   const isVertical = options?.aspectRatio === '9:16';
-  const minWidth = isVertical ? 1080 : 1920;
-  const minHeight = isVertical ? 1920 : 1080;
+  const isSquare = options?.aspectRatio === '1:1';
+  const minWidth = isVertical ? 1080 : isSquare ? 1080 : 1920;
+  const minHeight = isVertical ? 1920 : isSquare ? 1080 : 1080;
   const width = Math.max(minWidth, options?.width || minWidth);
   const height = Math.max(minHeight, options?.height || minHeight);
   const nologo = options?.nologo !== false;
@@ -1180,4 +1181,153 @@ ${JSON.stringify(
   }
 
   return results;
+}
+
+// ─── 8. enhanceScenePrompt ───────────────────────────────────────────────────
+
+export interface EnhancedScenePromptResult {
+  visual_prompt: string;
+  b_roll_focus: string;
+  shot_type: ShotType;
+  lighting?: string;
+  camera?: string;
+}
+
+/**
+ * enhanceScenePrompt
+ * Elevates any simple user scene draft, idea, or narration sentence into
+ * a studio-grade, cinematographically directed 60-110 word visual prompt.
+ */
+export async function enhanceScenePrompt(
+  rawText: string,
+  options?: {
+    shotType?: ShotType;
+    stylePrompt?: string;
+    lightingModifier?: string;
+    cameraLens?: string;
+    apiKey?: string;
+  }
+): Promise<EnhancedScenePromptResult> {
+  const text = (rawText || "").trim();
+  if (!text) {
+    throw new Error("Prompt to enhance cannot be empty.");
+  }
+
+  const VALID_SHOT_TYPES: ShotType[] = [
+    'AERIAL_GEOMETRY',
+    'MACRO_TEXTURE',
+    'CULTURAL_HUMAN',
+    'HISTORICAL_HERITAGE',
+    'ATMOSPHERIC_MOOD',
+    'WIDE_ESTABLISHING',
+  ];
+
+  const defaultShot: ShotType = options?.shotType && VALID_SHOT_TYPES.includes(options.shotType)
+    ? options.shotType
+    : 'WIDE_ESTABLISHING';
+
+  const cameraPref = options?.cameraLens || "35mm anamorphic cinema lens, shallow depth-of-field";
+  const lightingPref = options?.lightingModifier || "cinematic golden hour with soft volumetric rim light";
+  const styleMandate = options?.stylePrompt ? `Project Base Style: "${options.stylePrompt.slice(0, 180)}"` : "Style: Photorealistic 8k, masterwork documentary cinematography";
+
+  const aiClient = getPollinationsClient(options?.apiKey);
+
+  const systemInstruction = `You are a world-class Hollywood cinematographer and elite AI prompt engineer for FLUX.1.
+Your task is to take a simple narrative scene concept and expand it into a studio-grade, 60-100 word visual prompt.
+
+DIRECTORIAL RULES:
+1. FOCAL SUBJECT & ACTION: Explicitly describe the focal subject, physical pose, posture, and spatial composition (rule of thirds).
+2. CAMERA & OPTICS: Integrate camera perspective (${cameraPref}).
+3. LIGHTING & COLOR: Integrate natural, atmospheric lighting (${lightingPref}).
+4. TACTILE TEXTURES: Include concrete surface details (weathered textures, water reflections, particles, natural grain).
+5. AVOID CLICHÉS: Do NOT say "This is an image of...". Jump straight into the sensory scene description.
+6. ${styleMandate}
+
+Output format: Return ONLY a valid JSON object matching:
+{
+  "visual_prompt": "string (60-100 words detailed studio prompt)",
+  "b_roll_focus": "string (3-5 words summarizing focal motif)",
+  "shot_type": "string (one of AERIAL_GEOMETRY, MACRO_TEXTURE, CULTURAL_HUMAN, HISTORICAL_HERITAGE, ATMOSPHERIC_MOOD, WIDE_ESTABLISHING)",
+  "lighting": "string (brief summary of lighting)",
+  "camera": "string (brief summary of camera angle)"
+}`;
+
+  const userPrompt = `Scene idea to enhance:\n"${text}"\nTarget Shot Type: ${defaultShot}`;
+
+  try {
+    const response = await aiClient.chat.completions.create({
+      model: "openai",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.45,
+    });
+
+    const content = response.choices[0]?.message?.content || "";
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    const cleaned = jsonMatch ? jsonMatch[1].trim() : content.trim();
+    const parsed = JSON.parse(cleaned);
+
+    if (parsed && typeof parsed.visual_prompt === "string" && parsed.visual_prompt.trim().length > 0) {
+      const shotRaw = (parsed.shot_type || defaultShot) as ShotType;
+      const shot_type = VALID_SHOT_TYPES.includes(shotRaw) ? shotRaw : defaultShot;
+
+      return {
+        visual_prompt: parsed.visual_prompt.trim(),
+        b_roll_focus: parsed.b_roll_focus?.trim() || defaultShot.replace('_', ' ').toLowerCase(),
+        shot_type,
+        lighting: parsed.lighting?.trim() || lightingPref,
+        camera: parsed.camera?.trim() || cameraPref,
+      };
+    }
+  } catch (err) {
+    console.warn("enhanceScenePrompt AI completion error, falling back to algorithmic enhancement:", err);
+  }
+
+  // Algorithmic Directorial Enhancement Fallback
+  const cleanSnippet = text.replace(/^(this is a|photo of|scene of|image of)\s+/i, '').slice(0, 140).trim();
+  const shotDetails: Record<ShotType, { camera: string; mood: string; focus: string }> = {
+    AERIAL_GEOMETRY: {
+      camera: "Top-down 90-degree bird's-eye drone vantage point, geometric framing",
+      mood: "Crisp overhead natural light revealing topographic contours and sweeping scale",
+      focus: "Overhead Drone Geometry",
+    },
+    MACRO_TEXTURE: {
+      camera: "Extreme 100mm macro close-up with razor-thin depth of field and creamy bokeh",
+      mood: "Subtle side-lit specular highlights accentuating microscopic surface tactile ridges",
+      focus: "Tactile Macro Details",
+    },
+    CULTURAL_HUMAN: {
+      camera: "Eye-level 50mm documentary portrait lens, intimate natural framing",
+      mood: "Warm ambient lantern glow and soft directional key light highlighting authentic emotion",
+      focus: "Authentic Human Narrative",
+    },
+    HISTORICAL_HERITAGE: {
+      camera: "Low-angle 28mm architectural perspective conveying monumental presence",
+      mood: "Chiaroscuro raking sunlight cutting across weathered stone patina and ancient relief",
+      focus: "Monumental Heritage Relic",
+    },
+    ATMOSPHERIC_MOOD: {
+      camera: "35mm anamorphic cinematic wide shot, atmospheric depth haze",
+      mood: "Moody volumetric god-rays piercing through dense twilight mist, cool desaturated tones",
+      focus: "Atmospheric Weather Mood",
+    },
+    WIDE_ESTABLISHING: {
+      camera: "Sweeping panoramic 24mm wide vista, balanced rule-of-thirds composition",
+      mood: "Luminous golden hour sunset with rich horizon gradients and long dramatic shadows",
+      focus: "Cinematic Vista",
+    },
+  };
+
+  const shot = shotDetails[defaultShot] || shotDetails.WIDE_ESTABLISHING;
+  const enhancedVisual = `${shot.camera}, capturing ${cleanSnippet}. ${lightingPref || shot.mood}, rich environmental textures, fine particulate depth, photorealistic 8k masterpiece, color graded film grain.`;
+
+  return {
+    visual_prompt: enhancedVisual,
+    b_roll_focus: shot.focus,
+    shot_type: defaultShot,
+    lighting: lightingPref || shot.mood,
+    camera: cameraPref || shot.camera,
+  };
 }

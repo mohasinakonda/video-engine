@@ -111,11 +111,26 @@ export class ExportEngine {
       ? new AudioContextClass({ sampleRate: 44100 })
       : null;
 
-    if (audioContext && audioChunks.length > 0) {
+    let effectiveChunks = [...audioChunks];
+    if (effectiveChunks.length === 0) {
+      // Fallback: check if custom uploaded voice exists in IndexedDB
+      const customBlob = await getMediaBlob(`audio_${projectId}_0`);
+      if (customBlob) {
+        effectiveChunks = [{
+          index: 0,
+          text: 'Uploaded Voice',
+          filePath: `projects/${projectId}/audio/custom_voice.mp3`,
+          durationMs: 0,
+          status: 'COMPLETED',
+        }];
+      }
+    }
+
+    if (audioContext && effectiveChunks.length > 0) {
       try {
         const decodedBuffers: AudioBuffer[] = [];
-        for (let i = 0; i < audioChunks.length; i++) {
-          const chunk = audioChunks[i];
+        for (let i = 0; i < effectiveChunks.length; i++) {
+          const chunk = effectiveChunks[i];
           const chunkIdx = chunk.index !== undefined ? chunk.index : i;
           let arrayBuffer: ArrayBuffer | null = null;
 
@@ -162,6 +177,57 @@ export class ExportEngine {
       }
     }
 
+    // ─── Step 1.5: Decode & Mix Background Music (BGM) ──────────────────────────
+    if (audioContext && settings.bgmFilePath) {
+      try {
+        const bgmRes = await fetch(settings.bgmFilePath);
+        if (bgmRes.ok) {
+          const bgmArrayBuf = await bgmRes.arrayBuffer();
+          const bgmBuffer = await audioContext.decodeAudioData(bgmArrayBuf.slice(0));
+          const bgmVolume = typeof settings.bgmVolume === 'number' ? settings.bgmVolume : 0.15;
+          const enableDucking = settings.enableAutoDucking !== false;
+
+          if (masterAudioBuffer) {
+            // Mix BGM into existing voiceover track with ducking
+            const voiceLeft = masterAudioBuffer.getChannelData(0);
+            const voiceRight = masterAudioBuffer.numberOfChannels > 1 ? masterAudioBuffer.getChannelData(1) : voiceLeft;
+            const bgmLeft = bgmBuffer.getChannelData(0);
+            const bgmRight = bgmBuffer.numberOfChannels > 1 ? bgmBuffer.getChannelData(1) : bgmLeft;
+
+            for (let s = 0; s < masterAudioBuffer.length; s++) {
+              const bgmIdx = s % bgmBuffer.length;
+              const voiceAmp = Math.max(Math.abs(voiceLeft[s]), Math.abs(voiceRight[s]));
+              // Duck BGM if voiceover is speaking
+              const duckFactor = (enableDucking && voiceAmp > 0.03) ? 0.25 : 1.0;
+              const gain = bgmVolume * duckFactor;
+
+              voiceLeft[s] = Math.max(-1, Math.min(1, voiceLeft[s] + bgmLeft[bgmIdx] * gain));
+              voiceRight[s] = Math.max(-1, Math.min(1, voiceRight[s] + bgmRight[bgmIdx] * gain));
+            }
+          } else {
+            // No voiceover track: use BGM as master audio
+            const sceneDur = scenes.length > 0 ? Math.max(...scenes.map((s) => s.audioEndSec || 0)) : 0;
+            const targetSec = sceneDur > 0 ? sceneDur : (options.totalDurationSec > 0 ? options.totalDurationSec : bgmBuffer.duration);
+            const targetSamples = Math.round(targetSec * 44100);
+            const created = audioContext.createBuffer(2, targetSamples, 44100);
+            const outL = created.getChannelData(0);
+            const outR = created.getChannelData(1);
+            const bgmL = bgmBuffer.getChannelData(0);
+            const bgmR = bgmBuffer.numberOfChannels > 1 ? bgmBuffer.getChannelData(1) : bgmL;
+
+            for (let s = 0; s < targetSamples; s++) {
+              const bgmIdx = s % bgmBuffer.length;
+              outL[s] = bgmL[bgmIdx] * bgmVolume;
+              outR[s] = bgmR[bgmIdx] * bgmVolume;
+            }
+            masterAudioBuffer = created;
+          }
+        }
+      } catch (bgmErr) {
+        console.warn('[ExportEngine] Failed to decode/mix BGM:', bgmErr);
+      }
+    }
+
     const totalAudioDuration = masterAudioBuffer ? masterAudioBuffer.duration : 0;
     const sceneMaxSec = scenes.length > 0 ? Math.max(...scenes.map((s) => s.audioEndSec || 0)) : 0;
     const durationSec = totalAudioDuration > 0
@@ -189,8 +255,16 @@ export class ExportEngine {
       width *= 2;
       height *= 2;
     } else if (settings.resolution === '720p') {
-      width = Math.round(width * 0.666);
-      height = Math.round(height * 0.666);
+      if (settings.aspectRatio === '9:16') {
+        width = 720;
+        height = 1280;
+      } else if (settings.aspectRatio === '1:1') {
+        width = 720;
+        height = 720;
+      } else {
+        width = 1280;
+        height = 720;
+      }
     }
 
     // ─── Step 2: Pre-load Scene Images into Memory ──────────────────────────────

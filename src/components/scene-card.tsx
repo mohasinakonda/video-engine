@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   RefreshCw,
   Upload,
@@ -26,10 +26,11 @@ import {
   Mountain,
   Film,
   ChevronDown,
+  Wand2,
   type LucideIcon,
 } from 'lucide-react';
 import type { SceneItem, MotionProfile, ShotType } from '@/types';
-import { generateBRollPrompt } from '@/lib/pollinations';
+import { generateBRollPrompt, enhanceScenePrompt } from '@/lib/pollinations';
 
 // ─── Motion Profile Labels ─────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ function statusLabel(status: SceneItem['status']): string {
 
 interface SceneCardProps {
   scene: SceneItem;
+  aspectRatio?: '16:9' | '9:16' | '1:1';
   stylePrompt?: string;
   onRegenerate: (scene: SceneItem, newPrompt?: string) => void;
   onUpload: (scene: SceneItem, file: File) => void;
@@ -128,7 +130,15 @@ interface SceneCardProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, onUpdateDuration, disabled }: SceneCardProps) {
+export default function SceneCard({
+  scene,
+  aspectRatio = '16:9',
+  stylePrompt,
+  onRegenerate,
+  onUpload,
+  onUpdateDuration,
+  disabled,
+}: SceneCardProps) {
   const [hovering, setHovering] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState(false);
   const [promptDraft, setPromptDraft] = useState(scene.visualPrompt);
@@ -137,7 +147,36 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
   const [previewOpen, setPreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setPromptDraft(scene.visualPrompt);
+  }, [scene.visualPrompt]);
+
   const [isSubmittingRegenerate, setIsSubmittingRegenerate] = useState(false);
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
+
+  async function handleEnhancePrompt() {
+    const textToEnhance = promptDraft.trim() || scene.narrationLine || scene.visualPrompt;
+    if (!textToEnhance || isEnhancingPrompt) return;
+    setIsEnhancingPrompt(true);
+    try {
+      const res = await enhanceScenePrompt(textToEnhance, {
+        shotType: scene.shotType,
+        stylePrompt,
+      });
+      setPromptDraft(res.visual_prompt);
+    } catch (err) {
+      console.error('Failed to enhance prompt:', err);
+    } finally {
+      setIsEnhancingPrompt(false);
+    }
+  }
+
+  function handleAppendModifier(modifierText: string) {
+    const trimmed = promptDraft.trim();
+    if (trimmed.toLowerCase().includes(modifierText.toLowerCase().slice(0, 15))) return;
+    const sep = trimmed.endsWith('.') ? ' ' : ', ';
+    setPromptDraft(`${trimmed}${sep}${modifierText}`);
+  }
 
   const isGenerating =
     scene.status === 'GENERATING_IMAGE' ||
@@ -204,9 +243,11 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
     >
       {/* Thumbnail area */}
       <div
-        className={`relative aspect-video bg-bg-elevated overflow-hidden ${scene.imageUrl ? 'cursor-pointer' : ''}`}
+        className={`relative ${
+          aspectRatio === '9:16' ? 'aspect-[9/16]' : aspectRatio === '1:1' ? 'aspect-square' : 'aspect-video'
+        } bg-bg-elevated overflow-hidden ${scene.imageUrl ? 'cursor-pointer' : ''}`}
         onClick={() => { if (scene.imageUrl && !isGenerating) setPreviewOpen(true); }}
-        title={scene.imageUrl ? 'Click to preview image in high resolution' : undefined}
+        title={scene.imageUrl ? 'Click to preview and edit image in studio modal' : undefined}
       >
         {scene.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -443,14 +484,61 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
         {/* Narration line */}
         {editingPrompt ? (
           <div className="space-y-1.5 animate-fade-in">
-            <p className="text-[9px] text-slate-500 uppercase tracking-wider">Visual Prompt</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">Visual Prompt</p>
+              <button
+                type="button"
+                onClick={handleEnhancePrompt}
+                disabled={isEnhancingPrompt}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-semibold transition-colors disabled:opacity-50"
+                title="Expand into a studio-grade cinematic prompt using AI Director"
+              >
+                {isEnhancingPrompt ? <Loader2 size={10} className="animate-spin text-cyan-400" /> : <Wand2 size={10} />}
+                <span>{isEnhancingPrompt ? 'Enhancing...' : 'Enhance with AI'}</span>
+              </button>
+            </div>
             <textarea
-              className="textarea text-[11px] h-16"
+              className="textarea text-[11px] h-20 leading-relaxed font-mono"
               value={promptDraft}
               onChange={(e) => setPromptDraft(e.target.value)}
+              placeholder="Describe scene visual details, camera optics, and lighting..."
               autoFocus
             />
-            <div className="flex gap-1.5">
+
+            {/* Quick Modifier Chips */}
+            <div className="flex items-center gap-1 flex-wrap pt-0.5">
+              <span className="text-[9px] text-slate-500">Add:</span>
+              <button
+                type="button"
+                onClick={() => handleAppendModifier('warm golden hour sunbeams, soft rim light')}
+                className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-amber-300/90 border border-zinc-800 transition-colors"
+              >
+                + Golden Hour
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAppendModifier('shot on 35mm anamorphic cinema lens, shallow depth of field')}
+                className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-cyan-300/90 border border-zinc-800 transition-colors"
+              >
+                + 35mm Lens
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAppendModifier('dramatic chiaroscuro lighting, deep shadows')}
+                className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+              >
+                + Chiaroscuro
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAppendModifier('extreme tactile macro close-up with razor-sharp surface texture')}
+                className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-900 hover:bg-zinc-800 text-emerald-300/90 border border-zinc-800 transition-colors"
+              >
+                + Macro
+              </button>
+            </div>
+
+            <div className="flex gap-1.5 pt-0.5">
               <button
                 onClick={handleRegenerate}
                 disabled={!promptDraft.trim() || isGenerating || isSubmittingRegenerate || disabled}
@@ -496,10 +584,10 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
         onChange={handleFileChange}
       />
 
-      {/* Lightbox Full Preview Modal */}
+      {/* Lightbox Full Preview & Creative Studio Modal */}
       {previewOpen && scene.imageUrl && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/85 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/90 backdrop-blur-md animate-fade-in"
           onClick={() => setPreviewOpen(false)}
         >
           <div
@@ -507,16 +595,16 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-bg-border bg-bg-elevated/80">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-bg-border bg-bg-elevated/80 flex-wrap gap-2">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-bold">
+                <span className="px-2.5 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-bold">
                   Scene #{scene.sceneId}
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
                   {timeRange} ({duration}s)
                 </span>
                 <span className="px-2 py-0.5 rounded-md bg-emerald-950/70 border border-emerald-700/50 text-emerald-300 text-[10px] font-mono font-bold">
-                  1920 × 1080 FHD
+                  {aspectRatio === '9:16' ? '1080 × 1920 · 9:16' : aspectRatio === '1:1' ? '1080 × 1080 · 1:1' : '1920 × 1080 · 16:9'}
                 </span>
                 {scene.shotType && SHOT_TYPE_CONFIG[scene.shotType] && (
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border ${SHOT_TYPE_CONFIG[scene.shotType].badgeColor}`}>
@@ -527,18 +615,22 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
                     {SHOT_TYPE_CONFIG[scene.shotType].shortLabel} B-Roll
                   </span>
                 )}
-                {scene.bRollFocus && (
-                  <span className="text-xs text-slate-300 font-medium truncate max-w-xs">
-                    · {scene.bRollFocus}
-                  </span>
-                )}
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUploadClick}
+                  className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-zinc-300 hover:text-white"
+                  title="Upload local image to replace this scene"
+                >
+                  <Upload size={13} className="text-emerald-400" />
+                  Replace Image
+                </button>
                 <a
                   href={scene.imageUrl}
                   download={`scene_${scene.sceneId}.jpg`}
                   className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
-                  title="Download full image"
+                  title="Download full resolution image"
                 >
                   <Download size={13} />
                   Download
@@ -553,27 +645,124 @@ export default function SceneCard({ scene, stylePrompt, onRegenerate, onUpload, 
               </div>
             </div>
 
-            {/* Image Preview */}
-            <div className="relative flex-1 min-h-[350px] max-h-[65vh] bg-black/95 flex items-center justify-center p-3 overflow-hidden">
-              <img
-                src={scene.imageUrl}
-                alt={`Scene ${scene.sceneId}`}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              />
-            </div>
+            {/* Modal Body: Split into Image Display & Creative Studio Panel */}
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-black/95">
+              {/* Image Display */}
+              <div className="relative flex-1 min-h-[280px] max-h-[50vh] md:max-h-[62vh] flex items-center justify-center p-4 overflow-hidden">
+                <img
+                  src={scene.imageUrl}
+                  alt={`Scene ${scene.sceneId}`}
+                  className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+                />
+                {isGenerating && (
+                  <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20">
+                    <Loader2 size={32} className="text-emerald-400 animate-spin" />
+                    <p className="text-xs font-medium text-zinc-200">Regenerating scene image with Pollinations AI…</p>
+                  </div>
+                )}
+              </div>
 
-            {/* Footer details */}
-            <div className="px-5 py-3 border-t border-bg-border bg-bg-surface space-y-1 text-left">
-              {scene.narrationLine && (
-                <p className="text-xs text-slate-300">
-                  <span className="text-slate-500 font-semibold uppercase text-[10px] mr-1.5">Narration:</span>
-                  {scene.narrationLine}
-                </p>
-              )}
-              <p className="text-xs text-slate-400">
-                <span className="text-slate-500 font-semibold uppercase text-[10px] mr-1.5">Visual Prompt:</span>
-                {scene.visualPrompt}
-              </p>
+              {/* Creative Editing Panel */}
+              <div className="w-full md:w-96 border-t md:border-t-0 md:border-l border-bg-border bg-bg-surface flex flex-col overflow-y-auto p-4 space-y-3.5">
+                {/* Narration Excerpt */}
+                {scene.narrationLine && (
+                  <div className="p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                      Narration
+                    </span>
+                    <p className="text-xs text-zinc-200 leading-relaxed italic">
+                      &ldquo;{scene.narrationLine}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                {/* Prompt Editor */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Edit2 size={11} className="text-emerald-400" />
+                      Visual Prompt
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleEnhancePrompt}
+                      disabled={isEnhancingPrompt}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                      {isEnhancingPrompt ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                      {isEnhancingPrompt ? 'Enhancing…' : 'AI Enhance'}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={promptDraft}
+                    onChange={(e) => setPromptDraft(e.target.value)}
+                    className="w-full text-xs bg-zinc-900 border border-zinc-700/80 rounded-xl p-2.5 text-zinc-200 focus:outline-none focus:border-zinc-500 transition-colors resize-none leading-relaxed"
+                    placeholder="Enter visual prompt instructions for this scene…"
+                  />
+                </div>
+
+                {/* Quick Modifiers */}
+                <div>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
+                    Quick Style Modifiers
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleAppendModifier('golden hour warm low-angle sunset illumination')}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-amber-300/90 border border-zinc-800 transition-colors"
+                    >
+                      + Golden Hour
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAppendModifier('shot on 35mm anamorphic cinema lens, shallow depth of field')}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-cyan-300/90 border border-zinc-800 transition-colors"
+                    >
+                      + 35mm Lens
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAppendModifier('dramatic chiaroscuro lighting, deep shadows')}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 transition-colors"
+                    >
+                      + Chiaroscuro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAppendModifier('extreme tactile macro close-up with razor-sharp surface texture')}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-emerald-300/90 border border-zinc-800 transition-colors"
+                    >
+                      + Macro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAppendModifier('cinematic top-down aerial drone perspective with geometric framing')}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-900 hover:bg-zinc-800 text-purple-300/90 border border-zinc-800 transition-colors"
+                    >
+                      + Drone Aerial
+                    </button>
+                  </div>
+                </div>
+
+                {/* Regenerate Action */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRegenerate({ ...scene, visualPrompt: promptDraft }, promptDraft);
+                    }}
+                    disabled={!promptDraft.trim() || isGenerating || isSubmittingRegenerate || disabled}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+                  >
+                    <RefreshCw size={12} className={isGenerating || isSubmittingRegenerate ? 'animate-spin' : ''} />
+                    <span>
+                      {isGenerating ? 'Regenerating…' : 'Regenerate Scene Image'}
+                    </span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

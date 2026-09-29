@@ -41,7 +41,7 @@ export interface ImageQueueOptions {
   scenes: SceneItem[];
   stylePrompt?: string;
   negativePrompt?: string;
-  aspectRatio?: '16:9' | '9:16';
+  aspectRatio?: '16:9' | '9:16' | '1:1';
   model?: string;
   concurrency?: number;
   forceRegenerate?: boolean;

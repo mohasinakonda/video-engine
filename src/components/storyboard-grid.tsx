@@ -9,6 +9,7 @@ import SceneCard from './scene-card';
 
 interface StoryboardGridProps {
   scenes: SceneItem[];
+  aspectRatio?: '16:9' | '9:16' | '1:1';
   stylePrompt?: string;
   onRegenerate: (scene: SceneItem, newPrompt?: string) => void;
   onUpload: (scene: SceneItem, file: File) => void;
@@ -24,6 +25,7 @@ const PAGE_SIZE = 60; // render 60 scenes at a time
 
 export default function StoryboardGrid({
   scenes,
+  aspectRatio = '16:9',
   stylePrompt,
   onRegenerate,
   onUpload,
@@ -137,6 +139,7 @@ export default function StoryboardGrid({
           <SceneCard
             key={scene.sceneId}
             scene={scene}
+            aspectRatio={aspectRatio}
             stylePrompt={stylePrompt}
             onRegenerate={onRegenerate}
             onUpload={onUpload}

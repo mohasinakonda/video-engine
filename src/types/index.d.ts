@@ -53,6 +53,8 @@ export interface ProjectManifest {
   scenes?: SceneItem[];
   /** Phase 2: the selected base style preset ID */
   baseStylePresetId?: string;
+  /** Phase 2: project-level aspect ratio */
+  aspectRatio?: '16:9' | '9:16' | '1:1';
   /** Phase 2: export configuration settings */
   exportSettings?: ExportSettings;
   /** Phase 3: relative path to the rendered final MP4 video */
@@ -130,7 +132,7 @@ export interface BaseStylePreset {
   stylePrompt: string;
   /** e.g. "cartoon, blurry, distorted faces, low resolution" */
   negativePrompt?: string;
-  aspectRatio: '16:9' | '9:16';
+  aspectRatio: '16:9' | '9:16' | '1:1';
   isDefault: boolean;
   /** True = shipped with the app, cannot be deleted */
   isBuiltIn?: boolean;

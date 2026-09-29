@@ -264,7 +264,7 @@ export default function StylePresetModal({
                 <div>
                   <label className="label">Aspect Ratio</label>
                   <div className="flex gap-2">
-                    {(['16:9', '9:16'] as const).map((ar) => (
+                    {(['16:9', '9:16', '1:1'] as const).map((ar) => (
                       <button
                         key={ar}
                         onClick={() => !editing.isBuiltIn && setEditing({ ...editing, aspectRatio: ar })}

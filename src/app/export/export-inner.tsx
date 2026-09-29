@@ -28,6 +28,10 @@ import {
   ChevronDown,
   ChevronUp,
   HardDrive,
+  Monitor,
+  Smartphone,
+  Square,
+  Sliders,
 } from 'lucide-react';
 import { getProject, saveProject } from '@/lib/store';
 import { ExportEngine } from '@/lib/export-engine';
@@ -60,13 +64,14 @@ function formatEta(seconds: number): string {
 export default function ExportInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const projectId = searchParams.get('id') ?? '';
+  const projectId = searchParams.get('id') || searchParams.get('projectId') || '';
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ProjectManifest | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Configuration options
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
   const [resolution, setResolution] = useState<ExportResolution>('1080p');
   const [encoder, setEncoder] = useState<HardwareEncoder>('auto');
   const [transitionType, setTransitionType] = useState<TransitionType>('crossfade');
@@ -115,9 +120,24 @@ export default function ExportInner() {
         router.push('/');
         return;
       }
-      // Restore audio blobs from IndexedDB
+      // Restore audio blobs from IndexedDB (check custom audio fallback if chunks empty)
+      let rawChunks = p.audioChunks || [];
+      if (rawChunks.length === 0) {
+        const customUrl = await getMediaBlobUrl(`audio_${p.projectId}_0`);
+        if (customUrl) {
+          rawChunks = [{
+            index: 0,
+            text: p.customAudioFileName || 'Uploaded Voiceover',
+            filePath: `projects/${p.projectId}/audio/custom_voice.mp3`,
+            durationMs: p.totalDurationMs || 0,
+            status: 'COMPLETED',
+            audioUrl: customUrl,
+          }];
+        }
+      }
+
       const restoredChunks = await Promise.all(
-        (p.audioChunks || []).map(async (c) => {
+        rawChunks.map(async (c) => {
           if (c.audioUrl) return c;
           const url = await getMediaBlobUrl(`audio_${p.projectId}_${c.index}`);
           return { ...c, audioUrl: url || undefined };
@@ -139,6 +159,13 @@ export default function ExportInner() {
         scenes: restoredScenes,
       };
       setProject(restoredProject);
+
+      // Restore aspect ratio from project or saved export settings
+      if (p.aspectRatio) {
+        setAspectRatio(p.aspectRatio);
+      } else if (p.exportSettings?.aspectRatio) {
+        setAspectRatio(p.exportSettings.aspectRatio);
+      }
 
       // Restore saved export settings if present
       if (p.exportSettings) {
@@ -181,7 +208,7 @@ export default function ExportInner() {
     input.click();
   }
 
-  const downloadFileName = `${project?.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${resolution}.mp4`;
+  const downloadFileName = `${project?.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${aspectRatio.replace(':', 'x')}_${resolution}.mp4`;
 
   function handleSelectOutputPath() {
     setOutputPath(downloadFileName);
@@ -208,6 +235,7 @@ export default function ExportInner() {
     const settings: ExportSettings = {
       resolution,
       encoder,
+      aspectRatio,
       bgmFilePath,
       bgmVolume,
       enableAutoDucking,
@@ -438,7 +466,9 @@ export default function ExportInner() {
 
                     {/* In-App Video Player Preview */}
                     {finalVideoUrl && (
-                      <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-black aspect-video shadow-2xl">
+                      <div className={`relative rounded-2xl overflow-hidden border border-zinc-800 bg-black shadow-2xl ${
+                        aspectRatio === '9:16' ? 'aspect-[9/16] max-h-[500px] mx-auto' : aspectRatio === '1:1' ? 'aspect-square max-h-[420px] mx-auto' : 'aspect-video'
+                      }`}>
                         <video
                           key={finalVideoUrl}
                           src={finalVideoUrl}
@@ -513,7 +543,64 @@ export default function ExportInner() {
                 {/* Left (2 cols): Settings Form */}
                 <div className="md:col-span-2 space-y-6">
 
-                  {/* 1. Resolution Profile */}
+                  {/* 1. Aspect Ratio Format */}
+                  <div className="card space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sliders size={15} className="text-blue-400" />
+                        <h2 className="text-xs font-bold text-white uppercase tracking-wider">Video Aspect Ratio</h2>
+                      </div>
+                      <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
+                        {aspectRatio === '16:9' ? '1920 × 1080 (Landscape)' : aspectRatio === '9:16' ? '1080 × 1920 (Vertical)' : '1080 × 1080 (Square)'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setAspectRatio('16:9')}
+                        className={`p-3 rounded-xl border text-center transition-all ${
+                          aspectRatio === '16:9'
+                            ? 'bg-zinc-800 border-white/40 text-white shadow-md'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <Monitor size={18} className="mx-auto mb-1.5" />
+                        <p className="text-xs font-bold">16:9 Landscape</p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">YouTube / Desktop</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAspectRatio('9:16')}
+                        className={`p-3 rounded-xl border text-center transition-all ${
+                          aspectRatio === '9:16'
+                            ? 'bg-zinc-800 border-white/40 text-white shadow-md'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <Smartphone size={18} className="mx-auto mb-1.5" />
+                        <p className="text-xs font-bold">9:16 Portrait</p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">Reels / Shorts / TikTok</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAspectRatio('1:1')}
+                        className={`p-3 rounded-xl border text-center transition-all ${
+                          aspectRatio === '1:1'
+                            ? 'bg-zinc-800 border-white/40 text-white shadow-md'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <Square size={18} className="mx-auto mb-1.5" />
+                        <p className="text-xs font-bold">1:1 Square</p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">Instagram Feed</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Resolution Profile */}
                   <div className="card space-y-3">
                     <div className="flex items-center gap-2">
                       <Film size={15} className="text-zinc-300" />

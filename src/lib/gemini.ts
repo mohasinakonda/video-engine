@@ -15,10 +15,14 @@ import {
   generateVoiceChunk,
   generateSceneImage,
   breakdownScriptToScenes,
+  enhanceScenePrompt,
   splitIntoPacingChunks,
   getPollinationsClient,
   type ScriptSceneBreakdown,
+  type EnhancedScenePromptResult,
 } from '@/lib/pollinations';
+
+export { enhanceScenePrompt, type EnhancedScenePromptResult };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -383,13 +387,18 @@ export async function generateImage(
   apiKey: string,
   prompt: string,
   negativePrompt?: string,
-  options?: { model?: string; width?: number; height?: number; seed?: number; baseStyle?: string; aspectRatio?: '16:9' | '9:16' }
+  options?: { model?: string; width?: number; height?: number; seed?: number; baseStyle?: string; aspectRatio?: '16:9' | '9:16' | '1:1' }
 ): Promise<ImageGenerationResult> {
+  const isVertical = options?.aspectRatio === '9:16';
+  const isSquare = options?.aspectRatio === '1:1';
+  const defaultWidth = isVertical ? 1080 : isSquare ? 1080 : 1920;
+  const defaultHeight = isVertical ? 1920 : isSquare ? 1080 : 1080;
+
   const imageBuffer = await generateSceneImage(prompt, options?.baseStyle, options?.seed, {
     negativePrompt,
     model: options?.model,
-    width: Math.max(1920, options?.width || 1920),
-    height: Math.max(1080, options?.height || 1080),
+    width: options?.width || defaultWidth,
+    height: options?.height || defaultHeight,
     apiKey,
     aspectRatio: options?.aspectRatio,
   });
