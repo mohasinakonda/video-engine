@@ -30,10 +30,74 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   globalBannerActive: true,
 };
 
-// ─── Default Plans & Packs ───────────────────────────────────────────────────
-
 export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-
+  {
+    id: 'STARTER',
+    name: 'Starter',
+    badge: 'Popular for Beginners',
+    popular: false,
+    priceMonthly: 1200,
+    priceYearly: 5000,
+    creditsPerMonth: 600,
+    maxVideoDurationSec: 180,
+    maxResolution: '1080p',
+    features: [
+      '600 Image Credits / month (~15-20 videos)',
+      'Up to 3-minute video duration per project',
+      '1080p Full HD crisp rendering',
+      '100% Watermark-Free Export',
+      'Bangla & English AI Voiceovers included',
+      'AI Script-to-Scenes Director',
+      'Standard rendering queue',
+      'Standard customer support',
+    ],
+    isActive: true,
+  },
+  {
+    id: 'CREATOR',
+    name: 'Creator',
+    badge: 'Most Popular',
+    popular: true,
+    priceMonthly: 1800,
+    priceYearly: 12000,
+    creditsPerMonth: 800,
+    maxVideoDurationSec: 480,
+    maxResolution: '1080p',
+    features: [
+      '800 Image Credits / month (~40-50 videos)',
+      'Up to 8-minute video duration per project',
+      '1080p Full HD crisp rendering',
+      '100% Watermark-Free Export',
+      'Bangla & English AI Voiceovers included',
+      'Custom visual styles & character consistency',
+      'Commercial monetization license (YouTube & FB)',
+      'Fast rendering priority queue',
+      'Priority WhatsApp VIP support',
+    ],
+    isActive: true,
+  },
+  {
+    id: 'STUDIO',
+    name: 'Studio Pro',
+    badge: 'Full Power',
+    popular: false,
+    priceMonthly: 2500,
+    priceYearly: 25000,
+    creditsPerMonth: 1500,
+    maxVideoDurationSec: 1200,
+    maxResolution: '4k',
+    features: [
+      '1,500 Image Credits / month (~100+ videos)',
+      'Up to 20-minute video duration',
+      '4K Ultra HD pristine rendering',
+      '100% Watermark-Free Export',
+      'All AI Voiceovers & Audio FX included',
+      'Instant VIP rendering queue',
+      'Full commercial & agency monetization rights',
+      'Dedicated 1-on-1 WhatsApp VIP manager',
+    ],
+    isActive: true,
+  },
 ];
 
 export const DEFAULT_TOPUP_PACKS: CreditTopupPack[] = [
