@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ShieldCheck, ChevronRight, Zap, Smartphone, MessageCircle } from 'lucide-react';
+import { formatWhatsAppLink } from '@/lib/subscription-store';
 import type { UserSubscription, UserProfile } from '@/types/subscription';
 
 interface UserQuotaCardsProps {
@@ -12,6 +13,7 @@ interface UserQuotaCardsProps {
   creditsPercent: number;
   isExpiringSoon: boolean;
   isExpired: boolean;
+  whatsappNumber?: string;
 }
 
 export function UserQuotaCards({
@@ -22,6 +24,7 @@ export function UserQuotaCards({
   creditsPercent,
   isExpiringSoon,
   isExpired,
+  whatsappNumber,
 }: UserQuotaCardsProps) {
   return (
     <div className="space-y-6">
@@ -148,7 +151,7 @@ export function UserQuotaCards({
 
           <div className="pt-1">
             <a
-              href="https://wa.me/8801712345678"
+              href={formatWhatsAppLink(whatsappNumber, 'Hello Admin! I need VIP support regarding my account & credits.')}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"

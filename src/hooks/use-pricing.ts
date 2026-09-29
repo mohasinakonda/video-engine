@@ -5,6 +5,7 @@ import {
   getSubscriptionPlans,
   getTopupPacks,
   getAdminSettings,
+  saveAdminSettings,
   getUserSubscription,
   getCurrentUserProfile,
   setActiveUserProfile,
@@ -58,6 +59,7 @@ export function usePricingPlans(): UsePricingPlansReturn {
         }
         if (data.settings) {
           setSettings(data.settings);
+          saveAdminSettings(data.settings);
         }
       }
     } catch (err: unknown) {
@@ -139,7 +141,10 @@ export function usePricing({ initialUser }: UsePricingOptions = {}): UsePricingR
         const data = await res.json();
         if (data.plans && data.plans.length > 0) setPlans(data.plans);
         if (data.topupPacks && data.topupPacks.length > 0) setTopupPacks(data.topupPacks);
-        if (data.settings) setSettings(data.settings);
+        if (data.settings) {
+          setSettings(data.settings);
+          saveAdminSettings(data.settings);
+        }
       }
     } catch {
       // Fallback already populated

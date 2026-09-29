@@ -228,11 +228,10 @@ export default function LandingPage({ onEnterStudio }: LandingPageProps) {
               <button
                 key={style.id}
                 onClick={() => setActiveStyleIdx(idx)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-                  activeStyleIdx === idx
-                    ? 'bg-zinc-850 text-white border border-zinc-700'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
-                }`}
+                className={`px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${activeStyleIdx === idx
+                  ? 'bg-zinc-850 text-white border border-zinc-700'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60'
+                  }`}
               >
                 <span>{style.title}</span>
                 <span className="text-[10px] text-zinc-400 font-normal">({style.tag})</span>
@@ -352,21 +351,19 @@ export default function LandingPage({ onEnterStudio }: LandingPageProps) {
             <div className="pt-2 flex justify-center items-center gap-3">
               <button
                 onClick={() => setBillingCycle('monthly')}
-                className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                  billingCycle === 'monthly'
-                    ? 'bg-zinc-800 text-white border border-zinc-700'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
+                className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all ${billingCycle === 'monthly'
+                  ? 'bg-zinc-800 text-white border border-zinc-700'
+                  : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setBillingCycle('yearly')}
-                className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${
-                  billingCycle === 'yearly'
-                    ? 'bg-zinc-800 text-white border border-zinc-700'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
+                className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${billingCycle === 'yearly'
+                  ? 'bg-zinc-800 text-white border border-zinc-700'
+                  : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
               >
                 <span>Yearly</span>
                 <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
@@ -384,11 +381,10 @@ export default function LandingPage({ onEnterStudio }: LandingPageProps) {
               return (
                 <div
                   key={plan.id}
-                  className={`flex flex-col rounded-3xl p-7 border transition-all ${
-                    plan.popular
-                      ? 'bg-zinc-900 border-emerald-500/50 shadow-xl'
-                      : 'bg-zinc-900/40 border-zinc-850 hover:border-zinc-700'
-                  }`}
+                  className={`flex flex-col rounded-3xl p-7 border transition-all ${plan.popular
+                    ? 'bg-zinc-900 border-emerald-500/50 shadow-xl'
+                    : 'bg-zinc-900/40 border-zinc-850 hover:border-zinc-700'
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <span className="font-bold text-white text-lg">{plan.name}</span>
@@ -421,11 +417,10 @@ export default function LandingPage({ onEnterStudio }: LandingPageProps) {
 
                   <Link
                     href="/pricing"
-                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold text-center transition-all ${
-                      plan.popular
-                        ? 'bg-white hover:bg-zinc-200 text-zinc-950'
-                        : 'bg-zinc-850 hover:bg-zinc-800 text-white border border-zinc-750'
-                    }`}
+                    className={`w-full py-3 px-4 rounded-xl text-xs font-bold text-center transition-all ${plan.popular
+                      ? 'bg-white hover:bg-zinc-200 text-zinc-950'
+                      : 'bg-zinc-850 hover:bg-zinc-800 text-white border border-zinc-750'
+                      }`}
                   >
                     Select {plan.name} Plan
                   </Link>
@@ -460,14 +455,7 @@ export default function LandingPage({ onEnterStudio }: LandingPageProps) {
             <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="/login" className="hover:text-white transition-colors">Login</Link>
             <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-            <a
-              href="https://wa.me/8801712345678"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-400 hover:underline"
-            >
-              WhatsApp Support
-            </a>
+
           </div>
         </div>
       </footer>

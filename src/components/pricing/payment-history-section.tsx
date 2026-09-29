@@ -7,9 +7,10 @@ import type { PaymentSubmission } from '@/types/subscription';
 
 interface PaymentHistorySectionProps {
   submissions: PaymentSubmission[];
+  whatsappNumber?: string;
 }
 
-export function PaymentHistorySection({ submissions }: PaymentHistorySectionProps) {
+export function PaymentHistorySection({ submissions, whatsappNumber }: PaymentHistorySectionProps) {
   if (submissions.length === 0) return null;
 
   return (
@@ -24,7 +25,8 @@ export function PaymentHistorySection({ submissions }: PaymentHistorySectionProp
             sub.senderNumber,
             sub.discountedPriceBDT,
             sub.planId ? `Plan ${sub.planId}` : `Topup (+${sub.creditsToGrant} Credits)`,
-            sub.userEmail
+            sub.userEmail,
+            whatsappNumber
           );
 
           return (

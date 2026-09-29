@@ -522,7 +522,8 @@ export default function UserDashboardPage() {
                         sub.senderNumber,
                         sub.discountedPriceBDT,
                         sub.planId ? `Plan ${sub.planId}` : `Top-up ${sub.creditsToGrant} Credits`,
-                        sub.userEmail
+                        sub.userEmail,
+                        settings?.whatsappNumber
                       );
 
                       return (

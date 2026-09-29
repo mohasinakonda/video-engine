@@ -39,6 +39,9 @@ export interface PromoCode {
   isActive: boolean;
   ownerUserId?: string; // If this promo code belongs to a specific user/affiliate
   commissionPercent?: number; // e.g. 15% commission to owner on each purchase
+  maxUsesPerUser?: number; // Max times a single user/email can redeem (default: 1)
+  firstPurchaseOnly?: boolean; // If true, only valid on user's first order
+  applicablePlans?: PlanTier[]; // Restrict to specific plan tiers (e.g. ['CREATOR', 'STUDIO'])
 }
 
 export type PaymentMethod = 'bkash' | 'nagad' | 'bank';
@@ -114,7 +117,7 @@ export interface AffiliatePayoutRequest {
 }
 
 export interface AdminSettings {
-  whatsappNumber: string; // e.g. 8801712345678
+  whatsappNumber: string; // e.g. 01315055532 or 8801315055532
   bkashNumber: string;
   nagadNumber: string;
   bankDetails: string;

@@ -2,16 +2,17 @@
 
 import React from 'react';
 import { MessageCircle } from 'lucide-react';
+import { formatWhatsAppLink } from '@/lib/subscription-store';
 
 interface WhatsAppCtaSectionProps {
   whatsappNumber?: string;
 }
 
 export function WhatsAppCtaSection({ whatsappNumber }: WhatsAppCtaSectionProps) {
-  const number = whatsappNumber || '8801712345678';
-  const url = `https://wa.me/${number}?text=${encodeURIComponent(
+  const url = formatWhatsAppLink(
+    whatsappNumber,
     'Hello! I have a question regarding the AI Video Engine subscription plans.'
-  )}`;
+  );
 
   return (
     <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">

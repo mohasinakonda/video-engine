@@ -1,9 +1,18 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
 import { Zap, MessageSquare } from 'lucide-react';
-import { DEFAULT_ADMIN_SETTINGS } from '@/lib/subscription-store';
+import { formatWhatsAppLink } from '@/lib/subscription-store';
+import { usePricingPlans } from '@/hooks/use-pricing';
 
 export const LandingFooter: React.FC = () => {
+  const { settings } = usePricingPlans();
+  const whatsappUrl = formatWhatsAppLink(
+    settings?.whatsappNumber,
+    'Hello! I would like to know more about AI Video Studio.'
+  );
+
   return (
     <footer className="py-12 px-6 bg-[#09090b] text-xs text-zinc-400">
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
@@ -21,7 +30,7 @@ export const LandingFooter: React.FC = () => {
           <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
           <Link href="/login" className="hover:text-white transition-colors">Login</Link>
           <a
-            href={`https://wa.me/${DEFAULT_ADMIN_SETTINGS.whatsappNumber}`}
+            href={whatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-emerald-400 hover:underline flex items-center gap-1.5"

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import {
   validateAndApplyPromoCode,
@@ -75,25 +75,78 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Synchronize promo code from URL (?promo=CODE or ?ref=CODE) and sessionStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlCode = params.get('promo') || params.get('ref');
+      const savedCode = sessionStorage.getItem('pending_promo_code');
+      const candidateCode = (urlCode || savedCode || '').trim().toUpperCase();
+
+      if (candidateCode) {
+        setPromoCodeInput(candidateCode);
+        const userIdentifier = initialUser?.id || initialUser?.email || undefined;
+        const res = validateAndApplyPromoCode(candidateCode, 1000, userIdentifier);
+        setPromoResult(res);
+        if (res.valid) {
+          setPromoAppliedCode(candidateCode);
+          sessionStorage.setItem('pending_promo_code', candidateCode);
+        } else {
+          sessionStorage.removeItem('pending_promo_code');
+        }
+      }
+    } catch (e) {
+      console.error('Error restoring promo code:', e);
+    }
+  }, [initialUser]);
+
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedText(label);
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  const handleApplyPromo = () => {
-    if (!promoCodeInput.trim()) {
+  const handleApplyPromo = (codeToApply?: string) => {
+    const rawCode = (codeToApply !== undefined ? codeToApply : promoCodeInput).trim().toUpperCase();
+    if (!rawCode) {
       setPromoResult(null);
       setPromoAppliedCode('');
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('pending_promo_code');
+      }
       return;
     }
-    const samplePrice = 1000;
-    const res = validateAndApplyPromoCode(promoCodeInput, samplePrice);
+
+    const samplePrice = selectedPlan
+      ? (billingCycle === 'yearly' ? selectedPlan.priceYearly : selectedPlan.priceMonthly)
+      : (selectedTopup ? selectedTopup.priceBDT : 1000);
+    const userIdentifier = initialUser?.id || initialUser?.email || userEmail || undefined;
+    const planId = selectedPlan ? selectedPlan.id : undefined;
+
+    const res = validateAndApplyPromoCode(rawCode, samplePrice, userIdentifier, planId);
     setPromoResult(res);
+    setPromoCodeInput(rawCode);
+
     if (res.valid) {
-      setPromoAppliedCode(promoCodeInput.trim().toUpperCase());
+      setPromoAppliedCode(rawCode);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('pending_promo_code', rawCode);
+      }
     } else {
       setPromoAppliedCode('');
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('pending_promo_code');
+      }
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setPromoAppliedCode('');
+    setPromoCodeInput('');
+    setPromoResult(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('pending_promo_code');
     }
   };
 
@@ -147,7 +200,9 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     let bonusCredits = 0;
 
     if (promoAppliedCode) {
-      const res = validateAndApplyPromoCode(promoAppliedCode, originalPrice);
+      const userIdentifier = initialUser?.id || initialUser?.email || userEmail || undefined;
+      const planId = selectedPlan ? selectedPlan.id : undefined;
+      const res = validateAndApplyPromoCode(promoAppliedCode, originalPrice, userIdentifier, planId);
       if (res.valid) {
         if (res.discountedPriceBDT !== undefined) finalPrice = res.discountedPriceBDT;
         if (res.bonusCredits) bonusCredits = res.bonusCredits;
@@ -250,6 +305,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
               creditsPercent={creditsPercent}
               isExpiringSoon={isExpiringSoon}
               isExpired={isExpired}
+              whatsappNumber={settings?.whatsappNumber}
             />
 
             <TopupPacksSection
@@ -266,7 +322,10 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
               onSelectPlan={openCheckoutForPlan}
             />
 
-            <PaymentHistorySection submissions={submissions} />
+            <PaymentHistorySection
+              submissions={submissions}
+              whatsappNumber={settings?.whatsappNumber}
+            />
           </div>
         ) : (
           /* ══════════════════════════════════════════════════════════════════════
@@ -335,6 +394,9 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
         setPaymentMethod={setPaymentMethod}
         settings={settings}
         promoAppliedCode={promoAppliedCode}
+        promoResult={promoResult}
+        onApplyPromo={handleApplyPromo}
+        onRemovePromo={handleRemovePromo}
         calculateFinalPrice={calculateFinalPrice}
         onSubmitPayment={handleSubmitPayment}
         isSubmitting={isSubmitting}

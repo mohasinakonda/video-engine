@@ -72,7 +72,10 @@ export default function AdminPlanSettingsPage() {
         const data = await res.json();
         if (data.plans) setPlans(data.plans);
         if (data.topupPacks) setTopupPacks(data.topupPacks);
-        if (data.settings) setSettings(data.settings);
+        if (data.settings) {
+          setSettings(data.settings);
+          saveAdminSettings(data.settings);
+        }
         if (data.promoCodes) setPromoCodes(data.promoCodes);
         setIsSupabaseLive(Boolean(data.isLiveSupabase));
         return;
@@ -311,11 +314,11 @@ export default function AdminPlanSettingsPage() {
                   type="text"
                   value={settings.whatsappNumber}
                   onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
-                  placeholder="e.g. 8801712345678"
+                  placeholder="e.g. 01315055532"
                   className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
                 />
                 <span className="text-[10px] text-zinc-500 mt-1 block">
-                  Include country code 88 for Bangladesh direct WhatsApp link
+                  Accepts 01XXXXXXXXX or with country code 8801XXXXXXXXX
                 </span>
               </div>
 
@@ -327,7 +330,7 @@ export default function AdminPlanSettingsPage() {
                   type="text"
                   value={settings.bkashNumber}
                   onChange={(e) => setSettings({ ...settings, bkashNumber: e.target.value })}
-                  placeholder="e.g. 01712345678"
+                  placeholder="e.g. 01617420663"
                   className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
                 />
               </div>
@@ -340,7 +343,7 @@ export default function AdminPlanSettingsPage() {
                   type="text"
                   value={settings.nagadNumber}
                   onChange={(e) => setSettings({ ...settings, nagadNumber: e.target.value })}
-                  placeholder="e.g. 01712345678"
+                  placeholder="e.g. 01617420663"
                   className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
                 />
               </div>

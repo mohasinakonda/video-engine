@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   CreditCard,
@@ -11,8 +11,14 @@ import {
   XCircle,
   AlertCircle,
   MessageCircle,
+  Tag,
+  Sparkles,
 } from 'lucide-react';
-import { getWhatsAppVerificationUrl } from '@/lib/subscription-store';
+import {
+  getWhatsAppVerificationUrl,
+  DEFAULT_ADMIN_SETTINGS,
+  type PromoValidationResult,
+} from '@/lib/subscription-store';
 import type {
   SubscriptionPlan,
   CreditTopupPack,
@@ -37,6 +43,9 @@ interface PaymentCheckoutModalProps {
   setPaymentMethod: (method: PaymentMethod) => void;
   settings: AdminSettings | null;
   promoAppliedCode: string;
+  promoResult?: PromoValidationResult | null;
+  onApplyPromo?: (code: string) => void;
+  onRemovePromo?: () => void;
   calculateFinalPrice: () => {
     originalPrice: number;
     finalPrice: number;
@@ -67,6 +76,9 @@ export function PaymentCheckoutModal({
   setPaymentMethod,
   settings,
   promoAppliedCode,
+  promoResult,
+  onApplyPromo,
+  onRemovePromo,
   calculateFinalPrice,
   onSubmitPayment,
   isSubmitting,
@@ -76,6 +88,7 @@ export function PaymentCheckoutModal({
   copiedText,
   handleCopy,
 }: PaymentCheckoutModalProps) {
+  const [modalCodeInput, setModalCodeInput] = useState('');
   if (!isOpen) return null;
 
   return (
@@ -106,7 +119,8 @@ export function PaymentCheckoutModal({
                   lastSubmittedReq.senderNumber,
                   lastSubmittedReq.discountedPriceBDT,
                   selectedPlan ? `Plan ${selectedPlan.name}` : `Topup ${selectedTopup?.name}`,
-                  lastSubmittedReq.userEmail
+                  lastSubmittedReq.userEmail,
+                  settings?.whatsappNumber
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -154,6 +168,79 @@ export function PaymentCheckoutModal({
                 </div>
               </div>
             )}
+
+            {/* Promo / Referral Code Drawer */}
+            <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <Tag size={13} className="text-emerald-400" />
+                  Promo or Referral Code
+                </span>
+                {promoAppliedCode && onRemovePromo && (
+                  <button
+                    type="button"
+                    onClick={onRemovePromo}
+                    className="text-[11px] text-rose-400 hover:text-rose-300 font-semibold hover:underline"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              {promoAppliedCode ? (
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-emerald-400">{promoAppliedCode}</span>
+                    <span className="text-[11px] text-zinc-400">
+                      {promoResult?.message || 'Discount Active'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded tracking-wide uppercase">
+                    APPLIED
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={modalCodeInput}
+                      onChange={(e) => setModalCodeInput(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (modalCodeInput.trim() && onApplyPromo) {
+                            onApplyPromo(modalCodeInput.trim().toUpperCase());
+                            setModalCodeInput('');
+                          }
+                        }
+                      }}
+                      placeholder="e.g. EARLY50 or LAUNCH20"
+                      className="flex-1 bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-white uppercase placeholder:normal-case placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500/60 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!modalCodeInput.trim()) return;
+                        if (onApplyPromo) {
+                          onApplyPromo(modalCodeInput.trim().toUpperCase());
+                          setModalCodeInput('');
+                        }
+                      }}
+                      disabled={!modalCodeInput.trim()}
+                      className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:hover:bg-emerald-500 text-zinc-950 font-bold text-xs transition-colors shrink-0"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {promoResult && !promoResult.valid && (
+                    <p className="text-[11px] text-rose-400 flex items-center gap-1">
+                      <AlertCircle size={12} className="shrink-0" /> {promoResult.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {(() => {
               const { originalPrice, finalPrice, creditsToGrant, bonusCredits } = calculateFinalPrice();
@@ -240,12 +327,12 @@ export function PaymentCheckoutModal({
                   <div>
                     <p className="text-[11px] text-zinc-400">bKash Personal / Merchant</p>
                     <p className="font-mono font-bold text-white text-sm">
-                      {settings?.bkashNumber || '01712345678'}
+                      {settings?.bkashNumber || DEFAULT_ADMIN_SETTINGS.bkashNumber}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleCopy(settings?.bkashNumber || '01712345678', 'bkash')}
+                    onClick={() => handleCopy(settings?.bkashNumber || DEFAULT_ADMIN_SETTINGS.bkashNumber, 'bkash')}
                     className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] flex items-center gap-1"
                   >
                     <Copy size={12} />
@@ -259,12 +346,12 @@ export function PaymentCheckoutModal({
                   <div>
                     <p className="text-[11px] text-zinc-400">Nagad Personal</p>
                     <p className="font-mono font-bold text-white text-sm">
-                      {settings?.nagadNumber || '01712345678'}
+                      {settings?.nagadNumber || DEFAULT_ADMIN_SETTINGS.nagadNumber}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleCopy(settings?.nagadNumber || '01712345678', 'nagad')}
+                    onClick={() => handleCopy(settings?.nagadNumber || DEFAULT_ADMIN_SETTINGS.nagadNumber, 'nagad')}
                     className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] flex items-center gap-1"
                   >
                     <Copy size={12} />

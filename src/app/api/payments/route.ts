@@ -9,8 +9,13 @@ import {
   submitPaymentRequest,
   getAllPaymentSubmissions,
   incrementPromoCodeUsage,
+  DEFAULT_SUBSCRIPTION_PLANS,
+  DEFAULT_TOPUP_PACKS,
+  getTopupPacks,
+  validateAndApplyPromoCode,
+  getAdminSettings,
 } from '@/lib/subscription-store';
-import type { PaymentSubmission } from '@/types/subscription';
+import type { PaymentSubmission, PlanTier, BillingCycle } from '@/types/subscription';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,7 +131,92 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Prepare submission object
+    // 3. Official Server Price & Credits Verification (Anti-Tamper & Strict Promo Validation)
+    let officialOriginalPrice = 0;
+    let baseCredits = 0;
+
+    if (itemType === 'subscription') {
+      const plan = DEFAULT_SUBSCRIPTION_PLANS.find((p) => p.id === planId);
+      if (!plan) {
+        return NextResponse.json(
+          { success: false, error: `Invalid subscription plan: ${planId}` },
+          { status: 400 }
+        );
+      }
+      officialOriginalPrice = billingCycle === 'yearly' ? plan.priceYearly : plan.priceMonthly;
+      baseCredits = plan.creditsPerMonth;
+    } else if (itemType === 'topup') {
+      const allTopups = getTopupPacks() || DEFAULT_TOPUP_PACKS;
+      const pack = allTopups.find((p) => p.id === topupId);
+      if (!pack) {
+        return NextResponse.json(
+          { success: false, error: `Invalid top-up pack: ${topupId}` },
+          { status: 400 }
+        );
+      }
+      officialOriginalPrice = pack.priceBDT;
+      baseCredits = pack.credits;
+    }
+
+    let officialDiscountedPrice = officialOriginalPrice;
+    let bonusCredits = 0;
+    let validatedPromoCode: string | undefined = undefined;
+
+    const userIdentifier = (userId && UUID_REGEX.test(userId)) ? userId : userEmail.trim().toLowerCase();
+
+    if (promoCodeApplied && String(promoCodeApplied).trim()) {
+      const cleanCode = String(promoCodeApplied).trim().toUpperCase();
+
+      // Multi-layer check: query Supabase cloud database for previous redemptions
+      if (isSupabaseConfigured()) {
+        const remotePayments = await fetchUserPaymentsRemote(
+          userId && UUID_REGEX.test(userId) ? userId : undefined,
+          userEmail.trim()
+        );
+        if (remotePayments) {
+          const pastUses = remotePayments.filter(
+            (p) => p.promoCodeApplied?.toUpperCase() === cleanCode && p.status !== 'REJECTED'
+          ).length;
+          if (pastUses >= 1) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `This promo code (${cleanCode}) has already been redeemed on this account (${userEmail.trim()}).`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
+
+      const promoResult = validateAndApplyPromoCode(
+        cleanCode,
+        officialOriginalPrice,
+        userIdentifier,
+        itemType === 'subscription' ? (planId as PlanTier) : undefined
+      );
+
+      if (!promoResult.valid) {
+        return NextResponse.json(
+          { success: false, error: promoResult.message || 'Invalid or expired promo code.' },
+          { status: 400 }
+        );
+      }
+
+      officialDiscountedPrice = promoResult.discountedPriceBDT ?? officialOriginalPrice;
+      bonusCredits = promoResult.bonusCredits ?? 0;
+      validatedPromoCode = cleanCode;
+    } else {
+      const settings = getAdminSettings();
+      if (settings.globalDiscountActive && settings.globalDiscountPercent > 0) {
+        officialDiscountedPrice = Math.max(
+          0,
+          Math.round(officialOriginalPrice * (1 - settings.globalDiscountPercent / 100))
+        );
+      }
+    }
+
+    // 4. Prepare verified submission object
     const id = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const validUserId = userId && UUID_REGEX.test(userId) ? userId : undefined;
 
@@ -139,10 +229,10 @@ export async function POST(req: Request) {
       planId: itemType === 'subscription' ? planId : undefined,
       billingCycle: itemType === 'subscription' ? billingCycle : undefined,
       topupId: itemType === 'topup' ? topupId : undefined,
-      originalPriceBDT: Number(originalPriceBDT) || 0,
-      discountedPriceBDT: Number(discountedPriceBDT) || 0,
-      promoCodeApplied: promoCodeApplied ? String(promoCodeApplied).toUpperCase() : undefined,
-      creditsToGrant: Number(creditsToGrant) || 0,
+      originalPriceBDT: officialOriginalPrice,
+      discountedPriceBDT: officialDiscountedPrice,
+      promoCodeApplied: validatedPromoCode,
+      creditsToGrant: baseCredits + bonusCredits,
       paymentMethod,
       senderNumber: senderNumber.trim(),
       status: 'PENDING',
@@ -162,11 +252,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Also save in local store fallback & increment promo usage
+    // 5. Also save in local store fallback (which records submission and tracks promo usage)
     submitPaymentRequest(submissionData);
-    if (submissionData.promoCodeApplied) {
-      incrementPromoCodeUsage(submissionData.promoCodeApplied);
-    }
 
     return NextResponse.json({
       success: true,

@@ -20,9 +20,9 @@ import { deductCreditsRemote, grantCreditsRemote, isSupabaseConfigured } from '@
 // ─── Default Admin Settings ──────────────────────────────────────────────────
 
 export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
-  whatsappNumber: '8801712345678', // Replace with real admin WhatsApp
-  bkashNumber: '01712345678',
-  nagadNumber: '01712345678',
+  whatsappNumber: '01315055532',
+  bkashNumber: '01617420663',
+  nagadNumber: '01617420663',
   bankDetails: 'City Bank PLC | Hazrat AI Studio | A/C: 1503204928001 | Dhanmondi Branch',
   globalDiscountPercent: 0,
   globalDiscountActive: false,
@@ -133,6 +133,7 @@ const DEFAULT_PROMO_CODES: PromoCode[] = [
     validUntil: Date.now() + 30 * 24 * 60 * 60 * 1000,
     maxUses: 50,
     currentUses: 14,
+    maxUsesPerUser: 1,
     description: 'Launch special: 50% flat discount for early adopters',
     isActive: true,
     commissionPercent: 15,
@@ -144,6 +145,7 @@ const DEFAULT_PROMO_CODES: PromoCode[] = [
     validUntil: Date.now() + 60 * 24 * 60 * 60 * 1000,
     maxUses: 500,
     currentUses: 38,
+    maxUsesPerUser: 1,
     description: '20% off on all monthly and yearly subscription plans',
     isActive: true,
     commissionPercent: 15,
@@ -156,6 +158,7 @@ const DEFAULT_PROMO_CODES: PromoCode[] = [
     validUntil: Date.now() + 90 * 24 * 60 * 60 * 1000,
     maxUses: 200,
     currentUses: 52,
+    maxUsesPerUser: 1,
     description: 'Unlocks +30 free bonus credits for new creators',
     isActive: true,
   },
@@ -182,10 +185,12 @@ export const GUEST_USER_PROFILE: UserProfile = {
 
 const DEFAULT_USER_LIST: UserProfile[] = [];
 
-// ─── Storage Helpers ──────────────────────────────────────────────────────────
+const serverMemoryStore: Record<string, unknown> = {};
 
 function safeGet<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
+  if (typeof window === 'undefined') {
+    return (serverMemoryStore[key] as T) ?? fallback;
+  }
   try {
     const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
@@ -195,7 +200,10 @@ function safeGet<T>(key: string, fallback: T): T {
 }
 
 function safeSet(key: string, value: unknown): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {
+    serverMemoryStore[key] = value;
+    return;
+  }
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch { }
@@ -204,7 +212,23 @@ function safeSet(key: string, value: unknown): void {
 // ─── Admin Settings Operations ───────────────────────────────────────────────
 
 export function getAdminSettings(): AdminSettings {
-  return safeGet<AdminSettings>('admin_app_settings', DEFAULT_ADMIN_SETTINGS);
+  const current = safeGet<AdminSettings>('admin_app_settings', DEFAULT_ADMIN_SETTINGS);
+  // Auto-clean stale dummy numbers from user's localStorage
+  if (
+    current.whatsappNumber === '8801712345678' ||
+    current.bkashNumber === '01712345678' ||
+    current.nagadNumber === '01712345678'
+  ) {
+    const upgraded: AdminSettings = {
+      ...current,
+      whatsappNumber: current.whatsappNumber === '8801712345678' ? DEFAULT_ADMIN_SETTINGS.whatsappNumber : current.whatsappNumber,
+      bkashNumber: current.bkashNumber === '01712345678' ? DEFAULT_ADMIN_SETTINGS.bkashNumber : current.bkashNumber,
+      nagadNumber: current.nagadNumber === '01712345678' ? DEFAULT_ADMIN_SETTINGS.nagadNumber : current.nagadNumber,
+    };
+    saveAdminSettings(upgraded);
+    return upgraded;
+  }
+  return current;
 }
 
 export function saveAdminSettings(settings: AdminSettings): void {
@@ -392,24 +416,56 @@ export interface PromoValidationResult {
   bonusCredits?: number;
 }
 
+/** Check how many times a user (by userId or userEmail) has redeemed a specific promo code */
+export function getUserPromoRedemptionCount(identifier: string, code: string): number {
+  if (!identifier || !code) return 0;
+  const cleanId = identifier.trim().toLowerCase();
+  const cleanCode = code.trim().toUpperCase();
+  const list = getAllPaymentSubmissions();
+  return list.filter((p) => {
+    const matchesUser =
+      (p.userEmail && p.userEmail.toLowerCase() === cleanId) ||
+      (p.userId && p.userId.toLowerCase() === cleanId);
+    const matchesCode = p.promoCodeApplied?.toUpperCase() === cleanCode;
+    const isValidStatus = p.status !== 'REJECTED';
+    return matchesUser && matchesCode && isValidStatus;
+  }).length;
+}
+
+/** Check if user has previously completed any approved orders */
+export function getUserApprovedOrderCount(identifier: string): number {
+  if (!identifier) return 0;
+  const cleanId = identifier.trim().toLowerCase();
+  const list = getAllPaymentSubmissions();
+  return list.filter((p) => {
+    const matchesUser =
+      (p.userEmail && p.userEmail.toLowerCase() === cleanId) ||
+      (p.userId && p.userId.toLowerCase() === cleanId);
+    return matchesUser && p.status === 'APPROVED';
+  }).length;
+}
+
 export function validateAndApplyPromoCode(
   inputCode: string,
-  originalPriceBDT: number
+  originalPriceBDT: number,
+  userIdentifier?: string,
+  planId?: PlanTier
 ): PromoValidationResult {
   const settings = getAdminSettings();
   const cleanCode = inputCode.trim().toUpperCase();
 
-  // Check if global discount is enabled and overrides/applies
-  let basePrice = originalPriceBDT;
-  if (settings.globalDiscountActive && settings.globalDiscountPercent > 0) {
-    basePrice = Math.round(originalPriceBDT * (1 - settings.globalDiscountPercent / 100));
-  }
+  const globalDiscountPercent = settings.globalDiscountActive ? (settings.globalDiscountPercent || 0) : 0;
+  const globalDiscountedPrice = globalDiscountPercent > 0
+    ? Math.max(0, Math.round(originalPriceBDT * (1 - globalDiscountPercent / 100)))
+    : originalPriceBDT;
 
   if (!cleanCode) {
     return {
       valid: true,
-      message: settings.globalDiscountActive ? `Global sale active: ${settings.globalDiscountPercent}% off` : '',
-      discountedPriceBDT: basePrice,
+      message: settings.globalDiscountActive && globalDiscountPercent > 0
+        ? `Global sale active: ${globalDiscountPercent}% off`
+        : '',
+      discountedPriceBDT: globalDiscountedPrice,
     };
   }
 
@@ -417,12 +473,28 @@ export function validateAndApplyPromoCode(
   const users = getAllUsers();
   const referralOwner = users.find((u) => u.referralCode?.toUpperCase() === cleanCode);
   if (referralOwner) {
+    // Check if user is trying to use their own referral code
+    if (userIdentifier) {
+      const cleanId = userIdentifier.trim().toLowerCase();
+      if (referralOwner.id.toLowerCase() === cleanId || referralOwner.email?.toLowerCase() === cleanId) {
+        return { valid: false, message: 'You cannot use your own referral code.' };
+      }
+
+      const priorUses = getUserPromoRedemptionCount(userIdentifier, cleanCode);
+      if (priorUses >= 1) {
+        return { valid: false, message: 'You have already redeemed a referral discount on this account.' };
+      }
+    }
+
     // 20% discount for anyone using a user referral code
-    const discountedPriceBDT = Math.max(0, Math.round(basePrice * 0.8));
+    const referralDiscountedPrice = Math.max(0, Math.round(originalPriceBDT * 0.8));
+    // Best offer wins against global storewide discount
+    const finalPrice = Math.min(referralDiscountedPrice, globalDiscountedPrice);
+
     return {
       valid: true,
       message: `Referral code by ${referralOwner.name}: 20% discount applied!`,
-      discountedPriceBDT,
+      discountedPriceBDT: finalPrice,
       bonusCredits: 15,
       promo: {
         code: cleanCode,
@@ -432,6 +504,8 @@ export function validateAndApplyPromoCode(
         validUntil: Date.now() + 365 * 24 * 3600 * 1000,
         maxUses: 9999,
         currentUses: referralOwner.referralCount,
+        maxUsesPerUser: 1,
+        firstPurchaseOnly: true,
         description: `Referral discount from ${referralOwner.name}`,
         isActive: true,
         ownerUserId: referralOwner.id,
@@ -453,26 +527,51 @@ export function validateAndApplyPromoCode(
     return { valid: false, message: 'This promo code has expired.' };
   }
   if (promo.maxUses > 0 && promo.currentUses >= promo.maxUses) {
-    return { valid: false, message: 'This promo code has reached its maximum limit.' };
+    return { valid: false, message: 'This promo code has reached its maximum global limit.' };
   }
 
-  let discountedPriceBDT = basePrice;
+  // Check plan tier eligibility if restricted
+  if (promo.applicablePlans && promo.applicablePlans.length > 0 && planId && !promo.applicablePlans.includes(planId)) {
+    return { valid: false, message: `This promo code is only valid for ${promo.applicablePlans.join(', ')} plans.` };
+  }
+
+  // Check per-user redemption limit (default 1 use per user account)
+  const maxPerUser = promo.maxUsesPerUser ?? 1;
+  if (userIdentifier) {
+    const userUses = getUserPromoRedemptionCount(userIdentifier, cleanCode);
+    if (userUses >= maxPerUser) {
+      return { valid: false, message: `You have already redeemed this promo code (${maxPerUser} time limit reached).` };
+    }
+  }
+
+  // Check first purchase only restriction
+  if (promo.firstPurchaseOnly && userIdentifier) {
+    const pastApproved = getUserApprovedOrderCount(userIdentifier);
+    if (pastApproved > 0) {
+      return { valid: false, message: 'This promo code is only valid for first-time customers.' };
+    }
+  }
+
+  let promoCalculatedPrice = originalPriceBDT;
   let bonusCredits = 0;
 
   if (promo.type === 'PERCENTAGE') {
-    const discountAmount = (basePrice * promo.discountValue) / 100;
-    discountedPriceBDT = Math.max(0, Math.round(basePrice - discountAmount));
+    const discountAmount = (originalPriceBDT * promo.discountValue) / 100;
+    promoCalculatedPrice = Math.max(0, Math.round(originalPriceBDT - discountAmount));
   } else if (promo.type === 'FIXED') {
-    discountedPriceBDT = Math.max(0, basePrice - promo.discountValue);
+    promoCalculatedPrice = Math.max(0, originalPriceBDT - promo.discountValue);
   } else if (promo.type === 'CREDIT_BONUS') {
     bonusCredits = promo.bonusCredits || 0;
   }
 
+  // Best offer wins rule: compare promo calculated price with storewide global discount
+  const finalDiscountedPrice = Math.min(promoCalculatedPrice, globalDiscountedPrice);
+
   return {
     valid: true,
-    message: promo.description,
+    message: promo.description || `${promo.code} applied successfully!`,
     promo,
-    discountedPriceBDT,
+    discountedPriceBDT: finalDiscountedPrice,
     bonusCredits,
   };
 }
@@ -599,22 +698,33 @@ export function rejectPaymentRequest(submissionId: string, reason?: string): boo
 
 // ─── WhatsApp Direct Link Generator ─────────────────────────────────────────
 
+export function formatWhatsAppLink(number?: string, message?: string): string {
+  const settings = getAdminSettings();
+  const targetNumber = (number && number.trim()) ? number.trim() : settings.whatsappNumber;
+  let rawNumber = targetNumber.replace(/[^0-9]/g, '');
+  if (rawNumber.startsWith('01')) {
+    rawNumber = '88' + rawNumber;
+  }
+  return message
+    ? `https://wa.me/${rawNumber}?text=${encodeURIComponent(message)}`
+    : `https://wa.me/${rawNumber}`;
+}
+
 export function getWhatsAppVerificationUrl(
   senderPhone: string,
   amountBDT: number,
   itemName: string,
-  userEmail: string
+  userEmail: string,
+  adminWhatsApp?: string
 ): string {
-  const settings = getAdminSettings();
-  const rawNumber = settings.whatsappNumber.replace(/[^0-9]/g, '');
-  const text = encodeURIComponent(
+  const text = (
     `Hello Admin! I have sent ৳${amountBDT} via bKash/Nagad.\n` +
     `Phone Number: ${senderPhone}\n` +
     `Item: ${itemName}\n` +
     `My Account Email: ${userEmail}\n` +
     `Please verify and approve my credits/subscription!`
   );
-  return `https://wa.me/${rawNumber}?text=${text}`;
+  return formatWhatsAppLink(adminWhatsApp, text);
 }
 
 // ─── Affiliate Payout System ────────────────────────────────────────────────
