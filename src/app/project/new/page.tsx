@@ -127,8 +127,16 @@ function ProjectPageInner() {
       const title = generateTitle();
       setProjectId(newId);
       setProjectTitle(title);
+
+      const pendingScript = searchParams.get('script') || (typeof window !== 'undefined' ? localStorage.getItem('pending_script') : null);
+      if (pendingScript) {
+        setScript(pendingScript);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('pending_script');
+        }
+      }
     }
-  }, [projectIdParam]);
+  }, [projectIdParam, searchParams]);
 
   useEffect(() => {
     initialize();

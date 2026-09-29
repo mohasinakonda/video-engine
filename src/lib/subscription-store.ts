@@ -33,66 +33,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
 // ─── Default Plans & Packs ───────────────────────────────────────────────────
 
 export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: 'STARTER',
-    name: 'Starter',
-    badge: 'Popular for Beginners',
-    priceMonthly: 500,
-    priceYearly: 5000,
-    creditsPerMonth: 200,
-    maxVideoDurationSec: 180, // 3 mins
-    maxResolution: '1080p',
-    isActive: true,
-    features: [
-      '200 Image Credits / month (~12-15 videos)',
-      'Up to 3-minute video duration',
-      '1080p Full HD rendering',
-      'AI Script-to-Scenes Director',
-      'Ken Burns cinematic camera motion',
-      'Standard customer support',
-    ],
-  },
-  {
-    id: 'CREATOR',
-    name: 'Creator',
-    badge: 'Most Popular',
-    popular: true,
-    priceMonthly: 1200,
-    priceYearly: 12000,
-    creditsPerMonth: 600,
-    maxVideoDurationSec: 480, // 8 mins
-    maxResolution: '1080p',
-    isActive: true,
-    features: [
-      '600 Image Credits / month (~35-45 videos)',
-      'Up to 8-minute video duration',
-      '1080p Full HD rendering',
-      'Custom visual art style presets',
-      'Fast AI Director processing',
-      'Commercial usage license',
-      'Priority WhatsApp customer support',
-    ],
-  },
-  {
-    id: 'STUDIO',
-    name: 'Studio Pro',
-    badge: 'Full Power',
-    priceMonthly: 2500,
-    priceYearly: 25000,
-    creditsPerMonth: 1500,
-    maxVideoDurationSec: 1200, // 20 mins
-    maxResolution: '4k',
-    isActive: true,
-    features: [
-      '1,500 Image Credits / month (~100+ videos)',
-      'Up to 20-minute video duration',
-      '4K Ultra HD crisp rendering',
-      'Unrestricted visual style prompts',
-      'VIP rendering speed queue',
-      'Commercial usage license',
-      'Direct WhatsApp VIP support',
-    ],
-  },
+
 ];
 
 export const DEFAULT_TOPUP_PACKS: CreditTopupPack[] = [
@@ -193,7 +134,7 @@ function safeSet(key: string, value: unknown): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
+  } catch { }
 }
 
 // ─── Admin Settings Operations ───────────────────────────────────────────────
@@ -209,11 +150,16 @@ export function saveAdminSettings(settings: AdminSettings): void {
 // ─── Dynamic Plans Operations ────────────────────────────────────────────────
 
 export function getSubscriptionPlans(): SubscriptionPlan[] {
-  return safeGet<SubscriptionPlan[]>('custom_subscription_plans', DEFAULT_SUBSCRIPTION_PLANS);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('custom_subscription_plans');
+    } catch {}
+  }
+  return DEFAULT_SUBSCRIPTION_PLANS;
 }
 
-export function saveSubscriptionPlans(plans: SubscriptionPlan[]): void {
-  safeSet('custom_subscription_plans', plans);
+export function saveSubscriptionPlans(_plans: SubscriptionPlan[]): void {
+  // Plans are managed and synced via Supabase DB
 }
 
 export function getTopupPacks(): CreditTopupPack[] {
