@@ -135,3 +135,46 @@ async function decodeViaAudioContext(blob: Blob | File): Promise<number> {
   }
 }
 
+/** Purge all media blobs (scenes, audio) belonging to a specific project from IndexedDB */
+export async function deleteProjectMedia(projectId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.openCursor();
+      req.onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          const key = String(cursor.key);
+          if (key.includes(projectId)) {
+            cursor.delete();
+          }
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+      req.onerror = () => resolve();
+    });
+  } catch (err) {
+    console.warn('Failed to delete project media blobs from IndexedDB:', err);
+  }
+}
+
+/** Get estimated disk storage used by IndexedDB */
+export async function getStorageEstimate(): Promise<{ usedMB: number; quotaMB: number }> {
+  if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.estimate) {
+    try {
+      const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+      return {
+        usedMB: Math.round(usage / (1024 * 1024)),
+        quotaMB: Math.round(quota / (1024 * 1024)),
+      };
+    } catch {
+      return { usedMB: 0, quotaMB: 0 };
+    }
+  }
+  return { usedMB: 0, quotaMB: 0 };
+}
+

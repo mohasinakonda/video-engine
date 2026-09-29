@@ -9,6 +9,7 @@
  */
 
 import type { VoicePreset, ProjectManifest, BaseStylePreset } from '@/types';
+import { deleteProjectMedia } from './media-storage';
 
 // ─── Generic Web Store Helpers ────────────────────────────────────────────────
 
@@ -142,6 +143,7 @@ export async function saveProject(manifest: ProjectManifest): Promise<void> {
 export async function deleteProject(projectId: string): Promise<void> {
   const projects = await getAllProjects();
   storeSet('projects', projects.filter((p) => p.projectId !== projectId));
+  await deleteProjectMedia(projectId);
 }
 
 // ─── Phase 2: Built-in Style Presets ──────────────────────────────────────────

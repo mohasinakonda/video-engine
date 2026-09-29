@@ -46,7 +46,6 @@ export async function updateSession(request: NextRequest) {
   const isAdminRoute =
     !isPublicAdminApi && (pathname.startsWith('/admin') || pathname.startsWith('/api/admin'));
   const isUserPrivateRoute =
-    pathname.startsWith('/dashboard') ||
     pathname.startsWith('/project') ||
     pathname.startsWith('/storyboard') ||
     pathname.startsWith('/voice-studio') ||
