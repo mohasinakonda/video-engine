@@ -36,6 +36,19 @@ create table if not exists public.profiles (
 -- Ensure column exists if table was created previously
 alter table public.profiles add column if not exists subscription_expires_at timestamptz;
 
+-- Security Definer function to check admin role without triggering RLS recursion
+create or replace function public.is_admin()
+returns boolean as $$
+declare
+  v_role text;
+begin
+  select role into v_role
+  from public.profiles
+  where id = auth.uid();
+  return coalesce(v_role = 'admin', false);
+end;
+$$ language plpgsql security definer set search_path = public;
+
 -- Row Level Security (RLS)
 alter table public.profiles enable row level security;
 
@@ -47,12 +60,7 @@ create policy "Users can view their own profile"
 drop policy if exists "Admins can view all profiles" on public.profiles;
 create policy "Admins can view all profiles"
   on public.profiles for select
-  using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+  using (public.is_admin());
 
 drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
@@ -63,18 +71,8 @@ drop policy if exists "Allow all operations for service role and admin" on publi
 drop policy if exists "Admins can manage all profiles" on public.profiles;
 create policy "Admins can manage all profiles"
   on public.profiles for all
-  using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role = 'admin'
-    )
-  );
+  using (public.is_admin())
+  with check (public.is_admin());
 
 -- Anti-tampering trigger: prevents standard users from escalating role, credits, tier, or affiliate funds
 create or replace function public.protect_profile_fields()
@@ -85,7 +83,7 @@ begin
     return new;
   end if;
 
-  if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+  if public.is_admin() then
     return new;
   end if;
 
@@ -208,10 +206,10 @@ drop policy if exists "Allow upsert plans" on public.plans;
 drop policy if exists "Admins can manage plans" on public.plans;
 create policy "Admins can manage plans" on public.plans for all
   using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   )
   with check (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 -- Seed Default Plans
@@ -245,10 +243,10 @@ drop policy if exists "Allow upsert topup packs" on public.topup_packs;
 drop policy if exists "Admins can manage topup packs" on public.topup_packs;
 create policy "Admins can manage topup packs" on public.topup_packs for all
   using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   )
   with check (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 -- Seed Default Topup Packs
@@ -284,10 +282,10 @@ drop policy if exists "Allow upsert promo codes" on public.promo_codes;
 drop policy if exists "Admins can manage promo codes" on public.promo_codes;
 create policy "Admins can manage promo codes" on public.promo_codes for all
   using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   )
   with check (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 -- Seed Default Promo Codes
@@ -329,7 +327,7 @@ create policy "Users can view own payments"
   on public.payments for select
   using (
     auth.uid() = user_id or
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 drop policy if exists "Users can insert payments" on public.payments;
@@ -342,10 +340,10 @@ drop policy if exists "Admins can update payments" on public.payments;
 create policy "Admins can update payments"
   on public.payments for update
   using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   )
   with check (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 -- ==============================================================================
@@ -371,7 +369,7 @@ create policy "Users can view own payouts"
   on public.affiliate_payouts for select
   using (
     auth.uid() = user_id or
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 drop policy if exists "Users can submit payouts" on public.affiliate_payouts;
@@ -384,10 +382,10 @@ drop policy if exists "Admins can manage affiliate payouts" on public.affiliate_
 create policy "Admins can manage affiliate payouts"
   on public.affiliate_payouts for update
   using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   )
   with check (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 -- ==============================================================================
@@ -414,10 +412,10 @@ drop policy if exists "Admins can manage admin settings" on public.admin_setting
 create policy "Admins can manage admin settings"
   on public.admin_settings for all
   using (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   )
   with check (
-    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+    public.is_admin()
   );
 
 insert into public.admin_settings (id, whatsapp_number, bkash_number, nagad_number, bank_details, global_discount_percent, global_discount_active, global_banner_text, global_banner_active)
