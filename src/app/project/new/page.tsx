@@ -64,38 +64,6 @@ function formatDuration(ms: number): string {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-// ─── Sample Templates for Quick Launch ───────────────────────────────────────
-
-const SAMPLE_TEMPLATES = [
-  {
-    title: '🌊 Deep Ocean Mysteries',
-    ratio: '16:9' as const,
-    styleId: 'builtin_cinematic',
-    pacing: 'cinematic' as const,
-    text: `Beneath five thousand meters of midnight ocean, a forgotten thermal trench pulses with bioluminescent life. Ghostly siphonophores float like living constellations through the abyssal cold. Ancient volcanic chimneys billow black mineral smoke into the current, illuminating alien mineral crusts and subterranean secrets undiscovered for ten million years.`,
-  },
-  {
-    title: '🚀 Colony 3042',
-    ratio: '9:16' as const,
-    styleId: 'builtin_cinematic',
-    pacing: 'fast' as const,
-    text: `Orbiting Saturn's crystal rings, the orbital tether station wakes to artificial sunrise. Titanium cables hum under atmospheric tension as cargo freighters glide between atmospheric clouds. Neon navigation beacons pulse against purple ammonia storms, guiding autonomous drones across humanity's farthest outpost.`,
-  },
-  {
-    title: '🏛️ Ancient Alexandria',
-    ratio: '16:9' as const,
-    styleId: 'builtin_artisan_linocut',
-    pacing: 'balanced' as const,
-    text: `In the shadow of the great lighthouse of Pharos, scrolls of lost geometry and celestial maps line cedar shelves. Scholars walk marbled colonnades as bronze astrolabes catch the Mediterranean dusk. The scent of papyrus, sea salt, and olive oil fills the air on the eve of the great fire.`,
-  },
-  {
-    title: '⚡ Master Craftsman',
-    ratio: '1:1' as const,
-    styleId: 'builtin_conceptual_illustration',
-    pacing: 'balanced' as const,
-    text: `Every chisel stroke removes the unnecessary until only essence remains. Heated cherry-red steel meets anvil under rhythmic hammer strikes, sparks showering into the darkened workshop. Decades of discipline distilled into a single razor edge.`,
-  },
-];
 
 // ─── Inner Component ──────────────────────────────────────────────────────────
 
@@ -449,32 +417,6 @@ function ProjectPageInner() {
         <div className="w-full lg:w-[480px] xl:w-[520px] flex-shrink-0 border-r border-bg-border flex flex-col bg-bg-surface/40 overflow-hidden">
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {/* Quick Template Starters */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles size={12} className="text-amber-400" />
-                  Quick Starters
-                </span>
-                <span className="text-[10px] text-slate-500">1-click sample script</span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {SAMPLE_TEMPLATES.map((tmpl) => (
-                  <button
-                    key={tmpl.title}
-                    type="button"
-                    onClick={() => {
-                      setScript(tmpl.text);
-                      setAspectRatio(tmpl.ratio);
-                      setSelectedStyleId(tmpl.styleId);
-                      setPacingProfile(tmpl.pacing);
-                    }}
-                    className="text-left px-2.5 py-2 rounded-lg bg-zinc-900/90 border border-zinc-800/90 hover:border-zinc-700 hover:bg-zinc-800/80 transition-all text-[11px] text-zinc-300 truncate"
-                  >
-                    {tmpl.title}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Script Input */}
             <div>
@@ -516,11 +458,10 @@ function ProjectPageInner() {
                 <button
                   type="button"
                   onClick={() => setAspectRatio('16:9')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    aspectRatio === '16:9'
-                      ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                      : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
-                  }`}
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${aspectRatio === '16:9'
+                    ? 'bg-zinc-800 border-white/40 text-white shadow-md'
+                    : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                    }`}
                 >
                   <Monitor size={18} className={aspectRatio === '16:9' ? 'text-white' : 'text-zinc-400'} />
                   <span className="text-xs font-semibold mt-1.5">16:9</span>
@@ -531,11 +472,10 @@ function ProjectPageInner() {
                 <button
                   type="button"
                   onClick={() => setAspectRatio('9:16')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    aspectRatio === '9:16'
-                      ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                      : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
-                  }`}
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${aspectRatio === '9:16'
+                    ? 'bg-zinc-800 border-white/40 text-white shadow-md'
+                    : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                    }`}
                 >
                   <Smartphone size={18} className={aspectRatio === '9:16' ? 'text-white' : 'text-zinc-400'} />
                   <span className="text-xs font-semibold mt-1.5">9:16</span>
@@ -546,11 +486,10 @@ function ProjectPageInner() {
                 <button
                   type="button"
                   onClick={() => setAspectRatio('1:1')}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    aspectRatio === '1:1'
-                      ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                      : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
-                  }`}
+                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${aspectRatio === '1:1'
+                    ? 'bg-zinc-800 border-white/40 text-white shadow-md'
+                    : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                    }`}
                 >
                   <Square size={18} className={aspectRatio === '1:1' ? 'text-white' : 'text-zinc-400'} />
                   <span className="text-xs font-semibold mt-1.5">1:1</span>
@@ -578,11 +517,10 @@ function ProjectPageInner() {
                       key={preset.id}
                       type="button"
                       onClick={() => setSelectedStyleId(preset.id)}
-                      className={`text-left p-2.5 rounded-xl border transition-all ${
-                        isSelected
-                          ? 'bg-zinc-800/95 border-emerald-500/60 shadow-sm'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
-                      }`}
+                      className={`text-left p-2.5 rounded-xl border transition-all ${isSelected
+                        ? 'bg-zinc-800/95 border-emerald-500/60 shadow-sm'
+                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className={`text-xs font-medium truncate ${isSelected ? 'text-white font-semibold' : 'text-zinc-300'}`}>
@@ -616,11 +554,10 @@ function ProjectPageInner() {
                     key={p}
                     type="button"
                     onClick={() => setPacingProfile(p)}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                      pacingProfile === p
-                        ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-medium capitalize transition-colors ${pacingProfile === p
+                      ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
                     {p}
                   </button>
@@ -632,94 +569,94 @@ function ProjectPageInner() {
             <div className="pt-2 border-t border-bg-border/60">
               <button
                 type="button"
-                onClick={() => setShowVoiceDrawer(!showVoiceDrawer)}
-                className="w-full flex items-center justify-between py-2 text-xs text-slate-400 hover:text-white transition-colors"
+
+                className="w-full flex items-center justify-between py-2 text-xs text-white transition-colors"
               >
                 <span className="flex items-center gap-1.5 font-medium">
                   <Mic size={13} className="text-emerald-400" />
                   Have recorded voiceover? (Optional)
                 </span>
-                {showVoiceDrawer ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+
               </button>
 
-              {showVoiceDrawer && (
-                <div className="mt-2 p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3 animate-fade-in">
-                  <p className="text-[11px] text-slate-400">
-                    Upload your recorded MP3 or WAV file. Whisper AI will extract word timestamps to align every scene automatically.
-                  </p>
 
-                  <input
-                    ref={voiceFileInputRef}
-                    type="file"
-                    id="voicefileinput"
-                    accept="audio/*,.mp3,.wav,.m4a"
-                    className="hidden"
-                    onChange={handleCustomVoiceSelected}
-                  />
+              <div className="mt-2 p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3 animate-fade-in">
+                <p className="text-[11px] text-slate-400">
+                  Upload your recorded MP3 or WAV file. Whisper AI will extract word timestamps to align every scene automatically.
+                </p>
 
-                  {customAudioFile ? (
-                    <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-700/40 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileAudio size={16} className="text-emerald-400 flex-shrink-0" />
-                          <div className="truncate">
-                            <p className="text-xs font-medium text-white truncate">{customAudioFile.name}</p>
-                            <p className="text-[10px] text-emerald-400 font-mono">
-                              {formatDuration(customAudioDurationMs)} · Uploaded
-                            </p>
-                          </div>
+                <input
+                  ref={voiceFileInputRef}
+                  type="file"
+                  id="voicefileinput"
+                  accept="audio/*,.mp3,.wav,.m4a"
+                  className="hidden"
+                  onChange={handleCustomVoiceSelected}
+                />
+
+                {customAudioFile ? (
+                  <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-700/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileAudio size={16} className="text-emerald-400 flex-shrink-0" />
+                        <div className="truncate">
+                          <p className="text-xs font-medium text-white truncate">{customAudioFile.name}</p>
+                          <p className="text-[10px] text-emerald-400 font-mono">
+                            {formatDuration(customAudioDurationMs)} · Uploaded
+                          </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomAudioFile(null);
-                            setCustomAudioDurationMs(0);
-                          }}
-                          className="text-slate-400 hover:text-red-400 p-1"
-                        >
-                          <X size={14} />
-                        </button>
                       </div>
-
                       <button
                         type="button"
-                        onClick={handleCreateWithCustomVoice}
-                        disabled={generating}
-                        className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 flex items-center justify-center gap-2"
+                        onClick={() => {
+                          setCustomAudioFile(null);
+                          setCustomAudioDurationMs(0);
+                        }}
+                        className="text-slate-400 hover:text-red-400 p-1"
                       >
-                        {generating ? (
-                          <>
-                            <Loader2 size={13} className="animate-spin" />
-                            <span>{generatingMsg || 'Syncing Voice…'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 size={13} />
-                            <span>Sync Voiceover &amp; Create Storyboard</span>
-                          </>
-                        )}
+                        <X size={14} />
                       </button>
                     </div>
-                  ) : (
-                    <label
-                      htmlFor="voicefileinput"
-                      className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/40 hover:border-emerald-600/60 cursor-pointer py-2"
+
+                    <button
+                      type="button"
+                      onClick={handleCreateWithCustomVoice}
+                      disabled={generating}
+                      className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 flex items-center justify-center gap-2"
                     >
-                      {readingAudioDuration ? (
+                      {generating ? (
                         <>
                           <Loader2 size={13} className="animate-spin" />
-                          <span>Reading Audio…</span>
+                          <span>{generatingMsg || 'Syncing Voice…'}</span>
                         </>
                       ) : (
                         <>
-                          <Upload size={13} />
-                          <span>Upload Audio File (MP3 / WAV)</span>
+                          <Wand2 size={13} />
+                          <span>Sync Voiceover &amp; Create Storyboard</span>
                         </>
                       )}
-                    </label>
-                  )}
-                </div>
-              )}
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="voicefileinput"
+                    className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/40 hover:border-emerald-600/60 cursor-pointer py-2"
+                  >
+                    {readingAudioDuration ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        <span>Reading Audio…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={13} />
+                        <span>Upload Audio File (MP3 / WAV)</span>
+                      </>
+                    )}
+                  </label>
+                )}
+              </div>
+
             </div>
 
             {/* Error Message */}
@@ -756,9 +693,7 @@ function ProjectPageInner() {
                 </>
               )}
             </button>
-            <p className="text-[10px] text-slate-500 text-center">
-              Directly generates image prompts &amp; storyboard scenes with Pollinations AI
-            </p>
+
           </div>
         </div>
 
@@ -778,13 +713,12 @@ function ProjectPageInner() {
 
               {/* Dynamic Frame Display */}
               <div
-                className={`relative border-2 border-zinc-700/80 rounded-2xl bg-zinc-950 overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between p-5 group ${
-                  aspectRatio === '16:9'
-                    ? 'w-full aspect-video max-h-[360px]'
-                    : aspectRatio === '9:16'
-                      ? 'w-[260px] aspect-[9/16] max-h-[460px]'
-                      : 'w-[340px] aspect-square max-h-[360px]'
-                }`}
+                className={`relative border-2 border-zinc-700/80 rounded-2xl bg-zinc-950 overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between p-5 group ${aspectRatio === '16:9'
+                  ? 'w-full aspect-video max-h-[360px]'
+                  : aspectRatio === '9:16'
+                    ? 'w-[260px] aspect-[9/16] max-h-[460px]'
+                    : 'w-[340px] aspect-square max-h-[360px]'
+                  }`}
               >
                 {/* Background visual atmosphere */}
                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/80 via-zinc-950 to-black pointer-events-none" />

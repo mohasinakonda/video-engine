@@ -46,7 +46,7 @@ export const HeroSection = () => {
             <form onSubmit={handleStartWithScript} className="pt-1">
               <div className="relative rounded-2xl bg-zinc-900/80 border border-[#2e2e2e] hover:border-zinc-700/80 focus-within:border-zinc-500 transition-all p-4 sm:p-5 flex flex-col justify-between shadow-2xl shadow-black/70 backdrop-blur-sm">
                 <textarea
-                  rows={3}
+                  rows={5}
                   maxLength={2700}
                   value={userScriptInput}
                   onChange={(e) => setUserScriptInput(e.target.value)}
