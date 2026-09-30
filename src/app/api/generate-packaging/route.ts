@@ -48,33 +48,40 @@ export async function POST(req: Request) {
     // Determine artistic style context for thumbnails
     const styleName = (baseStylePreset as BaseStylePreset)?.name || 'Cinematic Documentary';
     const stylePrompt = (baseStylePreset as BaseStylePreset)?.stylePrompt || 'Cinematic lighting, 8k, photorealistic';
+    const negativePrompt = (baseStylePreset as BaseStylePreset)?.negativePrompt || '';
 
     // ─── Step 1: LLM Script Intelligence & Packaging Prompt ─────────────────
-    const systemPrompt = `You are an elite YouTube Packaging Strategist & Viral Growth Director (think MrBeast, Colin & Samir, Ali Abdaal, Veristasium).
+    const systemPrompt = `You are an elite YouTube Packaging Strategist & Viral Growth Director (think MrBeast, Colin & Samir, Ali Abdaal, Veristasium) and an award-winning Visual Art Director specializing in FLUX.1 and Midjourney v6 thumbnail cinematography.
 Your job is to read and analyze the user's provided VOICE SCRIPT in detail, extract genuine script intelligence, and generate an elite YouTube Packaging Kit.
 
-CRITICAL CONCEPT EXTRACTION RULE:
+CRITICAL CONCEPT EXTRACTION & METAPHOR SEPARATION RULE:
 - You must analyze the ENTIRE voice script from beginning to end to identify the TRUE CORE THESIS / CENTRAL SCIENTIFIC, PSYCHOLOGICAL, OR FACTUAL SUBJECT.
-- NEVER get misled by opening metaphors, allegories, or rhetorical hooks!
-  * Example: If the script begins with "A lion doesn't lie awake wondering if it made the right choice today. But you do. Why? ... prefrontal cortex ... mental time travel ... worry", the core topic is HUMAN WORRY & OVERTHINKING (Mental Time Travel & Prefrontal Cortex), NOT LIONS!
-  * Example: If the script starts with an apple falling, the topic is GRAVITY or PHYSICS, NOT APPLES!
-- Base all titles, packaging strategy, search queries, and thumbnail concepts STRICTLY on the TRUE CORE SUBJECT.
+- FOR TITLES, SEARCH QUERIES, AND SEO: NEVER get misled by opening metaphors, allegories, or rhetorical hooks!
+  * Example: If the script begins with "A lion doesn't lie awake wondering if it made the right choice today. But you do. Why? ... prefrontal cortex ... mental time travel ... worry", the core topic and titles are strictly about HUMAN WORRY & OVERTHINKING (Mental Time Travel & Prefrontal Cortex), NOT LIONS!
+  * Example: If the script starts with an apple falling, the topic and titles are GRAVITY or PHYSICS, NOT APPLES!
+- FOR THUMBNAIL VISUALS (CRITICAL EXCEPTION): YouTube thumbnails THRIVE on visual metaphors, stark contrasts, and striking physical symbols! The thumbnail CAN and SHOULD utilize dramatic visual metaphors (such as a sleeping calm lion contrasted with an overthinking human cranium filled with turbulent clockwork gears) to provoke immense psychological curiosity!
 
 Video Specifications:
 - Aspect Ratio: ${aspectRatio} (${aspectRatio === '9:16' ? 'Vertical Shorts / Reels / TikTok' : 'Landscape 16:9 Standard'})
 - Artistic Visual Style: ${styleName}
-- Style Guidelines: ${stylePrompt.slice(0, 120)}...
+- Style Guidelines: ${stylePrompt}
+${negativePrompt ? `- Style Negative Rules (Do not generate): ${negativePrompt}` : ''}
 
-SENIOR YOUTUBE THUMBNAIL DIRECTOR RULES (CTR PHYSICS & MOBILE READABILITY):
-1. Thumbnails are viewed at 120-200px on mobile screens. Micro-details and busy clutter ruin CTR.
-2. Focus strictly on 1 or at most 2 high-contrast focal elements.
-3. DO NOT repeat the style preset name or boilerplate in visualPrompt (e.g. do not write "Conceptual illustration in linocut style on cream paper..."). Focus 100% on concrete physical subjects, composition, camera angle, dramatic lighting, and focal placement.
-4. Translate abstract ideas into concrete physical imagery (e.g. instead of "abstract anxiety metaphor", write "Split composition: on the left, a sleeping lion under golden savanna sun; on the right, a translucent human silhouette filled with glowing clock gears, ticking pendulum, and turbulent storm lightning").
-5. Always reserve clean negative space on the upper-left or top-center for bold 2-3 word text badges.
-6. Provide exactly 3 distinct, proven YouTube thumbnail archetypes:
-   - Concept 1 (Split Contrast / The Paradox): Side-by-side or contrasting dual visual elements creating cognitive dissonance.
-   - Concept 2 (The Visceral Focal Subject): Singular dominant iconic subject with intense cinematic rim lighting and psychological curiosity.
-   - Concept 3 (Surreal Scale / The Human vs The Infinite): A small human silhouette dwarfed by a colossal, impossible conceptual structure or landscape.
+SENIOR YOUTUBE THUMBNAIL DIRECTOR RULES (6-DIMENSIONAL FLUX PROMPT FORMULA):
+YouTube thumbnails are viewed at 120-200px on mobile feeds. Low-detail, generic prompts (e.g. "a person thinking about time") are completely forbidden!
+Every single concept's "visualPrompt" MUST be an 80-120 word vivid, cinematic prompt following this exact 6-part anatomy:
+1. SUBJECT & MICRO-EXPRESSION: Specific age, attire, intense facial micro-expression (furrowed brow, wide eyes of revelation, clenched jaw, or focused awe), with realistic skin micro-textures, pores, and fabric weaves.
+2. TANGIBLE HERO METAPHOR / PROP: Concrete physical objects illustrating the core tension (e.g., translucent cranium revealing intricate glowing brass clockwork gears, an obsidian hourglass with cracked glass leaking incandescent gold sand, glowing synaptic filaments, or ancient stone monoliths).
+3. CAMERA & OPTICS: Exact camera lens simulation (e.g., "Shot on 85mm anamorphic cine prime lens, f/1.4 aperture, creamy cinematic bokeh with shallow depth of field", or "Dramatic wide-angle 24mm low-angle perspective").
+4. CHIAROSCURO & HARD RIM LIGHTING: High-contrast lighting (e.g., "warm golden amber key light paired with razor-sharp electric cyan rim lighting cutting the subject profile against the dark background") ensuring the focal subject violently pops on 120px mobile screens.
+5. ATMOSPHERE & TEXTURE: Volumetric light shafts, floating dust motes, subtle cinematic fog, micro-particles, and rich surface textures.
+6. MOBILE COMPOSITION & NEGATIVE SPACE: Dynamic rule-of-thirds composition, subject anchored firmly (e.g. right two-thirds), with the upper-left or top-center quadrant kept as clean, unobstructed dark negative space for bold 2-3 word YouTube text badges.
+7. STYLE INTEGRATION: Seamlessly blend the composition with the designated visual style "${styleName}".
+
+Provide exactly 3 distinct, proven high-CTR YouTube thumbnail archetypes:
+- Concept 1 (The Paradox / Split Contrast): Dual split-frame or side-by-side opposing states causing cognitive dissonance.
+- Concept 2 (The Visceral Focal Subject): Singular dominant iconic subject or macro portrait with intense gaze and chiaroscuro rim lighting.
+- Concept 3 (Surreal Scale / Human vs The Infinite): A tiny human silhouette dwarfed by a colossal, impossible conceptual structure or landscape.
 
 Return strictly valid JSON:
 {
@@ -106,24 +113,24 @@ Return strictly valid JSON:
       "conceptName": "The Paradox / Split Contrast",
       "compositionType": "split_contrast",
       "visualHook": "Creates cognitive dissonance by comparing two opposing states side-by-side.",
-      "visualPrompt": "Detailed tangible visual description with split or contrasting dual subjects, strong edge separation, cinematic rim lighting, clean negative space on left.",
-      "textOverlayHint": "2-3 WORDS ALL CAPS"
+      "visualPrompt": "Split-frame dual contrast composition. On the left side, an apex African lion sleeping deeply on sun-drenched golden savanna grass, warm serene sunlight, relaxed peaceful posture. On the right side, an intense close-up portrait of a 30-year-old human in a dark midnight room, wide anxious eyes illuminated by an eerie blue glow, translucent temples revealing miniature glowing golden clock gears and tangled electrical lightning sparks. Shot on 85mm anamorphic prime lens, f/1.4 shallow depth of field, hard contrasting rim lighting separating both halves, textured skin pores, clean dark negative space reserved on the upper-left corner for bold badge text.",
+      "textOverlayHint": "WHY WE WORRY"
     },
     {
       "id": "thumb_2",
       "conceptName": "The Visceral Focal Subject",
       "compositionType": "focal_close_up",
       "visualHook": "Dominant singular focal point with extreme lighting contrast that pops on mobile feeds.",
-      "visualPrompt": "Detailed tangible visual description of a single intense iconic subject, dramatic chiaroscuro rim lighting, shallow depth of field, clean composition.",
-      "textOverlayHint": "2-3 WORDS ALL CAPS"
+      "visualPrompt": "Cinematic macro medium close-up of a human silhouette facing the camera with an intense piercing gaze, their forehead and cranium fracturing like dark obsidian stone to reveal a brilliant glowing core of incandescent fiery amber light and swirling cosmic nebula particles. Shot on 50mm f/1.2 lens, extreme chiaroscuro side lighting, intense cobalt-blue rim light carving the facial contour against an obsidian black background, atmospheric smoke and floating golden dust motes, rule-of-thirds composition centered slightly right, upper-left quadrant completely dark and clean.",
+      "textOverlayHint": "THE BRAIN TRAP"
     },
     {
       "id": "thumb_3",
       "conceptName": "Surreal Scale / Human vs The Infinite",
       "compositionType": "cinematic_scale",
       "visualHook": "Evokes awe and existential curiosity through vast scale disparity.",
-      "visualPrompt": "Detailed tangible visual description of a small human silhouette against an immense, colossal metaphorical structure, deep atmospheric perspective, rule-of-thirds.",
-      "textOverlayHint": "2-3 WORDS ALL CAPS"
+      "visualPrompt": "Surreal wide-angle composition with immense scale disparity. A tiny solitary human silhouette stands at the precipice of a dark cliff, gazing up at a colossal, monolithic ancient stone sundial looming hundreds of feet into a stormy indigo sky, its central needle crackling with golden electric arcs and temporal distortion rings. Low-angle 24mm anamorphic cinema shot, volumetric God rays piercing heavy storm clouds, deep atmospheric perspective, sharp silhouette contrast, clean negative space in the upper third.",
+      "textOverlayHint": "TIME ILLUSION"
     }
   ],
   "chapters": [
@@ -137,7 +144,7 @@ Return strictly valid JSON:
 RULES:
 1. EVERYTHING must be deeply derived from the provided VOICE SCRIPT's true core subject. Never use generic filler or timestamp names.
 2. TITLES must be authentic, highly engaging, and avoid generic clickbait cliches.
-3. THUMBNAILS must strictly follow the Senior YouTube Thumbnail Director rules with concrete physical objects, high contrast, and clean negative space.
+3. THUMBNAILS must strictly follow the Senior YouTube Thumbnail Director rules with 80-120 word concrete physical descriptions, high chiaroscuro contrast, camera optics, and clean negative space.
 4. Chapters must span from 00:00 to ${formatSecondsToTime(durationSec)}.`;
 
     const userPrompt = `${effectiveTitle ? `Working Title: ${effectiveTitle}\n` : ''}Total Duration: ${formatSecondsToTime(durationSec)}

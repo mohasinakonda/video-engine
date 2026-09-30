@@ -61,10 +61,11 @@ interface LaunchKitContextValue {
   conceptEditMode: Record<string, boolean>;
   setConceptEditMode: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   generatingThumbId: string | null;
+  enhancingThumbId: string | null;
   handleUpdateConceptPrompt: (id: string, newPrompt: string) => Promise<void>;
   handleUpdateConceptText: (id: string, newText: string) => Promise<void>;
-  handleApplyModifier: (id: string, modifierText: string) => Promise<void>;
   handleResetConceptPrompt: (id: string) => Promise<void>;
+  handleEnhanceConceptPrompt: (concept: ThumbnailConcept) => Promise<void>;
   handleAddCustomConcept: () => Promise<void>;
   handleDeleteConcept: (id: string) => Promise<void>;
   handleGenerateThumbnail: (concept: ThumbnailConcept) => Promise<void>;
@@ -101,6 +102,7 @@ export function LaunchKitProvider({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [generatingThumbId, setGeneratingThumbId] = useState<string | null>(null);
+  const [enhancingThumbId, setEnhancingThumbId] = useState<string | null>(null);
   const [activeConceptId, setActiveConceptId] = useState<string | null>(null);
   const [conceptEditMode, setConceptEditMode] = useState<Record<string, boolean>>({});
 
@@ -337,18 +339,7 @@ export function LaunchKitProvider({
     onUpdateProject(updated);
   };
 
-  const handleApplyModifier = async (id: string, modifierText: string) => {
-    if (!packaging?.thumbnailConcepts) return;
-    const concept = packaging.thumbnailConcepts.find((c) => c.id === id);
-    if (!concept) return;
-    if (concept.visualPrompt.includes(modifierText.trim())) {
-      showToast('Modifier already included in prompt');
-      return;
-    }
-    const newPrompt = `${concept.visualPrompt.trim()}${modifierText}`;
-    await handleUpdateConceptPrompt(id, newPrompt);
-    showToast('CTR booster tag added to prompt!');
-  };
+
 
   const handleResetConceptPrompt = async (id: string) => {
     if (!packaging?.thumbnailConcepts) return;
@@ -356,6 +347,46 @@ export function LaunchKitProvider({
     if (!concept || !concept.originalPrompt) return;
     await handleUpdateConceptPrompt(id, concept.originalPrompt);
     showToast('Prompt reset to original AI baseline!');
+  };
+
+  const handleEnhanceConceptPrompt = async (concept: ThumbnailConcept) => {
+    if (!concept.visualPrompt.trim()) {
+      showToast('Please enter a draft visual prompt to enhance');
+      return;
+    }
+    setEnhancingThumbId(concept.id);
+    try {
+      showToast('✨ Elevating prompt with cinematic optics, chiaroscuro lighting & micro-textures...');
+      const res = await fetch('/api/enhance-thumbnail-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: concept.visualPrompt.trim(),
+          coreTopic: packaging?.scriptIntelligence?.coreTopic || project.title || '',
+          styleName: stylePreset?.name || 'Cinematic Documentary',
+          stylePrompt: stylePreset?.stylePrompt || 'Cinematic lighting, 8k, photorealistic',
+          aspectRatio: project.aspectRatio === '9:16' ? '9:16' : '16:9',
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to enhance prompt');
+      }
+
+      const data = await res.json();
+      if (!data.enhancedPrompt) {
+        throw new Error('No enhanced prompt returned');
+      }
+
+      await handleUpdateConceptPrompt(concept.id, data.enhancedPrompt);
+      showToast('✨ Visual prompt elevated to masterwork quality!');
+    } catch (err: any) {
+      console.error('Enhance prompt failed:', err);
+      showToast(`Enhancement failed: ${err.message}`);
+    } finally {
+      setEnhancingThumbId(null);
+    }
   };
 
   const handleAddCustomConcept = async () => {
@@ -413,7 +444,7 @@ export function LaunchKitProvider({
       thumbnailConcepts: updatedConcepts,
       selectedThumbnailUrl:
         packaging.selectedThumbnailUrl ===
-        packaging.thumbnailConcepts.find((c) => c.id === id)?.imageUrl
+          packaging.thumbnailConcepts.find((c) => c.id === id)?.imageUrl
           ? undefined
           : packaging.selectedThumbnailUrl,
     };
@@ -546,10 +577,11 @@ export function LaunchKitProvider({
         conceptEditMode,
         setConceptEditMode,
         generatingThumbId,
+        enhancingThumbId,
         handleUpdateConceptPrompt,
         handleUpdateConceptText,
-        handleApplyModifier,
         handleResetConceptPrompt,
+        handleEnhanceConceptPrompt,
         handleAddCustomConcept,
         handleDeleteConcept,
         handleGenerateThumbnail,

@@ -24,16 +24,18 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
     packaging,
     stylePreset,
     generatingThumbId,
+    enhancingThumbId,
     setConceptEditMode,
     handleDeleteConcept,
     handleResetConceptPrompt,
     handleUpdateConceptPrompt,
-
+    handleEnhanceConceptPrompt,
     handleGenerateThumbnail,
   } = useLaunchKit();
 
   const hasImage = Boolean(concept.imageUrl);
   const isGeneratingThis = generatingThumbId === concept.id;
+  const isEnhancingThis = enhancingThumbId === concept.id;
 
   return (
     <div className="p-5 sm:p-6 space-y-4">
@@ -86,7 +88,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
           <div>
             <label className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
               <Edit3 size={13} />
-              <span>Detailed Visual Prompt (থাম্বনেইল প্রম্পট):</span>
+              <span>Detailed Visual Prompt </span>
             </label>
             <p className="text-[11px] text-zinc-400">
               Verify or edit the prompt below. When ready, click &quot;Generate Thumbnail&quot;.
@@ -94,6 +96,26 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleEnhanceConceptPrompt(concept)}
+              disabled={isEnhancingThis || Boolean(generatingThumbId)}
+              className="text-xs text-purple-300 hover:text-purple-100 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 transition-all font-medium disabled:opacity-50"
+              title="Elevate this prompt with cinematic optics, chiaroscuro lighting, and micro-textures"
+            >
+              {isEnhancingThis ? (
+                <>
+                  <Loader2 size={12} className="animate-spin text-purple-300" />
+                  <span>Enhancing...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={12} className="text-purple-400" />
+                  <span>✨ AI Enhance Prompt</span>
+                </>
+              )}
+            </button>
+
             {concept.originalPrompt && concept.originalPrompt !== concept.visualPrompt && (
               <button
                 type="button"
@@ -102,7 +124,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
                 title="Reset prompt back to AI generated baseline"
               >
                 <Undo2 size={12} />
-                <span>Reset to AI</span>
+                <span>Reset</span>
               </button>
             )}
 
@@ -111,7 +133,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
               copyKey={`prompt_${concept.id}`}
               label="Prompt"
               className="text-xs text-zinc-400 hover:text-white flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 border border-zinc-700 transition-colors"
-              buttonText="Copy Prompt"
+              buttonText="Copy"
               copiedText="Copied"
               iconSize={12}
             />
