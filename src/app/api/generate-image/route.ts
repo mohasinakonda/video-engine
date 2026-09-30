@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server';
+import {
+  isSupabaseConfigured,
+  deductCreditsRemote,
+  grantCreditsRemote,
+} from '@/lib/supabase-service';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 /**
  * Enhances an image prompt with quality boosters for better FLUX output.
@@ -35,6 +41,9 @@ function buildFinalPrompt(
 }
 
 export async function POST(req: Request) {
+  let authenticatedUserId: string | null = null;
+  let remainingCredits: number | null = null;
+
   try {
     const body = await req.json();
     const {
@@ -50,6 +59,52 @@ export async function POST(req: Request) {
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+    }
+
+    // ─── 0. Authenticate Caller & Atomically Deduct 1 Credit ─────────────────
+    if (isSupabaseConfigured()) {
+      const serverSupabase = createServerClient();
+      const {
+        data: { user },
+      } = await serverSupabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Unauthorized. Please sign in to generate images.' },
+          { status: 401 }
+        );
+      }
+
+      authenticatedUserId = user.id;
+
+      const { data: profile } = await serverSupabase
+        .from('profiles')
+        .select('credits_remaining, is_blocked, block_reason')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.is_blocked) {
+        return NextResponse.json(
+          { error: profile.block_reason || 'Your account is suspended.' },
+          { status: 403 }
+        );
+      }
+
+      if (!profile || profile.credits_remaining < 1) {
+        return NextResponse.json(
+          { error: 'Insufficient credits. Please purchase a top-up pack or upgrade your subscription plan.' },
+          { status: 402 }
+        );
+      }
+
+      const deducted = await deductCreditsRemote(user.id, 1);
+      if (!deducted) {
+        return NextResponse.json(
+          { error: 'Could not deduct image credit. Insufficient balance or account blocked.' },
+          { status: 402 }
+        );
+      }
+      remainingCredits = profile.credits_remaining - 1;
     }
 
     // Determine dimensions based on aspect ratio
@@ -94,7 +149,7 @@ export async function POST(req: Request) {
           if (data.images && data.images.length > 0) {
             const imgData = data.images[0];
             const base64Image = imgData.startsWith('data:') ? imgData : `data:image/jpeg;base64,${imgData}`;
-            return NextResponse.json({ base64Image, provider: 'deepinfra' });
+            return NextResponse.json({ base64Image, provider: 'deepinfra', remainingCredits });
           }
         } else {
           const errText = await response.text().catch(() => '');
@@ -131,7 +186,7 @@ export async function POST(req: Request) {
             const imgRes = await fetch(imageUrl);
             const arrayBuffer = await imgRes.arrayBuffer();
             const base64Image = `data:image/jpeg;base64,${Buffer.from(arrayBuffer).toString('base64')}`;
-            return NextResponse.json({ base64Image, provider: 'fal' });
+            return NextResponse.json({ base64Image, provider: 'fal', remainingCredits });
           }
         } else {
           const errText = await response.text().catch(() => '');
@@ -177,10 +232,22 @@ export async function POST(req: Request) {
       imageUrl: base64Image,
       url: base64Image,
       provider: 'pollinations',
+      remainingCredits,
     });
 
   } catch (error: any) {
     console.error('API /api/generate-image error:', error);
+
+    // If an error occurred after credit deduction, refund the credit
+    if (authenticatedUserId && isSupabaseConfigured()) {
+      try {
+        await grantCreditsRemote(authenticatedUserId, 1);
+        console.log(`[API /api/generate-image] Refunded 1 credit to ${authenticatedUserId} due to generation failure`);
+      } catch (refundErr) {
+        console.error('[API /api/generate-image] Failed to refund credit:', refundErr);
+      }
+    }
+
     return NextResponse.json(
       { error: error.message || 'Image generation failed' },
       { status: 500 }

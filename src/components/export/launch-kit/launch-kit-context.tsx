@@ -492,6 +492,10 @@ export function LaunchKitProvider({
         throw new Error('No image URL returned');
       }
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('credits_updated'));
+      }
+
       const updatedConcepts = (packaging?.thumbnailConcepts || []).map((c) =>
         c.id === concept.id ? { ...c, imageUrl } : c
       );

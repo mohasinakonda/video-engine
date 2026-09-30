@@ -4,7 +4,9 @@ import {
   fetchUserPaymentsRemote,
   fetchSupabaseProfile,
   isSupabaseConfigured,
+  incrementPromoUsageRemote,
 } from '@/lib/supabase-service';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   submitPaymentRequest,
   getAllPaymentSubmissions,
@@ -24,13 +26,33 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
-    const userEmail = searchParams.get('userEmail');
+    const requestedUserId = searchParams.get('userId');
+    const requestedUserEmail = searchParams.get('userEmail');
 
-    if (isSupabaseConfigured() && (userId || userEmail)) {
+    if (isSupabaseConfigured()) {
+      const serverSupabase = createServerClient();
+      const {
+        data: { user },
+      } = await serverSupabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized. Please sign in.' },
+          { status: 401 }
+        );
+      }
+
+      // Check if user has admin role
+      const profile = await fetchSupabaseProfile(user.id);
+      const isAdmin = profile?.role === 'admin';
+
+      // Anti-IDOR: Non-admins can strictly only query their own payments
+      const effectiveUserId = isAdmin && requestedUserId ? requestedUserId : user.id;
+      const effectiveUserEmail = isAdmin && requestedUserEmail ? requestedUserEmail : (user.email || undefined);
+
       const remotePayments = await fetchUserPaymentsRemote(
-        userId || undefined,
-        userEmail || undefined
+        effectiveUserId,
+        effectiveUserEmail
       );
       if (remotePayments !== null) {
         return NextResponse.json({
@@ -42,8 +64,8 @@ export async function GET(req: Request) {
     }
 
     const localList = getAllPaymentSubmissions().filter((p) => {
-      if (userId && p.userId === userId) return true;
-      if (userEmail && p.userEmail.toLowerCase() === userEmail.toLowerCase()) return true;
+      if (requestedUserId && p.userId === requestedUserId) return true;
+      if (requestedUserEmail && p.userEmail.toLowerCase() === requestedUserEmail.toLowerCase()) return true;
       return false;
     });
 
@@ -254,6 +276,11 @@ export async function POST(req: Request) {
 
     // 5. Also save in local store fallback (which records submission and tracks promo usage)
     submitPaymentRequest(submissionData);
+
+    // 6. Increment promo code counter in Supabase cloud DB
+    if (isSupabaseConfigured() && validatedPromoCode) {
+      await incrementPromoUsageRemote(validatedPromoCode);
+    }
 
     return NextResponse.json({
       success: true,

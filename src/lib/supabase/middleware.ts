@@ -45,7 +45,14 @@ export async function updateSession(request: NextRequest) {
   const isPublicAdminApi = pathname === '/api/admin/plan' && request.method === 'GET';
   const isAdminRoute =
     !isPublicAdminApi && (pathname.startsWith('/admin') || pathname.startsWith('/api/admin'));
+  const isProtectedApiRoute =
+    pathname.startsWith('/api/generate-image') ||
+    pathname.startsWith('/api/generate-packaging') ||
+    pathname.startsWith('/api/breakdown-script') ||
+    pathname.startsWith('/api/enhance-thumbnail-prompt') ||
+    pathname.startsWith('/api/search-competitors');
   const isUserPrivateRoute =
+    pathname.startsWith('/dashboard') ||
     pathname.startsWith('/project') ||
     pathname.startsWith('/storyboard') ||
     pathname.startsWith('/voice-studio') ||
@@ -61,8 +68,8 @@ export async function updateSession(request: NextRequest) {
     return redirectRes;
   };
 
-  // 1. Unauthenticated user trying to access private or admin routes
-  if (!user && (isUserPrivateRoute || isAdminRoute)) {
+  // 1. Unauthenticated user trying to access private, admin, or protected API routes
+  if (!user && (isUserPrivateRoute || isAdminRoute || isProtectedApiRoute)) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized. Please sign in.' },

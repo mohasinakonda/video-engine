@@ -36,19 +36,26 @@ function deriveSubscription(profile: UserProfile): UserSubscription {
       : new Date(profile.joinedAt).getTime() || Date.now();
 
   const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-  const expiresAt = isTrial
-    ? joinedTimestamp + 365 * 24 * 60 * 60 * 1000
-    : Date.now() + THIRTY_DAYS;
+  let expiresAt: number;
+  if (profile.subscriptionExpiresAt && typeof profile.subscriptionExpiresAt === 'number') {
+    expiresAt = profile.subscriptionExpiresAt;
+  } else if (isTrial) {
+    expiresAt = joinedTimestamp + 365 * 24 * 60 * 60 * 1000;
+  } else {
+    expiresAt = joinedTimestamp + THIRTY_DAYS;
+  }
+
+  const isExpired = !isTrial && Date.now() > expiresAt;
 
   return {
-    tier: profile.tier,
+    tier: isExpired ? 'TRIAL' : profile.tier,
     creditsRemaining: profile.creditsRemaining,
     creditsUsed: profile.creditsUsed,
     totalCreditsPurchased: profile.creditsRemaining + profile.creditsUsed,
     startDate: joinedTimestamp,
     expiresAt,
     billingCycle: 'monthly',
-    status: profile.isBlocked ? 'EXPIRED' : isTrial ? 'TRIAL' : 'ACTIVE',
+    status: profile.isBlocked ? 'EXPIRED' : isExpired ? 'EXPIRED' : isTrial ? 'TRIAL' : 'ACTIVE',
   };
 }
 

@@ -114,6 +114,7 @@ export async function fetchSupabaseProfile(userId: string): Promise<UserProfile 
     referralPaidBDT: data.referral_paid_bdt,
     assignedPromoCode: data.assigned_promo_code,
     role: data.role || 'user',
+    subscriptionExpiresAt: data.subscription_expires_at ? new Date(data.subscription_expires_at).getTime() : undefined,
   };
 }
 
@@ -548,10 +549,20 @@ export async function approvePaymentRemote(submissionId: string, adminNote?: str
 
         if (sub.item_type === 'subscription' && sub.plan_id) {
           updatePayload.tier = sub.plan_id;
+          const durationDays = sub.billing_cycle === 'yearly' ? 365 : 30;
+          updatePayload.subscription_expires_at = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
         }
 
         await supabase.from('profiles').update(updatePayload).eq('id', sub.user_id);
       }
+    }
+
+    // 4. Credit affiliate commission if promo code belonged to a referrer
+    if (sub.promo_code_applied) {
+      await creditAffiliateCommissionRemote(
+        sub.promo_code_applied,
+        sub.discounted_price_bdt || 0
+      );
     }
 
     return true;
@@ -622,6 +633,7 @@ export async function fetchAllProfilesRemote(): Promise<UserProfile[] | null> {
       referralPaidBDT: row.referral_paid_bdt ?? 0,
       assignedPromoCode: row.assigned_promo_code,
       role: row.role || 'user',
+      subscriptionExpiresAt: row.subscription_expires_at ? new Date(row.subscription_expires_at).getTime() : undefined,
     }));
   } catch (err) {
     console.error('[Supabase] Failed to fetch profiles:', err);
@@ -766,6 +778,50 @@ export async function submitPayoutRemote(
     return true;
   } catch (err) {
     console.error('[Supabase] Error submitting payout:', err);
+    return false;
+  }
+}
+
+/** Atomically increment promo code current_uses in Supabase */
+export async function incrementPromoUsageRemote(code: string): Promise<boolean> {
+  if (!isSupabaseConfigured() || !code) return false;
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('increment_promo_usage', {
+      p_code: code.trim().toUpperCase(),
+    });
+    if (error) {
+      console.warn('[Supabase] increment_promo_usage error:', error);
+      return false;
+    }
+    return Boolean(data);
+  } catch (err) {
+    console.warn('[Supabase] increment_promo_usage exception:', err);
+    return false;
+  }
+}
+
+/** Atomically credit affiliate commission in Supabase */
+export async function creditAffiliateCommissionRemote(
+  referralCode: string,
+  orderAmountBDT: number,
+  commissionPercent = 15
+): Promise<boolean> {
+  if (!isSupabaseConfigured() || !referralCode) return false;
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('credit_affiliate_commission', {
+      p_referral_code: referralCode.trim().toUpperCase(),
+      p_order_amount_bdt: orderAmountBDT,
+      p_commission_percent: commissionPercent,
+    });
+    if (error) {
+      console.warn('[Supabase] credit_affiliate_commission error:', error);
+      return false;
+    }
+    return Boolean(data);
+  } catch (err) {
+    console.warn('[Supabase] credit_affiliate_commission exception:', err);
     return false;
   }
 }

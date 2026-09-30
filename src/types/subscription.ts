@@ -101,6 +101,7 @@ export interface UserProfile {
   referralPaidBDT: number; // paid out
   assignedPromoCode?: string;
   role?: 'admin' | 'user';
+  subscriptionExpiresAt?: number;
 }
 
 export interface AffiliatePayoutRequest {

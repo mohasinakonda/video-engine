@@ -110,15 +110,17 @@ export function useDashboardData(): UseDashboardDataReturn {
             setIsLiveSupabase(true);
 
             const localSub = getUserSubscription();
+            const expiresAt = remoteProf.subscriptionExpiresAt || (remoteProf.joinedAt + 30 * 24 * 3600 * 1000);
+            const isSubExpired = remoteProf.tier !== 'TRIAL' && remoteProf.subscriptionExpiresAt ? Date.now() > remoteProf.subscriptionExpiresAt : false;
             setSub({
-              tier: remoteProf.tier,
+              tier: isSubExpired ? 'TRIAL' : remoteProf.tier,
               creditsRemaining: remoteProf.creditsRemaining,
               creditsUsed: remoteProf.creditsUsed,
               totalCreditsPurchased: remoteProf.creditsRemaining + remoteProf.creditsUsed,
               startDate: remoteProf.joinedAt,
-              expiresAt: Date.now() + 30 * 24 * 3600 * 1000,
+              expiresAt,
               billingCycle: localSub?.billingCycle || 'monthly',
-              status: remoteProf.tier === 'TRIAL' ? 'EXPIRED' : 'ACTIVE',
+              status: remoteProf.isBlocked ? 'EXPIRED' : isSubExpired ? 'EXPIRED' : remoteProf.tier === 'TRIAL' ? 'TRIAL' : 'ACTIVE',
             });
 
             const userPayments = await fetchUserPaymentsRemote(authUser.id, authUser.email);

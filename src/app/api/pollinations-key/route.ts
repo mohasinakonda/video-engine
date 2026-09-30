@@ -12,7 +12,6 @@ export async function GET() {
 
   return NextResponse.json({
     configured,
-    key: trimmed,
     maskedKey,
   });
 }

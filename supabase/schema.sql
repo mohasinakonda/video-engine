@@ -1,5 +1,5 @@
 -- ==============================================================================
--- AI VIDEO STUDIO — SUPABASE COMPLETE DATABASE SCHEMA & MIGRATION
+-- AI VIDEO STUDIO — SUPABASE COMPLETE DATABASE SCHEMA & MIGRATION (HARDENED)
 -- Run this script in your Supabase SQL Editor (Dashboard -> SQL Editor -> New Query)
 -- ==============================================================================
 
@@ -28,9 +28,13 @@ create table if not exists public.profiles (
   referral_paid_bdt int default 0 not null,
   assigned_promo_code text,
   role text default 'user' check (role in ('admin', 'user')) not null,
+  subscription_expires_at timestamptz,
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );
+
+-- Ensure column exists if table was created previously
+alter table public.profiles add column if not exists subscription_expires_at timestamptz;
 
 -- Row Level Security (RLS)
 alter table public.profiles enable row level security;
@@ -40,20 +44,94 @@ create policy "Users can view their own profile"
   on public.profiles for select
   using (auth.uid() = id);
 
+drop policy if exists "Admins can view all profiles" on public.profiles;
+create policy "Admins can view all profiles"
+  on public.profiles for select
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
 drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
   on public.profiles for update
   using (auth.uid() = id);
 
 drop policy if exists "Allow all operations for service role and admin" on public.profiles;
-create policy "Allow all operations for service role and admin"
+drop policy if exists "Admins can manage all profiles" on public.profiles;
+create policy "Admins can manage all profiles"
   on public.profiles for all
-  using (true)
-  with check (true);
+  using (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.profiles
+      where id = auth.uid() and role = 'admin'
+    )
+  );
+
+-- Anti-tampering trigger: prevents standard users from escalating role, credits, tier, or affiliate funds
+create or replace function public.protect_profile_fields()
+returns trigger as $$
+begin
+  -- If service role or verified admin, permit changes
+  if current_user = 'service_role' or (auth.jwt()->>'role' = 'service_role') then
+    return new;
+  end if;
+
+  if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    return new;
+  end if;
+
+  -- Regular user: block tampering with privileged fields
+  if new.role is distinct from old.role then
+    raise exception 'Unauthorized to modify user role directly';
+  end if;
+  if new.tier is distinct from old.tier then
+    raise exception 'Unauthorized to modify subscription tier directly';
+  end if;
+  if new.credits_remaining is distinct from old.credits_remaining then
+    raise exception 'Unauthorized to modify credits remaining balance directly';
+  end if;
+  if new.credits_used is distinct from old.credits_used then
+    raise exception 'Unauthorized to modify credits used';
+  end if;
+  if new.total_spent_bdt is distinct from old.total_spent_bdt then
+    raise exception 'Unauthorized to modify total spent';
+  end if;
+  if new.is_blocked is distinct from old.is_blocked then
+    raise exception 'Unauthorized to modify block status';
+  end if;
+  if new.referral_code is distinct from old.referral_code then
+    raise exception 'Unauthorized to modify referral code';
+  end if;
+  if new.referral_earnings_bdt is distinct from old.referral_earnings_bdt or
+     new.referral_pending_bdt is distinct from old.referral_pending_bdt or
+     new.referral_paid_bdt is distinct from old.referral_paid_bdt or
+     new.referral_count is distinct from old.referral_count then
+    raise exception 'Unauthorized to modify referral stats directly';
+  end if;
+  if new.subscription_expires_at is distinct from old.subscription_expires_at then
+    raise exception 'Unauthorized to modify subscription expiration directly';
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_protect_profile_fields on public.profiles;
+create trigger trg_protect_profile_fields
+  before update on public.profiles
+  for each row execute procedure public.protect_profile_fields();
 
 -- ==============================================================================
 -- AUTOMATIC NEW USER REGISTRATION TRIGGER
--- Whenever a user signs up with Google or Email, creates profile with 30 Free Credits
 -- ==============================================================================
 create or replace function public.handle_new_user()
 returns trigger as $$
@@ -125,8 +203,16 @@ create table if not exists public.plans (
 alter table public.plans enable row level security;
 drop policy if exists "Anyone can read active plans" on public.plans;
 create policy "Anyone can read active plans" on public.plans for select using (true);
+
 drop policy if exists "Allow upsert plans" on public.plans;
-create policy "Allow upsert plans" on public.plans for all using (true) with check (true);
+drop policy if exists "Admins can manage plans" on public.plans;
+create policy "Admins can manage plans" on public.plans for all
+  using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 -- Seed Default Plans
 insert into public.plans (id, name, badge, popular, price_monthly, price_yearly, credits_per_month, max_video_duration_sec, max_resolution, features)
@@ -154,8 +240,16 @@ create table if not exists public.topup_packs (
 alter table public.topup_packs enable row level security;
 drop policy if exists "Anyone can read topup packs" on public.topup_packs;
 create policy "Anyone can read topup packs" on public.topup_packs for select using (true);
+
 drop policy if exists "Allow upsert topup packs" on public.topup_packs;
-create policy "Allow upsert topup packs" on public.topup_packs for all using (true) with check (true);
+drop policy if exists "Admins can manage topup packs" on public.topup_packs;
+create policy "Admins can manage topup packs" on public.topup_packs for all
+  using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 -- Seed Default Topup Packs
 insert into public.topup_packs (id, name, credits, price_bdt, per_credit_bdt, popular)
@@ -185,8 +279,16 @@ create table if not exists public.promo_codes (
 alter table public.promo_codes enable row level security;
 drop policy if exists "Anyone can view active promo codes" on public.promo_codes;
 create policy "Anyone can view active promo codes" on public.promo_codes for select using (true);
+
 drop policy if exists "Allow upsert promo codes" on public.promo_codes;
-create policy "Allow upsert promo codes" on public.promo_codes for all using (true) with check (true);
+drop policy if exists "Admins can manage promo codes" on public.promo_codes;
+create policy "Admins can manage promo codes" on public.promo_codes for all
+  using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 -- Seed Default Promo Codes
 insert into public.promo_codes (code, type, discount_value, bonus_credits, valid_until, max_uses, current_uses, description, is_active, commission_percent)
@@ -225,18 +327,26 @@ alter table public.payments enable row level security;
 drop policy if exists "Users can view own payments" on public.payments;
 create policy "Users can view own payments"
   on public.payments for select
-  using (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id or
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 drop policy if exists "Users can insert payments" on public.payments;
 create policy "Users can insert payments"
   on public.payments for insert
-  with check (true);
+  with check (auth.uid() = user_id or auth.uid() is null);
 
 drop policy if exists "Allow all operations on payments" on public.payments;
-create policy "Allow all operations on payments"
-  on public.payments for all
-  using (true)
-  with check (true);
+drop policy if exists "Admins can update payments" on public.payments;
+create policy "Admins can update payments"
+  on public.payments for update
+  using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 -- ==============================================================================
 -- AFFILIATE PAYOUT REQUESTS
@@ -245,7 +355,7 @@ create table if not exists public.affiliate_payouts (
   id text primary key,
   user_id uuid references auth.users(id) on delete set null,
   user_email text not null,
-  amount_bdt int not null,
+  amount_bdt int not null check (amount_bdt >= 100),
   payment_method text not null check (payment_method in ('bkash', 'nagad', 'bank')),
   account_number text not null,
   status text default 'PENDING' check (status in ('PENDING', 'PAID', 'REJECTED')),
@@ -255,12 +365,30 @@ create table if not exists public.affiliate_payouts (
 );
 
 alter table public.affiliate_payouts enable row level security;
+
 drop policy if exists "Users can view own payouts" on public.affiliate_payouts;
-create policy "Users can view own payouts" on public.affiliate_payouts for select using (auth.uid() = user_id);
+create policy "Users can view own payouts"
+  on public.affiliate_payouts for select
+  using (
+    auth.uid() = user_id or
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
+
 drop policy if exists "Users can submit payouts" on public.affiliate_payouts;
-create policy "Users can submit payouts" on public.affiliate_payouts for insert with check (auth.uid() = user_id);
+create policy "Users can submit payouts"
+  on public.affiliate_payouts for insert
+  with check (auth.uid() = user_id);
+
 drop policy if exists "Allow all operations on affiliate payouts" on public.affiliate_payouts;
-create policy "Allow all operations on affiliate payouts" on public.affiliate_payouts for all using (true) with check (true);
+drop policy if exists "Admins can manage affiliate payouts" on public.affiliate_payouts;
+create policy "Admins can manage affiliate payouts"
+  on public.affiliate_payouts for update
+  using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 -- ==============================================================================
 -- ADMIN SETTINGS & ANNOUNCEMENT BANNER
@@ -280,16 +408,25 @@ create table if not exists public.admin_settings (
 alter table public.admin_settings enable row level security;
 drop policy if exists "Anyone can read admin settings" on public.admin_settings;
 create policy "Anyone can read admin settings" on public.admin_settings for select using (true);
+
 drop policy if exists "Allow upsert admin settings" on public.admin_settings;
-create policy "Allow upsert admin settings" on public.admin_settings for all using (true) with check (true);
+drop policy if exists "Admins can manage admin settings" on public.admin_settings;
+create policy "Admins can manage admin settings"
+  on public.admin_settings for all
+  using (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  )
+  with check (
+    exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+  );
 
 insert into public.admin_settings (id, whatsapp_number, bkash_number, nagad_number, bank_details, global_discount_percent, global_discount_active, global_banner_text, global_banner_active)
 values
-  (1, '8801712345678', '01712345678', '01712345678', 'City Bank PLC | Hazrat AI Studio | A/C: 1503204928001 | Dhanmondi Branch', 0, false, '🎉 Launch Celebration: Get 50 Free Image Credits on any subscription plan!', true)
+  (1, '01315055532', '01617420663', '01617420663', 'City Bank PLC | Hazrat AI Studio | A/C: 1503204928001 | Dhanmondi Branch', 0, false, '🎉 Launch Celebration: Get 50 Free Image Credits on any subscription plan!', true)
 on conflict (id) do nothing;
 
 -- ==============================================================================
--- ATOMIC STORED PROCEDURES (Anti-Abuse Credit Deduction & Addition)
+-- ATOMIC STORED PROCEDURES (Anti-Abuse Credit Deduction, Grant, Promo, Affiliate)
 -- ==============================================================================
 
 -- 1. Atomic Credit Deduction (Checks balance and decrements in single transaction)
@@ -299,6 +436,10 @@ declare
   current_balance int;
   user_blocked boolean;
 begin
+  if p_amount <= 0 then
+    return false;
+  end if;
+
   select credits_remaining, is_blocked into current_balance, user_blocked
   from public.profiles where id = p_user_id for update;
 
@@ -321,11 +462,80 @@ $$ language plpgsql security definer;
 create or replace function public.grant_credits(p_user_id uuid, p_amount int)
 returns void as $$
 begin
+  if p_amount <= 0 then
+    return;
+  end if;
+
   update public.profiles
   set
     credits_remaining = credits_remaining + p_amount,
     updated_at = now()
   where id = p_user_id;
+end;
+$$ language plpgsql security definer;
+
+-- 3. Atomic Promo Code Counter
+create or replace function public.increment_promo_usage(p_code text)
+returns boolean as $$
+declare
+  v_code text := upper(trim(p_code));
+  v_max_uses int;
+  v_curr_uses int;
+begin
+  select max_uses, current_uses into v_max_uses, v_curr_uses
+  from public.promo_codes
+  where upper(code) = v_code for update;
+
+  if not found then
+    return false;
+  end if;
+
+  if v_max_uses > 0 and v_curr_uses >= v_max_uses then
+    return false;
+  end if;
+
+  update public.promo_codes
+  set current_uses = current_uses + 1
+  where upper(code) = v_code;
+
+  return true;
+end;
+$$ language plpgsql security definer;
+
+-- 4. Atomic Affiliate Commission Crediting
+create or replace function public.credit_affiliate_commission(
+  p_referral_code text,
+  p_order_amount_bdt int,
+  p_commission_percent int default 15
+)
+returns boolean as $$
+declare
+  v_ref_owner uuid;
+  v_commission int;
+begin
+  if p_order_amount_bdt <= 0 then
+    return false;
+  end if;
+
+  select id into v_ref_owner
+  from public.profiles
+  where upper(referral_code) = upper(trim(p_referral_code));
+
+  if not found then
+    return false;
+  end if;
+
+  v_commission := round((p_order_amount_bdt * p_commission_percent) / 100.0);
+
+  update public.profiles
+  set
+    referral_earnings_bdt = referral_earnings_bdt + v_commission,
+    referral_pending_bdt = referral_pending_bdt + v_commission,
+    referral_count = referral_count + 1,
+    updated_at = now()
+  where id = v_ref_owner;
+
+  return true;
 end;
 $$ language plpgsql security definer;
 
@@ -353,4 +563,3 @@ drop policy if exists "Authenticated users can upload images" on storage.objects
 create policy "Authenticated users can upload images"
   on storage.objects for insert
   with check (bucket_id in ('scene-images', 'audio-voiceovers'));
-
