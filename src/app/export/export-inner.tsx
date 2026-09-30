@@ -3,40 +3,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
-  Video,
   Film,
   Music,
   FolderOpen,
-  Play,
-  RotateCcw,
   Sparkles,
   Loader2,
   CheckCircle2,
-  AlertTriangle,
   ChevronLeft,
-  Trash2,
   Cpu,
   Volume2,
-  Download,
-  StopCircle,
-  ExternalLink,
-  Layers,
-  FileArchive,
-  FileText,
-  HelpCircle,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  HardDrive,
+  Sliders,
+  Flame,
   Monitor,
   Smartphone,
   Square,
-  Sliders,
 } from 'lucide-react';
 import { getProject, saveProject } from '@/lib/store';
 import { ExportEngine } from '@/lib/export-engine';
 import { getMediaBlobUrl } from '@/lib/media-storage';
 import { exportUniversalTimelineZip, TimelineExportProgress } from '@/lib/timeline-exporter';
+import { YouTubeLaunchKit } from '@/components/export/youtube-launch-kit';
+import { CinemaPreviewPanel } from '@/components/export/cinema-preview-panel';
 import type {
   ProjectManifest,
   ExportResolution,
@@ -46,25 +33,19 @@ import type {
   ExportSettings,
 } from '@/types';
 
-function formatDuration(ms: number): string {
-  if (!ms) return '0s';
-  const totalSec = Math.floor(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
-function formatEta(seconds: number): string {
-  if (seconds <= 0) return '0s';
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
 export default function ExportInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectId = searchParams.get('id') || searchParams.get('projectId') || '';
+
+  // ─── Studio Tabs ───────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'render' | 'youtube'>('render');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ProjectManifest | null>(null);
@@ -103,7 +84,6 @@ export default function ExportInner() {
   const [isExportingTimeline, setIsExportingTimeline] = useState(false);
   const [timelineProgress, setTimelineProgress] = useState<TimelineExportProgress | null>(null);
   const [timelineExportSuccess, setTimelineExportSuccess] = useState(false);
-  const [showImportGuide, setShowImportGuide] = useState(false);
 
   const engineRef = useRef<ExportEngine | null>(null);
 
@@ -120,19 +100,22 @@ export default function ExportInner() {
         router.push('/');
         return;
       }
+
       // Restore audio blobs from IndexedDB (check custom audio fallback if chunks empty)
       let rawChunks = p.audioChunks || [];
       if (rawChunks.length === 0) {
         const customUrl = await getMediaBlobUrl(`audio_${p.projectId}_0`);
         if (customUrl) {
-          rawChunks = [{
-            index: 0,
-            text: p.customAudioFileName || 'Uploaded Voiceover',
-            filePath: `projects/${p.projectId}/audio/custom_voice.mp3`,
-            durationMs: p.totalDurationMs || 0,
-            status: 'COMPLETED',
-            audioUrl: customUrl,
-          }];
+          rawChunks = [
+            {
+              index: 0,
+              text: p.customAudioFileName || 'Uploaded Voiceover',
+              filePath: `projects/${p.projectId}/audio/custom_voice.mp3`,
+              durationMs: p.totalDurationMs || 0,
+              status: 'COMPLETED',
+              audioUrl: customUrl,
+            },
+          ];
         }
       }
 
@@ -191,8 +174,7 @@ export default function ExportInner() {
     load();
   }, [load]);
 
-  // ─── File Pickers (Browser) ────────────────────────────────────────────────
-
+  // ─── File Pickers ──────────────────────────────────────────────────────────
   function handleSelectBgmFile() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -210,12 +192,7 @@ export default function ExportInner() {
 
   const downloadFileName = `${project?.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${aspectRatio.replace(':', 'x')}_${resolution}.mp4`;
 
-  function handleSelectOutputPath() {
-    setOutputPath(downloadFileName);
-  }
-
   // ─── Start Export ──────────────────────────────────────────────────────────
-
   async function handleStartExport() {
     if (!project) return;
     setIsExporting(true);
@@ -244,7 +221,6 @@ export default function ExportInner() {
       transitionDurationSec: transitionDuration,
     };
 
-    // Save settings to project manifest
     const updatedProject: ProjectManifest = {
       ...project,
       exportSettings: settings,
@@ -271,6 +247,7 @@ export default function ExportInner() {
         finalVideoPath: resultPath,
         updatedAt: Date.now(),
       });
+      showToast('Video export completed! File downloaded.');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMsg(msg);
@@ -291,16 +268,14 @@ export default function ExportInner() {
   }
 
   // ─── Clean Cache ────────────────────────────────────────────────────────────
-
   async function handleCleanCache() {
     if (!project) return;
     const engine = engineRef.current || new ExportEngine();
     const res = await engine.cleanProjectCache(projectId);
     setCleanedCache(true);
     setFreedSpaceMB(res.freedMB);
+    showToast(`Temporary project cache cleaned! Freed ${res.freedMB > 0 ? (res.freedMB / 1024).toFixed(1) + ' GB' : 'disk space'}`);
   }
-
-  // ─── Open Folder / Play Video ──────────────────────────────────────────────
 
   function handleOpenFolder() {
     if (finalVideoUrl) {
@@ -309,7 +284,6 @@ export default function ExportInner() {
   }
 
   // ─── Universal Timeline Package Export ─────────────────────────────────────
-
   async function handleExportTimeline() {
     if (!project) return;
     setIsExportingTimeline(true);
@@ -317,8 +291,8 @@ export default function ExportInner() {
     setTimelineProgress({ message: 'Preparing timeline package...', percentage: 5 });
 
     try {
-      const zipBlob = await exportUniversalTimelineZip(project, (progress) => {
-        setTimelineProgress(progress);
+      const zipBlob = await exportUniversalTimelineZip(project, (p) => {
+        setTimelineProgress(p);
       });
 
       const cleanTitle = (project.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -339,25 +313,16 @@ export default function ExportInner() {
       }
 
       setTimelineExportSuccess(true);
+      showToast('Timeline ZIP package generated and downloaded!');
     } catch (err: unknown) {
       console.error('Timeline export failed:', err);
-      alert('Timeline export failed: ' + (err instanceof Error ? err.message : String(err)));
+      showToast('Timeline export failed: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsExportingTimeline(false);
     }
   }
 
-  // ─── Derived calculations ─────────────────────────────────────────────────
-
-  const totalDurationMs = project?.totalDurationMs ?? 0;
-  const completedChunks = project?.audioChunks?.filter((c) => c.status === 'COMPLETED').length ?? 0;
-  const readyClips = project?.scenes?.filter((s) => s.status === 'MOTION_READY').length ?? 0;
-  const totalScenes = project?.scenes?.length ?? 0;
-  const estFileSizeMB = resolution === '4k' ? Math.round((totalDurationMs / 1000) * 4) : Math.round((totalDurationMs / 1000) * 1.2);
-
-  // ─── Render ────────────────────────────────────────────────────────────────
-
-  if (loading) {
+  if (loading || !project) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
         <Loader2 size={24} className="animate-spin text-zinc-400" />
@@ -366,680 +331,463 @@ export default function ExportInner() {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header */}
-        <header className="px-6 py-4 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push(`/storyboard?id=${projectId}`)}
-              className="btn-ghost p-1.5"
-              title="Back to Storyboard"
-            >
-              <ChevronLeft size={16} />
-            </button>
+    <div className="flex-1 flex flex-col overflow-hidden bg-bg-base min-h-screen">
+      {/* ─── Studio Top Header ────────────────────────────────────────────── */}
+      <header className="px-6 py-3.5 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-20">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push(`/storyboard?id=${projectId}`)}
+            className="btn-ghost p-1.5"
+            title="Back to Storyboard"
+          >
+            <ChevronLeft size={16} />
+          </button>
 
-            <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
-              <Download size={16} className="text-zinc-200" />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-white leading-tight">{project?.title}</h1>
-              <p className="text-[10px] text-zinc-400">Phase 3 · Assembly, Audio Sync & Hardware Render</p>
-            </div>
+          <div>
+            <h1 className="text-sm font-bold text-white leading-tight flex items-center gap-2">
+              <span>{project.title}</span>
+              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+                Phase 3 · Launch Studio
+              </span>
+            </h1>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Production Render & YouTube Viral Packaging
+            </p>
           </div>
-        </header>
+        </div>
 
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-4xl mx-auto space-y-6">
+        {/* Studio Tab Switcher */}
+        <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 p-1 rounded-xl shadow-inner">
+          <button
+            type="button"
+            onClick={() => setActiveTab('render')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+              activeTab === 'render'
+                ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Sliders size={14} className={activeTab === 'render' ? 'text-blue-400' : 'text-zinc-400'} />
+            <span>Master Render</span>
+          </button>
 
-            {/* Render Progress Overlay / Card */}
-            {(isExporting || progress.stage === 'completed' || progress.stage === 'failed') && (
-              <div className="card p-6 bg-zinc-900 border-zinc-700 shadow-xl animate-slide-up">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    {progress.stage === 'completed' ? (
-                      <CheckCircle2 size={24} className="text-emerald-400" />
-                    ) : progress.stage === 'failed' ? (
-                      <AlertTriangle size={24} className="text-red-400" />
-                    ) : (
-                      <Loader2 size={24} className="animate-spin text-zinc-400" />
-                    )}
-                    <div>
-                      <h2 className="text-base font-bold text-white">
-                        {progress.stage === 'completed'
-                          ? 'Export Render Complete!'
-                          : progress.stage === 'failed'
-                          ? 'Export Failed'
-                          : 'Rendering Final Video...'}
+          <button
+            type="button"
+            onClick={() => setActiveTab('youtube')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+              activeTab === 'youtube'
+                ? 'bg-red-500/20 text-red-300 shadow-sm border border-red-500/30'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Flame size={14} className="text-red-400" />
+            <span>YouTube Launch Kit</span>
+            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-red-500/30 text-red-300 uppercase font-mono">
+              AI
+            </span>
+          </button>
+        </div>
+      </header>
+
+      {/* ─── Main Two-Column Studio Layout ─────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Column (7 cols): Active Tab Workspace */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* TAB 1: Master Video Render & Audio Engine Settings */}
+            {activeTab === 'render' && (
+              <div className="space-y-6 animate-fade-in">
+                
+                {/* Aspect Ratio Format */}
+                <div className="card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sliders size={15} className="text-blue-400" />
+                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Video Aspect Ratio
                       </h2>
-                      <p className="text-xs text-zinc-400">{progress.currentStepMessage}</p>
                     </div>
+                    <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
+                      {aspectRatio === '16:9'
+                        ? '1920 × 1080 (Landscape)'
+                        : aspectRatio === '9:16'
+                        ? '1080 × 1920 (Vertical)'
+                        : '1080 × 1080 (Square)'}
+                    </span>
                   </div>
 
-                  {isExporting && (
+                  <div className="grid grid-cols-3 gap-3">
                     <button
-                      onClick={handleCancelExport}
-                      className="btn-danger text-xs px-3 py-1.5"
+                      type="button"
+                      onClick={() => setAspectRatio('16:9')}
+                      className={`p-3.5 rounded-xl border text-center transition-all ${
+                        aspectRatio === '16:9'
+                          ? 'bg-zinc-800 border-white/50 text-white shadow-md'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
                     >
-                      <StopCircle size={14} />
-                      Cancel
+                      <Monitor size={18} className="mx-auto mb-1.5" />
+                      <p className="text-xs font-bold">16:9 Landscape</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">YouTube / Desktop</p>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAspectRatio('9:16')}
+                      className={`p-3.5 rounded-xl border text-center transition-all ${
+                        aspectRatio === '9:16'
+                          ? 'bg-zinc-800 border-white/50 text-white shadow-md'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <Smartphone size={18} className="mx-auto mb-1.5" />
+                      <p className="text-xs font-bold">9:16 Portrait</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">Reels / Shorts / TikTok</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAspectRatio('1:1')}
+                      className={`p-3.5 rounded-xl border text-center transition-all ${
+                        aspectRatio === '1:1'
+                          ? 'bg-zinc-800 border-white/50 text-white shadow-md'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      <Square size={18} className="mx-auto mb-1.5" />
+                      <p className="text-xs font-bold">1:1 Square</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">Instagram Feed</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Resolution Profile */}
+                <div className="card space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Film size={15} className="text-zinc-300" />
+                    <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Output Resolution
+                    </h2>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setResolution('1080p')}
+                      className={`p-3.5 rounded-xl border text-left transition-all ${
+                        resolution === '1080p'
+                          ? 'bg-zinc-800 border-zinc-500 text-white'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-white">1080p Full HD</p>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">1920×1080 · 30 FPS · 8–10 Mbps</p>
+                      <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
+                        Recommended
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setResolution('4k')}
+                      className={`p-3.5 rounded-xl border text-left transition-all ${
+                        resolution === '4k'
+                          ? 'bg-zinc-800 border-zinc-500 text-white'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-white">4K Ultra HD</p>
+                      <p className="text-[11px] text-zinc-400 mt-0.5">3840×2160 · 30 FPS · 25–35 Mbps</p>
+                      <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
+                        Ultra Quality
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hardware Acceleration */}
+                <div className="card space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Cpu size={15} className="text-zinc-400" />
+                    <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Hardware Encoder
+                    </h2>
+                  </div>
+
+                  <select
+                    className="input"
+                    value={encoder}
+                    onChange={(e) => setEncoder(e.target.value as HardwareEncoder)}
+                  >
+                    <option value="auto">⚡ Auto (Best Available GPU/Hardware)</option>
+                    <option value="h264_videotoolbox">Apple Silicon (VideoToolbox H.264)</option>
+                    <option value="h264_nvenc">NVIDIA GPU (NVENC H.264)</option>
+                    <option value="h264_qsv">Intel QuickSync (QSV H.264)</option>
+                    <option value="libx264">Standard CPU (libx264 Software)</option>
+                  </select>
+                </div>
+
+                {/* Scene Transitions */}
+                <div className="card space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={15} className="text-zinc-400" />
+                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Scene Transitions & Blending
+                      </h2>
+                    </div>
+                    <span className="text-[10px] font-mono text-zinc-300 font-semibold bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded">
+                      {transitionType === 'crossfade'
+                        ? 'Cross-Dissolve'
+                        : transitionType === 'fade_black'
+                        ? 'Dip to Black'
+                        : 'Direct Cut'}{' '}
+                      · {transitionDuration}s
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setTransitionType('crossfade')}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        transitionType === 'crossfade'
+                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-white">Cross-Dissolve</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">Smooth blending between images</p>
+                      <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
+                        Recommended
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTransitionType('fade_black')}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        transitionType === 'fade_black'
+                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-white">Dip to Black</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">Gentle fade to black breath</p>
+                      <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
+                        Classic Film
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTransitionType('cut')}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        transitionType === 'cut'
+                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-white">Hard Cut</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">Instant switch between scenes</p>
+                      <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-medium">
+                        Fast Montage
+                      </span>
+                    </button>
+                  </div>
+
+                  {transitionType !== 'cut' && (
+                    <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
+                      <span className="text-xs text-zinc-400 font-medium">Transition Duration:</span>
+                      <div className="flex items-center gap-1.5">
+                        {[0.4, 0.6, 0.8].map((sec) => (
+                          <button
+                            key={sec}
+                            type="button"
+                            onClick={() => setTransitionDuration(sec)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors ${
+                              transitionDuration === sec
+                                ? 'bg-white text-zinc-950 font-bold shadow-sm'
+                                : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+                            }`}
+                          >
+                            {sec}s {sec === 0.4 ? '(Snappy)' : sec === 0.6 ? '(Natural)' : '(Cinematic)'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Progress Bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-zinc-400">
-                    <span>Progress: {progress.percentage}%</span>
-                    {progress.fps > 0 && <span>Speed: {progress.fps} FPS</span>}
-                    {progress.etaSeconds > 0 && (
-                      <span className="font-mono text-zinc-300">ETA: {formatEta(progress.etaSeconds)}</span>
-                    )}
-                  </div>
-                  <div className="h-2.5 bg-zinc-800 rounded-full overflow-hidden border border-zinc-700">
-                    <div
-                      className="h-full bg-white transition-all duration-300 rounded-full"
-                      style={{ width: `${progress.percentage}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Error Banner */}
-                {errorMsg && (
-                  <div className="mt-4 p-3 rounded-lg bg-red-950/40 border border-red-800/40 text-xs text-red-300">
-                    {errorMsg}
-                  </div>
-                )}
-
-                {/* Post-Render Actions */}
-                {progress.stage === 'completed' && (
-                  <div className="mt-6 pt-6 border-t border-bg-border space-y-5">
-                    {/* Success Alert */}
-                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-800/50 text-xs text-emerald-300">
-                      <CheckCircle2 size={18} className="text-emerald-400 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-white">Video export ready and downloaded!</p>
-                        <p className="text-[11px] text-emerald-300/80 mt-0.5">
-                          Saved to your computer as <strong className="font-mono text-emerald-200">{downloadFileName}</strong>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* In-App Video Player Preview */}
-                    {finalVideoUrl && (
-                      <div className={`relative rounded-2xl overflow-hidden border border-zinc-800 bg-black shadow-2xl ${
-                        aspectRatio === '9:16' ? 'aspect-[9/16] max-h-[500px] mx-auto' : aspectRatio === '1:1' ? 'aspect-square max-h-[420px] mx-auto' : 'aspect-video'
-                      }`}>
-                        <video
-                          key={finalVideoUrl}
-                          src={finalVideoUrl}
-                          controls
-                          playsInline
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap gap-3">
-                      {finalVideoUrl && (
-                        <a
-                          href={finalVideoUrl}
-                          download={downloadFileName}
-                          className="btn-primary flex items-center gap-2"
-                        >
-                          <Download size={15} />
-                          Download Video Again
-                        </a>
-                      )}
-                      {finalVideoUrl && (
-                        <button onClick={handleOpenFolder} className="btn-secondary flex items-center gap-2">
-                          <ExternalLink size={15} />
-                          Open in New Tab
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setProgress({ stage: 'idle', percentage: 0, fps: 0, frame: 0, totalFrames: 0, etaSeconds: 0, currentStepMessage: '' });
-                          setFinalVideoUrl('');
-                        }}
-                        className="btn-secondary flex items-center gap-2"
-                      >
-                        <RotateCcw size={15} />
-                        Re-export Video
-                      </button>
-                    </div>
-
-                    {/* Cache Cleaner Prompt */}
-                    <div className="p-4 rounded-xl bg-bg-base/70 border border-bg-border flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <HardDrive size={20} className="text-amber-400 flex-shrink-0" />
-                        <div>
-                          <p className="text-xs font-semibold text-white">Clean temporary project cache?</p>
-                          <p className="text-[11px] text-slate-400">
-                            Frees up ~4.2 GB of intermediate scene images & motion clips from your disk.
-                          </p>
-                        </div>
-                      </div>
-                      {cleanedCache ? (
-                        <span className="text-xs text-emerald-400 font-medium px-3 py-1.5 bg-emerald-950/40 rounded-lg border border-emerald-800/40 flex items-center gap-1">
-                          <CheckCircle2 size={12} />
-                          Freed {freedSpaceMB > 0 ? `${(freedSpaceMB / 1024).toFixed(1)} GB` : 'Disk Space'}
-                        </span>
-                      ) : (
-                        <button onClick={handleCleanCache} className="btn-secondary text-xs">
-                          <Trash2 size={13} className="text-amber-400" />
-                          Clean Cache
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Export Configuration Grid */}
-            {!isExporting && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                {/* Left (2 cols): Settings Form */}
-                <div className="md:col-span-2 space-y-6">
-
-                  {/* 1. Aspect Ratio Format */}
-                  <div className="card space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sliders size={15} className="text-blue-400" />
-                        <h2 className="text-xs font-bold text-white uppercase tracking-wider">Video Aspect Ratio</h2>
-                      </div>
-                      <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
-                        {aspectRatio === '16:9' ? '1920 × 1080 (Landscape)' : aspectRatio === '9:16' ? '1080 × 1920 (Vertical)' : '1080 × 1080 (Square)'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setAspectRatio('16:9')}
-                        className={`p-3 rounded-xl border text-center transition-all ${
-                          aspectRatio === '16:9'
-                            ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        <Monitor size={18} className="mx-auto mb-1.5" />
-                        <p className="text-xs font-bold">16:9 Landscape</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">YouTube / Desktop</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setAspectRatio('9:16')}
-                        className={`p-3 rounded-xl border text-center transition-all ${
-                          aspectRatio === '9:16'
-                            ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        <Smartphone size={18} className="mx-auto mb-1.5" />
-                        <p className="text-xs font-bold">9:16 Portrait</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">Reels / Shorts / TikTok</p>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setAspectRatio('1:1')}
-                        className={`p-3 rounded-xl border text-center transition-all ${
-                          aspectRatio === '1:1'
-                            ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        <Square size={18} className="mx-auto mb-1.5" />
-                        <p className="text-xs font-bold">1:1 Square</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">Instagram Feed</p>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 2. Resolution Profile */}
-                  <div className="card space-y-3">
+                {/* Background Music & Auto-Ducking */}
+                <div className="card space-y-4">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Film size={15} className="text-zinc-300" />
-                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">Output Resolution</h2>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setResolution('1080p')}
-                        className={`p-4 rounded-xl border text-left transition-all ${
-                          resolution === '1080p'
-                            ? 'bg-zinc-800 border-zinc-500 text-white'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <p className="text-sm font-bold text-white">1080p Full HD</p>
-                        <p className="text-[11px] text-zinc-400 mt-1">1920×1080 · 30 FPS · 8–10 Mbps</p>
-                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                          Recommended
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setResolution('4k')}
-                        className={`p-4 rounded-xl border text-left transition-all ${
-                          resolution === '4k'
-                            ? 'bg-zinc-800 border-zinc-500 text-white'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <p className="text-sm font-bold text-white">4K Ultra HD</p>
-                        <p className="text-[11px] text-zinc-400 mt-1">3840×2160 · 30 FPS · 25–35 Mbps</p>
-                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                          Ultra Quality
-                        </span>
-                      </button>
+                      <Music size={15} className="text-emerald-400" />
+                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Background Music & Audio Ducking
+                      </h2>
                     </div>
                   </div>
 
-                  {/* 2. Hardware Acceleration */}
-                  <div className="card space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Cpu size={15} className="text-zinc-400" />
-                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">Hardware Encoder</h2>
-                    </div>
-
-                    <select
-                      className="input"
-                      value={encoder}
-                      onChange={(e) => setEncoder(e.target.value as HardwareEncoder)}
-                    >
-                      <option value="auto">⚡ Auto (Best Available GPU/Hardware)</option>
-                      <option value="h264_videotoolbox">Apple Silicon (VideoToolbox H.264)</option>
-                      <option value="h264_nvenc">NVIDIA GPU (NVENC H.264)</option>
-                      <option value="h264_qsv">Intel QuickSync (QSV H.264)</option>
-                      <option value="libx264">Standard CPU (libx264 Software)</option>
-                    </select>
-                  </div>
-
-                  {/* 3. Cinematic Scene Transitions */}
-                  <div className="card space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Sparkles size={15} className="text-zinc-400" />
-                        <h2 className="text-xs font-bold text-white uppercase tracking-wider">Scene Transitions & Blending</h2>
-                      </div>
-                      <span className="text-[10px] font-mono text-zinc-300 font-semibold bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded">
-                        {transitionType === 'crossfade' ? 'Cross-Dissolve' : transitionType === 'fade_black' ? 'Dip to Black' : 'Direct Cut'} · {transitionDuration}s
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setTransitionType('crossfade')}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          transitionType === 'crossfade'
-                            ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-white">Cross-Dissolve</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">Smooth, seamless blending between images</p>
-                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
-                          Recommended
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setTransitionType('fade_black')}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          transitionType === 'fade_black'
-                            ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-white">Dip to Black</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">Gentle fade to black breath between scenes</p>
-                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
-                          Classic Film
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setTransitionType('cut')}
-                        className={`p-3 rounded-xl border text-left transition-all ${
-                          transitionType === 'cut'
-                            ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                      >
-                        <p className="text-xs font-bold text-white">Hard Cut</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">Instant switch without transition blending</p>
-                        <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-medium">
-                          Fast Montage
-                        </span>
-                      </button>
-                    </div>
-
-                    {transitionType !== 'cut' && (
-                      <div className="pt-2 border-t border-bg-border flex items-center justify-between">
-                        <span className="text-xs text-zinc-400 font-medium">Transition Duration:</span>
-                        <div className="flex items-center gap-1.5">
-                          {[0.4, 0.6, 0.8].map((sec) => (
-                            <button
-                              key={sec}
-                              type="button"
-                              onClick={() => setTransitionDuration(sec)}
-                              className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors ${
-                                transitionDuration === sec
-                                  ? 'bg-white text-zinc-950 font-bold shadow-sm'
-                                  : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
-                              }`}
-                            >
-                              {sec}s {sec === 0.4 ? '(Snappy)' : sec === 0.6 ? '(Natural)' : '(Cinematic)'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <p className="text-[10px] text-slate-500">
-                      ✨ Seamlessly preserves Ken Burns pan/zoom motion across cuts. Includes 0.5s fade-in from black at video start and 0.8s fade-out at end.
-                    </p>
-                  </div>
-
-                  {/* 4. Background Music & Auto-Ducking */}
-                  <div className="card space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Music size={15} className="text-emerald-400" />
-                        <h2 className="text-xs font-bold text-white uppercase tracking-wider">Background Music & Audio Ducking</h2>
-                      </div>
-                    </div>
-
-                    {/* BGM File Picker */}
-                    <div className="space-y-2">
-                      <label className="label">Background Music File (Optional)</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          className="input flex-1 font-mono text-xs"
-                          placeholder="No background music selected"
-                          value={bgmFileName || bgmFilePath}
-                        />
-                        <button type="button" onClick={handleSelectBgmFile} className="btn-secondary text-xs">
-                          <Music size={13} />
-                          Browse
-                        </button>
-                        {bgmFilePath && (
-                          <button
-                            type="button"
-                            onClick={() => { setBgmFilePath(''); setBgmFileName(''); }}
-                            className="btn-ghost text-xs text-red-400"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {bgmFilePath && (
-                      <div className="space-y-3 pt-2 border-t border-bg-border">
-                        {/* BGM Volume Slider */}
-                        <div>
-                          <div className="flex justify-between items-center text-xs mb-1">
-                            <span className="text-slate-400 flex items-center gap-1">
-                              <Volume2 size={13} /> Base Volume
-                            </span>
-                            <span className="text-white font-mono">{Math.round(bgmVolume * 100)}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min="0.05"
-                            max="0.5"
-                            step="0.01"
-                            value={bgmVolume}
-                            onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
-                            className="w-full accent-white"
-                          />
-                        </div>
-
-                        {/* Dynamic Auto-Ducking Toggle */}
-                        <label className="flex items-center gap-3 p-3 rounded-lg bg-bg-elevated cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={enableAutoDucking}
-                            onChange={(e) => setEnableAutoDucking(e.target.checked)}
-                            className="rounded accent-white w-4 h-4"
-                          />
-                          <div>
-                            <p className="text-xs font-medium text-white">Enable Dynamic Auto-Ducking</p>
-                            <p className="text-[10px] text-slate-400">
-                              Automatically drops BGM volume to -18dB..-24dB when voiceover is active.
-                            </p>
-                          </div>
-                        </label>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 4. Export Destination */}
-                  <div className="card space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <FolderOpen size={15} className="text-amber-400" />
-                        <h2 className="text-xs font-bold text-white uppercase tracking-wider">Export Destination</h2>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-bg-base text-slate-400 border border-bg-border">
-                        Downloads Folder (~/Downloads)
-                      </span>
-                    </div>
-
+                  <div className="space-y-2">
+                    <label className="text-xs text-zinc-400">Background Music File (Optional)</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        className="input flex-1 text-xs font-mono"
-                        placeholder={downloadFileName}
-                        value={outputPath || downloadFileName}
-                        onChange={(e) => setOutputPath(e.target.value)}
                         readOnly
+                        className="input flex-1 font-mono text-xs"
+                        placeholder="No background music selected"
+                        value={bgmFileName || bgmFilePath}
                       />
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Rendered videos are automatically saved directly into your computer's Downloads folder.
-                    </p>
-                  </div>
-
-                </div>
-
-                {/* Right (1 col): Timeline Summary & Export CTA */}
-                <div className="space-y-6">
-
-                  {/* Project Overview Card */}
-                  <div className="card space-y-3">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Project Summary</h3>
-
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Audio Timeline:</span>
-                        <span className="text-white font-mono">{formatDuration(totalDurationMs)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Audio Chunks:</span>
-                        <span className="text-white font-mono">{completedChunks} completed</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Motion Video Clips:</span>
-                        <span className="text-zinc-300 font-mono">{readyClips}/{totalScenes} ready</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Est. Export Size:</span>
-                        <span className="text-white font-mono">~{estFileSizeMB} MB</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Export Final Video (.mp4) CTA Button */}
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={handleStartExport}
-                      className="w-full py-3.5 rounded-xl font-medium text-sm text-zinc-950
-                                 bg-white hover:bg-zinc-200 transition-colors
-                                 flex items-center justify-center gap-2 shadow-sm active:scale-[0.99]"
-                    >
-                      <Sparkles size={18} />
-                      Export Final Video (.mp4)
-                    </button>
-                    <p className="text-[10px] text-center text-zinc-400">
-                      Renders full composite video with voiceover, BGM & motion
-                    </p>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="relative flex py-1 items-center">
-                    <div className="flex-grow border-t border-bg-border" />
-                    <span className="flex-shrink mx-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                      Or Open in Video Editor
-                    </span>
-                    <div className="flex-grow border-t border-bg-border" />
-                  </div>
-
-                  {/* Universal Timeline Package Card */}
-                  <div className="card p-4 space-y-3 bg-zinc-900/90 border-zinc-800">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
-                          <Layers size={15} />
-                        </div>
-                        <div>
-                          <h3 className="text-xs font-bold text-white leading-tight">Universal Timeline Package</h3>
-                          <p className="text-[10px] text-zinc-400">CapCut · Premiere · DaVinci · FCP</p>
-                        </div>
-                      </div>
-                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
-                        ZIP Bundle
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-zinc-300 leading-relaxed">
-                      Exports multi-track project with <strong>FCP 7 XML</strong>, <strong>CapCut SRT captions</strong>, <strong>CMX 3600 EDL</strong>, master audio WAV, and numbered scene artwork.
-                    </p>
-
-                    {/* Editor Compatibility Badges */}
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
-                        🎬 CapCut
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
-                        ⚡ Premiere Pro
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
-                        🎨 DaVinci Resolve
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-850 border border-zinc-800 text-zinc-300">
-                        🍎 Final Cut Pro
-                      </span>
-                    </div>
-
-                    {/* Progress Bar when packaging timeline */}
-                    {isExportingTimeline && timelineProgress && (
-                      <div className="space-y-1.5 pt-2 border-t border-zinc-800">
-                        <div className="flex justify-between text-[11px] text-zinc-300">
-                          <span className="truncate pr-2">{timelineProgress.message}</span>
-                          <span className="font-mono text-zinc-300">{timelineProgress.percentage}%</span>
-                        </div>
-                        <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden border border-zinc-700">
-                          <div
-                            className="h-full bg-white transition-all duration-300 rounded-full"
-                            style={{ width: `${timelineProgress.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Success Notice */}
-                    {timelineExportSuccess && !isExportingTimeline && (
-                      <div className="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800/40 flex items-center gap-2 text-xs text-emerald-300">
-                        <CheckCircle2 size={15} className="text-emerald-400 flex-shrink-0" />
-                        <span>Timeline ZIP downloaded to your computer!</span>
-                      </div>
-                    )}
-
-                    {/* Timeline Export Button */}
-                    <button
-                      type="button"
-                      disabled={isExportingTimeline}
-                      onClick={handleExportTimeline}
-                      className="w-full py-2.5 rounded-lg font-medium text-xs text-zinc-200
-                                 bg-zinc-800 border border-zinc-700 hover:bg-zinc-750 hover:text-white
-                                 disabled:opacity-50 disabled:cursor-not-allowed
-                                 transition-colors flex items-center justify-center gap-2 active:scale-[0.99]"
-                    >
-                      {isExportingTimeline ? (
-                        <>
-                          <Loader2 size={14} className="animate-spin" />
-                          <span>Generating Timeline Package...</span>
-                        </>
-                      ) : (
-                        <>
-                          <FileArchive size={14} />
-                          <span>Export Timeline Package (.zip)</span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Expandable Import Guide */}
-                    <div className="pt-1 border-t border-bg-border">
-                      <button
-                        type="button"
-                        onClick={() => setShowImportGuide(!showImportGuide)}
-                        className="w-full flex items-center justify-between text-[11px] text-slate-400 hover:text-white py-1 transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <HelpCircle size={12} className="text-zinc-400" />
-                          How to import in CapCut & Premiere?
-                        </span>
-                        {showImportGuide ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                      <button type="button" onClick={handleSelectBgmFile} className="btn-secondary text-xs">
+                        <Music size={13} />
+                        Browse
                       </button>
-
-                      {showImportGuide && (
-                        <div className="mt-2 p-3 rounded-lg bg-bg-base/90 border border-bg-border text-[11px] space-y-2.5 text-slate-300 animate-slide-up">
-                          <div>
-                            <strong className="text-white block mb-0.5">🎬 In CapCut (Desktop/Mobile):</strong>
-                            <p className="text-slate-400 text-[10px] leading-relaxed">
-                              1. Drag all images from <code className="text-zinc-200">media/images/</code> and <code className="text-zinc-200">master_voice.wav</code> to the timeline.<br />
-                              2. Go to <strong>Text &gt; Local Captions &gt; Import</strong> and select <code className="text-emerald-400">subtitles.srt</code>. CapCut will automatically create and sync all animated subtitle cards!
-                            </p>
-                          </div>
-                          <div className="pt-1.5 border-t border-bg-border/60">
-                            <strong className="text-white block mb-0.5">⚡ In Adobe Premiere Pro:</strong>
-                            <p className="text-slate-400 text-[10px] leading-relaxed">
-                              Go to <strong>File &gt; Import</strong> and choose <code className="text-zinc-200">timeline.xml</code>. Premiere will automatically generate a sequence with all cuts and audio synced to the exact frame.
-                            </p>
-                          </div>
-                          <div className="pt-1.5 border-t border-bg-border/60">
-                            <strong className="text-white block mb-0.5">🎨 In DaVinci Resolve:</strong>
-                            <p className="text-slate-400 text-[10px] leading-relaxed">
-                              Go to <strong>File &gt; Import Timeline &gt; Import AAF, EDL, XML...</strong> and select <code className="text-zinc-200">timeline.xml</code>.
-                            </p>
-                          </div>
-                        </div>
+                      {bgmFilePath && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBgmFilePath('');
+                            setBgmFileName('');
+                          }}
+                          className="btn-ghost text-xs text-red-400"
+                        >
+                          Clear
+                        </button>
                       )}
                     </div>
                   </div>
 
+                  {bgmFilePath && (
+                    <div className="space-y-3 pt-2 border-t border-zinc-800">
+                      <div>
+                        <div className="flex justify-between items-center text-xs mb-1">
+                          <span className="text-zinc-400 flex items-center gap-1">
+                            <Volume2 size={13} /> Base Volume
+                          </span>
+                          <span className="text-white font-mono">{Math.round(bgmVolume * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="0.5"
+                          step="0.01"
+                          value={bgmVolume}
+                          onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                          className="w-full accent-white"
+                        />
+                      </div>
+
+                      <label className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enableAutoDucking}
+                          onChange={(e) => setEnableAutoDucking(e.target.checked)}
+                          className="rounded accent-white w-4 h-4"
+                        />
+                        <div>
+                          <p className="text-xs font-medium text-white">Enable Dynamic Auto-Ducking</p>
+                          <p className="text-[10px] text-zinc-400">
+                            Automatically drops BGM volume to -18dB..-24dB when voiceover is active.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
                 </div>
 
+                {/* Destination */}
+                <div className="card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FolderOpen size={15} className="text-amber-400" />
+                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Export Destination
+                      </h2>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      Downloads Folder (~/Downloads)
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="input flex-1 text-xs font-mono"
+                      placeholder={downloadFileName}
+                      value={outputPath || downloadFileName}
+                      onChange={(e) => setOutputPath(e.target.value)}
+                      readOnly
+                    />
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Rendered videos are automatically saved directly into your computer&apos;s Downloads folder.
+                  </p>
+                </div>
               </div>
             )}
 
+            {/* TAB 2: YouTube & Social Launch Kit */}
+            {activeTab === 'youtube' && (
+              <div className="animate-fade-in">
+                <YouTubeLaunchKit
+                  project={project}
+                  onUpdateProject={setProject}
+                  showToast={showToast}
+                />
+              </div>
+            )}
           </div>
+
+          {/* Right Column (5 cols): Persistent Cinema Preview & Master Actions */}
+          <div className="lg:col-span-5 sticky top-6">
+            <CinemaPreviewPanel
+              project={project}
+              aspectRatio={aspectRatio}
+              resolution={resolution}
+              isExporting={isExporting}
+              progress={progress}
+              finalVideoUrl={finalVideoUrl}
+              downloadFileName={downloadFileName}
+              errorMsg={errorMsg}
+              cleanedCache={cleanedCache}
+              freedSpaceMB={freedSpaceMB}
+              isExportingTimeline={isExportingTimeline}
+              timelineProgress={timelineProgress}
+              timelineExportSuccess={timelineExportSuccess}
+              onStartExport={handleStartExport}
+              onCancelExport={handleCancelExport}
+              onExportTimeline={handleExportTimeline}
+              onCleanCache={handleCleanCache}
+              onReExport={() => {
+                setProgress({
+                  stage: 'idle',
+                  percentage: 0,
+                  fps: 0,
+                  frame: 0,
+                  totalFrames: 0,
+                  etaSeconds: 0,
+                  currentStepMessage: '',
+                });
+                setFinalVideoUrl('');
+              }}
+              onOpenFolder={handleOpenFolder}
+            />
+          </div>
+
         </div>
+      </div>
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-slide-up flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900/95 border border-zinc-700 text-white text-xs shadow-2xl backdrop-blur-md">
+          <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

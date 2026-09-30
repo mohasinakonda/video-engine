@@ -65,6 +65,8 @@ export interface ProjectManifest {
   customAudioFileName?: string;
   /** Flag indicating whether project uses user-uploaded voiceover */
   hasCustomVoice?: boolean;
+  /** Phase 3: AI YouTube and social media packaging kit */
+  youtubePackaging?: YouTubePackagingData;
 }
 
 // ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────
@@ -195,5 +197,77 @@ export interface SceneItem {
   status: SceneStatus;
   error?: string;
   retryCount?: number;
+}
+
+// ─── Phase 3: YouTube & Social Launch Kit ─────────────────────────────────────
+
+export type HookStyle =
+  | 'Curiosity Gap'
+  | 'Search / SEO'
+  | 'High Emotion'
+  | 'Story / Drama'
+  | 'Action / Bold';
+
+export interface TitleOption {
+  title: string;
+  hookStyle: HookStyle;
+  ctrScore?: number;
+}
+
+export interface ChapterItem {
+  time: string; // e.g. "00:00"
+  title: string;
+  seconds: number;
+}
+
+export interface ThumbnailConcept {
+  id: string;
+  conceptName: string;
+  visualPrompt: string;
+  originalPrompt?: string;
+  textOverlayHint: string;
+  visualHook?: string;
+  compositionType?: 'split_contrast' | 'focal_close_up' | 'cinematic_scale' | 'custom';
+  imageUrl?: string;
+  isGenerating?: boolean;
+}
+
+export interface ScriptIntelligence {
+  coreTopic: string;
+  narrativeSummary: string;
+  keyTalkingPoints: string[];
+  targetAudience: string;
+  searchKeywords: string[];
+}
+
+export interface CompetitorVideo {
+  id: string;
+  title: string;
+  channel: string;
+  views: string;
+  thumbnail: string;
+  videoUrl: string;
+}
+
+export interface MarketInsight {
+  competitorVideos: CompetitorVideo[];
+  packagingStrategy: string;
+  marketSearchQuery?: string;
+  alternativeSearchQueries?: string[];
+}
+
+export interface YouTubePackagingData {
+  scriptIntelligence?: ScriptIntelligence;
+  marketInsights?: MarketInsight;
+  customTopicPrompt?: string;
+  titles: TitleOption[];
+  selectedTitleIndex?: number;
+  description: string;
+  chapters: ChapterItem[];
+  tags: string[];
+  hashtags: string[];
+  thumbnailConcepts: ThumbnailConcept[];
+  selectedThumbnailUrl?: string;
+  generatedAt?: number;
 }
 

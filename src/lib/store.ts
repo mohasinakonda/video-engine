@@ -84,6 +84,20 @@ export async function savePollinationsImageModel(model: string): Promise<void> {
   storeSet('pollinations-image-model', model);
 }
 
+export async function getYouTubeApiKey(): Promise<string> {
+  if (typeof process !== 'undefined' && process.env?.YOUTUBE_API_KEY) {
+    return process.env.YOUTUBE_API_KEY.trim();
+  }
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_YOUTUBE_API_KEY) {
+    return process.env.NEXT_PUBLIC_YOUTUBE_API_KEY.trim();
+  }
+  return storeGet<string>('youtube-api-key') || '';
+}
+
+export async function saveYouTubeApiKey(key: string): Promise<void> {
+  storeSet('youtube-api-key', key.trim());
+}
+
 // ─── Voice Presets Accessors ──────────────────────────────────────────────────
 
 export async function getPresets(): Promise<VoicePreset[]> {

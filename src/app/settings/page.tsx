@@ -15,6 +15,7 @@ import {
   Plus,
   ArrowRight,
   Layers,
+  Flame,
 } from 'lucide-react';
 import {
   getPollinationsImageModel,
@@ -25,6 +26,8 @@ import {
   saveGlobalNegativePrompt,
   DEFAULT_BASE_STYLE_PROMPT,
   DEFAULT_NEGATIVE_PROMPT,
+  getYouTubeApiKey,
+  saveYouTubeApiKey,
 } from '@/lib/store';
 import {
   POPULAR_POLLINATIONS_MODELS,
@@ -131,6 +134,11 @@ export default function SettingsPage() {
   const [enhancedResult, setEnhancedResult] = useState<EnhancedScenePromptResult | null>(null);
   const [copiedEnhanced, setCopiedEnhanced] = useState(false);
 
+  // YouTube Data API State
+  const [youtubeApiKey, setYoutubeApiKey] = useState('');
+  const [savedYoutubeToast, setSavedYoutubeToast] = useState(false);
+  const [savingYoutubeKey, setSavingYoutubeKey] = useState(false);
+
   useEffect(() => {
     getPollinationsImageModel().then((m) => {
       setImageModel(m);
@@ -143,7 +151,18 @@ export default function SettingsPage() {
       setNegativePrompt(n);
       setSavedNegativePrompt(n);
     });
+    getYouTubeApiKey().then((k) => {
+      setYoutubeApiKey(k);
+    });
   }, []);
+
+  async function handleSaveYouTubeKey() {
+    setSavingYoutubeKey(true);
+    await saveYouTubeApiKey(youtubeApiKey);
+    setSavingYoutubeKey(false);
+    setSavedYoutubeToast(true);
+    setTimeout(() => setSavedYoutubeToast(false), 2500);
+  }
 
   async function handleSaveBaseStyle() {
     setSavingBaseStyle(true);
@@ -302,6 +321,72 @@ export default function SettingsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* YouTube Data API & Market Research Card */}
+          <div className="card border-red-500/20 bg-gradient-to-b from-red-950/10 to-transparent">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-red-500/15 border border-red-500/25 flex items-center justify-center">
+                  <Flame size={16} className="text-red-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-white">YouTube Data &amp; Market Research API</h2>
+                    <span className="text-[10px] text-red-300 bg-red-950/60 border border-red-800/60 px-2 py-0.5 rounded-full font-mono font-bold">
+                      Viral Engine
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Live competitor video search, view benchmarking, and packaging intelligence
+                  </p>
+                </div>
+              </div>
+
+              {savedYoutubeToast && (
+                <span className="text-xs text-emerald-400 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/40 border border-emerald-800/40 animate-fade-in font-mono">
+                  <CheckCircle size={13} /> Key saved!
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  <span>Google Cloud YouTube Data API v3 Key (Optional)</span>
+                  <span className="text-[11px] text-emerald-400 font-mono">
+                    {youtubeApiKey ? '● Official API Active' : '● Zero-Config Mode Active'}
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={youtubeApiKey}
+                    onChange={(e) => setYoutubeApiKey(e.target.value)}
+                    placeholder="AIzaSy... (Leave blank for zero-config free parser)"
+                    className="input text-xs font-mono flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveYouTubeKey}
+                    disabled={savingYoutubeKey}
+                    className="btn-primary text-xs px-4 flex items-center gap-1.5"
+                  >
+                    {savingYoutubeKey ? <Loader2 size={13} className="animate-spin" /> : 'Save Key'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+                <p className="text-zinc-300 font-medium">⚡ How YouTube Market Research Works:</p>
+                <p>
+                  • <strong>Zero-Config Mode (Default)</strong>: Works 100% free out of the box without any key. Our server searches YouTube and extracts top viral videos, real thumbnails, and view counts automatically.
+                </p>
+                <p>
+                  • <strong>Google Cloud API (Optional)</strong>: To use Google&apos;s official YouTube Data API v3, create a free project at <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" className="text-red-400 underline">Google Cloud Console</a>, enable &quot;YouTube Data API v3&quot;, generate an API key (includes 10,000 free quota units/day), and paste it above.
+                </p>
+              </div>
             </div>
           </div>
 

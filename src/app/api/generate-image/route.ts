@@ -150,14 +150,34 @@ export async function POST(req: Request) {
       pollUrl += `&key=${encodeURIComponent(pollinationsKey.trim())}`;
     }
 
-    const pollRes = await fetch(pollUrl);
+    let pollRes = await fetch(pollUrl);
+
+    // If non-OK (e.g. 402 Payment Required, 403, model paywalled, rate limit, etc.), fall back to free 'sana' model
+    if (!pollRes.ok) {
+      console.warn(`Pollinations returned status ${pollRes.status} for model '${model}'. Retrying with free 'sana' model...`);
+      const sanaUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=sana&nologo=true`;
+      pollRes = await fetch(sanaUrl);
+    }
+
+    // Secondary fallback without model parameter if still failing
+    if (!pollRes.ok) {
+      console.warn(`Pollinations still failed (${pollRes.status}), retrying with default public model...`);
+      const defaultUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&nologo=true`;
+      pollRes = await fetch(defaultUrl);
+    }
+
     if (!pollRes.ok) {
       throw new Error(`Pollinations AI error status: ${pollRes.status}`);
     }
 
     const arrayBuffer = await pollRes.arrayBuffer();
     const base64Image = `data:image/jpeg;base64,${Buffer.from(arrayBuffer).toString('base64')}`;
-    return NextResponse.json({ base64Image, provider: 'pollinations' });
+    return NextResponse.json({
+      base64Image,
+      imageUrl: base64Image,
+      url: base64Image,
+      provider: 'pollinations',
+    });
 
   } catch (error: any) {
     console.error('API /api/generate-image error:', error);
