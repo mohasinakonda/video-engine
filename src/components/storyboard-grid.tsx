@@ -9,6 +9,7 @@ import SceneCard from './scene-card';
 
 interface StoryboardGridProps {
   scenes: SceneItem[];
+  projectId?: string;
   aspectRatio?: '16:9' | '9:16' | '1:1';
   stylePrompt?: string;
   onRegenerate: (scene: SceneItem, newPrompt?: string) => void;
@@ -25,6 +26,7 @@ const PAGE_SIZE = 60; // render 60 scenes at a time
 
 export default function StoryboardGrid({
   scenes,
+  projectId,
   aspectRatio = '16:9',
   stylePrompt,
   onRegenerate,
@@ -77,7 +79,7 @@ export default function StoryboardGrid({
       {/* ── Progress Header ─────────────────────────────────────────────────── */}
       <div className="bg-bg-surface border border-bg-border rounded-xl p-4 space-y-3">
         {/* Stats row */}
-        <div className="flex items-center gap-6 text-xs text-slate-400 flex-wrap">
+        <div className="flex items-center gap-6 text-xs text-slate-400">
           <StatBadge
             icon={<Images size={12} className="text-emerald-400" />}
             label={`${stats.imageReady} / ${stats.total} Images Ready`}
@@ -105,40 +107,44 @@ export default function StoryboardGrid({
         </div>
 
         {/* Image progress bar */}
-        <div>
-          <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
-            <span>Images</span>
-            <span>{stats.imagePercent}%</span>
-          </div>
-          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white rounded-full transition-all duration-300"
-              style={{ width: `${stats.imagePercent}%` }}
-            />
-          </div>
-        </div>
+        <div className='flex w-full gap-5'>
 
-        {/* Motion progress bar */}
-        <div>
-          <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
-            <span>Motion Clips</span>
-            <span>{stats.motionPercent}%</span>
+          <div className='shrink-0 flex-1'>
+            <div className="flex shrink-0 items-center justify-between text-[10px] text-zinc-400 mb-1">
+              <span>Images</span>
+              <span>{stats.imagePercent}%</span>
+            </div>
+            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-300"
+                style={{ width: `${stats.imagePercent}%` }}
+              />
+            </div>
           </div>
-          <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-zinc-400 rounded-full transition-all duration-300"
-              style={{ width: `${stats.motionPercent}%` }}
-            />
+
+          {/* Motion progress bar */}
+          <div className='shrink-0 flex-1'>
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+              <span>Motion Clips</span>
+              <span>{stats.motionPercent}%</span>
+            </div>
+            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-zinc-400 rounded-full transition-all duration-300"
+                style={{ width: `${stats.motionPercent}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── Scene Grid ──────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+      {/* ── Scene Grid (Google Flow Studio Gallery) ─────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5">
         {visibleScenes.map((scene) => (
           <SceneCard
             key={scene.sceneId}
             scene={scene}
+            projectId={projectId}
             aspectRatio={aspectRatio}
             stylePrompt={stylePrompt}
             onRegenerate={onRegenerate}

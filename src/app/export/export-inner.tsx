@@ -121,7 +121,7 @@ export default function ExportInner() {
 
       const restoredChunks = await Promise.all(
         rawChunks.map(async (c) => {
-          if (c.audioUrl) return c;
+          if (c.audioUrl && !c.audioUrl.startsWith('blob:')) return c;
           const url = await getMediaBlobUrl(`audio_${p.projectId}_${c.index}`);
           return { ...c, audioUrl: url || undefined };
         })
@@ -130,7 +130,7 @@ export default function ExportInner() {
       // Restore scene image blobs from IndexedDB
       const restoredScenes = await Promise.all(
         (p.scenes || []).map(async (s) => {
-          if (s.imageUrl) return s;
+          if (s.imageUrl && !s.imageUrl.startsWith('blob:')) return s;
           const url = await getMediaBlobUrl(`scene_${p.projectId}_${s.sceneId}`);
           return { ...s, imageUrl: url || undefined };
         })

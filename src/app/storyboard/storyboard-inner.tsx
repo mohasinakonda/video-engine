@@ -212,7 +212,10 @@ export default function StoryboardInner() {
       if (p.scenes && p.scenes.length > 0) {
         restoredScenes = await Promise.all(
           p.scenes.map(async (s) => {
-            if (s.imageUrl) return s;
+            // Never trust an ephemeral session blob: URL from a previous page load
+            const isDeadBlob = typeof s.imageUrl === 'string' && s.imageUrl.startsWith('blob:');
+            if (s.imageUrl && !isDeadBlob) return s;
+
             const url = await getMediaBlobUrl(`scene_${p.projectId}_${s.sceneId}`);
             if (url) {
               if (s.status === 'PENDING' || s.status === 'FAILED' || s.status === 'GENERATING_IMAGE') {
@@ -226,7 +229,13 @@ export default function StoryboardInner() {
                   : s.status,
               };
             }
-            return s;
+
+            // If image blob is not in IndexedDB, clear dead imageUrl and reset status to PENDING
+            return {
+              ...s,
+              imageUrl: undefined,
+              status: (s.status === 'IMAGE_READY' || s.status === 'MOTION_READY') ? ('PENDING' as SceneStatus) : s.status,
+            };
           })
         );
         setScenes(restoredScenes);
@@ -1101,6 +1110,7 @@ export default function StoryboardInner() {
             )}
 
             <StoryboardGrid
+              projectId={projectId}
               scenes={scenes}
               aspectRatio={project?.aspectRatio || stylePreset?.aspectRatio || '16:9'}
               stylePrompt={stylePreset?.stylePrompt}

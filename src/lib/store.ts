@@ -146,10 +146,29 @@ export async function getProject(projectId: string): Promise<ProjectManifest | n
 export async function saveProject(manifest: ProjectManifest): Promise<void> {
   const projects = await getAllProjects();
   const idx = projects.findIndex((p) => p.projectId === manifest.projectId);
+
+  // Sanitize manifest so ephemeral browser blob: URLs are never stored in localStorage
+  const sanitizedManifest: ProjectManifest = {
+    ...manifest,
+    scenes: manifest.scenes?.map(({ imageUrl, ...s }) => {
+      // Keep real URLs (https:// or data:image), but never persist session-scoped blob: URLs
+      if (imageUrl && !imageUrl.startsWith('blob:')) {
+        return { ...s, imageUrl };
+      }
+      return s;
+    }),
+    audioChunks: manifest.audioChunks?.map(({ audioUrl, ...c }) => {
+      if (audioUrl && !audioUrl.startsWith('blob:')) {
+        return { ...c, audioUrl };
+      }
+      return c;
+    }),
+  };
+
   if (idx >= 0) {
-    projects[idx] = manifest;
+    projects[idx] = sanitizedManifest;
   } else {
-    projects.push(manifest);
+    projects.push(sanitizedManifest);
   }
   storeSet('projects', projects);
 }
