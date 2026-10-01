@@ -23,7 +23,9 @@ export default function GuestView() {
       <HeroSection
 
       />
+      <VisualStyleSection
 
+      />
       {/* ─── How It Works (6-Stage Stepper & Visual Mockups) ─────────────── */}
       <HowItWorksSection />
 
@@ -42,9 +44,7 @@ export default function GuestView() {
 
 
       {/* ─── Visual Style Engine (Consistent Look) ──────────────────────── */}
-      <VisualStyleSection
 
-      />
 
       {/* ─── Built For Editing (Pipeline & Export) ───────────────────────── */}
       <BuiltForEditingSection />
