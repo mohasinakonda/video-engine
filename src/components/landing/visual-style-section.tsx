@@ -11,14 +11,14 @@ export const VisualStyleSection = () => {
   const activeStyle = FEATURED_STYLES[activeStyleIdx];
 
   return (
-    <section id="styles" className="py-20 sm:py-24 px-6 border-b border-[#2e2e2e] bg-[#fbfbfb] text-zinc-900">
+    <section id="styles" className="py-20 sm:py-24 px-6 border-b border-[#E5E0D8] bg-[#FAF8F5] text-zinc-900">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center">
 
           {/* Left Column: Heading & Copy */}
           <div className="lg:col-span-4 space-y-4">
             <p className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-500">
-              VISUAL STYLE
+              VISUAL STYLE ENGINE
             </p>
             <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-extrabold text-zinc-950 tracking-tight leading-[1.1]">
               Consistent look.<br />Across all scenes.
@@ -34,7 +34,7 @@ export const VisualStyleSection = () => {
               <div className="text-xs font-semibold text-zinc-700 mb-2">
                 Master Style
               </div>
-              <div className="bg-white rounded-2xl border border-zinc-200/90 shadow-xl shadow-zinc-200/60 p-2 sm:p-2.5 space-y-1">
+              <div className="bg-white rounded-2xl border border-[#E5E0D8] shadow-lg shadow-zinc-950/[0.03] p-2 sm:p-2.5 space-y-1">
                 {FEATURED_STYLES.map((style, idx) => {
                   const isActive = activeStyleIdx === idx;
                   return (
@@ -43,7 +43,7 @@ export const VisualStyleSection = () => {
                       type="button"
                       onClick={() => setActiveStyleIdx(idx)}
                       className={`w-full text-left rounded-xl transition-all flex items-center justify-between px-3 py-2 text-xs ${isActive
-                        ? 'bg-zinc-100/90 border border-zinc-200/80 text-zinc-950 font-semibold shadow-xs'
+                        ? 'bg-[#F4F0EA] border border-[#E5E0D8] text-zinc-950 font-semibold shadow-xs'
                         : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-50 font-medium border border-transparent'
                         }`}
                     >
@@ -60,7 +60,7 @@ export const VisualStyleSection = () => {
                         <span>{style.title}</span>
                       </div>
                       {isActive && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#f97316] ring-4 ring-orange-500/20" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#E05A30] ring-4 ring-[#E05A30]/20" />
                       )}
                     </button>
                   );
@@ -75,7 +75,7 @@ export const VisualStyleSection = () => {
               {activeStyle.images.slice(0, 6).map((img, i) => (
                 <div
                   key={`${activeStyle.id}-${i}`}
-                  className="rounded-2xl overflow-hidden aspect-[4/3] bg-zinc-100 shadow-sm border border-zinc-200/60 relative group"
+                  className="rounded-2xl overflow-hidden aspect-[4/3] bg-zinc-100 shadow-sm border border-[#E5E0D8] relative group"
                 >
                   <img
                     src={img.url}

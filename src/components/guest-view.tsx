@@ -15,15 +15,12 @@ import { LandingFooter } from './landing/footer';
 export default function GuestView() {
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 selection:bg-zinc-800 selection:text-white font-sans antialiased overflow-x-hidden">
+    <div className="min-h-screen bg-[#FAF8F5] text-zinc-900 selection:bg-orange-100 selection:text-orange-950 font-sans antialiased overflow-x-hidden">
       {/* ─── Sticky Navbar ──────────────────────────────────────────────── */}
       <LandingNavbar />
 
       {/* ─── Hero Section ───────────────────────────────────────────────── */}
       <HeroSection
-
-      />
-      <VisualStyleSection
 
       />
       {/* ─── How It Works (6-Stage Stepper & Visual Mockups) ─────────────── */}
@@ -36,15 +33,10 @@ export default function GuestView() {
       <NarrationTimelineSection />
 
       {/* ─── Full Control (Storyboard Editor Showcase) ──────────────────── */}
-      <StoryboardShowcaseSection
-
-      />
-
-      <PricingSection />
-
+      <StoryboardShowcaseSection />
 
       {/* ─── Visual Style Engine (Consistent Look) ──────────────────────── */}
-
+      <VisualStyleSection />
 
       {/* ─── Built For Editing (Pipeline & Export) ───────────────────────── */}
       <BuiltForEditingSection />
@@ -53,10 +45,7 @@ export default function GuestView() {
       <FeaturesSection />
 
       {/* ─── Pricing Section (With Local Bangladesh Support) ───────────── */}
-
-
-      {/* ─── Ready to Create? (Interactive Script Banner) ───────────────── */}
-      {/* <ReadyToCreateSection /> */}
+      <PricingSection />
 
       {/* ─── Footer ─────────────────────────────────────────────────────── */}
       <LandingFooter />

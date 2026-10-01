@@ -13,8 +13,8 @@ const dm_sans = DM_Sans({
 
 
 export const metadata: Metadata = {
-  title: 'AI Video Studio',
-  description: 'Convert long-form narration scripts into cinematic video & audio — powered by Pollinations AI.',
+  title: 'Rendoza AI - AI Video Studio',
+  description: 'Convert long-form narration scripts into cinematic video & audio with Rendoza AI.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

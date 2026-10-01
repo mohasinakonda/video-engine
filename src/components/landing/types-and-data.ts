@@ -1,12 +1,16 @@
 import {
-  FileText,
-  Split,
+  Subtitles,
+  Smartphone,
+  Move,
+  CloudLightning,
+  Languages,
+  ShieldCheck,
+  FileCode2,
+  BadgeDollarSign,
   Camera,
-  AudioLines,
-  SlidersHorizontal,
+  Play,
+  Film,
   Sparkles,
-  Clock,
-  Video,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -28,34 +32,34 @@ export interface ArtStylePreset {
 export const FEATURED_STYLES: ArtStylePreset[] = [
   {
     id: 'cinematic',
-    title: 'Cinematic',
-    tag: 'Film & Scenic',
-    description: 'Natural volumetric lighting, Kodak 500T 35mm grain, anamorphic shallow depth of field, and documentary warmth.',
-    prompt: 'Cinematic wide shot, soft golden haze, anamorphic 35mm film photography, 8k resolution, natural color grading',
+    title: 'Cinematic AI',
+    tag: 'Sci-Fi & Epic',
+    description: 'Volumetric atmospheric lighting, anamorphic 35mm lens grain, deep shadows, and cinematic color science.',
+    prompt: 'Cinematic wide shot, sci-fi astronaut in crystal alien valley, anamorphic lens, volumetric golden light, 8k resolution',
     images: [
       {
-        url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
-        caption: 'Alpine mountain valley and clear stream',
+        url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+        caption: 'Exploration astronaut in alien crystal dunes',
       },
       {
-        url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-        caption: 'River canyon and pine forest reflection',
+        url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+        caption: 'Neo-Tokyo anime skyline at twilight',
       },
       {
-        url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
-        caption: 'Sunset silhouette facing the golden horizon',
+        url: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=800&q=80',
+        caption: 'Floating fantasy castle above the clouds',
       },
       {
-        url: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?auto=format&fit=crop&w=800&q=80',
-        caption: 'Dramatic coastal fjord and ocean cliffs',
+        url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
+        caption: 'Deep space interstellar planet approach',
       },
       {
-        url: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80',
-        caption: 'Sports car on scenic forest highway',
+        url: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+        caption: 'Bioluminescent cybernetic character frame',
       },
       {
-        url: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80',
-        caption: 'Desert sandstone peaks at twilight',
+        url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=800&q=80',
+        caption: 'Rain-slicked neon street at midnight',
       },
     ],
   },
@@ -283,44 +287,44 @@ export interface CoreFeatureItem {
 
 export const CORE_FEATURES: CoreFeatureItem[] = [
   {
-    icon: FileText,
-    title: 'Script Analysis',
-    desc: 'Understand your story and structure.',
+    icon: Subtitles,
+    title: 'Auto Subtitle Sync',
+    desc: 'Generates precision word-by-word animated captions and exports .srt / .vtt files.',
   },
   {
-    icon: Split,
-    title: 'Automatic Scene Planning',
-    desc: 'Turn long-form narration into editable scenes.',
+    icon: Smartphone,
+    title: 'Multi-Aspect Ratio',
+    desc: 'Instant 1-click toggle between 16:9 Landscape (YouTube) and 9:16 Vertical (Shorts/Reels).',
   },
   {
-    icon: Camera,
-    title: 'AI Visual Generation',
-    desc: 'Create relevant visuals for each scene.',
+    icon: Move,
+    title: 'Ken Burns Motion Engine',
+    desc: 'Cinematic pans, zooms, and camera tilt animations breathe dynamic life into static scenes.',
   },
   {
-    icon: AudioLines,
-    title: 'Voice Generation',
-    desc: 'Natural, expressive narration.',
+    icon: CloudLightning,
+    title: 'High-Speed Cloud Render',
+    desc: 'Lightning-fast cloud processing renders 1080p MP4s without heating your device or draining battery.',
   },
   {
-    icon: SlidersHorizontal,
-    title: 'Scene Controls',
-    desc: 'Regenerate, reorder and customize scenes.',
+    icon: Languages,
+    title: 'Multi-Language Voices',
+    desc: 'Lifelike emotional AI voiceovers in Bangla, English, Hindi, and 30+ international languages.',
   },
   {
-    icon: Sparkles,
-    title: 'Style Consistency',
-    desc: 'Keep a unified visual style across your video.',
+    icon: ShieldCheck,
+    title: 'Zero Watermark Masters',
+    desc: '100% clean, high-bitrate MP4 exports ready for television, advertising, or online release.',
   },
   {
-    icon: Clock,
-    title: 'Timeline Export',
-    desc: 'Continue editing in Premiere Pro or DaVinci Resolve.',
+    icon: FileCode2,
+    title: 'NLE Timeline Export',
+    desc: 'Export structured XML/EDL timelines directly into Adobe Premiere Pro and DaVinci Resolve.',
   },
   {
-    icon: Video,
-    title: 'Multiple Formats',
-    desc: 'Download in HD, 4K and other formats.',
+    icon: BadgeDollarSign,
+    title: 'Commercial License',
+    desc: 'Full monetization rights on YouTube Partner Program, Facebook Reels, client gigs, and agency work.',
   },
 ];
 
