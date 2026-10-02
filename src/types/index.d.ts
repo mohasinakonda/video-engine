@@ -53,6 +53,10 @@ export interface ProjectManifest {
   scenes?: SceneItem[];
   /** Phase 2: the selected base style preset ID */
   baseStylePresetId?: string;
+  /** Phase 2: customized style prompt for image generation */
+  customStylePrompt?: string;
+  /** Phase 2: customized negative style prompt */
+  customNegativePrompt?: string;
   /** Phase 2: project-level aspect ratio */
   aspectRatio?: '16:9' | '9:16' | '1:1';
   /** Phase 2: export configuration settings */
@@ -139,6 +143,18 @@ export interface BaseStylePreset {
   /** True = shipped with the app, cannot be deleted */
   isBuiltIn?: boolean;
   createdAt: number;
+  /** Visual preview thumbnail image URL */
+  thumbnailUrl?: string;
+  /** Primary movement/family ID (e.g. 'cinematic', 'printmaking') */
+  familyId?: string;
+  /** Short descriptive tag (e.g. 'Warm 1970s Cinema') */
+  tag?: string;
+  /** Extended aesthetic description */
+  description?: string;
+  /** Active status (controlled via Admin) */
+  isActive?: boolean;
+  /** Sort order for display hierarchy */
+  sortOrder?: number;
 }
 
 // ─── Phase 2: Motion Profile ─────────────────────────────────────────────────

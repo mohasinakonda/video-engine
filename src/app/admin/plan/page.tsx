@@ -227,12 +227,21 @@ export default function AdminPlanSettingsPage() {
         {/* Navigation & Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
           <div>
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white mb-2 transition-colors"
-            >
-              <ArrowLeft size={13} /> Back to Admin Hub
-            </Link>
+            <div className="flex items-center gap-3 mb-2">
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft size={13} /> Back to Admin Hub
+              </Link>
+              <span className="text-zinc-600 text-xs">•</span>
+              <Link
+                href="/admin/styles"
+                className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 font-medium transition-colors"
+              >
+                Art Styles Studio
+              </Link>
+            </div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
                 <Settings size={26} className="text-emerald-400" />

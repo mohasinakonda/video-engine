@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Database,
   Loader2,
+  Palette,
 } from 'lucide-react';
 import {
   getAllPaymentSubmissions,
@@ -283,6 +284,12 @@ export default function AdminHubPage() {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              href="/admin/styles"
+              className="px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-xs font-semibold text-purple-400 transition-colors flex items-center gap-1.5"
+            >
+              <Palette size={14} /> Art Styles
+            </Link>
             <Link
               href="/admin/plan"
               className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-semibold text-emerald-400 transition-colors"

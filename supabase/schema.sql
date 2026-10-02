@@ -561,3 +561,43 @@ drop policy if exists "Authenticated users can upload images" on storage.objects
 create policy "Authenticated users can upload images"
   on storage.objects for insert
   with check (bucket_id in ('scene-images', 'audio-voiceovers'));
+
+-- ==============================================================================
+-- ART STYLES & PRESETS (Dynamic Catalog Managed by Admin)
+-- ==============================================================================
+create table if not exists public.art_styles (
+  id text primary key,
+  name text not null,
+  family_id text not null,
+  tag text,
+  description text,
+  style_prompt text not null,
+  negative_prompt text,
+  thumbnail_url text,
+  aspect_ratio text default '16:9' not null,
+  is_default boolean default false not null,
+  is_active boolean default true not null,
+  sort_order int default 100 not null,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+create index if not exists idx_art_styles_family on public.art_styles(family_id);
+create index if not exists idx_art_styles_active on public.art_styles(is_active);
+create index if not exists idx_art_styles_sort on public.art_styles(sort_order);
+
+alter table public.art_styles enable row level security;
+
+-- Public can read all active styles
+drop policy if exists "Anyone can read active art styles" on public.art_styles;
+create policy "Anyone can read active art styles" 
+  on public.art_styles for select 
+  using (is_active = true);
+
+-- Admins have full management access
+drop policy if exists "Admins can manage art styles" on public.art_styles;
+create policy "Admins can manage art styles" 
+  on public.art_styles for all
+  using (public.is_admin())
+  with check (public.is_admin());
+

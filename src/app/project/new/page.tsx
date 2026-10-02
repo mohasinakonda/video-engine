@@ -26,8 +26,12 @@ import {
   ArrowRight,
   Sliders,
   CheckCircle2,
+  RotateCcw,
+  Plus,
+  Edit3,
 } from 'lucide-react';
 import ScriptInput from '@/components/script-input';
+import StylePresetModal from '@/components/style-preset-modal';
 import {
   getPollinationsApiKey,
   getProject,
@@ -82,6 +86,11 @@ function ProjectPageInner() {
   // Visual Style Presets State
   const [stylePresets, setStylePresets] = useState<BaseStylePreset[]>([]);
   const [selectedStyleId, setSelectedStyleId] = useState<string>('');
+  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [isPromptCustomized, setIsPromptCustomized] = useState<boolean>(false);
+  const [showPromptEditor, setShowPromptEditor] = useState<boolean>(false);
+  const [showStyleModal, setShowStyleModal] = useState<boolean>(false);
+  const [modalInitialTab, setModalInitialTab] = useState<'catalog' | 'architect' | 'library'>('catalog');
 
   // Pacing Profile
   const [pacingProfile, setPacingProfile] = useState<PacingProfile>('balanced');
@@ -109,6 +118,7 @@ function ProjectPageInner() {
     const defaultStyle = await getDefaultStylePreset();
     if (defaultStyle) {
       setSelectedStyleId(defaultStyle.id);
+      setCustomPrompt(defaultStyle.stylePrompt);
       if (defaultStyle.aspectRatio) {
         setAspectRatio(defaultStyle.aspectRatio);
       }
@@ -128,6 +138,14 @@ function ProjectPageInner() {
         setScript(existing.rawScript);
         if (existing.aspectRatio) setAspectRatio(existing.aspectRatio);
         if (existing.baseStylePresetId) setSelectedStyleId(existing.baseStylePresetId);
+        if (existing.customStylePrompt) {
+          setCustomPrompt(existing.customStylePrompt);
+          setIsPromptCustomized(true);
+          setShowPromptEditor(true);
+        } else if (existing.baseStylePresetId) {
+          const match = allStyles.find((s) => s.id === existing.baseStylePresetId);
+          if (match) setCustomPrompt(match.stylePrompt);
+        }
         if (existing.pacingProfile) setPacingProfile(existing.pacingProfile);
         if (existing.hasCustomVoice && existing.customAudioFileName) {
           setShowVoiceDrawer(true);
@@ -184,6 +202,40 @@ function ProjectPageInner() {
     );
   }, [stylePresets, selectedStyleId]);
 
+  const activeStylePrompt = useMemo(() => {
+    return isPromptCustomized && customPrompt.trim()
+      ? customPrompt.trim()
+      : activeStyle.stylePrompt;
+  }, [isPromptCustomized, customPrompt, activeStyle]);
+
+  const handleSelectPreset = (preset: BaseStylePreset) => {
+    setSelectedStyleId(preset.id);
+    setCustomPrompt(preset.stylePrompt);
+    setIsPromptCustomized(false);
+  };
+
+  const handlePromptChange = (val: string) => {
+    setCustomPrompt(val);
+    setIsPromptCustomized(val.trim() !== activeStyle.stylePrompt.trim());
+  };
+
+  const handleAppendModifier = (modifier: string) => {
+    const base = (customPrompt || activeStyle.stylePrompt).trim();
+    const cleanMod = modifier.replace(/^\+\s*/, '');
+    if (base.toLowerCase().includes(cleanMod.toLowerCase())) {
+      return;
+    }
+    const updated = base ? `${base}, ${cleanMod}` : cleanMod;
+    setCustomPrompt(updated);
+    setIsPromptCustomized(true);
+    setShowPromptEditor(true);
+  };
+
+  const handleResetPrompt = () => {
+    setCustomPrompt(activeStyle.stylePrompt);
+    setIsPromptCustomized(false);
+  };
+
   // ─── Generate Visual Storyboard (Primary Action) ───────────────────────────
 
   async function handleGenerateVisualStoryboard() {
@@ -200,6 +252,7 @@ function ProjectPageInner() {
     try {
       const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
+      const effectiveStylePrompt = activeStylePrompt;
 
       const words = script.trim().split(/\s+/).filter(Boolean).length;
       const wpm = pacingProfile === 'fast' ? 145 : pacingProfile === 'cinematic' ? 120 : 135;
@@ -208,7 +261,7 @@ function ProjectPageInner() {
 
       const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
         targetDurationSec,
-        stylePrompt: chosenStyle.stylePrompt,
+        stylePrompt: effectiveStylePrompt,
         apiKey,
         pacingProfile,
         onProgress: (msg) => setGeneratingMsg(msg),
@@ -235,7 +288,7 @@ function ProjectPageInner() {
           audioEndSec: parseFloat(end.toFixed(1)),
           narrationLine: item.narration,
           visualPrompt: item.visual_prompt,
-          fullPrompt: `${item.visual_prompt}. ${chosenStyle.stylePrompt}`,
+          fullPrompt: `${item.visual_prompt}. ${effectiveStylePrompt}`,
           shotType: item.shot_type,
           bRollFocus: item.b_roll_focus,
           status: 'PENDING',
@@ -253,6 +306,7 @@ function ProjectPageInner() {
         totalDurationMs: Math.round(targetDurationSec * 1000),
         scenes: newScenes,
         baseStylePresetId: chosenStyle.id,
+        customStylePrompt: isPromptCustomized ? customPrompt.trim() : undefined,
         updatedAt: Date.now(),
       };
 
@@ -295,6 +349,7 @@ function ProjectPageInner() {
     try {
       const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
+      const effectiveStylePrompt = activeStylePrompt;
 
       await saveMediaBlob(`audio_${projectId}_0`, customAudioFile);
       const audioUrl = URL.createObjectURL(customAudioFile);
@@ -325,7 +380,7 @@ function ProjectPageInner() {
         userScript: effectiveScript,
         totalAudioDurationSec: targetDurationSec,
         pacingProfile,
-        stylePrompt: chosenStyle.stylePrompt,
+        stylePrompt: effectiveStylePrompt,
         apiKey,
         words: timedWords,
         onProgress: (msg) => setGeneratingMsg(msg),
@@ -337,7 +392,7 @@ function ProjectPageInner() {
         audioEndSec: item.audioEndSec,
         narrationLine: item.narrationLine,
         visualPrompt: item.visualPrompt || `Cinematic frame capturing: ${item.narrationLine.slice(0, 100)}`,
-        fullPrompt: `${item.visualPrompt || ''}. ${chosenStyle.stylePrompt}`,
+        fullPrompt: `${item.visualPrompt || ''}. ${effectiveStylePrompt}`,
         shotType: item.shotType,
         bRollFocus: item.bRollFocus,
         cutPace: item.cutPace,
@@ -366,6 +421,7 @@ function ProjectPageInner() {
         totalDurationMs: customAudioDurationMs,
         scenes: newScenes,
         baseStylePresetId: chosenStyle.id,
+        customStylePrompt: isPromptCustomized ? customPrompt.trim() : undefined,
         updatedAt: Date.now(),
       };
 
@@ -499,41 +555,175 @@ function ProjectPageInner() {
             </div>
 
             {/* ─── Visual Art Style Preset ──────────────────────────────────── */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Palette size={12} className="text-emerald-400" />
                   Visual Art Style
                 </label>
-                <span className="text-[10px] text-emerald-400/90 font-mono truncate max-w-[180px]">
-                  {activeStyle.name}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {isPromptCustomized && (
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Customized
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalInitialTab('architect');
+                      setShowStyleModal(true);
+                    }}
+                    className="text-[10px] text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium shadow-xs"
+                  >
+                    <Wand2 size={11} className="text-amber-400" />
+                    <span>AI Architect</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalInitialTab('catalog');
+                      setShowStyleModal(true);
+                    }}
+                    className="text-[10px] text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700 px-2 py-1 rounded-md flex items-center gap-1 transition-colors"
+                  >
+                    <Palette size={11} className="text-emerald-400" />
+                    <span>Catalog (30+)</span>
+                  </button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+
+              {/* Presets Grid */}
+              <div className="grid grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
                 {stylePresets.map((preset) => {
                   const isSelected = preset.id === selectedStyleId;
                   return (
                     <button
                       key={preset.id}
                       type="button"
-                      onClick={() => setSelectedStyleId(preset.id)}
-                      className={`text-left p-2.5 rounded-xl border transition-all ${isSelected
-                        ? 'bg-zinc-800/95 border-emerald-500/60 shadow-sm'
-                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
-                        }`}
+                      onClick={() => handleSelectPreset(preset)}
+                      className={`text-left rounded-xl border transition-all overflow-hidden relative group flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-zinc-800/95 border-emerald-500/70 shadow-md ring-1 ring-emerald-500/40'
+                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850 hover:border-zinc-700'
+                      }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-medium truncate ${isSelected ? 'text-white font-semibold' : 'text-zinc-300'}`}>
-                          {preset.name}
-                        </span>
-                        {isSelected && <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />}
+                      {preset.thumbnailUrl && (
+                        <div className="relative aspect-[16/9] w-full bg-zinc-950 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={preset.thumbnailUrl}
+                            alt={preset.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+                          {preset.tag && (
+                            <span className="absolute bottom-1.5 left-2 text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10">
+                              {preset.tag}
+                            </span>
+                          )}
+                          {isSelected && (
+                            <span className="absolute top-1.5 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-400 text-zinc-950 flex items-center gap-0.5 shadow-sm">
+                              <CheckCircle2 size={9} />
+                              Active
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="p-2.5 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-xs font-medium truncate ${
+                              isSelected ? 'text-white font-semibold' : 'text-zinc-300'
+                            }`}
+                          >
+                            {preset.name}
+                          </span>
+                          {!preset.thumbnailUrl && isSelected && (
+                            <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight">
+                          {isSelected && isPromptCustomized ? customPrompt : preset.stylePrompt}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight">
-                        {preset.stylePrompt}
-                      </p>
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Inline Prompt Customization Drawer */}
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800/90 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowPromptEditor(!showPromptEditor)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-zinc-200 hover:text-white transition-colors"
+                  >
+                    <Sliders size={12} className="text-emerald-400" />
+                    <span>Customize Style Prompt</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                      ({customPrompt.length} chars)
+                    </span>
+                    {showPromptEditor ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+
+                  {isPromptCustomized && (
+                    <button
+                      type="button"
+                      onClick={handleResetPrompt}
+                      className="text-[10px] font-mono text-zinc-400 hover:text-zinc-200 flex items-center gap-1 transition-colors"
+                      title="Reset prompt back to preset default"
+                    >
+                      <RotateCcw size={10} />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+
+                {showPromptEditor ? (
+                  <div className="space-y-2 animate-fade-in">
+                    <textarea
+                      rows={3}
+                      value={customPrompt}
+                      onChange={(e) => handlePromptChange(e.target.value)}
+                      placeholder="Add camera lenses, lighting, colors, or define a completely custom art style prompt…"
+                      className="w-full bg-zinc-950/80 border border-zinc-700/80 focus:border-emerald-500/60 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none resize-none font-mono leading-relaxed"
+                    />
+
+                    {/* Quick Modifier Chips */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono text-zinc-500">Quick Modifiers:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {[
+                          '+ 35mm anamorphic',
+                          '+ volumetric lighting',
+                          '+ golden hour',
+                          '+ film grain',
+                          '+ moody shadows',
+                          '+ 8k ultra-detailed',
+                          '+ pastel palette',
+                        ].map((mod) => (
+                          <button
+                            key={mod}
+                            type="button"
+                            onClick={() => handleAppendModifier(mod)}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors"
+                          >
+                            {mod}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p
+                    onClick={() => setShowPromptEditor(true)}
+                    className="text-[11px] text-zinc-400 font-mono line-clamp-2 cursor-pointer hover:text-zinc-300 transition-colors bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/60"
+                  >
+                    {customPrompt || activeStyle.stylePrompt}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -741,11 +931,18 @@ function ProjectPageInner() {
                   <div className="w-12 h-12 rounded-2xl bg-zinc-800/80 border border-zinc-700 flex items-center justify-center mx-auto mb-3 shadow-inner text-emerald-400">
                     <Images size={22} />
                   </div>
-                  <h4 className="text-xs font-semibold text-white tracking-wide mb-1">
-                    {activeStyle.name}
-                  </h4>
+                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                    <h4 className="text-xs font-semibold text-white tracking-wide">
+                      {activeStyle.name}
+                    </h4>
+                    {isPromptCustomized && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Customized
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-zinc-400 line-clamp-2 max-w-xs mx-auto">
-                    {activeStyle.stylePrompt}
+                    {activeStylePrompt}
                   </p>
                 </div>
 
@@ -784,6 +981,23 @@ function ProjectPageInner() {
           </div>
         </div>
       </div>
+
+      {/* Style Preset Modal */}
+      {showStyleModal && (
+        <StylePresetModal
+          initialTab={modalInitialTab}
+          onClose={() => setShowStyleModal(false)}
+          onSelect={async (preset) => {
+            const allStyles = await getStylePresets();
+            setStylePresets(allStyles);
+            setSelectedStyleId(preset.id);
+            setCustomPrompt(preset.stylePrompt);
+            setIsPromptCustomized(false);
+            setShowStyleModal(false);
+          }}
+          selectedId={selectedStyleId}
+        />
+      )}
     </div>
   );
 }
