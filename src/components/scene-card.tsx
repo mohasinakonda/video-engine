@@ -168,6 +168,8 @@ export default function SceneCard({
       <SceneCardHeader
         sceneId={scene.sceneId}
         duration={duration}
+        visualType={scene.visualType}
+        cameraMotion={scene.cameraMotion}
         onUpdateDuration={onUpdateDuration}
         disabled={disabled}
       />

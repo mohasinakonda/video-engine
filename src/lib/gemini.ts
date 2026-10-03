@@ -235,13 +235,16 @@ export async function extractScenes(
   const wordEstimatedSec = Math.max(15, Math.round((words / 135) * 60));
   const totalSec = totalAudioDurationMs > 0 ? totalAudioDurationMs / 1000 : wordEstimatedSec;
 
-  const paceSeconds = {
+  const paceSeconds: Record<string, number> = {
     fast: 2.8,
     balanced: 4.0,
-    cinematic: 5.5,
-  }[pacingProfile] || 4.0;
+    cinematic: 8.0,
+    documentary: 5.5,
+    transcript: 5.2,
+  };
+  const targetPace = paceSeconds[pacingProfile] || 5.5;
 
-  const targetScenes = Math.max(1, Math.round(totalSec / paceSeconds));
+  const targetScenes = Math.max(1, Math.round(totalSec / targetPace));
 
   onProgress?.(`Extracting visual scenes via Pollinations AI (${pacingProfile} pacing)…`);
 

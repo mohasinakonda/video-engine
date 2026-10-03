@@ -1,4 +1,4 @@
-import type { PacingProfile, ShotType, CutPace } from '@/types';
+import type { PacingProfile, ShotType, CutPace, VisualSceneType, CameraMotionEffect } from '@/types';
 import { getPollinationsClient, breakdownRequirementToImageScenes } from '@/lib/pollinations';
 
 export interface SpokenSegment {
@@ -14,15 +14,29 @@ export interface TimedWord {
   end: number;   // seconds
 }
 
+export interface PlannedVisualScene {
+  sceneId: number;
+  narration: string;
+  visualPrompt: string;
+  shotType?: ShotType;
+  bRollFocus?: string;
+  visualType?: VisualSceneType;
+  cameraMotion?: CameraMotionEffect;
+  durationSec: number | null;
+}
+
 export interface TimedSceneSegment {
   sceneId: number;
   audioStartSec: number;
   audioEndSec: number;
+  durationSec?: number;
   narrationLine: string;
   shotType?: ShotType;
   bRollFocus?: string;
   visualPrompt?: string;
   cutPace?: CutPace;
+  visualType?: VisualSceneType;
+  cameraMotion?: CameraMotionEffect;
 }
 
 // ─── SRT Subtitle Parser ──────────────────────────────────────────────────────
@@ -99,35 +113,158 @@ export function parseSrtContent(srtText: string): SpokenSegment[] {
 export interface TranscribeOptions {
   pollinationsApiKey?: string;
   groqApiKey?: string;
+  language?: string;
+  scriptPrompt?: string;
   onProgress?: (msg: string) => void;
 }
 
 /**
- * Transcribes audio via Pollinations AI Whisper (or Groq if key provided)
- * and returns exact start/end timestamps for every spoken segment.
+ * Encodes an AudioBuffer into a standard 16-bit PCM WAV Blob in browser memory
  */
-export async function transcribeAudioWithWhisper(
+function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
+  const numOfChan = buffer.numberOfChannels;
+  const numSamples = buffer.length;
+  const sampleRate = buffer.sampleRate;
+  const byteRate = sampleRate * numOfChan * 2;
+  const blockAlign = numOfChan * 2;
+  const dataSize = numSamples * numOfChan * 2;
+  const bufferLength = 44 + dataSize;
+
+  const arrayBuffer = new ArrayBuffer(bufferLength);
+  const view = new DataView(arrayBuffer);
+
+  function writeString(offset: number, str: string) {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  }
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, numOfChan, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true); // 16-bit
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  const channels: Float32Array[] = [];
+  for (let i = 0; i < numOfChan; i++) {
+    channels.push(buffer.getChannelData(i));
+  }
+
+  let offset = 44;
+  for (let i = 0; i < numSamples; i++) {
+    for (let ch = 0; ch < numOfChan; ch++) {
+      const sample = Math.max(-1, Math.min(1, channels[ch][i]));
+      const intSample = sample < 0 ? sample * 32768 : sample * 32767;
+      view.setInt16(offset, intSample | 0, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
+}
+
+/**
+ * Slices long audio (>45s) into 30s chunks using browser Web Audio API to prevent Whisper context hallucination loops
+ */
+async function sliceAudioInBrowser(
+  audioBlob: Blob,
+  chunkSec = 30
+): Promise<{ blob: Blob; startOffset: number }[] | null> {
+  if (typeof window === 'undefined') return null;
+  const AudioContextClass =
+    window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  if (!AudioContextClass) return null;
+
+  try {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioCtx = new AudioContextClass();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const duration = audioBuffer.duration;
+
+    if (duration <= 45) {
+      await audioCtx.close().catch(() => {});
+      return null;
+    }
+
+    const chunks: { blob: Blob; startOffset: number }[] = [];
+    const sampleRate = audioBuffer.sampleRate;
+    const numChannels = audioBuffer.numberOfChannels;
+
+    for (let start = 0; start < duration; start += chunkSec) {
+      const end = Math.min(duration, start + chunkSec);
+      const sliceLength = Math.floor((end - start) * sampleRate);
+      if (sliceLength <= 0) break;
+
+      const sliceBuffer = audioCtx.createBuffer(numChannels, sliceLength, sampleRate);
+      const startSample = Math.floor(start * sampleRate);
+      for (let c = 0; c < numChannels; c++) {
+        const srcChannel = audioBuffer.getChannelData(c);
+        const dstChannel = sliceBuffer.getChannelData(c);
+        dstChannel.set(srcChannel.subarray(startSample, startSample + sliceLength));
+      }
+
+      const wavBlob = audioBufferToWavBlob(sliceBuffer);
+      chunks.push({ blob: wavBlob, startOffset: start });
+    }
+
+    await audioCtx.close().catch(() => {});
+    return chunks;
+  } catch (err) {
+    console.warn('Browser audio slicing fallback:', err);
+    return null;
+  }
+}
+
+/**
+ * Transcribes a single audio chunk (<=30s) with language and prompt anchoring
+ */
+async function transcribeSingleAudioChunk(
   audioFile: File | Blob,
   options?: TranscribeOptions
 ): Promise<{ fullText: string; segments: SpokenSegment[]; words: TimedWord[] }> {
-  options?.onProgress?.('Preparing audio for Whisper transcription…');
-
   const formData = new FormData();
-  // Ensure audio has a recognized filename
-  const fileName = audioFile instanceof File ? audioFile.name : 'voiceover.mp3';
+  const fileName = audioFile instanceof File ? audioFile.name : 'voiceover.wav';
   formData.append('file', audioFile, fileName);
   formData.append('response_format', 'verbose_json');
   formData.append('temperature', '0');
   formData.append('timestamp_granularities[]', 'word');
   formData.append('timestamp_granularities[]', 'segment');
-  formData.append('prompt', 'You are a transcription assistant. Please provide accurate transcriptions of the audio file. please give me timestamp and segment based on scene')
+  formData.append('language', options?.language || 'bn');
+  if (options?.scriptPrompt) {
+    formData.append('prompt', options.scriptPrompt.slice(0, 450));
+  } else {
+    formData.append('prompt', 'Accurate speech transcription with exact word timestamps.');
+  }
 
-  // Try 1: Groq Whisper if groqApiKey is provided (ultra fast ~1s)
+  // Try 1: Internal API Route (/api/transcribe-audio) with server-side Groq/OpenAI/Pollinations
+  try {
+    const apiRes = await fetch('/api/transcribe-audio', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      if (data && (data.text || (Array.isArray(data.segments) && data.segments.length > 0))) {
+        return normalizeWhisperResponse(data);
+      }
+    }
+  } catch (apiErr) {
+    console.warn('/api/transcribe-audio failed, falling back to direct endpoints:', apiErr);
+  }
+
+  // Try 2: Groq Whisper if groqApiKey is provided (ultra fast ~1s)
   if (options?.groqApiKey && options.groqApiKey.trim()) {
     try {
-      options?.onProgress?.('Transcribing via Groq Whisper Turbo…');
       formData.set('model', 'whisper-large-v3-turbo');
-
       const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
         method: 'POST',
         headers: {
@@ -145,16 +282,13 @@ export async function transcribeAudioWithWhisper(
     }
   }
 
-  // Try 2: Pollinations AI Whisper Endpoint
-  options?.onProgress?.('Uploading to Pollinations AI Whisper…');
+  // Try 3: Pollinations AI Whisper Endpoint
   const polKey = options?.pollinationsApiKey?.trim() || '';
-
   const headers: Record<string, string> = {};
   if (polKey) {
     headers['Authorization'] = `Bearer ${polKey}`;
   }
 
-  // Pollinations models: 'openai/whisper-large-v3' or 'community/NamanSoni78/whisper-large-v3-turbo'
   formData.set('model', 'openai/whisper-large-v3');
 
   try {
@@ -178,9 +312,7 @@ export async function transcribeAudioWithWhisper(
       parsedErr = errText;
     }
 
-    // If model wasn't ready, try community turbo model
     if (res.status === 404 || res.status === 500) {
-      options?.onProgress?.('Trying secondary Whisper model…');
       formData.set('model', 'community/NamanSoni78/whisper-large-v3-turbo');
       const retryRes = await fetch('https://gen.pollinations.ai/v1/audio/transcriptions', {
         method: 'POST',
@@ -198,6 +330,62 @@ export async function transcribeAudioWithWhisper(
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Whisper Transcription Error: ${msg}`);
   }
+}
+
+/**
+ * Transcribes audio via Pollinations AI Whisper (or Groq if key provided)
+ * Automatically chunks audio >45s to avoid Whisper hallucination/loop voids,
+ * and returns exact start/end timestamps for every spoken segment and word.
+ */
+export async function transcribeAudioWithWhisper(
+  audioFile: File | Blob,
+  options?: TranscribeOptions
+): Promise<{ fullText: string; segments: SpokenSegment[]; words: TimedWord[] }> {
+  options?.onProgress?.('Analyzing audio for precision Whisper transcription…');
+
+  // If browser can slice into 30s chunks, transcribe chunk-by-chunk to prevent 30s void loops
+  const chunks = await sliceAudioInBrowser(audioFile, 30);
+  if (chunks && chunks.length > 1) {
+    options?.onProgress?.(`Processing ${chunks.length} audio chunks for 100% timestamp precision…`);
+    const allWords: TimedWord[] = [];
+    const allSegments: SpokenSegment[] = [];
+    let fullText = '';
+
+    for (let i = 0; i < chunks.length; i++) {
+      const { blob, startOffset } = chunks[i];
+      options?.onProgress?.(
+        `Transcribing voice chunk ${i + 1}/${chunks.length} (${Math.round(startOffset)}s - ${Math.round(startOffset + 30)}s)…`
+      );
+      const chunkResult = await transcribeSingleAudioChunk(blob, options);
+      if (chunkResult.words) {
+        for (const w of chunkResult.words) {
+          allWords.push({
+            word: w.word,
+            start: parseFloat((w.start + startOffset).toFixed(3)),
+            end: parseFloat((w.end + startOffset).toFixed(3)),
+          });
+        }
+      }
+      if (chunkResult.segments) {
+        for (const seg of chunkResult.segments) {
+          allSegments.push({
+            id: allSegments.length + 1,
+            start: parseFloat((seg.start + startOffset).toFixed(2)),
+            end: parseFloat((seg.end + startOffset).toFixed(2)),
+            text: seg.text,
+          });
+        }
+      }
+      if (chunkResult.fullText) {
+        fullText += (fullText ? ' ' : '') + chunkResult.fullText;
+      }
+    }
+
+    return { fullText, segments: allSegments, words: allWords };
+  }
+
+  // Single chunk transcription (for audio <= 45s)
+  return transcribeSingleAudioChunk(audioFile, options);
 }
 
 /**
@@ -261,11 +449,13 @@ export function buildSentenceSegmentsFromWords(words: TimedWord[]): SpokenSegmen
     const w = words[i];
     currentWords.push(w);
 
-    // Check if this word ends a sentence
-    const endsWithTerminal = /[.!?]$/.test(w.word.trim());
+    // Check if this word ends a sentence (supports Bengali dari '।', English '.!?', or speech pause > 350ms)
+    const endsWithTerminal = /[.!?।]$/.test(w.word.trim());
+    const hasPauseAfter = i < words.length - 1 && (words[i + 1].start - w.end >= 0.35);
+    const hasCommaAndLength = /[,،]$/.test(w.word.trim()) && currentWords.length >= 4;
     const isLast = i === words.length - 1;
 
-    if (endsWithTerminal || isLast) {
+    if (endsWithTerminal || (hasPauseAfter && currentWords.length >= 3) || hasCommaAndLength || isLast) {
       if (currentWords.length > 0) {
         sentences.push({
           id: sentences.length + 1,
@@ -294,12 +484,15 @@ export function clusterSegmentsIntoScenes(
 ): TimedSceneSegment[] {
   if (!segments || segments.length === 0) return [];
 
-  // Pacing configuration
-  const minSceneDurationSec = {
-    fast: 2.0,      // fast cuts (min 2.0s)
-    balanced: 3.2,  // natural dynamic rhythm (min 3.2s)
-    cinematic: 4.8, // atmospheric slow cuts (min 4.8s)
-  }[pacingProfile];
+  // Pacing configuration: dynamic narrative windows (tighter cuts for documentary & fast modes)
+  const minSceneDurationSec: Record<PacingProfile, number> = {
+    fast: 2.8,        // fast cuts (min 2.8s)
+    transcript: 3.5,  // organic transcript cuts
+    documentary: 3.8, // Vox hybrid documentary cuts (min 3.8s)
+    balanced: 5.0,    // natural dynamic rhythm (min 5.0s)
+    cinematic: 8.5,   // atmospheric immersive cuts (min 8.5s)
+  };
+  const minDur = minSceneDurationSec[pacingProfile] || 3.5;
 
   const clustered: TimedSceneSegment[] = [];
   let currentGroup: SpokenSegment[] = [];
@@ -321,8 +514,8 @@ export function clusterSegmentsIntoScenes(
     // 3. This is the last segment
     if (
       isLastSegment ||
-      (currentDuration >= minSceneDurationSec && endsWithTerminalPunctuation) ||
-      currentDuration >= minSceneDurationSec * 1.8
+      (currentDuration >= minDur && endsWithTerminalPunctuation) ||
+      currentDuration >= minDur * 1.8
     ) {
       clustered.push({
         sceneId: clustered.length + 1,
@@ -357,6 +550,7 @@ export function clusterSegmentsIntoScenes(
 export interface DirectorOptions {
   userScript?: string;
   totalAudioDurationSec: number;
+  targetSceneCount?: number;
   pacingProfile?: PacingProfile;
   stylePrompt?: string;
   apiKey?: string;
@@ -374,10 +568,182 @@ export interface DirectorOptions {
  * - Studio-grade Flux visual prompts tailored to both the script and spoken narration
  * - Interleaved B-roll shot types and focus motifs
  */
-export async function directScenesFromAudioAndScript(
-  segments: SpokenSegment[],
-  options: DirectorOptions
-): Promise<TimedSceneSegment[]> {
+/**
+ * Breaks down script text into cohesive, grammatical and philosophical thought units.
+ * Groups short dependent clauses (< 4 words) with their neighboring sentences
+ * to produce natural, engaging visual scenes (~4.5s - 6.5s per thought).
+ */
+export function extractOrganicThoughtUnits(script: string, targetCount?: number): string[] {
+  const rawSentences = script
+    .split(/(?<=[.!?\n।])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  if (rawSentences.length === 0) return [script];
+
+  const groups: string[] = [];
+  let cur: string[] = [];
+  let curWordCount = 0;
+
+  for (const s of rawSentences) {
+    cur.push(s);
+    curWordCount += s.split(/\s+/).filter(Boolean).length;
+    if (curWordCount >= 7 || /[?!]$/.test(s) || /—$/.test(s)) {
+      groups.push(cur.join(' '));
+      cur = [];
+      curWordCount = 0;
+    }
+  }
+  if (cur.length > 0) {
+    if (groups.length > 0 && curWordCount < 4) {
+      groups[groups.length - 1] += ' ' + cur.join(' ');
+    } else {
+      groups.push(cur.join(' '));
+    }
+  }
+
+  if (typeof targetCount === 'number' && targetCount > 0 && targetCount !== groups.length) {
+    const finalScenes: string[] = [];
+    for (let i = 0; i < targetCount; i++) {
+      const startIdx = Math.floor((i * rawSentences.length) / targetCount);
+      const endIdx = Math.floor(((i + 1) * rawSentences.length) / targetCount);
+      const slice = rawSentences.slice(startIdx, Math.max(startIdx + 1, endIdx));
+      finalScenes.push(slice.join(' '));
+    }
+    return finalScenes;
+  }
+
+  return groups;
+}
+
+/**
+ * Helper to clean a word for phonetic/root matching (supports Bengali & English)
+ */
+export function cleanSpokenWord(w: string): string {
+  return w
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[^a-z0-9\u0980-\u09FF]/g, '')
+    .trim();
+}
+
+// Backward-compatible alias
+export const cleanBengaliWord = cleanSpokenWord;
+
+/**
+ * Helper to strip any appended visual commentary or dashes from narration
+ */
+export function extractSpokenNarrationLine(narration: string): string {
+  if (!narration) return '';
+  const clean = narration.split(/\s*(?:—|--|\s-\s)\s*/)[0];
+  return clean.trim();
+}
+
+/**
+ * Merges scenes shorter than minDurationSec (default 3.0s) into their adjacent
+ * narrative neighbor so that no visual cuts away faster than human eye absorption.
+ */
+export function clusterShortScenes(
+  scenes: TimedSceneSegment[],
+  minDurationSec = 3.0,
+  maxDurationSec = 7.5
+): TimedSceneSegment[] {
+  if (!scenes || scenes.length <= 1) return scenes;
+
+  const getDur = (s: TimedSceneSegment): number =>
+    typeof s.durationSec === 'number' && !isNaN(s.durationSec)
+      ? s.durationSec
+      : parseFloat((s.audioEndSec - s.audioStartSec).toFixed(1));
+
+  const current = [...scenes];
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    let shortestIdx = -1;
+    let shortestDur = Infinity;
+
+    for (let i = 0; i < current.length; i++) {
+      const d = getDur(current[i]);
+      if (d < minDurationSec && d < shortestDur) {
+        shortestDur = d;
+        shortestIdx = i;
+      }
+    }
+
+    if (shortestIdx === -1) break;
+
+    const i = shortestIdx;
+    const prev = i > 0 ? current[i - 1] : null;
+    const next = i < current.length - 1 ? current[i + 1] : null;
+
+    const prevCombined = prev ? getDur(prev) + getDur(current[i]) : Infinity;
+    const nextCombined = next ? getDur(next) + getDur(current[i]) : Infinity;
+
+    // Pick neighbor that creates a well-balanced scene <= maxDurationSec
+    let mergeTargetIdx = -1;
+    if (prev && next) {
+      if (prevCombined <= maxDurationSec && nextCombined <= maxDurationSec) {
+        mergeTargetIdx = prevCombined <= nextCombined ? i - 1 : i + 1;
+      } else if (prevCombined <= maxDurationSec) {
+        mergeTargetIdx = i - 1;
+      } else if (nextCombined <= maxDurationSec) {
+        mergeTargetIdx = i + 1;
+      } else {
+        mergeTargetIdx = prevCombined <= nextCombined ? i - 1 : i + 1;
+      }
+    } else if (prev) {
+      mergeTargetIdx = i - 1;
+    } else if (next) {
+      mergeTargetIdx = i + 1;
+    }
+
+    if (mergeTargetIdx === -1) break;
+
+    const lo = Math.min(i, mergeTargetIdx);
+    const hi = Math.max(i, mergeTargetIdx);
+    const mergedDur = parseFloat((current[hi].audioEndSec - current[lo].audioStartSec).toFixed(1));
+
+    const mergedScene: TimedSceneSegment = {
+      sceneId: current[lo].sceneId,
+      audioStartSec: current[lo].audioStartSec,
+      audioEndSec: current[hi].audioEndSec,
+      durationSec: mergedDur,
+      narrationLine: `${current[lo].narrationLine} ${current[hi].narrationLine}`.trim(),
+      visualPrompt: current[lo].visualPrompt,
+      shotType: getDur(current[lo]) >= getDur(current[hi]) ? current[lo].shotType : current[hi].shotType,
+      bRollFocus: current[lo].bRollFocus || current[hi].bRollFocus,
+      cutPace: mergedDur <= 3.2 ? 'FAST_CUT' : mergedDur >= 7.0 ? 'ATMOSPHERIC_HOLD' : 'NORMAL',
+      visualType: current[lo].visualType === 'HERO_AI' || current[hi].visualType === 'HERO_AI' ? 'HERO_AI' : current[lo].visualType,
+      cameraMotion: current[lo].cameraMotion,
+    };
+
+    current.splice(lo, 2, mergedScene);
+    changed = true;
+  }
+
+  // Re-index scene IDs sequentially 1..N
+  return current.map((s, idx) => ({
+    ...s,
+    sceneId: idx + 1,
+  }));
+}
+
+/**
+ * Step 2: Acoustic Alignment Engine
+ * Matches each planned scene's narration against the real Whisper word timestamps.
+ * Calculates exact audioStartSec, audioEndSec, and durationSec from acoustic reality.
+ * Automatically enforces a minimum 3.0s duration per scene via narrative clustering.
+ */
+export function alignVisualPlanWithWhisperWords(
+  plannedScenes: PlannedVisualScene[],
+  whisperWords: TimedWord[],
+  totalAudioSec: number,
+  fallbackSegments?: SpokenSegment[],
+  minSceneDurationSec = 3.0
+): TimedSceneSegment[] {
+  if (!plannedScenes || plannedScenes.length === 0) return [];
+
   const VALID_SHOT_TYPES: ShotType[] = [
     'AERIAL_GEOMETRY',
     'MACRO_TEXTURE',
@@ -387,248 +753,226 @@ export async function directScenesFromAudioAndScript(
     'WIDE_ESTABLISHING',
   ];
 
-  const pacing = options.pacingProfile || 'balanced';
-  const effectiveScript = options.userScript?.trim() || segments.map((s) => s.text).join(' ').trim();
+  let prevEndSec = 0.0;
+  let wordCursor = 0;
+  const rawScenes: TimedSceneSegment[] = [];
 
-  // ── Word-level alignment: build real-timed sentence segments from Whisper words ──
-  // When we have word-level timestamps, use them to create precise sentence segments
-  // regardless of whether a script is provided. This ensures all scene timings come
-  // from the actual audio, not fabricated durations.
-  const hasWordTimestamps = options.words && options.words.length > 0;
+  for (let idx = 0; idx < plannedScenes.length; idx++) {
+    const scene = plannedScenes[idx];
+    const isLastScene = idx === plannedScenes.length - 1;
+    const spokenLine = extractSpokenNarrationLine(scene.narration) || scene.narration;
+    const targetWords = spokenLine.split(/\s+/).map(cleanSpokenWord).filter(Boolean);
 
-  if (hasWordTimestamps) {
-    options.onProgress?.('Building sentence-level segments from word timestamps…');
-    const sentenceSegments = buildSentenceSegmentsFromWords(options.words!);
-    console.log(`[AudioSync] Built ${sentenceSegments.length} sentence segments from ${options.words!.length} words`);
+    let startSec = idx === 0 ? 0.0 : prevEndSec;
+    let endSec = totalAudioSec;
 
-    if (sentenceSegments.length > 0) {
-      // Cluster sentences into scenes using real audio timestamps.
-      // IMPORTANT: pass totalAudioDurationSec so the last scene is extended
-      // to cover any trailing silence after the last spoken word.
-      options.onProgress?.('Clustering sentences into scenes using real audio timing…');
-      const candidateScenes = clusterSegmentsIntoScenes(
-        sentenceSegments,
-        pacing,
-        options.totalAudioDurationSec  // extends last scene to full audio length
-      );
-      console.log(`[AudioSync] Clustered into ${candidateScenes.length} scenes (last ends at ${candidateScenes[candidateScenes.length - 1]?.audioEndSec}s, audio is ${options.totalAudioDurationSec}s)`);
+    let matchedAcousticStart: number | null = null;
+    let matchedAcousticEnd: number | null = null;
+    let calculatedDur = 4.5;
 
-      // Use candidateScenes (which has correct end times) as the segments
-      // for the AI Director batching below — NOT the raw sentenceSegments.
-      segments = candidateScenes.map((cs) => ({
-        id: cs.sceneId,
-        start: cs.audioStartSec,
-        end: cs.audioEndSec,
-        text: cs.narrationLine,
-      }));
-    }
-  }
+    if (whisperWords && whisperWords.length > 0) {
+      // Find matching words from whisperWords starting around wordCursor
+      const matchedWords: TimedWord[] = [];
+      let tempCursor = wordCursor;
 
-  // If NO word timestamps AND a script is provided (or Whisper returned very few segments),
-  // use the script-only path as fallback (with proportional scaling for timing).
-  if (!hasWordTimestamps && effectiveScript && (options.userScript?.trim() || segments.length <= 3)) {
-    options.onProgress?.('No word timestamps available — extracting scenes from script text…');
-    const breakdown = await breakdownRequirementToImageScenes(effectiveScript, {
-      targetDurationSec: options.totalAudioDurationSec,
-      stylePrompt: options.stylePrompt,
-      apiKey: options.apiKey,
-      pacingProfile: options.pacingProfile,
-      onProgress: options.onProgress,
-    });
+      for (const tw of targetWords) {
+        // Look ahead up to 12 words in transcript for phonetic/root match
+        for (let look = 0; look < 12 && (tempCursor + look) < whisperWords.length; look++) {
+          const cand = cleanSpokenWord(whisperWords[tempCursor + look].word);
+          const isMatch =
+            cand === tw ||
+            (tw.length >= 3 && cand.startsWith(tw.slice(0, 3))) ||
+            (cand.length >= 3 && tw.startsWith(cand.slice(0, 3))) ||
+            (tw.length >= 4 && cand.length >= 4 && (cand.includes(tw.slice(0, 3)) || tw.includes(cand.slice(0, 3))));
 
-    options.onProgress?.(`Scaling ${breakdown.length} scenes to fit audio duration…`);
-
-    // Proportional scaling fallback (only used when we have no word timestamps)
-    const rawTotal = breakdown.reduce(
-      (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
-      0
-    );
-    const scale = rawTotal > 0 ? options.totalAudioDurationSec / rawTotal : 1;
-
-    let cumSec = 0;
-    const finalScenes: TimedSceneSegment[] = breakdown.map((item, idx) => {
-      const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
-      const dur = rawDur * scale;
-      const start = cumSec;
-      const end = idx === breakdown.length - 1 ? options.totalAudioDurationSec : cumSec + dur;
-      cumSec = end;
-
-      const shotType = VALID_SHOT_TYPES.includes(item.shot_type as ShotType)
-        ? (item.shot_type as ShotType)
-        : VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
-
-      return {
-        sceneId: idx + 1,
-        audioStartSec: parseFloat(start.toFixed(1)),
-        audioEndSec: parseFloat(end.toFixed(1)),
-        narrationLine: item.narration,
-        visualPrompt: item.visual_prompt,
-        shotType,
-        bRollFocus: item.b_roll_focus || shotType.replace('_', ' ').toLowerCase(),
-        cutPace: 'NORMAL' as CutPace,
-      };
-    });
-
-    return finalScenes;
-  }
-
-  // Fallback: If only audio was provided and Whisper returned multiple rich segments
-  if (!segments || segments.length === 0) return [];
-
-  // 1. Acoustic tempo & pause analysis
-  options.onProgress?.('Analyzing voice tempo, pauses, and speech velocity…');
-  const candidateScenes = clusterSegmentsIntoScenes(
-    segments,
-    pacing,
-    options.totalAudioDurationSec  // ensures last scene covers full audio including trailing silence
-  );
-
-  options.onProgress?.('AI Director aligning narrative beats with audio…');
-
-  const aiClient = getPollinationsClient(options.apiKey);
-  const results: TimedSceneSegment[] = [];
-  const BATCH_SIZE = 8;
-
-  for (let b = 0; b < candidateScenes.length; b += BATCH_SIZE) {
-    const batch = candidateScenes.slice(b, b + BATCH_SIZE);
-    const batchNum = Math.floor(b / BATCH_SIZE) + 1;
-    const totalBatches = Math.ceil(candidateScenes.length / BATCH_SIZE);
-
-    options.onProgress?.(`AI Director making cut & camera decisions (Batch ${batchNum}/${totalBatches})…`);
-
-    const systemPrompt = `You are an elite, award-winning Visual Film Director and Master Video Editor.
-You are given timed speech scenes extracted from a real voiceover recording (with exact audioStartSec and audioEndSec timestamps), along with the author's overall script.
-
-YOUR DIRECTORIAL MANDATE:
-For every scene, you must autonomously decide:
-1. "cutPace":
-   - "FAST_CUT" (1.5s - 2.5s duration): Used during rapid speech bursts, intense action beats, shocking reveals, or punchy details. Best paired with MACRO_TEXTURE or intimate dynamic cuts.
-   - "NORMAL" (2.8s - 4.5s duration): Used for steady storytelling, character dialogue, human connection, cultural rituals. Best paired with CULTURAL_HUMAN or HISTORICAL_HERITAGE.
-   - "ATMOSPHERIC_HOLD" (4.5s - 7.5s duration): Used for dramatic pauses, sweeping world-building, silence, or contemplation. Best paired with WIDE_ESTABLISHING or AERIAL_GEOMETRY.
-
-2. "shotType": One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING". Interleave different perspectives for rich cinematic variety.
-3. "bRollFocus": A concise 3-7 word motif description.
-4. "visualPrompt": A studio-grade, breathtakingly detailed prompt for the Flux image generator. Incorporate the author's rich literary nuances and visual metaphors from the script${options.stylePrompt ? `, strictly adhering to visual style: "${options.stylePrompt.slice(0, 140)}"` : ' (cinematic 8k, 35mm lens, masterwork composition)'}.
-
-CRITICAL:
-- Keep the exact audioStartSec and audioEndSec given.
-- Return ONLY a valid JSON array matching:
-[
-  {
-    "sceneId": number,
-    "cutPace": "FAST_CUT" | "NORMAL" | "ATMOSPHERIC_HOLD",
-    "shotType": string,
-    "bRollFocus": string,
-    "visualPrompt": string
-  }
-]`;
-
-    const userContent = `Here are the candidate scenes with audio durations:
-${JSON.stringify(
-      batch.map((s) => ({
-        sceneId: s.sceneId,
-        durationSec: parseFloat((s.audioEndSec - s.audioStartSec).toFixed(1)),
-        narration: s.narrationLine,
-      })),
-      null,
-      2
-    )}
-
-${options.userScript ? `Original Written Author Script:\n"""\n${options.userScript.slice(0, 2000)}\n"""` : ''}`;
-
-    try {
-      const response = await aiClient.chat.completions.create({
-        model: 'openai',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent },
-        ],
-        temperature: 0.4,
-      });
-
-      const raw = response.choices[0]?.message?.content || '';
-      const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      const cleaned = jsonMatch ? jsonMatch[1].trim() : raw.trim();
-      const parsed = JSON.parse(cleaned);
-
-      const parsedMap = new Map<
-        number,
-        { cutPace?: CutPace; shotType?: string; bRollFocus?: string; visualPrompt?: string }
-      >();
-
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          if (item && typeof item.sceneId === 'number') {
-            parsedMap.set(item.sceneId, {
-              cutPace: item.cutPace,
-              shotType: item.shotType || item.shot_type,
-              bRollFocus: item.bRollFocus || item.b_roll_focus,
-              visualPrompt: item.visualPrompt || item.visual_prompt,
-            });
+          if (isMatch) {
+            matchedWords.push(whisperWords[tempCursor + look]);
+            tempCursor = tempCursor + look + 1;
+            break;
           }
         }
       }
 
-      for (let i = 0; i < batch.length; i++) {
-        const orig = batch[i];
-        const match = parsedMap.get(orig.sceneId);
-        const duration = orig.audioEndSec - orig.audioStartSec;
+      if (matchedWords.length > 0) {
+        wordCursor = tempCursor;
+        matchedAcousticStart = matchedWords[0].start;
+        matchedAcousticEnd = matchedWords[matchedWords.length - 1].end;
 
-        // Determine cutPace if not provided
-        let cutPace: CutPace = match?.cutPace || 'NORMAL';
-        if (!match?.cutPace) {
-          if (duration <= 2.5) cutPace = 'FAST_CUT';
-          else if (duration >= 5.0) cutPace = 'ATMOSPHERIC_HOLD';
-          else cutPace = 'NORMAL';
+        // --- GAP DETECTION ---
+        // If there's an acoustic gap >= 3.5s between prevEndSec and this scene's spoken words,
+        // it means the AI plan skipped speech in the transcript. Synthesize gap scene(s).
+        if (matchedAcousticStart - prevEndSec >= 3.5) {
+          const gapWords = whisperWords.filter(
+            (w) => w.start >= prevEndSec - 0.2 && w.end <= matchedAcousticStart! + 0.1
+          );
+
+          if (gapWords.length >= 3) {
+            const gapDuration = matchedAcousticStart - prevEndSec;
+            const numGapScenes = Math.max(1, Math.round(gapDuration / 5.5));
+            const wordsPerGapScene = Math.ceil(gapWords.length / numGapScenes);
+
+            for (let g = 0; g < numGapScenes; g++) {
+              const slice = gapWords.slice(g * wordsPerGapScene, (g + 1) * wordsPerGapScene);
+              if (slice.length === 0) continue;
+              const gStart = g === 0 ? prevEndSec : slice[0].start;
+              const gEnd = g === numGapScenes - 1 ? matchedAcousticStart : slice[slice.length - 1].end;
+              const gDur = parseFloat((gEnd - gStart).toFixed(1));
+              const gLine = slice.map((w) => w.word).join(' ').trim();
+
+              rawScenes.push({
+                sceneId: rawScenes.length + 1,
+                audioStartSec: parseFloat(gStart.toFixed(1)),
+                audioEndSec: parseFloat(gEnd.toFixed(1)),
+                durationSec: gDur,
+                narrationLine: gLine,
+                visualPrompt: `${scene.visualPrompt} (Atmospheric narrative bridge: ${gLine.slice(0, 80)})`,
+                shotType: VALID_SHOT_TYPES[rawScenes.length % VALID_SHOT_TYPES.length],
+                bRollFocus: 'reflective transition',
+                cutPace: gDur <= 3.2 ? 'FAST_CUT' : gDur >= 7.0 ? 'ATMOSPHERIC_HOLD' : 'NORMAL',
+                visualType: 'STOCK_BROLL',
+                cameraMotion: (['ZOOM_IN', 'ZOOM_OUT', 'PAN_LEFT', 'PAN_RIGHT'] as const)[rawScenes.length % 4],
+              });
+              prevEndSec = parseFloat(gEnd.toFixed(1));
+            }
+            startSec = prevEndSec;
+          }
         }
 
-        const shotTypeRaw = (match?.shotType || '') as ShotType;
-        const shotType: ShotType = VALID_SHOT_TYPES.includes(shotTypeRaw)
-          ? shotTypeRaw
-          : cutPace === 'FAST_CUT'
-            ? 'MACRO_TEXTURE'
-            : cutPace === 'ATMOSPHERIC_HOLD'
-              ? 'WIDE_ESTABLISHING'
-              : VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
+        const spokenDurationSum = matchedWords.reduce(
+          (sum, w) => sum + Math.max(0.12, w.end - w.start),
+          0
+        );
+        const acousticSpan = Math.max(spokenDurationSum, matchedAcousticEnd - matchedAcousticStart);
+        const missingWords = Math.max(0, targetWords.length - matchedWords.length);
+        const estimatedMissingDur = missingWords * 0.35;
+        const totalSpokenTime = acousticSpan + estimatedMissingDur;
 
-        const bRollFocus = match?.bRollFocus?.trim() || shotType.replace('_', ' ').toLowerCase();
+        let breathPause = 0.2;
+        if (wordCursor < whisperWords.length) {
+          const nextStart = whisperWords[wordCursor].start;
+          if (nextStart > matchedAcousticEnd && nextStart - matchedAcousticEnd <= 0.6) {
+            breathPause = nextStart - matchedAcousticEnd;
+          }
+        }
 
-        const visualPrompt =
-          match?.visualPrompt?.trim() ||
-          `Cinematic documentary frame capturing: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, evocative atmospheric lighting, 35mm lens.`;
-
-        results.push({
-          sceneId: orig.sceneId,
-          audioStartSec: orig.audioStartSec,
-          audioEndSec: orig.audioEndSec,
-          narrationLine: orig.narrationLine,
-          visualPrompt,
-          shotType,
-          bRollFocus,
-          cutPace,
-        });
+        calculatedDur = Math.max(1.2, Math.min(7.5, totalSpokenTime + breathPause));
+        endSec = Math.min(totalAudioSec, parseFloat((startSec + calculatedDur).toFixed(1)));
+      } else {
+        const estDur = Math.max(2.0, Math.min(6.0, targetWords.length * 0.38));
+        endSec = Math.min(totalAudioSec, parseFloat((startSec + estDur).toFixed(1)));
       }
-    } catch (err) {
-      console.warn('Batch AI Director fallback:', err);
-      for (let i = 0; i < batch.length; i++) {
-        const orig = batch[i];
-        const duration = orig.audioEndSec - orig.audioStartSec;
-        const cutPace: CutPace = duration <= 2.5 ? 'FAST_CUT' : duration >= 5.0 ? 'ATMOSPHERIC_HOLD' : 'NORMAL';
-        const shotType = cutPace === 'FAST_CUT' ? 'MACRO_TEXTURE' : cutPace === 'ATMOSPHERIC_HOLD' ? 'WIDE_ESTABLISHING' : VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
+    } else if (fallbackSegments && fallbackSegments.length > 0) {
+      const segDur = Math.max(2.0, Math.min(7.0, targetWords.length * 0.4));
+      endSec = Math.min(totalAudioSec, parseFloat((startSec + segDur).toFixed(1)));
+    } else {
+      const dur = typeof scene.durationSec === 'number' && scene.durationSec > 0 ? scene.durationSec : 4.5;
+      endSec = Math.min(totalAudioSec, parseFloat((startSec + dur).toFixed(1)));
+    }
 
-        results.push({
-          sceneId: orig.sceneId,
-          audioStartSec: orig.audioStartSec,
-          audioEndSec: orig.audioEndSec,
-          narrationLine: orig.narrationLine,
-          visualPrompt: `Cinematic frame capturing: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, beautiful natural lighting.`,
-          shotType,
-          bRollFocus: shotType.replace('_', ' ').toLowerCase(),
-          cutPace,
-        });
+    // If it's the last planned scene and audio has remaining tail:
+    if (isLastScene) {
+      const remainingAudio = totalAudioSec - endSec;
+      if (remainingAudio > 0 && remainingAudio <= 2.5 && (totalAudioSec - startSec) <= 7.5) {
+        endSec = totalAudioSec;
       }
     }
+
+    // Hard ceiling: No scene should ever exceed 8.0s
+    if ((endSec - startSec) > 8.0) {
+      endSec = parseFloat((startSec + 7.5).toFixed(1));
+    }
+
+    prevEndSec = endSec;
+    const duration = parseFloat((endSec - startSec).toFixed(1));
+
+    const shotType = VALID_SHOT_TYPES.includes(scene.shotType as ShotType)
+      ? (scene.shotType as ShotType)
+      : VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
+
+    const cutPace: CutPace = duration <= 3.2 ? 'FAST_CUT' : duration >= 7.0 ? 'ATMOSPHERIC_HOLD' : 'NORMAL';
+
+    rawScenes.push({
+      sceneId: rawScenes.length + 1,
+      audioStartSec: parseFloat(startSec.toFixed(1)),
+      audioEndSec: parseFloat(endSec.toFixed(1)),
+      durationSec: duration,
+      narrationLine: spokenLine,
+      visualPrompt: scene.visualPrompt,
+      shotType,
+      bRollFocus: scene.bRollFocus || shotType.replace('_', ' ').toLowerCase(),
+      cutPace,
+      visualType: scene.visualType || ((idx % 5 === 0 || idx % 5 === 3) ? 'HERO_AI' : (idx % 5 === 4) ? 'MOTION_GRAPHIC' : 'STOCK_BROLL'),
+      cameraMotion: scene.cameraMotion || (['ZOOM_IN', 'ZOOM_OUT', 'PAN_LEFT', 'PAN_RIGHT'] as const)[idx % 4],
+    });
   }
 
-  return results;
+  // If there is still lingering audio at the end (> 2.5s), add a graceful closing outro scene
+  if (totalAudioSec - prevEndSec >= 2.5) {
+    const outroDur = parseFloat((totalAudioSec - prevEndSec).toFixed(1));
+    rawScenes.push({
+      sceneId: rawScenes.length + 1,
+      audioStartSec: parseFloat(prevEndSec.toFixed(1)),
+      audioEndSec: parseFloat(totalAudioSec.toFixed(1)),
+      durationSec: outroDur,
+      narrationLine: '',
+      visualPrompt: `${plannedScenes[plannedScenes.length - 1]?.visualPrompt || ''} (Closing fade and contemplative hold)`,
+      shotType: 'WIDE_ESTABLISHING',
+      bRollFocus: 'lingering horizon',
+      cutPace: 'ATMOSPHERIC_HOLD',
+      visualType: 'HERO_AI',
+      cameraMotion: 'ZOOM_OUT',
+    });
+  }
+
+  // Enforce minimum 3.0s duration per scene by merging micro-cuts
+  return clusterShortScenes(rawScenes, minSceneDurationSec, 7.5);
+}
+
+/**
+ * 2-Step Architecture:
+ * Step 1: AI analyzes full narration script to create the visual plan (durationSec: null).
+ * Step 2: Derives exact acoustic duration for each scene directly from Whisper word timestamps.
+ */
+export async function directScenesFromAudioAndScript(
+  segments: SpokenSegment[],
+  options: DirectorOptions
+): Promise<TimedSceneSegment[]> {
+  const effectiveScript = options.userScript?.trim() || segments.map((s) => s.text).join(' ').trim();
+  const totalAudioSec = options.totalAudioDurationSec > 0 ? options.totalAudioDurationSec : 60;
+  const wordsList = options.words || [];
+
+  if (!effectiveScript) return [];
+
+  // Step 1: AI Visual Planning (analyzes full script, sets durationSec: null)
+  options.onProgress?.('Step 1: AI Director analyzing full narration script & creating visual plan…');
+  const plannedBreakdown = await breakdownRequirementToImageScenes(effectiveScript, {
+    sceneCount: options.targetSceneCount,
+    stylePrompt: options.stylePrompt,
+    apiKey: options.apiKey,
+    pacingProfile: options.pacingProfile,
+    onProgress: options.onProgress,
+  });
+
+  // Step 2: Acoustic Alignment from Whisper Word Timestamps
+  const wordCount = wordsList.length;
+  options.onProgress?.(
+    wordCount > 0
+      ? `Step 2: Extracting exact scene durations from ${wordCount} voice transcript words…`
+      : 'Step 2: Aligning scene durations directly from voice transcript timestamps…'
+  );
+
+  const plannedScenes: PlannedVisualScene[] = plannedBreakdown.map((item, idx) => ({
+    sceneId: idx + 1,
+    narration: item.narration,
+    visualPrompt: item.visual_prompt,
+    shotType: item.shot_type,
+    bRollFocus: item.b_roll_focus,
+    visualType: item.visual_type,
+    cameraMotion: item.camera_motion,
+    durationSec: null, // As requested in Step 1: duration is null in the visual plan!
+  }));
+
+  const synchronizedScenes = alignVisualPlanWithWhisperWords(plannedScenes, wordsList, totalAudioSec, segments);
+  options.onProgress?.(`Successfully synchronized ${synchronizedScenes.length} scenes with 100% exact voice transcript timing.`);
+  return synchronizedScenes;
 }

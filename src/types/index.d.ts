@@ -75,7 +75,10 @@ export interface ProjectManifest {
 
 // ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────
 
-export type PacingProfile = 'fast' | 'balanced' | 'cinematic';
+export type PacingProfile = 'fast' | 'balanced' | 'cinematic' | 'documentary' | 'transcript';
+
+export type VisualSceneType = 'HERO_AI' | 'STOCK_BROLL' | 'MOTION_GRAPHIC';
+export type CameraMotionEffect = 'ZOOM_IN' | 'ZOOM_OUT' | 'PAN_LEFT' | 'PAN_RIGHT' | 'STATIC';
 
 // ─── Phase 3: Export Types ───────────────────────────────────────────────────
 
@@ -210,6 +213,10 @@ export interface SceneItem {
   bRollFocus?: string;
   /** Dynamic directorial pacing decision */
   cutPace?: CutPace;
+  /** Hybrid visual classification: Hero AI Image, Real Stock B-Roll, or Editorial Motion Graphic */
+  visualType?: VisualSceneType;
+  /** Cinematic 2.5D camera movement (Ken Burns zoom/pan) */
+  cameraMotion?: CameraMotionEffect;
   status: SceneStatus;
   error?: string;
   retryCount?: number;
