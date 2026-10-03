@@ -39,6 +39,7 @@ import {
   saveProject,
   getDefaultStylePreset,
   getStylePresets,
+  saveUserPreferredStyleId,
 } from '@/lib/store';
 import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import {
@@ -239,6 +240,7 @@ function ProjectPageInner() {
     setSelectedStyleId(preset.id);
     setCustomPrompt(preset.stylePrompt);
     setIsPromptCustomized(false);
+    saveUserPreferredStyleId(preset.id);
   };
 
   const handlePromptChange = (val: string) => {
@@ -597,167 +599,62 @@ function ProjectPageInner() {
                   <Palette size={12} className="text-emerald-400" />
                   Visual Art Style
                 </label>
-                <div className="flex items-center gap-1.5">
-                  {isPromptCustomized && (
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      Customized
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalInitialTab('architect');
-                      setShowStyleModal(true);
-                    }}
-                    className="text-[10px] font-bold text-white bg-zinc-500 hover:bg-zinc-500 border border-zinc-500 px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors "
-                  >
-                    <Wand2 size={11} className="text-amber-400" />
-                    <span>AI Architect</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setModalInitialTab('catalog');
-                      setShowStyleModal(true);
-                    }}
-                    className="text-[10px] font-bold text-white bg-zinc-500 hover:bg-zinc-500 border border-zinc-500 px-2 py-1 rounded-md flex items-center gap-1 transition-colors"
-                  >
-                    <Palette size={11} className="text-emerald-400" />
-                    <span>Catalog (30+)</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Presets Grid */}
-              <div className="grid grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
-                {stylePresets.map((preset) => {
-                  const isSelected = preset.id === selectedStyleId;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => handleSelectPreset(preset)}
-                      className={`text-left rounded-xl border transition-all overflow-hidden relative group flex flex-col justify-between ${isSelected
-                        ? 'bg-zinc-800/95 border-emerald-500/70 shadow-md ring-1 ring-emerald-500/40'
-                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850 hover:border-zinc-700'
-                        }`}
-                    >
-                      {preset.thumbnailUrl && (
-                        <div className="relative aspect-[16/9] w-full bg-zinc-950 overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={preset.thumbnailUrl}
-                            alt={preset.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
-                          {preset.tag && (
-                            <span className="absolute bottom-1.5 left-2 text-[8px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10">
-                              {preset.tag}
-                            </span>
-                          )}
-                          {isSelected && (
-                            <span className="absolute top-1.5 right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-400 text-zinc-950 flex items-center gap-0.5 shadow-sm">
-                              <CheckCircle2 size={9} />
-                              Active
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="p-2.5 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={`text-xs font-medium truncate ${isSelected ? 'text-white font-semibold' : 'text-zinc-300'
-                              }`}
-                          >
-                            {preset.name}
-                          </span>
-                          {!preset.thumbnailUrl && isSelected && (
-                            <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />
-                          )}
-                        </div>
-                        <p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight">
-                          {isSelected && isPromptCustomized ? customPrompt : preset.stylePrompt}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Inline Prompt Customization Drawer */}
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800/90 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setShowPromptEditor(!showPromptEditor)}
-                    className="flex items-center gap-1.5 text-xs font-medium text-zinc-200 hover:text-white transition-colors"
-                  >
-                    <Sliders size={12} className="text-emerald-400" />
-                    <span>Customize Style Prompt</span>
-                    <span className="text-[10px] text-zinc-500 font-mono">
-                      ({customPrompt.length} chars)
-                    </span>
-                    {showPromptEditor ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                  </button>
-
-                  {isPromptCustomized && (
-                    <button
-                      type="button"
-                      onClick={handleResetPrompt}
-                      className="text-[10px] font-mono text-zinc-400 hover:text-zinc-200 flex items-center gap-1 transition-colors"
-                      title="Reset prompt back to preset default"
-                    >
-                      <RotateCcw size={10} />
-                      <span>Reset</span>
-                    </button>
-                  )}
-                </div>
-
-                {showPromptEditor ? (
-                  <div className="space-y-2 animate-fade-in">
-                    <textarea
-                      rows={3}
-                      value={customPrompt}
-                      onChange={(e) => handlePromptChange(e.target.value)}
-                      placeholder="Add camera lenses, lighting, colors, or define a completely custom art style prompt…"
-                      className="w-full bg-zinc-950/80 border border-zinc-700/80 focus:border-emerald-500/60 rounded-lg p-2 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none resize-none font-mono leading-relaxed"
-                    />
-
-                    {/* Quick Modifier Chips */}
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-zinc-500">Quick Modifiers:</span>
-                      <div className="flex flex-wrap gap-1">
-                        {[
-                          '+ 35mm anamorphic',
-                          '+ volumetric lighting',
-                          '+ golden hour',
-                          '+ film grain',
-                          '+ moody shadows',
-                          '+ 8k ultra-detailed',
-                          '+ pastel palette',
-                        ].map((mod) => (
-                          <button
-                            key={mod}
-                            type="button"
-                            onClick={() => handleAppendModifier(mod)}
-                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-700 transition-colors"
-                          >
-                            {mod}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p
-                    onClick={() => setShowPromptEditor(true)}
-                    className="text-[11px] text-zinc-400 font-mono line-clamp-2 cursor-pointer hover:text-zinc-300 transition-colors bg-zinc-950/40 p-2 rounded-lg border border-zinc-800/60"
-                  >
-                    {customPrompt || activeStyle.stylePrompt}
-                  </p>
+                {isPromptCustomized && (
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Prompt Modified
+                  </span>
                 )}
+              </div>
+
+              {/* Active Selected Style Display Card */}
+              <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700/80 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-sm">
+                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                  {activeStyle.thumbnailUrl ? (
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-zinc-950 flex-shrink-0 border border-zinc-700/60 shadow-inner">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={activeStyle.thumbnailUrl}
+                        alt={activeStyle.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {activeStyle.tag && (
+                        <span className="absolute bottom-1 left-1 text-[8px] font-mono uppercase px-1 py-0.5 rounded bg-black/80 text-zinc-300">
+                          {activeStyle.tag}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center flex-shrink-0 text-emerald-400">
+                      <Palette size={22} />
+                    </div>
+                  )}
+
+                  <div className="min-w-0 space-y-1 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white truncate">
+                        {activeStyle.name}
+                      </span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 flex-shrink-0">
+                        <CheckCircle2 size={10} /> Active
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 font-mono line-clamp-2 leading-relaxed">
+                      {isPromptCustomized ? customPrompt : activeStyle.stylePrompt}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalInitialTab('catalog');
+                    setShowStyleModal(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700/80 font-semibold text-xs transition-colors flex items-center justify-center gap-2 flex-shrink-0 shadow-sm"
+                >
+                  <Wand2 size={13} className="text-amber-400" />
+                  <span>Change Style</span>
+                </button>
               </div>
             </div>
 

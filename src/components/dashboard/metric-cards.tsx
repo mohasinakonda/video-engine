@@ -17,7 +17,7 @@ interface MetricCardsProps {
   completedProjectsCount: number;
   totalMinutesProduced: string;
   storageInfo: { usedMB: number; quotaMB: number };
-  onNavigateTab: (tab: 'projects' | 'templates' | 'affiliate' | 'billing') => void;
+  onNavigateTab: (tab: 'projects' | 'affiliate' | 'billing') => void;
 }
 
 export default function MetricCards({

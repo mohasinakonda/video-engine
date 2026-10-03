@@ -33,6 +33,8 @@ import {
   setDefaultStylePreset,
   BUILT_IN_STYLE_PRESETS,
   getAdminArtStyles,
+  getUserPreferredStyleId,
+  saveUserPreferredStyleId,
 } from '@/lib/store';
 import { uploadMediaToSupabaseStorage, isSupabaseConfigured } from '@/lib/supabase-service';
 import {
@@ -198,13 +200,30 @@ export default function StylePresetModal({
   const [testing, setTesting] = useState<boolean>(false);
   const [testError, setTestError] = useState<string>('');
 
+  // Preferred / Default Style State
+  const [preferredStyleId, setPreferredStyleId] = useState<string | null>(null);
+  const [modalToast, setModalToast] = useState<string | null>(null);
+
+  const showModalToast = (msg: string) => {
+    setModalToast(msg);
+    setTimeout(() => setModalToast(null), 2500);
+  };
+
   // Load custom presets from store
   const refreshCustomPresets = async () => {
     const all = await getStylePresets();
     setCustomPresets(all.filter((p) => !p.isBuiltIn));
   };
 
+  const handleSetDefault = async (styleId: string, styleName?: string) => {
+    await setDefaultStylePreset(styleId);
+    setPreferredStyleId(styleId);
+    await refreshCustomPresets();
+    showModalToast(`⭐ "${styleName || 'Style'}" set as your default!`);
+  };
+
   useEffect(() => {
+    setPreferredStyleId(getUserPreferredStyleId());
     refreshCustomPresets();
 
     // Fetch dynamic catalog from /api/styles with fallback to SUB_STYLES_CATALOG and local admin overrides
@@ -308,7 +327,7 @@ export default function StylePresetModal({
   };
 
   // Apply AI Architect Result to Video
-  const handleApplyArchitectResult = async (saveToLibrary = true) => {
+  const handleApplyArchitectResult = async (saveToLibrary = true, makeDefault = false) => {
     if (!architectResult) return;
     const preset: BaseStylePreset = {
       id: `ai_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -316,7 +335,7 @@ export default function StylePresetModal({
       stylePrompt: architectResult.stylePrompt,
       negativePrompt: architectResult.negativePrompt,
       aspectRatio: '16:9',
-      isDefault: false,
+      isDefault: makeDefault,
       isBuiltIn: false,
       createdAt: Date.now(),
       tag: selectedGenre,
@@ -324,8 +343,12 @@ export default function StylePresetModal({
       thumbnailUrl: MEDIUM_OPTIONS.find((m) => m.id === selectedMedium)?.thumb,
     };
 
-    if (saveToLibrary) {
+    if (saveToLibrary || makeDefault) {
       await saveStylePreset(preset);
+      if (makeDefault) {
+        await setDefaultStylePreset(preset.id);
+        setPreferredStyleId(preset.id);
+      }
       await refreshCustomPresets();
     }
     onSelect(preset);
@@ -528,6 +551,12 @@ export default function StylePresetModal({
                             Active
                           </span>
                         )}
+                        {!isProjectSelected && preferredStyleId === style.id && (
+                          <span className="absolute top-2 right-2 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-zinc-950 flex items-center gap-1 shadow-sm">
+                            <Star size={10} className="fill-zinc-950 text-zinc-950" />
+                            Default
+                          </span>
+                        )}
                       </div>
 
                       {/* Content */}
@@ -562,6 +591,11 @@ export default function StylePresetModal({
                       <p className="text-xs font-bold text-white">{activeCatalogPreset.name}</p>
                       <p className="text-[10px] text-emerald-400 font-mono">{activeCatalogPreset.tag}</p>
                     </div>
+                    {preferredStyleId === activeCatalogPreset.id && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold flex items-center gap-1">
+                        <Star size={9} className="fill-amber-400" /> Default
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -633,6 +667,19 @@ export default function StylePresetModal({
                 >
                   <CheckCircle2 size={15} />
                   <span>Use &ldquo;{activeCatalogPreset.name}&rdquo;</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSetDefault(activeCatalogPreset.id, activeCatalogPreset.name)}
+                  className={`w-full py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors ${
+                    preferredStyleId === activeCatalogPreset.id
+                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                      : 'bg-zinc-800/80 hover:bg-zinc-800 border-zinc-700/80 text-zinc-300 hover:text-white'
+                  }`}
+                >
+                  <Star size={13} className={preferredStyleId === activeCatalogPreset.id ? 'fill-amber-400 text-amber-400' : 'text-zinc-400'} />
+                  <span>{preferredStyleId === activeCatalogPreset.id ? 'Current Default Style' : 'Set as My Default Style'}</span>
                 </button>
               </div>
             </div>
@@ -854,11 +901,19 @@ export default function StylePresetModal({
               {architectResult && (
                 <div className="p-4 border-t border-zinc-800 bg-zinc-900/80 space-y-2">
                   <button
-                    onClick={() => handleApplyArchitectResult(true)}
+                    onClick={() => handleApplyArchitectResult(true, false)}
                     className="w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-bold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 flex items-center justify-center gap-2 transition-all shadow-lg active:scale-98"
                   >
                     <CheckCircle2 size={15} />
                     <span>Apply Style &amp; Save to Library</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyArchitectResult(true, true)}
+                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-zinc-700 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Star size={13} className="fill-amber-400 text-amber-400" />
+                    <span>Apply &amp; Set as My Default</span>
                   </button>
                 </div>
               )}
@@ -911,20 +966,42 @@ export default function StylePresetModal({
                           : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
                           }`}
                       >
-                        <div className="min-w-0 pr-2">
-                          <p className="text-xs font-medium truncate">{preset.name}</p>
+                        <div className="min-w-0 pr-2 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-medium truncate">{preset.name}</p>
+                            {(preferredStyleId === preset.id || preset.isDefault) && (
+                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-0.5 flex-shrink-0">
+                                <Star size={8} className="fill-amber-400" /> Default
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-zinc-500 truncate">{preset.stylePrompt}</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteCustom(preset.id);
-                          }}
-                          className="text-zinc-500 hover:text-red-400 p-1 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetDefault(preset.id, preset.name);
+                            }}
+                            title={preferredStyleId === preset.id ? 'Current default style' : 'Set as my default style'}
+                            className={`p-1 rounded transition-colors ${
+                              preferredStyleId === preset.id ? 'text-amber-400' : 'text-zinc-600 hover:text-amber-400'
+                            }`}
+                          >
+                            <Star size={13} className={preferredStyleId === preset.id ? 'fill-amber-400' : ''} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteCustom(preset.id);
+                            }}
+                            className="text-zinc-500 hover:text-red-400 p-1 transition-colors"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })
@@ -1047,18 +1124,33 @@ export default function StylePresetModal({
                       Save Preset
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
+                        if (editingPreset.name.trim() && editingPreset.stylePrompt.trim()) {
+                          await saveStylePreset({
+                            ...editingPreset,
+                            createdAt: editingPreset.createdAt || Date.now(),
+                          });
+                          await refreshCustomPresets();
+                        }
                         onSelect(editingPreset);
                         onClose();
                       }}
                       className="py-2 px-4 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white transition-colors"
                     >
-                      Use For This Video
+                      Save &amp; Use For This Video
                     </button>
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Floating Toast Notification */}
+        {modalToast && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-900 border border-emerald-500/50 text-emerald-300 text-xs font-semibold shadow-2xl animate-fade-in">
+            <CheckCircle2 size={14} className="text-emerald-400" />
+            <span>{modalToast}</span>
           </div>
         )}
       </div>

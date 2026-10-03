@@ -374,7 +374,16 @@ export async function deleteStylePreset(id: string): Promise<void> {
   storeSet('style-presets', custom.filter((p) => p.id !== id));
 }
 
+export function getUserPreferredStyleId(): string | null {
+  return storeGet<string>('user-preferred-style-id') || null;
+}
+
+export function saveUserPreferredStyleId(id: string): void {
+  storeSet('user-preferred-style-id', id);
+}
+
 export async function setDefaultStylePreset(id: string): Promise<void> {
+  saveUserPreferredStyleId(id);
   const custom = storeGet<BaseStylePreset[]>('style-presets') || [];
   const updated = custom.map((p) => ({ ...p, isDefault: p.id === id }));
   storeSet('style-presets', updated);
@@ -404,5 +413,10 @@ export async function saveGlobalNegativePrompt(prompt: string): Promise<void> {
 
 export async function getDefaultStylePreset(): Promise<BaseStylePreset> {
   const all = await getStylePresets();
+  const preferredId = getUserPreferredStyleId();
+  if (preferredId) {
+    const match = all.find((p) => p.id === preferredId);
+    if (match) return match;
+  }
   return all.find((p) => p.isDefault) ?? all[0] ?? BUILT_IN_STYLE_PRESETS[0];
 }
