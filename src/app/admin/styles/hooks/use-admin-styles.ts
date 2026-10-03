@@ -12,7 +12,6 @@ export function useAdminStyles() {
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -63,30 +62,6 @@ export function useAdminStyles() {
     loadStyles();
   }, [loadStyles]);
 
-  const handleSeedDefaults = async () => {
-    if (!confirm('This will sync and seed all 30+ default sub-styles into the database. Continue?')) {
-      return;
-    }
-    setSeeding(true);
-    try {
-      const res = await fetch('/api/admin/styles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'seed' }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message || 'Styles seeded successfully!');
-        loadStyles();
-      } else {
-        showToast(`Seeding notice: ${data.message || 'Database not ready'}`);
-      }
-    } catch (err: any) {
-      showToast(`Error: ${err?.message || 'Failed to seed'}`);
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
     const nextStatus = !currentStatus;
@@ -141,6 +116,51 @@ export function useAdminStyles() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const fastUpdateStyle = useCallback((updatedStyle: BaseStylePreset) => {
+    saveAdminArtStyle(updatedStyle);
+    setStyles((prev) => {
+      const idx = prev.findIndex((s) => s.id === updatedStyle.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = updatedStyle;
+        return next;
+      }
+      return [updatedStyle, ...prev];
+    });
+  }, []);
+
+  const saveStyle = useCallback(
+    async (updatedStyle: BaseStylePreset) => {
+      // 1. Immediately persist to localStorage & optimistic state
+      fastUpdateStyle(updatedStyle);
+
+      // 2. Persist to server (file store + Supabase)
+      try {
+        const res = await fetch('/api/admin/styles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'upsert', style: updatedStyle }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.savedRemote) {
+            showToast('✓ Style saved to Supabase cloud database!');
+          } else {
+            showToast(data.message || 'Style saved successfully!');
+          }
+          return { success: true, savedRemote: Boolean(data.savedRemote) };
+        } else {
+          showToast(`Saved locally: ${data.message || 'Server sync pending'}`);
+          return { success: false, savedRemote: false };
+        }
+      } catch {
+        showToast('Saved locally in browser and active session.');
+        return { success: true, savedRemote: false };
+      }
+    },
+    [fastUpdateStyle, showToast]
+  );
+
   // Filter Styles
   const filteredStyles = useMemo(() => {
     return styles.filter((s) => {
@@ -175,12 +195,13 @@ export function useAdminStyles() {
     toastMessage,
     showToast,
     copiedId,
-    seeding,
+
     loadStyles,
-    handleSeedDefaults,
     handleToggleActive,
     handleDelete,
     handleCopyPrompt,
+    fastUpdateStyle,
+    saveStyle,
     filteredStyles,
     totalActive,
     totalInactive,

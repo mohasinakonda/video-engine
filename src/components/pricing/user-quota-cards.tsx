@@ -30,16 +30,11 @@ export function UserQuotaCards({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">
-          <ShieldCheck size={14} />
-          Your Account & Quota Status
-        </div>
+
         <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
           Credits & Subscription Usage
         </h1>
-        <p className="text-xs text-zinc-400 mt-1">
-          Monitor your current image quota, renewal dates, and instantly top up or upgrade when needed.
-        </p>
+
       </div>
 
       {/* Top 3 Summary Cards */}
@@ -51,13 +46,12 @@ export function UserQuotaCards({
               Current Plan
             </span>
             <span
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                isExpired
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isExpired
                   ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                   : isExpiringSoon
-                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                  : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-              }`}
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                }`}
             >
               {userSub?.status || 'ACTIVE'}
             </span>
@@ -68,11 +62,11 @@ export function UserQuotaCards({
             <p className="text-xs text-zinc-400 mt-1">
               {userSub?.status === 'ACTIVE'
                 ? `Active cycle · Renews in ${Math.round(
-                    (userSub.expiresAt - Date.now()) / (24 * 3600 * 1000)
-                  )} days`
+                  (userSub.expiresAt - Date.now()) / (24 * 3600 * 1000)
+                )} days`
                 : isExpired
-                ? 'Subscription has expired. Renew to resume 1080p rendering.'
-                : 'Free trial tier (30 starter credits)'}
+                  ? 'Subscription has expired. Renew to resume 1080p rendering.'
+                  : 'Free trial tier (30 starter credits)'}
             </p>
           </div>
 
@@ -106,23 +100,21 @@ export function UserQuotaCards({
           <div className="space-y-1.5">
             <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-800">
               <div
-                className={`h-full transition-all duration-500 ${
-                  creditsRemaining > 20 ? 'bg-emerald-400' : 'bg-rose-500'
-                }`}
+                className={`h-full transition-all duration-500 ${creditsRemaining > 20 ? 'bg-emerald-400' : 'bg-rose-500'
+                  }`}
                 style={{ width: `${Math.max(5, creditsPercent)}%` }}
               />
             </div>
             <div className="flex justify-between items-center text-[11px]">
               <span
-                className={`font-semibold ${
-                  creditsRemaining > 20 ? 'text-emerald-400' : 'text-rose-400'
-                }`}
+                className={`font-semibold ${creditsRemaining > 20 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
               >
                 {creditsRemaining > 50
                   ? '🟢 Ready for ~15+ videos'
                   : creditsRemaining > 10
-                  ? '🟡 Low credits warning'
-                  : '🔴 Recharging needed'}
+                    ? '🟡 Low credits warning'
+                    : '🔴 Recharging needed'}
               </span>
               <a href="#topup-section" className="text-amber-400 hover:underline font-semibold">
                 + Top Up &rarr;

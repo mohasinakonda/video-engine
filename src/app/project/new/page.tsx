@@ -573,7 +573,7 @@ function ProjectPageInner() {
                       setModalInitialTab('architect');
                       setShowStyleModal(true);
                     }}
-                    className="text-[10px] text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors font-medium shadow-xs"
+                    className="text-[10px] font-bold text-white bg-zinc-500 hover:bg-zinc-500 border border-zinc-500 px-2.5 py-1 rounded-md flex items-center gap-1 transition-colors "
                   >
                     <Wand2 size={11} className="text-amber-400" />
                     <span>AI Architect</span>
@@ -584,7 +584,7 @@ function ProjectPageInner() {
                       setModalInitialTab('catalog');
                       setShowStyleModal(true);
                     }}
-                    className="text-[10px] text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700 px-2 py-1 rounded-md flex items-center gap-1 transition-colors"
+                    className="text-[10px] font-bold text-white bg-zinc-500 hover:bg-zinc-500 border border-zinc-500 px-2 py-1 rounded-md flex items-center gap-1 transition-colors"
                   >
                     <Palette size={11} className="text-emerald-400" />
                     <span>Catalog (30+)</span>
@@ -601,11 +601,10 @@ function ProjectPageInner() {
                       key={preset.id}
                       type="button"
                       onClick={() => handleSelectPreset(preset)}
-                      className={`text-left rounded-xl border transition-all overflow-hidden relative group flex flex-col justify-between ${
-                        isSelected
-                          ? 'bg-zinc-800/95 border-emerald-500/70 shadow-md ring-1 ring-emerald-500/40'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850 hover:border-zinc-700'
-                      }`}
+                      className={`text-left rounded-xl border transition-all overflow-hidden relative group flex flex-col justify-between ${isSelected
+                        ? 'bg-zinc-800/95 border-emerald-500/70 shadow-md ring-1 ring-emerald-500/40'
+                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850 hover:border-zinc-700'
+                        }`}
                     >
                       {preset.thumbnailUrl && (
                         <div className="relative aspect-[16/9] w-full bg-zinc-950 overflow-hidden">
@@ -633,9 +632,8 @@ function ProjectPageInner() {
                       <div className="p-2.5 space-y-1">
                         <div className="flex items-center justify-between">
                           <span
-                            className={`text-xs font-medium truncate ${
-                              isSelected ? 'text-white font-semibold' : 'text-zinc-300'
-                            }`}
+                            className={`text-xs font-medium truncate ${isSelected ? 'text-white font-semibold' : 'text-zinc-300'
+                              }`}
                           >
                             {preset.name}
                           </span>

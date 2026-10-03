@@ -289,8 +289,6 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
   return (
     <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto space-y-12">
-        {/* Global Announcement Offer Banner */}
-        <OfferBanner />
 
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW A: LOGGED-IN USAGE SUMMARY & ACTION HUB

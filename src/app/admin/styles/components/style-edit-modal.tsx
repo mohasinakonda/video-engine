@@ -20,7 +20,7 @@ interface StyleEditModalProps {
   initialStyle: BaseStylePreset | null;
   defaultSortOrder: number;
   onClose: () => void;
-  onSave: (style: BaseStylePreset) => Promise<void>;
+  onSave: (style: BaseStylePreset) => Promise<unknown>;
   onFastUpdate: (updatedStyle: BaseStylePreset) => void;
   showToast: (msg: string) => void;
 }
@@ -215,7 +215,7 @@ export function StyleEditModal({
 
       setFormThumbnailUrl(finalUrl);
 
-      // 2. Immediately save & sync to Supabase Database and localStorage
+      // 2. Immediately save & sync to Supabase Database and localStorage via onSave
       const targetId = formId || `style_${Date.now()}`;
       const styleToPersist: BaseStylePreset = {
         id: targetId,
@@ -233,24 +233,7 @@ export function StyleEditModal({
         createdAt: Date.now(),
       };
 
-      onFastUpdate(styleToPersist);
-
-      // 3. Persist to Supabase art_styles table via API
-      try {
-        const res = await fetch('/api/admin/styles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'upsert', style: styleToPersist }),
-        });
-        const data = await res.json();
-        if (data.savedRemote) {
-          showToast('✓ Thumbnail uploaded to cloud storage & saved to Supabase DB!');
-        } else {
-          showToast('✓ Thumbnail set & saved to active styles!');
-        }
-      } catch (apiErr) {
-        showToast('✓ Thumbnail set & saved locally!');
-      }
+      await onSave(styleToPersist);
     } catch (err) {
       console.error('Failed to set thumbnail:', err);
       showToast('Error uploading thumbnail');

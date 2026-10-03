@@ -24,7 +24,7 @@ import { signOutUser } from '@/lib/supabase-service';
 const navItems = [
   { href: '/', label: 'Projects', icon: Video },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/voice-studio', label: 'Voice Studio', icon: Mic2 },
+  // { href: '/voice-studio', label: 'Voice Studio', icon: Mic2 },
   { href: '/pricing', label: 'Plans & Credits', icon: CreditCard },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -152,6 +152,16 @@ export default function Sidebar() {
             >
               <Users size={13} className="text-blue-400" />
               User Directory
+            </Link>
+            <Link
+              href="/admin/style"
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/users'
+                ? 'bg-zinc-850 text-white border border-zinc-800'
+                : 'text-zinc-400 hover:text-white'
+                }`}
+            >
+              <Users size={13} className="text-blue-400" />
+              Presets Styles
             </Link>
           </div>
         )}

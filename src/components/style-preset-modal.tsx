@@ -366,9 +366,7 @@ export default function StylePresetModal({
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                 Base Style Presets &amp; AI Architect
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/40">
-                  30+ Sub-Styles
-                </span>
+
               </h2>
               <p className="text-xs text-zinc-400">
                 Guaranteed multi-scene visual consistency with tailored art medium anchors
@@ -377,7 +375,7 @@ export default function StylePresetModal({
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-900 border border-zinc-800">
+          <div className="flex items-center gap-1.5 p-1 rounded-md border border-zinc-800">
             <button
               type="button"
               onClick={() => {
@@ -385,8 +383,8 @@ export default function StylePresetModal({
                 setTestingImageUrl(null);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${activeTab === 'catalog'
-                  ? 'bg-zinc-800 text-white shadow-sm font-semibold'
-                  : 'text-zinc-400 hover:text-white'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-bold'
+                : 'text-zinc-400 hover:text-white'
                 }`}
             >
               <Palette size={13} className="text-emerald-400" />
@@ -400,8 +398,8 @@ export default function StylePresetModal({
                 setTestingImageUrl(null);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${activeTab === 'architect'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-semibold'
-                  : 'text-zinc-400 hover:text-white'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-bold'
+                : 'text-zinc-400 hover:text-white'
                 }`}
             >
               <Wand2 size={13} className="text-amber-400" />
@@ -415,8 +413,8 @@ export default function StylePresetModal({
                 setTestingImageUrl(null);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${activeTab === 'library'
-                  ? 'bg-zinc-800 text-white shadow-sm font-semibold'
-                  : 'text-zinc-400 hover:text-white'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-bold'
+                : 'text-zinc-400 hover:text-white'
                 }`}
             >
               <BookOpen size={13} className="text-cyan-400" />
@@ -481,8 +479,8 @@ export default function StylePresetModal({
                           key={family.id}
                           onClick={() => setSelectedFamilyId(family.id)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${isSelected
-                              ? 'bg-zinc-800 text-white border border-zinc-700 font-semibold shadow-xs'
-                              : 'bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-850 border border-transparent'
+                            ? 'bg-zinc-800 text-white border border-zinc-700 font-semibold shadow-xs'
+                            : 'bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-850 border border-transparent'
                             }`}
                         >
                           <span>{family.name}</span>
@@ -507,9 +505,9 @@ export default function StylePresetModal({
                         setTestingImageUrl(null);
                         setTestError('');
                       }}
-                      className={`group cursor-pointer rounded-xl border overflow-hidden transition-all flex flex-col justify-between ${isCurrent
-                          ? 'border-emerald-500 bg-zinc-900 shadow-md ring-1 ring-emerald-500/40'
-                          : 'border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-700'
+                      className={`group cursor-pointer rounded-md border transition-all flex flex-col justify-between ${isCurrent
+                        ? 'border-emerald-500 bg-zinc-900 shadow-md ring-1 ring-emerald-500/40'
+                        : 'border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-700'
                         }`}
                     >
                       {/* Image Thumbnail */}
@@ -663,8 +661,8 @@ export default function StylePresetModal({
                       type="button"
                       onClick={() => setSelectedGenre(g.label)}
                       className={`p-2.5 rounded-xl border text-left transition-all ${selectedGenre === g.label
-                          ? 'bg-zinc-800 border-emerald-500 text-white font-semibold shadow-xs ring-1 ring-emerald-500/30'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
+                        ? 'bg-zinc-800 border-emerald-500 text-white font-semibold shadow-xs ring-1 ring-emerald-500/30'
+                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
                         }`}
                     >
                       <span className="text-base mr-1.5">{g.icon}</span>
@@ -692,8 +690,8 @@ export default function StylePresetModal({
                         key={m.id}
                         onClick={() => setSelectedMedium(m.id)}
                         className={`cursor-pointer rounded-xl border overflow-hidden transition-all ${isSelected
-                            ? 'bg-zinc-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/30'
-                            : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
+                          ? 'bg-zinc-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/30'
+                          : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
                           }`}
                       >
                         <div className="aspect-[16/10] w-full bg-zinc-950 overflow-hidden relative">
@@ -704,7 +702,7 @@ export default function StylePresetModal({
                             {m.label}
                           </span>
                         </div>
-                        <p className="p-2 text-[10px] text-zinc-400 line-clamp-1">{m.desc}</p>
+                        {/* <p className="p-2 text-[10px] text-zinc-400 line-clamp-2">{m.desc}</p> */}
                       </div>
                     );
                   })}
@@ -909,8 +907,8 @@ export default function StylePresetModal({
                           setTestingImageUrl(null);
                         }}
                         className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${isSelected
-                            ? 'bg-zinc-800 border-zinc-600 text-white font-semibold'
-                            : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
+                          ? 'bg-zinc-800 border-zinc-600 text-white font-semibold'
+                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
                           }`}
                       >
                         <div className="min-w-0 pr-2">
