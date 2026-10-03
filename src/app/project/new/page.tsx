@@ -430,7 +430,7 @@ function ProjectPageInner() {
         audioStartSec: item.audioStartSec,
         audioEndSec: item.audioEndSec,
         narrationLine: item.narrationLine,
-        visualPrompt: item.visualPrompt || `Cinematic frame capturing: ${item.narrationLine.slice(0, 100)}`,
+        visualPrompt: item.visualPrompt || `Visual frame capturing: ${item.narrationLine.trim()}`,
         fullPrompt: `${item.visualPrompt || ''}. ${effectiveStylePrompt}`,
         shotType: item.shotType,
         bRollFocus: item.bRollFocus,

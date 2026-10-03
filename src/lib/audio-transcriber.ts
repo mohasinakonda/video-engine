@@ -819,13 +819,14 @@ export function alignVisualPlanWithWhisperWords(
               const gDur = parseFloat((gEnd - gStart).toFixed(1));
               const gLine = slice.map((w) => w.word).join(' ').trim();
 
+              const cleanParentPrompt = scene.visualPrompt.replace(/\s*zero text.*$/i, '').trim();
               rawScenes.push({
                 sceneId: rawScenes.length + 1,
                 audioStartSec: parseFloat(gStart.toFixed(1)),
                 audioEndSec: parseFloat(gEnd.toFixed(1)),
                 durationSec: gDur,
                 narrationLine: gLine,
-                visualPrompt: `${scene.visualPrompt} (Atmospheric narrative bridge: ${gLine.slice(0, 80)})`,
+                visualPrompt: `${cleanParentPrompt}, capturing an evocative narrative transition: "${gLine.trim()}". Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`,
                 shotType: VALID_SHOT_TYPES[rawScenes.length % VALID_SHOT_TYPES.length],
                 bRollFocus: 'reflective transition',
                 cutPace: gDur <= 3.2 ? 'FAST_CUT' : gDur >= 7.0 ? 'ATMOSPHERIC_HOLD' : 'NORMAL',
@@ -909,13 +910,14 @@ export function alignVisualPlanWithWhisperWords(
   // If there is still lingering audio at the end (> 2.5s), add a graceful closing outro scene
   if (totalAudioSec - prevEndSec >= 2.5) {
     const outroDur = parseFloat((totalAudioSec - prevEndSec).toFixed(1));
+    const lastPrompt = (plannedScenes[plannedScenes.length - 1]?.visualPrompt || '').replace(/\s*zero text.*$/i, '').trim();
     rawScenes.push({
       sceneId: rawScenes.length + 1,
       audioStartSec: parseFloat(prevEndSec.toFixed(1)),
       audioEndSec: parseFloat(totalAudioSec.toFixed(1)),
       durationSec: outroDur,
       narrationLine: '',
-      visualPrompt: `${plannedScenes[plannedScenes.length - 1]?.visualPrompt || ''} (Closing fade and contemplative hold)`,
+      visualPrompt: `${lastPrompt}, closing fade and contemplative hold into quiet stillness. Masterwork. zero text, no watermarks, no modern UI elements, no flat digital vectors.`,
       shotType: 'WIDE_ESTABLISHING',
       bRollFocus: 'lingering horizon',
       cutPace: 'ATMOSPHERIC_HOLD',

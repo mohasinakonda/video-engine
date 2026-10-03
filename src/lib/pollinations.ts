@@ -755,6 +755,18 @@ export async function breakdownRequirementToImageScenes(
   return breakdownRequirementToImageScenesSingle(requirement, options);
 }
 
+/**
+ * Extracts the primary sentence/phrase of an artistic style preset, or returns it cleanly.
+ */
+export function extractCoreMedium(stylePrompt?: string): string {
+  if (!stylePrompt || !stylePrompt.trim()) {
+    return 'Cinematic cinematography';
+  }
+  const clean = stylePrompt.trim();
+  const firstSentence = clean.split(/(?<=[.!?])\s+/)[0] || clean;
+  return firstSentence.replace(/[.]+$/, '').trim();
+}
+
 /** Single-batch scene breakdown */
 async function breakdownRequirementToImageScenesSingle(
   requirement: string,
@@ -768,6 +780,26 @@ async function breakdownRequirementToImageScenesSingle(
 ): Promise<ScriptSceneBreakdown[]> {
   const aiClient = getPollinationsClient(options?.apiKey);
   const targetDurationSec = options?.targetDurationSec;
+
+  const rawStyle = options?.stylePrompt?.trim();
+  const coreMedium = extractCoreMedium(rawStyle);
+
+  const styleSection = rawStyle
+    ? `
+================================================================================
+PROJECT VISUAL STYLE & ARTISTIC MEDIUM (APPLIES TO EVERY SINGLE SCENE):
+"""
+${rawStyle}
+"""
+
+STRICT DIRECTORIAL MANDATES (NON-NEGOTIABLE):
+1. UNIFIED AESTHETIC: Every single scene's "visual_prompt" MUST explicitly belong to and be rendered in the above artistic style.
+2. ZERO STYLE DRIFT / NO MEDIUM SWITCHING: Under NO circumstance should you switch to a different art form.
+   - If the style is an illustration, painting, printmaking, anime, or digital art: NEVER introduce photographic terminology (no "photorealistic", "film still", "35mm camera", "analog photograph", "drone shot", "skin pores", or "camera lens"). ALL visual scenes MUST be depicted as art matching the style.
+   - If the style is photographic: Maintain cinematic photography throughout.
+3. ADAPT PERSPECTIVES TO THE STYLE: B-roll perspectives (aerial/top-down, macro, portrait, wide) must be rendered in the specified artistic medium, honoring the color palette and textures defined in the style.
+================================================================================`
+    : `VISUAL STYLE: Studio-grade cinematic documentary, photorealistic 8k, atmospheric volumetric lighting.`;
 
   const pacing = options?.pacingProfile || 'documentary';
   const paceConfig = {
@@ -796,10 +828,12 @@ Instead, decide the total number of scenes based on the story's natural visual r
     'WIDE_ESTABLISHING',
   ];
 
-  const systemInstruction = `You are an elite visual director for an AI film and documentary studio.
+  const systemInstruction = `You are an elite visual director for an AI film studio.
 Your task is to take a creative requirement, story, or script and break it down into sequential, cinematographically diverse visual scenes.
 ${countInstruction}
 ${requestedCount && targetDurationSec && targetDurationSec > 0 ? `Target total video duration is ~${Math.round(targetDurationSec)} seconds.` : ''}
+
+${styleSection}
 
 CRITICAL DURATION & PACING MANDATE (MINIMUM 3.0 SECONDS):
 - Visual cuts under 3.0 seconds are UNACCEPTABLE because images vanish during transitions before viewers can register them.
@@ -807,11 +841,11 @@ CRITICAL DURATION & PACING MANDATE (MINIMUM 3.0 SECONDS):
 - Combine rapid consecutive punchy lines into one rich visual progression rather than chopping them into 1-second fragments.
 
 CINEMATIC PACING & UNIVERSAL B-ROLL MANDATE:
-Do NOT produce repetitive or literal visuals. A professional documentary cuts dynamically between scales and perspectives:
+Do NOT produce repetitive or literal visuals. A professional director cuts dynamically between scales and perspectives:
 First, analyze the core subject, ecosystem, or theme of the story (e.g. Sea, Desert, Mountain, Rainforest, Metropolis, Ancient Civilization, Deep Space, Technology, etc.).
 Then, as an elite visual director, interleave 6 universal B-roll lenses tailored directly to that specific world:
 
-1. "AERIAL_GEOMETRY": Grand scale bird's-eye (90° top-down drone or orbital satellite) revealing geometric patterns, natural contours, and vast topological scale.
+1. "AERIAL_GEOMETRY": Grand scale perspective (top-down or high-angle) revealing geometric patterns, natural contours, and vast topological scale.
 2. "MACRO_TEXTURE": Extreme tactile close-ups of micro details native to this environment.
 3. "CULTURAL_HUMAN": The human and living heartbeat connected to this world — authentic human interaction.
 4. "HISTORICAL_HERITAGE": Deep time, archaeology, and historical memory.
@@ -819,10 +853,10 @@ Then, as an elite visual director, interleave 6 universal B-roll lenses tailored
 6. "WIDE_ESTABLISHING": Majestic panoramic establishing shots that orient the viewer to the broader landscape.
 
 VISUAL PROMPT MASTERY RULES — MANDATORY:
-The visual_prompt is the single most important output. Each must be 60-120 words, richly detailed, and follow this exact structure:
-1. ARTISTIC MEDIUM/TECHNIQUE FIRST: Open with the rendering medium matching the project style${options?.stylePrompt ? ` ("${options.stylePrompt.slice(0, 80)}...")` : ' (cinematic 35mm film photography, photorealistic 8k)'}.
+The visual_prompt is the single most important output. Each must be 60-120 words, richly detailed, following this structure:
+1. ARTISTIC MEDIUM FIRST: Open EVERY visual_prompt with the project style's medium: "${coreMedium}".
 2. SUBJECT & COMPOSITION: Describe precisely what is depicted — subjects, spatial relationships, foreground/background, action.
-3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities — grain, ink, paper, light, material surfaces.
+3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities from the project style (e.g. paper grain, ink, brushstrokes, lighting, color palette).
 4. CRAFT QUALITY ANCHORS: Include mastery indicators — "award-winning", "museum-quality", "masterwork", "artisan-crafted".
 5. NEGATIVE EXCLUSIONS: Always end with: "zero text, no watermarks, no modern UI elements, no flat digital vectors."
 
@@ -836,7 +870,7 @@ For every scene, output:
 CRITICAL: Return ONLY a valid JSON array of scene objects with keys "narration", "visual_prompt", "durationSec", "shot_type", "b_roll_focus".
 No conversational text, markdown introduction, or backticks outside the JSON.`;
 
-  const userPrompt = `Break down this requirement into sequential cinematic visual scenes with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
+  const userPrompt = `Break down this requirement into sequential visual scenes matching the project art style with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
 
   try {
     const response = await aiClient.chat.completions.create({
@@ -863,12 +897,19 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
 
     return parsed.map((item: Record<string, unknown>, index: number) => {
       const narration = typeof item.narration === "string" ? item.narration.trim() : `Scene ${index + 1}`;
-      const visualPrompt =
+      let visualPrompt =
         typeof item.visual_prompt === "string"
           ? item.visual_prompt.trim()
           : typeof item.visualPrompt === "string"
             ? item.visualPrompt.trim()
-            : `Cinematic frame for ${requirement.slice(0, 60)}`;
+            : rawStyle
+              ? `${rawStyle}. Depicting: ${narration}`
+              : `Cinematic frame for ${narration}`;
+
+      // If user provided a style and the prompt doesn't already contain the core medium, prepend it
+      if (rawStyle && !visualPrompt.toLowerCase().includes(coreMedium.toLowerCase())) {
+        visualPrompt = `${coreMedium}. ${visualPrompt}`;
+      }
 
       const rawShotType = (typeof item.shot_type === "string" ? item.shot_type : typeof item.shotType === "string" ? item.shotType : "") as ShotType;
       const shot_type: ShotType = VALID_SHOT_TYPES.includes(rawShotType)
@@ -945,9 +986,13 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
       const visual_type: VisualSceneType = (idx % 5 === 0 || idx % 5 === 3) ? 'HERO_AI' : (idx % 5 === 4) ? 'MOTION_GRAPHIC' : 'STOCK_BROLL';
       const camera_motion: CameraMotionEffect = (['ZOOM_IN', 'ZOOM_OUT', 'PAN_LEFT', 'PAN_RIGHT'] as const)[idx % 4];
 
+      const fallbackPrompt = rawStyle
+        ? `${rawStyle}. Depicting ${shot_type.replace('_', ' ').toLowerCase()}: ${chunkText}. Masterwork, museum-quality finish. zero text, no watermarks, no modern UI elements, no flat digital vectors.`
+        : `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} scene, dramatic lighting: ${chunkText}. Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`;
+
       return {
         narration: chunkText,
-        visual_prompt: `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} movie still, photorealistic 8k, dramatic lighting: ${chunkText.slice(0, 120)}`,
+        visual_prompt: fallbackPrompt,
         durationSec: dur,
         shot_type,
         b_roll_focus: shot_type.replace('_', ' ').toLowerCase(),
@@ -979,10 +1024,10 @@ export async function generateBRollPrompt(
     WIDE_ESTABLISHING: "Expansive panoramic cinematic wide establishing shot showcasing the vast horizon and grand scale to anchor the viewer",
   };
 
-  const systemInstruction = `You are a world-class documentary visual artist.
+  const systemInstruction = `You are a world-class visual artist.
 Convert the given scene context into a specific B-Roll visual prompt for an AI image generator (Flux/SDXL).
 Target Shot Type: ${targetShotType} (${shotDescriptions[targetShotType]}).
-${stylePrompt ? `Project Artistic Style Mandate: Strictly align camera framing, medium, and aesthetic details with the project visual style: "${stylePrompt.slice(0, 150)}..."` : 'Visual Style: Studio-grade, evocative, atmospheric lighting and textures.'}
+${stylePrompt ? `Project Artistic Style Mandate (Strict Non-Negotiable): Every detail, texture, medium, and aesthetic MUST align with the project visual style:\n"${stylePrompt.trim()}"` : 'Visual Style: Studio-grade, evocative, atmospheric lighting and textures.'}
 Adapt the perspective organically to the subject's environment (e.g. desert, sea, mountain, forest, city, space, etc.).
 Return ONLY a valid JSON object with:
 - "visual_prompt": Studio-grade prompt detailing camera framing, subject action/elements, lighting, textures${stylePrompt ? '' : ', photorealistic 8k, masterwork'}.
@@ -1015,33 +1060,33 @@ Return ONLY a valid JSON object with:
     console.warn("generateBRollPrompt fallback:", err);
   }
 
-  // High quality fallback
-  const cleanContext = context.slice(0, 100).trim();
-  const styleSuffix = stylePrompt ? ` ${stylePrompt}` : '';
+  // Universal fallback
+  const cleanContext = context.trim();
+  const styleSuffix = stylePrompt ? ` ${stylePrompt.trim()}` : '';
   const fallbackTemplates: Record<ShotType, { visual_prompt: string; b_roll_focus: string }> = {
     AERIAL_GEOMETRY: {
-      visual_prompt: `Breathtaking 90-degree bird's-eye drone overhead shot capturing geometric contours, topological patterns, and sweeping environmental scale of: ${cleanContext}.${styleSuffix || ' Top-down cinematic photography, 8k resolution.'}`,
-      b_roll_focus: "Overhead Drone Geometry",
+      visual_prompt: `High-angle aerial perspective capturing grand contours and sweeping environmental scale of: ${cleanContext}.${styleSuffix || ' Top-down panoramic vantage point.'}`,
+      b_roll_focus: "Overhead Geometry",
     },
     MACRO_TEXTURE: {
-      visual_prompt: `Extreme tactile macro close-up revealing intricate surface textures, micro details, and fine organic elements of: ${cleanContext}.${styleSuffix || ' Razor-sharp focus, shallow depth of field, 8k photorealistic.'}`,
-      b_roll_focus: "Tactile Macro Details",
+      visual_prompt: `Tactile close-up revealing intricate surface textures and fine organic elements of: ${cleanContext}.${styleSuffix || ' Rich material details, sharp clarity.'}`,
+      b_roll_focus: "Tactile Details",
     },
     CULTURAL_HUMAN: {
-      visual_prompt: `Intimate cinematic documentary shot of people, native dwellers, or travelers engaged in authentic practices related to: ${cleanContext}.${styleSuffix || ' Authentic cultural clothing, candid realism, evocative lighting.'}`,
-      b_roll_focus: "Human Culture & Life",
+      visual_prompt: `Documentary shot of people or artisans engaged in authentic practices related to: ${cleanContext}.${styleSuffix || ' Authentic cultural clothing, evocative lighting.'}`,
+      b_roll_focus: "Human Life",
     },
     HISTORICAL_HERITAGE: {
-      visual_prompt: `Atmospheric historical documentary frame showcasing ancient architecture, weathered monuments, and archaeological relics related to: ${cleanContext}.${styleSuffix || ' Timeless chiaroscuro lighting, 35mm film look.'}`,
-      b_roll_focus: "Ancient Heritage & History",
+      visual_prompt: `Atmospheric frame showcasing architecture, weathered monuments, and relics related to: ${cleanContext}.${styleSuffix || ' Chiaroscuro lighting, timeless patina.'}`,
+      b_roll_focus: "Ancient Heritage",
     },
     ATMOSPHERIC_MOOD: {
-      visual_prompt: `Cinematic atmospheric composition capturing evocative weather, volumetric lighting, and dramatic mood transitions surrounding: ${cleanContext}.${styleSuffix || ' Poetic color grading, 8k.'}`,
-      b_roll_focus: "Atmospheric Mood & Weather",
+      visual_prompt: `Atmospheric composition capturing evocative weather and dramatic mood transitions surrounding: ${cleanContext}.${styleSuffix || ' Poetic lighting and color tones.'}`,
+      b_roll_focus: "Atmospheric Mood",
     },
     WIDE_ESTABLISHING: {
-      visual_prompt: `Expansive panoramic cinematic wide establishing shot capturing the breathtaking horizon and vast environmental expanse of: ${cleanContext}.${styleSuffix || ' IMAX 70mm cinematography, dramatic sky.'}`,
-      b_roll_focus: "Wide Establishing Vista",
+      visual_prompt: `Expansive panoramic wide establishing shot capturing the horizon and environmental expanse of: ${cleanContext}.${styleSuffix || ' Dramatic horizon, expansive scale.'}`,
+      b_roll_focus: "Wide Vista",
     },
   };
 
@@ -1082,6 +1127,26 @@ export async function generatePromptsForTimedSegments(
     'WIDE_ESTABLISHING',
   ];
 
+  const rawStyle = options?.stylePrompt?.trim();
+  const coreMedium = extractCoreMedium(rawStyle);
+
+  const styleSection = rawStyle
+    ? `
+================================================================================
+PROJECT VISUAL STYLE & ARTISTIC MEDIUM (APPLIES TO EVERY SINGLE SCENE):
+"""
+${rawStyle}
+"""
+
+STRICT DIRECTORIAL MANDATES (NON-NEGOTIABLE):
+1. UNIFIED AESTHETIC: Every single scene's "visual_prompt" MUST explicitly belong to and be rendered in the above artistic style.
+2. ZERO STYLE DRIFT / NO MEDIUM SWITCHING: Under NO circumstance should you switch to a different art form.
+   - If the style is an illustration, painting, printmaking, anime, or digital art: NEVER introduce photographic terminology (no "photorealistic", "film still", "35mm camera", "analog photograph", "drone shot", "skin pores", or "camera lens"). ALL visual scenes MUST be depicted as art matching the style.
+   - If the style is photographic: Maintain cinematic photography throughout.
+3. ADAPT PERSPECTIVES TO THE STYLE: B-roll perspectives (aerial/top-down, macro, portrait, wide) must be rendered in the specified artistic medium, honoring the color palette and textures defined in the style.
+================================================================================`
+    : `VISUAL STYLE: Studio-grade cinematic documentary, photorealistic 8k, atmospheric volumetric lighting.`;
+
   const aiClient = getPollinationsClient(options?.apiKey);
   const results: {
     sceneId: number;
@@ -1100,25 +1165,27 @@ export async function generatePromptsForTimedSegments(
     const batchNum = Math.floor(b / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(scenes.length / BATCH_SIZE);
 
-    options?.onProgress?.(`Generating cinematic visual prompts (Batch ${batchNum}/${totalBatches})…`);
+    options?.onProgress?.(`Generating visual prompts (Batch ${batchNum}/${totalBatches})…`);
 
-    const systemPrompt = `You are an elite visual director for an AI film and documentary studio.
+    const systemPrompt = `You are an elite visual director for an AI film studio.
 You are given a list of consecutive spoken narration lines from a real voiceover track, with their exact duration.
 For each scene, craft an exceptional visual prompt for an AI image generator (Flux), pick a diverse shot_type, and provide a b_roll_focus.
 
+${styleSection}
+
 AVAILABLE SHOT TYPES:
-1. "AERIAL_GEOMETRY": Grand 90° top-down drone or orbital satellite view.
+1. "AERIAL_GEOMETRY": Grand high-angle or top-down perspective revealing vast geometric contours.
 2. "MACRO_TEXTURE": Extreme tactile close-up of micro textures, organic details, or artifacts.
-3. "CULTURAL_HUMAN": Authentic human life, native dwellers, artisans, or travelers.
+3. "CULTURAL_HUMAN": Authentic human life, native dwellers, artisans, or travelers in this art style.
 4. "HISTORICAL_HERITAGE": Ancient monuments, relics, ruins, and deep archaeological memory.
-5. "ATMOSPHERIC_MOOD": Dramatic weather, volumetric light beams, fog, or twilight mood.
+5. "ATMOSPHERIC_MOOD": Dramatic weather, volumetric lighting, fog, or twilight mood.
 6. "WIDE_ESTABLISHING": Majestic panoramic establishing vistas orienting the landscape.
 
 VISUAL PROMPT MASTERY RULES — MANDATORY FOR EVERY SCENE:
-Each visual_prompt must be 60-120 words, richly detailed, following this EXACT structure:
-1. ARTISTIC MEDIUM/TECHNIQUE FIRST: Open with the rendering medium matching the project style${options?.stylePrompt ? `: "${options.stylePrompt.slice(0, 100)}"` : ': cinematic 35mm film photography, photorealistic 8k, masterwork cinematography'}.
+Each visual_prompt must be 60-120 words, richly detailed, following this structure:
+1. ARTISTIC MEDIUM FIRST: Open EVERY visual_prompt with the project style's medium: "${coreMedium}".
 2. SUBJECT & COMPOSITION: Precisely describe what is depicted — subjects, spatial arrangement, foreground/background, action occurring.
-3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities — grain, paper, ink, light, material surfaces.
+3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities from the project style (grain, paper, ink, light, material surfaces).
 4. CRAFT QUALITY ANCHORS: Include mastery indicators like "award-winning", "museum-quality", "masterwork", "artisan-crafted".
 5. NEGATIVE EXCLUSIONS: Always end with "zero text, no watermarks, no modern UI elements, no flat digital vectors."
 
@@ -1136,7 +1203,7 @@ ${JSON.stringify(
       })),
       null,
       2
-    )}${options?.creativeContext ? `\n\nOverall Creative Story Context: ${options.creativeContext.slice(0, 500)}` : ''}`;
+    )}${options?.creativeContext ? `\n\nOverall Creative Story Context: ${options.creativeContext.trim()}` : ''}`;
 
     try {
       const response = await aiClient.chat.completions.create({
@@ -1174,8 +1241,14 @@ ${JSON.stringify(
           ? shotTypeRaw
           : VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
 
-        const visualPrompt = match?.visual_prompt?.trim() ||
-          `Cinematic documentary frame depicting: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, 35mm lens, atmospheric volumetric lighting.`;
+        let visualPrompt = match?.visual_prompt?.trim() ||
+          (rawStyle
+            ? `${rawStyle}. Depicting: ${orig.narrationLine.trim()}. Masterwork, museum-quality finish. zero text, no watermarks, no modern UI elements, no flat digital vectors.`
+            : `Cinematic frame capturing: ${orig.narrationLine.trim()}. Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`);
+
+        if (rawStyle && !visualPrompt.toLowerCase().includes(coreMedium.toLowerCase())) {
+          visualPrompt = `${coreMedium}. ${visualPrompt}`;
+        }
 
         const bRollFocus = match?.b_roll_focus?.trim() || shotType.replace('_', ' ').toLowerCase();
 
@@ -1194,12 +1267,15 @@ ${JSON.stringify(
       for (let i = 0; i < batch.length; i++) {
         const orig = batch[i];
         const shotType = VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
+        const fallbackPrompt = rawStyle
+          ? `${rawStyle}. Depicting: ${orig.narrationLine.trim()}. Masterwork artisan craft, museum quality. zero text, no watermarks, no modern UI elements, no flat digital vectors.`
+          : `Cinematic frame capturing: ${orig.narrationLine.trim()}. Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`;
         results.push({
           sceneId: orig.sceneId,
           audioStartSec: orig.audioStartSec,
           audioEndSec: orig.audioEndSec,
           narrationLine: orig.narrationLine,
-          visualPrompt: `Cinematic frame capturing: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, beautiful natural lighting, 35mm photography.`,
+          visualPrompt: fallbackPrompt,
           shotType,
           bRollFocus: shotType.replace('_', ' ').toLowerCase(),
         });
@@ -1255,11 +1331,11 @@ export async function enhanceScenePrompt(
 
   const cameraPref = options?.cameraLens || "35mm anamorphic cinema lens, shallow depth-of-field";
   const lightingPref = options?.lightingModifier || "cinematic golden hour with soft volumetric rim light";
-  const styleMandate = options?.stylePrompt ? `Project Base Style: "${options.stylePrompt.slice(0, 180)}"` : "Style: Photorealistic 8k, masterwork documentary cinematography";
+  const styleMandate = options?.stylePrompt ? `Project Base Style (Strict Mandate): "${options.stylePrompt.trim()}"` : "Style: Photorealistic 8k, masterwork documentary cinematography";
 
   const aiClient = getPollinationsClient(options?.apiKey);
 
-  const systemInstruction = `You are a world-class Hollywood cinematographer and elite AI prompt engineer for FLUX.1.
+  const systemInstruction = `You are a world-class visual director and elite AI prompt engineer for FLUX.1.
 Your task is to take a simple narrative scene concept and expand it into a studio-grade, 60-100 word visual prompt.
 
 DIRECTORIAL RULES:
@@ -1313,7 +1389,7 @@ Output format: Return ONLY a valid JSON object matching:
   }
 
   // Algorithmic Directorial Enhancement Fallback
-  const cleanSnippet = text.replace(/^(this is a|photo of|scene of|image of)\s+/i, '').slice(0, 140).trim();
+  const cleanSnippet = text.replace(/^(this is a|photo of|scene of|image of)\s+/i, '').trim();
   const shotDetails: Record<ShotType, { camera: string; mood: string; focus: string }> = {
     AERIAL_GEOMETRY: {
       camera: "Top-down 90-degree bird's-eye drone vantage point, geometric framing",
