@@ -96,6 +96,9 @@ export interface ExportSettings {
   transitionType?: TransitionType;
   transitionDurationSec?: number;
   aspectRatio?: '16:9' | '9:16' | '1:1';
+  bgmFilePath?: string;
+  bgmVolume?: number;
+  enableAutoDucking?: boolean;
 }
 
 export type ExportStage =
@@ -233,6 +236,9 @@ export interface TitleOption {
   title: string;
   hookStyle: HookStyle;
   ctrScore?: number;
+  whyItWorks?: string;
+  charCount?: number;
+  pairedConceptId?: string;
 }
 
 export interface ChapterItem {
@@ -247,10 +253,19 @@ export interface ThumbnailConcept {
   visualPrompt: string;
   originalPrompt?: string;
   textOverlayHint: string;
+  customBadgeText?: string;
+  badgePosition?: 'top-left' | 'top-right' | 'bottom-left' | 'center';
+  badgeColor?: 'yellow' | 'red' | 'white' | 'cyan';
   visualHook?: string;
   compositionType?: 'split_contrast' | 'focal_close_up' | 'cinematic_scale' | 'custom';
   imageUrl?: string;
   isGenerating?: boolean;
+}
+
+export interface ShortsRepurposeIdea {
+  timestamp: string;
+  hook: string;
+  reason: string;
 }
 
 export interface ScriptIntelligence {
@@ -259,6 +274,13 @@ export interface ScriptIntelligence {
   keyTalkingPoints: string[];
   targetAudience: string;
   searchKeywords: string[];
+  hookRetentionScore?: number;
+  hookAnalysis?: string;
+  suggestedPowerHook?: string;
+  emotionalTriggers?: string[];
+  viralAngles?: string[];
+  shortsIdeas?: ShortsRepurposeIdea[];
+  competitorGap?: string;
 }
 
 export interface CompetitorVideo {

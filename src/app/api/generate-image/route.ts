@@ -197,28 +197,42 @@ export async function POST(req: Request) {
       }
     }
 
-    // ─── 3. Pollinations AI Public Fallback ──────────────────────────────────────
+    // ─── 3. Pollinations AI Fallback ──────────────────────────────────────
     const encodedPrompt = encodeURIComponent(finalPrompt);
     const polSeed = seed || Math.floor(Math.random() * 1000000);
+    const pollHeaders: Record<string, string> = {};
+    if (pollinationsKey && pollinationsKey.trim()) {
+      pollHeaders['Authorization'] = `Bearer ${pollinationsKey.trim()}`;
+    }
+
     let pollUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${model}&nologo=true`;
     if (pollinationsKey && pollinationsKey.trim()) {
       pollUrl += `&key=${encodeURIComponent(pollinationsKey.trim())}`;
     }
 
-    let pollRes = await fetch(pollUrl);
+    let pollRes = await fetch(pollUrl, {
+      headers: pollHeaders,
+      signal: AbortSignal.timeout(30000),
+    });
 
     // If non-OK (e.g. 402 Payment Required, 403, model paywalled, rate limit, etc.), fall back to free 'sana' model
     if (!pollRes.ok) {
       console.warn(`Pollinations returned status ${pollRes.status} for model '${model}'. Retrying with free 'sana' model...`);
       const sanaUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=sana&nologo=true`;
-      pollRes = await fetch(sanaUrl);
+      pollRes = await fetch(sanaUrl, {
+        headers: pollHeaders,
+        signal: AbortSignal.timeout(30000),
+      });
     }
 
     // Secondary fallback without model parameter if still failing
     if (!pollRes.ok) {
       console.warn(`Pollinations still failed (${pollRes.status}), retrying with default public model...`);
       const defaultUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&nologo=true`;
-      pollRes = await fetch(defaultUrl);
+      pollRes = await fetch(defaultUrl, {
+        headers: pollHeaders,
+        signal: AbortSignal.timeout(30000),
+      });
     }
 
     if (!pollRes.ok) {

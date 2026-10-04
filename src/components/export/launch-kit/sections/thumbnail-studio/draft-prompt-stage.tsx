@@ -8,6 +8,8 @@ import {
   Undo2,
   Sparkles,
   Loader2,
+  Type,
+  Zap,
 } from 'lucide-react';
 import type { ThumbnailConcept } from '@/types';
 import { useLaunchKit } from '../../launch-kit-context';
@@ -18,11 +20,20 @@ interface DraftPromptStageProps {
   activeIndex: number;
 }
 
+const CINEMATIC_MODIFIERS = [
+  { label: '+ High Rim Light', text: ', razor-sharp cyan & amber rim lighting, chiaroscuro contrast' },
+  { label: '+ Split Contrast (L vs R)', text: ', dual split-screen visual contrast, opposing emotional tones' },
+  { label: '+ 85mm Prime Bokeh', text: ', shot on 85mm anamorphic cine prime, f/1.4 shallow depth of field, creamy background bokeh' },
+  { label: '+ Clean Negative Space', text: ', clean unobstructed dark negative space in the upper-left quadrant for bold badge text' },
+  { label: '+ Volumetric Particles', text: ', volumetric light shafts, subtle cinematic fog, floating glowing golden dust motes' },
+];
+
 export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps) {
   const {
     project,
     packaging,
     stylePreset,
+    userCredits,
     generatingThumbId,
     enhancingThumbId,
     setConceptEditMode,
@@ -31,11 +42,17 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
     handleUpdateConceptPrompt,
     handleEnhanceConceptPrompt,
     handleGenerateThumbnail,
+    handleUpdateBadge,
   } = useLaunchKit();
 
   const hasImage = Boolean(concept.imageUrl);
   const isGeneratingThis = generatingThumbId === concept.id;
   const isEnhancingThis = enhancingThumbId === concept.id;
+
+  const handleAppendModifier = (text: string) => {
+    if (concept.visualPrompt.includes(text.trim())) return;
+    handleUpdateConceptPrompt(concept.id, `${concept.visualPrompt.trim()}${text}`);
+  };
 
   return (
     <div className="p-5 sm:p-6 space-y-4">
@@ -47,14 +64,10 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
               Idea #{activeIndex + 1}: {concept.conceptName}
             </h4>
             <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
-              Draft Prompt
+              Draft Prompt Stage
             </span>
           </div>
-          {concept.visualHook && (
-            <p className="text-xs text-purple-300 font-medium">
-              ⚡ {concept.visualHook}
-            </p>
-          )}
+
         </div>
 
         <div className="flex items-center gap-2">
@@ -83,16 +96,14 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
       </div>
 
       {/* Visual Prompt Box */}
-      <div className="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-2.5">
+      <div className="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <label className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
               <Edit3 size={13} />
-              <span>Detailed Visual Prompt </span>
+              <span>Cinematic Visual Prompt</span>
             </label>
-            <p className="text-[11px] text-zinc-400">
-              Verify or edit the prompt below. When ready, click &quot;Generate Thumbnail&quot;.
-            </p>
+
           </div>
 
           <div className="flex items-center gap-2">
@@ -145,36 +156,57 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
           value={concept.visualPrompt}
           onChange={(e) => handleUpdateConceptPrompt(concept.id, e.target.value)}
           placeholder="Describe the concrete visual subjects, composition, and rim lighting..."
-          className="w-full text-xs font-mono leading-relaxed bg-zinc-950 border border-zinc-700/80 focus:border-purple-500 rounded-xl text-zinc-100 p-3.5 focus:outline-none resize-y min-h-[120px]"
+          className="w-full text-xs font-mono leading-relaxed bg-zinc-950 border border-zinc-700/80 focus:border-purple-500 rounded-xl text-zinc-100 p-3.5 focus:outline-none resize-y min-h-[110px]"
         />
 
+        {/* 1-Click Prompt Modifiers */}
+        <div className="space-y-1.5 pt-1 border-t border-zinc-800/80">
+          <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+            Quick Cinematic Boosters (Click to inject):
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {CINEMATIC_MODIFIERS.map((mod, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleAppendModifier(mod.text)}
+                className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-800 hover:bg-purple-950/60 hover:text-purple-300 text-zinc-300 border border-zinc-700 hover:border-purple-700/50 transition-colors"
+              >
+                {mod.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
 
       </div>
 
       {/* Action Bar: Generate Button */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-        <p className="text-[11px] text-zinc-400">
-          Renders in <strong className="text-white">{project.aspectRatio || '16:9'}</strong> matching{' '}
-          <strong className="text-purple-300">{stylePreset?.name || 'Cinematic'}</strong> style.
-        </p>
+        <div className="text-[11px] text-zinc-400 flex items-center gap-2">
+          <span>
+            Renders in <strong className="text-white">{project.aspectRatio || '16:9'}</strong> matching{' '}
+            <strong className="text-purple-300">{stylePreset?.name || 'Cinematic'}</strong>
+          </span>
+
+        </div>
 
         <button
           type="button"
           onClick={() => handleGenerateThumbnail(concept)}
           disabled={isGeneratingThis || Boolean(generatingThumbId)}
-          className="btn-primary text-xs px-6 py-3 flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 w-full sm:w-auto font-bold"
+          className="btn-primary text-xs px-6 py-2.5 flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 w-full sm:w-auto font-bold"
         >
           {isGeneratingThis ? (
             <>
               <Loader2 size={15} className="animate-spin text-white" />
-              <span>Generating High-Res Image (FLUX/Pollinations)...</span>
+              <span>Rendering High-Res Thumbnail (FLUX)...</span>
             </>
           ) : (
             <>
               <Sparkles size={15} className="text-amber-300" />
               <span>
-                {hasImage ? 'Re-generate Thumbnail (In-Place)' : 'Generate Thumbnail (In-Place)'}
+                {hasImage ? 'Re-render Thumbnail' : 'Generate Thumbnail (In-Place)'}
               </span>
             </>
           )}

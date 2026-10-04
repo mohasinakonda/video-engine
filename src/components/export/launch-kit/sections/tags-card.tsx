@@ -13,7 +13,7 @@ export function TagsCard() {
   const tagString = packaging.tags.join(', ');
 
   return (
-    <div className="card space-y-4">
+    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-4 shadow-xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Tag size={15} className="text-cyan-400" />

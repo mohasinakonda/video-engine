@@ -367,13 +367,13 @@ export default function ExportInner() {
 
       {/* ─── Main Two-Column Studio Layout ─────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {activeTab === 'render' ? (
+          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-          {/* Left Column (7 cols): Active Tab Workspace */}
-          <div className="lg:col-span-7 space-y-6">
+            {/* Left Column (7 cols): Active Tab Workspace */}
+            <div className="lg:col-span-7 space-y-6">
 
-            {/* TAB 1: Master Video Render & Audio Engine Settings */}
-            {activeTab === 'render' && (
+              {/* TAB 1: Master Video Render & Audio Engine Settings */}
               <div className="space-y-6 animate-fade-in">
 
                 {/* Aspect Ratio Format */}
@@ -619,57 +619,54 @@ export default function ExportInner() {
                   </p>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* TAB 2: YouTube & Social Launch Kit */}
-            {activeTab === 'youtube' && (
-              <div className="animate-fade-in">
-                <YouTubeLaunchKit
-                  project={project}
-                  onUpdateProject={setProject}
-                  showToast={showToast}
-                />
-              </div>
-            )}
+            {/* Right Column (5 cols): Persistent Cinema Preview & Master Actions */}
+            <div className="lg:col-span-5 sticky top-6">
+              <CinemaPreviewPanel
+                project={project}
+                aspectRatio={aspectRatio}
+                resolution={resolution}
+                isExporting={isExporting}
+                progress={progress}
+                finalVideoUrl={finalVideoUrl}
+                downloadFileName={downloadFileName}
+                errorMsg={errorMsg}
+                cleanedCache={cleanedCache}
+                freedSpaceMB={freedSpaceMB}
+                isExportingTimeline={isExportingTimeline}
+                timelineProgress={timelineProgress}
+                timelineExportSuccess={timelineExportSuccess}
+                onStartExport={handleStartExport}
+                onCancelExport={handleCancelExport}
+                onExportTimeline={handleExportTimeline}
+                onCleanCache={handleCleanCache}
+                onReExport={() => {
+                  setProgress({
+                    stage: 'idle',
+                    percentage: 0,
+                    fps: 0,
+                    frame: 0,
+                    totalFrames: 0,
+                    etaSeconds: 0,
+                    currentStepMessage: '',
+                  });
+                  setFinalVideoUrl('');
+                }}
+                onOpenFolder={handleOpenFolder}
+              />
+            </div>
           </div>
-
-          {/* Right Column (5 cols): Persistent Cinema Preview & Master Actions */}
-          <div className="lg:col-span-5 sticky top-6">
-            <CinemaPreviewPanel
+        ) : (
+          /* TAB 2: YouTube & Social Launch Studio (Full Width Dedicated Creator Suite) */
+          <div className="max-w-7xl mx-auto animate-fade-in">
+            <YouTubeLaunchKit
               project={project}
-              aspectRatio={aspectRatio}
-              resolution={resolution}
-              isExporting={isExporting}
-              progress={progress}
-              finalVideoUrl={finalVideoUrl}
-              downloadFileName={downloadFileName}
-              errorMsg={errorMsg}
-              cleanedCache={cleanedCache}
-              freedSpaceMB={freedSpaceMB}
-              isExportingTimeline={isExportingTimeline}
-              timelineProgress={timelineProgress}
-              timelineExportSuccess={timelineExportSuccess}
-              onStartExport={handleStartExport}
-              onCancelExport={handleCancelExport}
-              onExportTimeline={handleExportTimeline}
-              onCleanCache={handleCleanCache}
-              onReExport={() => {
-                setProgress({
-                  stage: 'idle',
-                  percentage: 0,
-                  fps: 0,
-                  frame: 0,
-                  totalFrames: 0,
-                  etaSeconds: 0,
-                  currentStepMessage: '',
-                });
-                setFinalVideoUrl('');
-              }}
-              onOpenFolder={handleOpenFolder}
+              onUpdateProject={setProject}
+              showToast={showToast}
             />
           </div>
-
-        </div>
+        )}
       </div>
 
       {/* Floating Toast Notification */}

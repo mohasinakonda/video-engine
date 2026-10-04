@@ -13,7 +13,7 @@ export function ChaptersCard() {
   const chaptersText = packaging.chapters.map((c) => `${c.time} - ${c.title}`).join('\n');
 
   return (
-    <div className="card space-y-3">
+    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-3.5 shadow-xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock size={15} className="text-purple-400" />

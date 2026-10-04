@@ -13,6 +13,7 @@ import {
   getDefaultStylePreset,
   getYouTubeApiKey,
 } from '@/lib/store';
+import { getUserCreditsRemaining } from '@/lib/subscription-store';
 
 interface LaunchKitContextValue {
   // Core project & packaging
@@ -20,6 +21,7 @@ interface LaunchKitContextValue {
   packaging: YouTubePackagingData | undefined;
   onUpdateProject: (updated: ProjectManifest) => void;
   showToast: (msg: string) => void;
+  userCredits: number;
 
   // Voice script
   voiceScript: string;
@@ -42,16 +44,23 @@ interface LaunchKitContextValue {
   // Copy helper
   copiedKey: string | null;
   handleCopy: (text: string, key: string, label: string) => void;
+  handleCopyMasterLaunchPack: () => void;
 
-  // Competitor research
+  // Competitor research & Standout test
   competitorSearchInput: string;
   setCompetitorSearchInput: (val: string) => void;
   isSearchingCompetitors: boolean;
   handleSearchCompetitors: (queryToSearch?: string) => Promise<void>;
+  standoutMode: boolean;
+  setStandoutMode: (val: boolean) => void;
 
   // Titles
   selectedTitle: string;
   handleSelectTitle: (idx: number) => Promise<void>;
+
+  // Mockup view mode
+  mockupViewMode: 'mobile' | 'desktop' | 'shorts';
+  setMockupViewMode: (val: 'mobile' | 'desktop' | 'shorts') => void;
 
   // Thumbnails
   activeThumbnail: string;
@@ -69,6 +78,13 @@ interface LaunchKitContextValue {
   handleAddCustomConcept: () => Promise<void>;
   handleDeleteConcept: (id: string) => Promise<void>;
   handleGenerateThumbnail: (concept: ThumbnailConcept) => Promise<void>;
+  handleUpdateBadge: (
+    conceptId: string,
+    badgeText: string,
+    color?: 'yellow' | 'red' | 'white' | 'cyan',
+    position?: 'top-left' | 'top-right' | 'bottom-left' | 'center'
+  ) => Promise<void>;
+  handleDownloadThumbnail: (concept: ThumbnailConcept) => void;
 
   // Format helpers
   isVertical: boolean;
@@ -111,6 +127,22 @@ export function LaunchKitProvider({
   const [customFocus, setCustomFocus] = useState(project.youtubePackaging?.customTopicPrompt || '');
   const [isScriptSaved, setIsScriptSaved] = useState(false);
   const [stylePreset, setStylePreset] = useState<BaseStylePreset | null>(null);
+
+  // User credits & Creator Testing states
+  const [userCredits, setUserCredits] = useState<number>(() => {
+    return typeof window !== 'undefined' ? getUserCreditsRemaining() : 70;
+  });
+  const [standoutMode, setStandoutMode] = useState(false);
+  const [mockupViewMode, setMockupViewMode] = useState<'mobile' | 'desktop' | 'shorts'>('mobile');
+
+  useEffect(() => {
+    function updateCredits() {
+      setUserCredits(getUserCreditsRemaining());
+    }
+    updateCredits();
+    window.addEventListener('credits_updated', updateCredits);
+    return () => window.removeEventListener('credits_updated', updateCredits);
+  }, []);
 
   const packaging = project.youtubePackaging;
   const isVertical = project.aspectRatio === '9:16';
@@ -525,6 +557,80 @@ export function LaunchKitProvider({
     }
   };
 
+  const handleUpdateBadge = async (
+    conceptId: string,
+    badgeText: string,
+    color: 'yellow' | 'red' | 'white' | 'cyan' = 'yellow',
+    position: 'top-left' | 'top-right' | 'bottom-left' | 'center' = 'top-left'
+  ) => {
+    if (!packaging?.thumbnailConcepts) return;
+    const updatedConcepts = packaging.thumbnailConcepts.map((c) =>
+      c.id === conceptId
+        ? {
+            ...c,
+            customBadgeText: badgeText,
+            badgeColor: color,
+            badgePosition: position,
+          }
+        : c
+    );
+    const updatedPackaging: YouTubePackagingData = {
+      ...packaging,
+      thumbnailConcepts: updatedConcepts,
+    };
+    const updated: ProjectManifest = {
+      ...project,
+      youtubePackaging: updatedPackaging,
+    };
+    await saveProject(updated);
+    onUpdateProject(updated);
+    showToast('Thumbnail text overlay badge updated');
+  };
+
+  const handleDownloadThumbnail = (concept: ThumbnailConcept) => {
+    const imageUrl = concept.imageUrl || activeThumbnail;
+    if (!imageUrl) {
+      showToast('No generated image to download');
+      return;
+    }
+    const cleanTitle = (project.title || 'youtube_thumbnail').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `${cleanTitle}_1280x720.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Downloaded High-Res Thumbnail (1280x720)');
+  };
+
+  const handleCopyMasterLaunchPack = () => {
+    if (!packaging) return;
+    const activeTitle = selectedTitle;
+    const chaptersText = (packaging.chapters || []).map((c) => `${c.time} ${c.title}`).join('\n');
+    const tagsCsv = (packaging.tags || []).join(', ');
+    const hashtagsStr = (packaging.hashtags || []).join(' ');
+
+    const fullPack = `=== YOUTUBE VIDEO TITLE ===
+${activeTitle}
+
+=== VIDEO DESCRIPTION ===
+${packaging.description}
+
+=== TIMESTAMPS / CHAPTERS ===
+${chaptersText}
+
+=== TAGS (CSV) ===
+${tagsCsv}
+
+=== HASHTAGS ===
+${hashtagsStr}`;
+
+    navigator.clipboard.writeText(fullPack);
+    setCopiedKey('master_launch_pack');
+    setTimeout(() => setCopiedKey(null), 3000);
+    showToast('✨ Copied Complete YouTube Launch Pack to clipboard!');
+  };
+
   const selectedTitle = packaging?.titles?.[packaging.selectedTitleIndex ?? 0]?.title || project.title;
   const activeThumbnail = packaging?.selectedThumbnailUrl || project.scenes?.[0]?.imageUrl || '';
   const activeConcept =
@@ -554,6 +660,7 @@ export function LaunchKitProvider({
         packaging,
         onUpdateProject,
         showToast,
+        userCredits,
         voiceScript,
         setVoiceScript,
         isScriptSaved,
@@ -568,12 +675,17 @@ export function LaunchKitProvider({
         handleGeneratePackaging,
         copiedKey,
         handleCopy,
+        handleCopyMasterLaunchPack,
         competitorSearchInput,
         setCompetitorSearchInput,
         isSearchingCompetitors,
         handleSearchCompetitors,
+        standoutMode,
+        setStandoutMode,
         selectedTitle,
         handleSelectTitle,
+        mockupViewMode,
+        setMockupViewMode,
         activeThumbnail,
         activeConceptId,
         setActiveConceptId,
@@ -589,6 +701,8 @@ export function LaunchKitProvider({
         handleAddCustomConcept,
         handleDeleteConcept,
         handleGenerateThumbnail,
+        handleUpdateBadge,
+        handleDownloadThumbnail,
         isVertical,
         durationStr,
       }}
