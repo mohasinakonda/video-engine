@@ -57,10 +57,6 @@ export default function ExportInner() {
   const [encoder, setEncoder] = useState<HardwareEncoder>('auto');
   const [transitionType, setTransitionType] = useState<TransitionType>('crossfade');
   const [transitionDuration, setTransitionDuration] = useState<number>(0.6);
-  const [bgmFilePath, setBgmFilePath] = useState<string>('');
-  const [bgmFileName, setBgmFileName] = useState<string>('');
-  const [bgmVolume, setBgmVolume] = useState<number>(0.15);
-  const [enableAutoDucking, setEnableAutoDucking] = useState<boolean>(true);
   const [outputPath, setOutputPath] = useState<string>('');
 
   // Render Execution State
@@ -95,23 +91,23 @@ export default function ExportInner() {
     }
     setLoading(true);
     try {
-      const p = await getProject(projectId);
-      if (!p) {
+      const project = await getProject(projectId);
+      if (!project) {
         router.push('/');
         return;
       }
 
       // Restore audio blobs from IndexedDB (check custom audio fallback if chunks empty)
-      let rawChunks = p.audioChunks || [];
+      let rawChunks = project.audioChunks || [];
       if (rawChunks.length === 0) {
-        const customUrl = await getMediaBlobUrl(`audio_${p.projectId}_0`);
+        const customUrl = await getMediaBlobUrl(`audio_${project.projectId}_0`);
         if (customUrl) {
           rawChunks = [
             {
               index: 0,
-              text: p.customAudioFileName || 'Uploaded Voiceover',
-              filePath: `projects/${p.projectId}/audio/custom_voice.mp3`,
-              durationMs: p.totalDurationMs || 0,
+              text: project.customAudioFileName || 'Uploaded Voiceover',
+              filePath: `projects/${project.projectId}/audio/custom_voice.mp3`,
+              durationMs: project.totalDurationMs || 0,
               status: 'COMPLETED',
               audioUrl: customUrl,
             },
@@ -120,50 +116,48 @@ export default function ExportInner() {
       }
 
       const restoredChunks = await Promise.all(
-        rawChunks.map(async (c) => {
-          if (c.audioUrl && !c.audioUrl.startsWith('blob:')) return c;
-          const url = await getMediaBlobUrl(`audio_${p.projectId}_${c.index}`);
-          return { ...c, audioUrl: url || undefined };
+        rawChunks.map(async (chunk) => {
+          if (chunk.audioUrl && !chunk.audioUrl.startsWith('blob:')) return chunk;
+          const url = await getMediaBlobUrl(`audio_${project.projectId}_${chunk.index}`);
+          return { ...chunk, audioUrl: url || undefined };
         })
       );
 
       // Restore scene image blobs from IndexedDB
       const restoredScenes = await Promise.all(
-        (p.scenes || []).map(async (s) => {
-          if (s.imageUrl && !s.imageUrl.startsWith('blob:')) return s;
-          const url = await getMediaBlobUrl(`scene_${p.projectId}_${s.sceneId}`);
-          return { ...s, imageUrl: url || undefined };
+        (project.scenes || []).map(async (scene) => {
+          if (scene.imageUrl && !scene.imageUrl.startsWith('blob:')) return scene;
+          const url = await getMediaBlobUrl(`scene_${project.projectId}_${scene.sceneId}`);
+          return { ...scene, imageUrl: url || undefined };
         })
       );
 
       const restoredProject: ProjectManifest = {
-        ...p,
+        ...project,
         audioChunks: restoredChunks,
         scenes: restoredScenes,
       };
       setProject(restoredProject);
 
       // Restore aspect ratio from project or saved export settings
-      if (p.aspectRatio) {
-        setAspectRatio(p.aspectRatio);
-      } else if (p.exportSettings?.aspectRatio) {
-        setAspectRatio(p.exportSettings.aspectRatio);
+      if (project.aspectRatio) {
+        setAspectRatio(project.aspectRatio);
+      } else if (project.exportSettings?.aspectRatio) {
+        setAspectRatio(project.exportSettings.aspectRatio);
       }
 
       // Restore saved export settings if present
-      if (p.exportSettings) {
-        setResolution(p.exportSettings.resolution ?? '1080p');
-        setEncoder(p.exportSettings.encoder ?? 'auto');
-        setBgmFilePath(p.exportSettings.bgmFilePath ?? '');
-        setBgmVolume(p.exportSettings.bgmVolume ?? 0.15);
-        setEnableAutoDucking(p.exportSettings.enableAutoDucking ?? true);
-        setOutputPath(p.exportSettings.outputPath ?? '');
-        if (p.exportSettings.transitionType) setTransitionType(p.exportSettings.transitionType);
-        if (p.exportSettings.transitionDurationSec) setTransitionDuration(p.exportSettings.transitionDurationSec);
+      if (project.exportSettings) {
+        setResolution(project.exportSettings.resolution ?? '1080p');
+        setEncoder(project.exportSettings.encoder ?? 'auto');
+
+        setOutputPath(project.exportSettings.outputPath ?? '');
+        if (project.exportSettings.transitionType) setTransitionType(project.exportSettings.transitionType);
+        if (project.exportSettings.transitionDurationSec) setTransitionDuration(project.exportSettings.transitionDurationSec);
       }
 
-      if (p.finalVideoPath) {
-        setFinalVideoUrl(p.finalVideoPath);
+      if (project.finalVideoPath) {
+        setFinalVideoUrl(project.finalVideoPath);
       }
     } finally {
       setLoading(false);
@@ -174,21 +168,7 @@ export default function ExportInner() {
     load();
   }, [load]);
 
-  // ─── File Pickers ──────────────────────────────────────────────────────────
-  function handleSelectBgmFile() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'audio/*';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        setBgmFilePath(url);
-        setBgmFileName(file.name);
-      }
-    };
-    input.click();
-  }
+
 
   const downloadFileName = `${project?.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${aspectRatio.replace(':', 'x')}_${resolution}.mp4`;
 
@@ -213,9 +193,7 @@ export default function ExportInner() {
       resolution,
       encoder,
       aspectRatio,
-      bgmFilePath,
-      bgmVolume,
-      enableAutoDucking,
+
       outputPath: outputPath || downloadFileName,
       transitionType,
       transitionDurationSec: transitionDuration,
@@ -361,11 +339,10 @@ export default function ExportInner() {
           <button
             type="button"
             onClick={() => setActiveTab('render')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
-              activeTab === 'render'
-                ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
-                : 'text-zinc-400 hover:text-white'
-            }`}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${activeTab === 'render'
+              ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+              : 'text-zinc-400 hover:text-white'
+              }`}
           >
             <Sliders size={14} className={activeTab === 'render' ? 'text-blue-400' : 'text-zinc-400'} />
             <span>Master Render</span>
@@ -374,11 +351,10 @@ export default function ExportInner() {
           <button
             type="button"
             onClick={() => setActiveTab('youtube')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
-              activeTab === 'youtube'
-                ? 'bg-red-500/20 text-red-300 shadow-sm border border-red-500/30'
-                : 'text-zinc-400 hover:text-white'
-            }`}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${activeTab === 'youtube'
+              ? 'bg-red-500/20 text-red-300 shadow-sm border border-red-500/30'
+              : 'text-zinc-400 hover:text-white'
+              }`}
           >
             <Flame size={14} className="text-red-400" />
             <span>YouTube Launch Kit</span>
@@ -392,14 +368,14 @@ export default function ExportInner() {
       {/* ─── Main Two-Column Studio Layout ─────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Left Column (7 cols): Active Tab Workspace */}
           <div className="lg:col-span-7 space-y-6">
-            
+
             {/* TAB 1: Master Video Render & Audio Engine Settings */}
             {activeTab === 'render' && (
               <div className="space-y-6 animate-fade-in">
-                
+
                 {/* Aspect Ratio Format */}
                 <div className="card space-y-3">
                   <div className="flex items-center justify-between">
@@ -413,8 +389,8 @@ export default function ExportInner() {
                       {aspectRatio === '16:9'
                         ? '1920 × 1080 (Landscape)'
                         : aspectRatio === '9:16'
-                        ? '1080 × 1920 (Vertical)'
-                        : '1080 × 1080 (Square)'}
+                          ? '1080 × 1920 (Vertical)'
+                          : '1080 × 1080 (Square)'}
                     </span>
                   </div>
 
@@ -422,11 +398,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setAspectRatio('16:9')}
-                      className={`p-3.5 rounded-xl border text-center transition-all ${
-                        aspectRatio === '16:9'
-                          ? 'bg-zinc-800 border-white/50 text-white shadow-md'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                      }`}
+                      className={`p-3.5 rounded-xl border text-center transition-all ${aspectRatio === '16:9'
+                        ? 'bg-zinc-800 border-white/50 text-white shadow-md'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
                     >
                       <Monitor size={18} className="mx-auto mb-1.5" />
                       <p className="text-xs font-bold">16:9 Landscape</p>
@@ -436,11 +411,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setAspectRatio('9:16')}
-                      className={`p-3.5 rounded-xl border text-center transition-all ${
-                        aspectRatio === '9:16'
-                          ? 'bg-zinc-800 border-white/50 text-white shadow-md'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                      }`}
+                      className={`p-3.5 rounded-xl border text-center transition-all ${aspectRatio === '9:16'
+                        ? 'bg-zinc-800 border-white/50 text-white shadow-md'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
                     >
                       <Smartphone size={18} className="mx-auto mb-1.5" />
                       <p className="text-xs font-bold">9:16 Portrait</p>
@@ -450,11 +424,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setAspectRatio('1:1')}
-                      className={`p-3.5 rounded-xl border text-center transition-all ${
-                        aspectRatio === '1:1'
-                          ? 'bg-zinc-800 border-white/50 text-white shadow-md'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
-                      }`}
+                      className={`p-3.5 rounded-xl border text-center transition-all ${aspectRatio === '1:1'
+                        ? 'bg-zinc-800 border-white/50 text-white shadow-md'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white'
+                        }`}
                     >
                       <Square size={18} className="mx-auto mb-1.5" />
                       <p className="text-xs font-bold">1:1 Square</p>
@@ -476,11 +449,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setResolution('1080p')}
-                      className={`p-3.5 rounded-xl border text-left transition-all ${
-                        resolution === '1080p'
-                          ? 'bg-zinc-800 border-zinc-500 text-white'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                      }`}
+                      className={`p-3.5 rounded-xl border text-left transition-all ${resolution === '1080p'
+                        ? 'bg-zinc-800 border-zinc-500 text-white'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
                     >
                       <p className="text-sm font-bold text-white">1080p Full HD</p>
                       <p className="text-[11px] text-zinc-400 mt-0.5">1920×1080 · 30 FPS · 8–10 Mbps</p>
@@ -492,11 +464,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setResolution('4k')}
-                      className={`p-3.5 rounded-xl border text-left transition-all ${
-                        resolution === '4k'
-                          ? 'bg-zinc-800 border-zinc-500 text-white'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                      }`}
+                      className={`p-3.5 rounded-xl border text-left transition-all ${resolution === '4k'
+                        ? 'bg-zinc-800 border-zinc-500 text-white'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
                     >
                       <p className="text-sm font-bold text-white">4K Ultra HD</p>
                       <p className="text-[11px] text-zinc-400 mt-0.5">3840×2160 · 30 FPS · 25–35 Mbps</p>
@@ -542,8 +513,8 @@ export default function ExportInner() {
                       {transitionType === 'crossfade'
                         ? 'Cross-Dissolve'
                         : transitionType === 'fade_black'
-                        ? 'Dip to Black'
-                        : 'Direct Cut'}{' '}
+                          ? 'Dip to Black'
+                          : 'Direct Cut'}{' '}
                       · {transitionDuration}s
                     </span>
                   </div>
@@ -552,11 +523,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setTransitionType('crossfade')}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        transitionType === 'crossfade'
-                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                      }`}
+                      className={`p-3 rounded-xl border text-left transition-all ${transitionType === 'crossfade'
+                        ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
                     >
                       <p className="text-xs font-bold text-white">Cross-Dissolve</p>
                       <p className="text-[10px] text-zinc-400 mt-0.5">Smooth blending between images</p>
@@ -568,11 +538,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setTransitionType('fade_black')}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        transitionType === 'fade_black'
-                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                      }`}
+                      className={`p-3 rounded-xl border text-left transition-all ${transitionType === 'fade_black'
+                        ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
                     >
                       <p className="text-xs font-bold text-white">Dip to Black</p>
                       <p className="text-[10px] text-zinc-400 mt-0.5">Gentle fade to black breath</p>
@@ -584,11 +553,10 @@ export default function ExportInner() {
                     <button
                       type="button"
                       onClick={() => setTransitionType('cut')}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        transitionType === 'cut'
-                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                      }`}
+                      className={`p-3 rounded-xl border text-left transition-all ${transitionType === 'cut'
+                        ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                        }`}
                     >
                       <p className="text-xs font-bold text-white">Hard Cut</p>
                       <p className="text-[10px] text-zinc-400 mt-0.5">Instant switch between scenes</p>
@@ -607,11 +575,10 @@ export default function ExportInner() {
                             key={sec}
                             type="button"
                             onClick={() => setTransitionDuration(sec)}
-                            className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors ${
-                              transitionDuration === sec
-                                ? 'bg-white text-zinc-950 font-bold shadow-sm'
-                                : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
-                            }`}
+                            className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-colors ${transitionDuration === sec
+                              ? 'bg-white text-zinc-950 font-bold shadow-sm'
+                              : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+                              }`}
                           >
                             {sec}s {sec === 0.4 ? '(Snappy)' : sec === 0.6 ? '(Natural)' : '(Cinematic)'}
                           </button>
@@ -621,83 +588,7 @@ export default function ExportInner() {
                   )}
                 </div>
 
-                {/* Background Music & Auto-Ducking */}
-                <div className="card space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Music size={15} className="text-emerald-400" />
-                      <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                        Background Music & Audio Ducking
-                      </h2>
-                    </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs text-zinc-400">Background Music File (Optional)</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        className="input flex-1 font-mono text-xs"
-                        placeholder="No background music selected"
-                        value={bgmFileName || bgmFilePath}
-                      />
-                      <button type="button" onClick={handleSelectBgmFile} className="btn-secondary text-xs">
-                        <Music size={13} />
-                        Browse
-                      </button>
-                      {bgmFilePath && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setBgmFilePath('');
-                            setBgmFileName('');
-                          }}
-                          className="btn-ghost text-xs text-red-400"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {bgmFilePath && (
-                    <div className="space-y-3 pt-2 border-t border-zinc-800">
-                      <div>
-                        <div className="flex justify-between items-center text-xs mb-1">
-                          <span className="text-zinc-400 flex items-center gap-1">
-                            <Volume2 size={13} /> Base Volume
-                          </span>
-                          <span className="text-white font-mono">{Math.round(bgmVolume * 100)}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0.05"
-                          max="0.5"
-                          step="0.01"
-                          value={bgmVolume}
-                          onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
-                          className="w-full accent-white"
-                        />
-                      </div>
-
-                      <label className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={enableAutoDucking}
-                          onChange={(e) => setEnableAutoDucking(e.target.checked)}
-                          className="rounded accent-white w-4 h-4"
-                        />
-                        <div>
-                          <p className="text-xs font-medium text-white">Enable Dynamic Auto-Ducking</p>
-                          <p className="text-[10px] text-zinc-400">
-                            Automatically drops BGM volume to -18dB..-24dB when voiceover is active.
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                  )}
-                </div>
 
                 {/* Destination */}
                 <div className="card space-y-3">

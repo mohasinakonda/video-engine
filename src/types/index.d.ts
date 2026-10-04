@@ -91,9 +91,7 @@ export type TransitionType = 'crossfade' | 'fade_black' | 'cut' | 'slide_left' |
 export interface ExportSettings {
   resolution: ExportResolution;
   encoder: HardwareEncoder;
-  bgmFilePath?: string;
-  bgmVolume: number; // 0.0 to 1.0 (default 0.15)
-  enableAutoDucking: boolean; // default true
+
   outputPath: string;
   transitionType?: TransitionType;
   transitionDurationSec?: number;

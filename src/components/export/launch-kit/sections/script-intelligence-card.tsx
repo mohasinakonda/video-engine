@@ -13,8 +13,8 @@ export function ScriptIntelligenceCard() {
   return (
     <div className="card p-5 bg-zinc-900 border-zinc-800 space-y-3.5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen size={16} className="text-blue-400" />
+        <div className="flex items-center gap-2 ">
+          <BookOpen size={16} className="text-blue-400 shrink-0" />
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">
             Script Intelligence &amp; Subject Analysis
           </h3>
