@@ -24,9 +24,9 @@ export function TagsCard() {
         <CopyButton
           text={tagString}
           copyKey="tags"
-          label="Tags (CSV)"
+          label="Tags"
           className="btn-ghost text-xs px-2.5 py-1 text-zinc-300 hover:text-white flex items-center gap-1.5"
-          buttonText="Copy All Tags (CSV)"
+          buttonText="Copy All Tags"
           copiedText="Copied!"
           iconSize={13}
         />

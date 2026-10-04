@@ -23,43 +23,11 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
     setConceptEditMode,
     handleDeleteConcept,
     handleDownloadThumbnail,
-    handleUpdateBadge,
   } = useLaunchKit();
 
   const isCurrentActiveMockup =
     packaging?.selectedThumbnailUrl === concept.imageUrl && Boolean(concept.imageUrl);
 
-  const badgeText = concept.customBadgeText || concept.textOverlayHint || '';
-  const badgeColor = concept.badgeColor || 'yellow';
-  const badgePosition = concept.badgePosition || 'top-left';
-
-  const getBadgeColorStyle = (c: string) => {
-    switch (c) {
-      case 'red':
-        return 'bg-red-600 text-white shadow-red-900/50';
-      case 'cyan':
-        return 'bg-cyan-400 text-zinc-950 shadow-cyan-900/50';
-      case 'white':
-        return 'bg-white text-zinc-950 shadow-zinc-900/50';
-      case 'yellow':
-      default:
-        return 'bg-amber-400 text-zinc-950 shadow-amber-900/50';
-    }
-  };
-
-  const getBadgePositionCls = (pos: string) => {
-    switch (pos) {
-      case 'top-right':
-        return 'top-4 right-4';
-      case 'bottom-left':
-        return 'bottom-4 left-4';
-      case 'center':
-        return 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2';
-      case 'top-left':
-      default:
-        return 'top-4 left-4';
-    }
-  };
 
   const handleSetAsMockup = async () => {
     if (!concept.imageUrl || !packaging) return;

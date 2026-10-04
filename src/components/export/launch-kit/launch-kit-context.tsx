@@ -12,8 +12,17 @@ import {
   getStylePresets,
   getDefaultStylePreset,
   getYouTubeApiKey,
+  getPollinationsApiKey,
+  getPollinationsImageModel,
 } from '@/lib/store';
-import { getUserCreditsRemaining } from '@/lib/subscription-store';
+import {
+  getUserCreditsRemaining,
+  deductUserCredits,
+  grantUserCredits,
+  hasEnoughCredits,
+} from '@/lib/subscription-store';
+import { generateImage, base64ToUint8Array } from '@/lib/gemini';
+import { saveMediaBlob } from '@/lib/media-storage';
 
 interface LaunchKitContextValue {
   // Core project & packaging
@@ -497,31 +506,84 @@ export function LaunchKitProvider({
       showToast('Please enter a visual prompt before generating');
       return;
     }
+
+    if (!hasEnoughCredits(1)) {
+      showToast('⚠️ Insufficient credits. Please upgrade or purchase credits to generate a thumbnail.');
+      return;
+    }
+
+    const deducted = deductUserCredits(1, 'YouTube Thumbnail generation');
+    if (!deducted) {
+      showToast('⚠️ Could not deduct credit. Insufficient balance or account blocked.');
+      return;
+    }
+
     setGeneratingThumbId(concept.id);
     try {
-      showToast(`Generating style-consistent thumbnail (${project.aspectRatio || '16:9'})...`);
+      showToast(`Generating high-res thumbnail with Pollinations (${project.aspectRatio || '16:9'})...`);
 
-      const res = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: concept.visualPrompt.trim(),
-          aspectRatio: project.aspectRatio === '9:16' ? '9:16' : '16:9',
-          stylePrompt: stylePreset?.stylePrompt,
-          negativePrompt: stylePreset?.negativePrompt,
-        }),
-      });
+      const apiKey = (await getPollinationsApiKey()) || '';
+      const chosenModel = await getPollinationsImageModel();
+      const isVertical = project.aspectRatio === '9:16';
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Thumbnail generation failed');
+      let imageUrl = '';
+
+      try {
+        // Primary: Direct high-speed client-side generation (same engine as Storyboard)
+        const result = await generateImage(
+          apiKey,
+          concept.visualPrompt.trim(),
+          stylePreset?.negativePrompt,
+          {
+            model: chosenModel,
+            baseStyle: stylePreset?.stylePrompt,
+            aspectRatio: isVertical ? '9:16' : '16:9',
+            width: isVertical ? 1080 : 1920,
+            height: isVertical ? 1920 : 1080,
+          }
+        );
+
+        if (result.base64Image) {
+          imageUrl = result.base64Image.startsWith('data:')
+            ? result.base64Image
+            : `data:${result.mimeType || 'image/jpeg'};base64,${result.base64Image}`;
+
+          // Also persist blob to IndexedDB for instant offline/browser load
+          try {
+            const bytes = base64ToUint8Array(result.base64Image);
+            const blob = new Blob([bytes.buffer as ArrayBuffer], { type: result.mimeType || 'image/jpeg' });
+            const projectId = project.projectId || 'default';
+            await saveMediaBlob(`thumb_${projectId}_${concept.id}`, blob);
+          } catch (storageErr) {
+            console.warn('[ThumbnailStudio] Blob persistence warning:', storageErr);
+          }
+        }
+      } catch (clientErr) {
+        console.warn('[ThumbnailStudio] Direct generation failed, attempting API route fallback:', clientErr);
+        // Fallback: try server route with apiKey forwarded
+        const res = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: concept.visualPrompt.trim(),
+            aspectRatio: isVertical ? '9:16' : '16:9',
+            stylePrompt: stylePreset?.stylePrompt,
+            negativePrompt: stylePreset?.negativePrompt,
+            apiKey,
+            model: chosenModel,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          imageUrl = data.imageUrl || data.url || data.base64Image;
+        } else {
+          throw clientErr;
+        }
       }
 
-      const data = await res.json();
-      const imageUrl = data.imageUrl || data.url || data.base64Image;
-
       if (!imageUrl) {
-        throw new Error('No image URL returned');
+        throw new Error('No image returned from generation engine');
       }
 
       if (typeof window !== 'undefined') {
@@ -548,9 +610,10 @@ export function LaunchKitProvider({
 
       await saveProject(updated);
       onUpdateProject(updated);
-      showToast('Thumbnail generated! In-place input box replaced with high-res image.');
+      showToast('✓ Thumbnail generated successfully!');
     } catch (err: any) {
       console.error('Failed to generate thumbnail:', err);
+      grantUserCredits(1, 'Refund: YouTube Thumbnail generation failed');
       showToast(`Thumbnail generation failed: ${err.message}`);
     } finally {
       setGeneratingThumbId(null);

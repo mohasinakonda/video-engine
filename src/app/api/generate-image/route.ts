@@ -55,6 +55,7 @@ export async function POST(req: Request) {
       model = 'flux',
       stylePrompt,
       negativePrompt,
+      apiKey,
     } = body;
 
     if (!prompt) {
@@ -122,7 +123,8 @@ export async function POST(req: Request) {
 
     const deepinfraKey = process.env.DEEPINFRA_API_KEY;
     const falKey = process.env.FAL_KEY;
-    const pollinationsKey = process.env.POLLINATIONS_API_KEY;
+    const userApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0 ? apiKey.trim() : undefined;
+    const pollinationsKey = userApiKey || process.env.POLLINATIONS_API_KEY;
 
     // ─── 1. DeepInfra Primary ($0.0015/image, 200 concurrent slots) ───────────
     if (deepinfraKey && deepinfraKey.trim()) {
@@ -201,42 +203,55 @@ export async function POST(req: Request) {
     const encodedPrompt = encodeURIComponent(finalPrompt);
     const polSeed = seed || Math.floor(Math.random() * 1000000);
     const pollHeaders: Record<string, string> = {};
-    if (pollinationsKey && pollinationsKey.trim()) {
-      pollHeaders['Authorization'] = `Bearer ${pollinationsKey.trim()}`;
+    const cleanPolKey = pollinationsKey ? pollinationsKey.trim() : '';
+
+    if (cleanPolKey) {
+      pollHeaders['Authorization'] = `Bearer ${cleanPolKey}`;
     }
 
-    let pollUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${model}&nologo=true`;
-    if (pollinationsKey && pollinationsKey.trim()) {
-      pollUrl += `&key=${encodeURIComponent(pollinationsKey.trim())}`;
+    let pollUrl = '';
+    if (cleanPolKey) {
+      pollUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${encodeURIComponent(model)}&nologo=true&seed=${polSeed}&quality=hd&key=${encodeURIComponent(cleanPolKey)}`;
+    } else {
+      pollUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodeURIComponent(model)}&nologo=true`;
     }
 
     let pollRes = await fetch(pollUrl, {
       headers: pollHeaders,
       signal: AbortSignal.timeout(30000),
-    });
+    }).catch(() => null);
 
-    // If non-OK (e.g. 402 Payment Required, 403, model paywalled, rate limit, etc.), fall back to free 'sana' model
-    if (!pollRes.ok) {
-      console.warn(`Pollinations returned status ${pollRes.status} for model '${model}'. Retrying with free 'sana' model...`);
+    // If non-OK, try public image.pollinations.ai with requested model
+    if (!pollRes || !pollRes.ok) {
+      const publicUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodeURIComponent(model)}&nologo=true`;
+      pollRes = await fetch(publicUrl, {
+        headers: pollHeaders,
+        signal: AbortSignal.timeout(30000),
+      }).catch(() => null);
+    }
+
+    // If still non-OK, try free 'sana' model
+    if (!pollRes || !pollRes.ok) {
+      console.warn(`Pollinations returned error for model '${model}'. Retrying with free 'sana' model...`);
       const sanaUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=sana&nologo=true`;
       pollRes = await fetch(sanaUrl, {
         headers: pollHeaders,
         signal: AbortSignal.timeout(30000),
-      });
+      }).catch(() => null);
     }
 
     // Secondary fallback without model parameter if still failing
-    if (!pollRes.ok) {
-      console.warn(`Pollinations still failed (${pollRes.status}), retrying with default public model...`);
+    if (!pollRes || !pollRes.ok) {
+      console.warn(`Pollinations still failed, retrying with default public model...`);
       const defaultUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&nologo=true`;
       pollRes = await fetch(defaultUrl, {
         headers: pollHeaders,
         signal: AbortSignal.timeout(30000),
-      });
+      }).catch(() => null);
     }
 
-    if (!pollRes.ok) {
-      throw new Error(`Pollinations AI error status: ${pollRes.status}`);
+    if (!pollRes || !pollRes.ok) {
+      throw new Error(`Pollinations AI error status: ${pollRes?.status || 'network error'}`);
     }
 
     const arrayBuffer = await pollRes.arrayBuffer();
