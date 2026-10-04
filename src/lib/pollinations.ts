@@ -1,7 +1,7 @@
 "use client";
 
 import OpenAI from "openai";
-import type { ShotType, PacingProfile, VisualSceneType, CameraMotionEffect } from "@/types";
+import type { ShotType, PacingProfile, VisualSceneType, CameraMotionEffect, VisualWorldBible, CharacterVisualAnchor } from "@/types";
 
 /**
  * Types & Interfaces
@@ -691,9 +691,102 @@ export function splitIntoPacingChunks(text: string, targetWords = 400): string[]
 }
 
 /**
+ * Stage 1: AI Concept & World Director
+ * Analyzes the entire narrative script to establish an immutable Visual Story World Bible:
+ * - Historical Era & Civilization
+ * - Topography, Architecture & Environment
+ * - Authentic Costumes, Grooming & Material Culture
+ * - Character Visual Anchors (physical likeness, clothing, props)
+ * - Curated Color Palette & Volumetric Lighting
+ * - Strict Forbidden Anachronisms (negative prompt constraints)
+ */
+export async function generateStoryWorldBible(
+  script: string,
+  options?: {
+    apiKey?: string;
+    stylePrompt?: string;
+    onProgress?: (msg: string) => void;
+  }
+): Promise<VisualWorldBible> {
+  const aiClient = getPollinationsClient(options?.apiKey);
+  const cleanScript = script.trim();
+
+  options?.onProgress?.("Stage 1: AI Concept Director establishing Story World Bible (Era, Costumes, Characters)…");
+
+  const systemPrompt = `You are an elite Hollywood Production Designer, Historical Scholar, and World-Building Visual Director.
+Your task is to analyze a video script (in Bengali, English, or any language) and construct the definitive, immutable VISUAL STORY WORLD BIBLE.
+
+This World Bible serves as the master creative directive for the scene storyboard director to ensure:
+1. 100% Historical Accuracy: Strictly adhere to the genuine epoch (e.g. Ancient Egypt ~1300 BCE, Mesopotamia, Medieval Bengal, 19th Century, Cyberpunk future, etc.).
+2. Cultural & Costume Fidelity: Exact period-authentic clothing, hairstyles, fabrics, ornaments, and weaponry.
+3. Character Visual Continuity: Fixed physical and stylistic visual anchors for all primary figures (e.g. Pharaoh, Prophet Moses/Musa, Sorcerers, Soldiers).
+4. Zero Anachronisms: Ground abstract philosophical opening lines in the story's actual historical environment (e.g. an ancient throne room or desert dunes, NEVER a modern corporate office).
+
+OUTPUT SPECIFICATION:
+You must return ONLY a JSON object matching this schema:
+{
+  "summary": "Concise 2-sentence synopsis of the narrative arc and core theme",
+  "eraAndSetting": "Exact historical period, civilization, and geographic region (e.g. 'Ancient Egypt, New Kingdom (~13th Century BCE), Bronze Age Nile Valley')",
+  "geographyAndEnvironment": "Topography, architectural monuments, building materials, vegetation, and natural elements (e.g. 'Sun-drenched golden limestone cliffs, sweeping Sahara dunes, muddy reed banks of the Nile, colossal stone pylon temples with carved hieroglyphs, lotus-column courtyards, mudbrick workers quarters')",
+  "culturalContextAndCostumes": "Detailed period-authentic attire, textiles, accessories, and weapons (e.g. 'Pleated sheer white linen shendyt kilts, striped Nemes headdresses, heavy usekh collar necklaces with turquoise and carnelian beads, kohl eyeliner, bronze khopesh swords, reed baskets, wooden war chariots. ZERO modern clothing, ZERO medieval European armor')",
+  "characters": [
+    {
+      "name": "Character or Group Name (e.g. Pharaoh / ফেরাউন)",
+      "role": "Narrative role (e.g. Tyrannical Ruler)",
+      "visualAnchor": "Detailed prompt fragment describing face, skin tone, attire, crown, and props for consistent rendering"
+    }
+  ],
+  "colorPaletteAndLighting": "Curated color tones and lighting style (e.g. 'Golden ochre sandstone, deep Egyptian lapis blue, Nile turquoise, terracotta red, rich gold leaf highlights; harsh blinding desert daylight with deep volumetric dust shadows, warm flickering torchlight at night')",
+  "strictAnachronismBans": "Explicit comma-separated negative list of forbidden contemporary or misplaced items (e.g. 'modern business suits, modern shirts, neckties, eyeglasses, wristwatches, concrete or glass skyscrapers, modern boats, asphalt roads, medieval European armor, Renaissance castles, paper books, electricity')"
+}`;
+
+  const userPrompt = `Analyze this video script and output the complete VISUAL STORY WORLD BIBLE in strict JSON format:\n\n"""\n${cleanScript.slice(0, 4500)}\n"""`;
+
+  try {
+    const response = await aiClient.chat.completions.create({
+      model: "openai",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("Empty response from AI Concept Director.");
+    }
+
+    const parsed = JSON.parse(content);
+    return {
+      summary: parsed.summary || cleanScript.slice(0, 120),
+      eraAndSetting: parsed.eraAndSetting || "Historical period documentary",
+      geographyAndEnvironment: parsed.geographyAndEnvironment || "Atmospheric cinematic landscapes",
+      culturalContextAndCostumes: parsed.culturalContextAndCostumes || "Authentic period clothing and garments",
+      characters: Array.isArray(parsed.characters) ? parsed.characters : [],
+      colorPaletteAndLighting: parsed.colorPaletteAndLighting || "Cinematic volumetric lighting",
+      strictAnachronismBans: parsed.strictAnachronismBans || "modern clothing, suits, skyscrapers, digital elements",
+    };
+  } catch (err) {
+    console.warn("generateStoryWorldBible error, using fallback world baseline:", err);
+    return {
+      summary: cleanScript.slice(0, 120),
+      eraAndSetting: "Historical narrative setting",
+      geographyAndEnvironment: "Cinematic landscapes matching the story environment",
+      culturalContextAndCostumes: "Authentic period clothing matching the narrative epoch",
+      characters: [],
+      colorPaletteAndLighting: "Cinematic atmospheric lighting",
+      strictAnachronismBans: "modern clothing, suits, skyscrapers, digital elements",
+    };
+  }
+}
+
+/**
  * 5. breakdownRequirementToImageScenes
- * Takes user creative requirements or story prompt and breaks them down into
- * sequential visual scenes ready for image generation, without requiring voice generation.
+ * Two-Stage Multi-Agent AI Director:
+ * Stage 1: Establishes the Story World Bible (historical epoch, costumes, character anchors, environment).
+ * Stage 2: Directs and formats every sequential visual scene to match the World Bible.
  * Supports auto-batching for long scripts (e.g. 23+ minutes).
  */
 export async function breakdownRequirementToImageScenes(
@@ -705,10 +798,25 @@ export async function breakdownRequirementToImageScenes(
     apiKey?: string;
     pacingProfile?: PacingProfile;
     onProgress?: (msg: string) => void;
+    worldBible?: VisualWorldBible;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   if (!requirement || !requirement.trim()) {
     throw new Error("Requirement cannot be empty.");
+  }
+
+  // Stage 1: Build Visual Story World Bible if not already provided
+  let worldBible = options?.worldBible;
+  if (!worldBible) {
+    try {
+      worldBible = await generateStoryWorldBible(requirement, {
+        apiKey: options?.apiKey,
+        stylePrompt: options?.stylePrompt,
+        onProgress: options?.onProgress,
+      });
+    } catch (err) {
+      console.warn("Failed to generate Story World Bible, proceeding without:", err);
+    }
   }
 
   const words = requirement.trim().split(/\s+/).filter(Boolean).length;
@@ -729,13 +837,14 @@ export async function breakdownRequirementToImageScenes(
       const batchDurationSec = totalTargetSec > 0 ? (batchWords / words) * totalTargetSec : undefined;
 
       options?.onProgress?.(
-        `Extracting scenes: Chapter ${i + 1} of ${batches.length} (${allScenes.length} scenes created so far)…`
+        `Stage 2: Extracting scenes for Chapter ${i + 1}/${batches.length} (${allScenes.length} scenes created)…`
       );
 
       try {
         const batchScenes = await breakdownRequirementToImageScenesSingle(batchText, {
           ...options,
           targetDurationSec: batchDurationSec,
+          worldBible,
         });
         allScenes.push(...batchScenes);
       } catch (err) {
@@ -743,6 +852,7 @@ export async function breakdownRequirementToImageScenes(
         const fallbackBatch = await breakdownRequirementToImageScenesSingle(batchText, {
           ...options,
           targetDurationSec: batchDurationSec,
+          worldBible,
         });
         allScenes.push(...fallbackBatch);
       }
@@ -752,7 +862,10 @@ export async function breakdownRequirementToImageScenes(
     return allScenes;
   }
 
-  return breakdownRequirementToImageScenesSingle(requirement, options);
+  return breakdownRequirementToImageScenesSingle(requirement, {
+    ...options,
+    worldBible,
+  });
 }
 
 /**
@@ -776,6 +889,7 @@ async function breakdownRequirementToImageScenesSingle(
     stylePrompt?: string;
     apiKey?: string;
     pacingProfile?: PacingProfile;
+    worldBible?: VisualWorldBible;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   const aiClient = getPollinationsClient(options?.apiKey);
@@ -828,12 +942,41 @@ Instead, decide the total number of scenes based on the story's natural visual r
     'WIDE_ESTABLISHING',
   ];
 
+  const bible = options?.worldBible;
+  const worldBibleSection = bible
+    ? `
+================================================================================
+MANDATORY VISUAL STORY WORLD BIBLE (HISTORICAL ERA, COSTUMES & CHARACTERS):
+Historical Epoch & Setting: ${bible.eraAndSetting}
+Geography, Environment & Architecture: ${bible.geographyAndEnvironment}
+Authentic Cultural Costumes & Materials: ${bible.culturalContextAndCostumes}
+Character Visual Anchors:
+${bible.characters && bible.characters.length > 0 ? bible.characters.map((c) => `- ${c.name} (${c.role}): ${c.visualAnchor}`).join('\n') : 'Historical period figures authentic to the epoch'}
+Color Palette & Atmosphere: ${bible.colorPaletteAndLighting}
+STRICT FORBIDDEN ANACHRONISMS: ${bible.strictAnachronismBans}
+
+IRONCLAD HISTORICAL & CULTURAL FIDELITY MANDATES:
+1. ERA INTEGRITY FOR ABSTRACT NARRATION:
+   If narration opens or speaks in abstract philosophical or psychological terms (e.g. "Power traps the human soul...", "Death is inevitable..."):
+   NEVER depict contemporary scenes, modern offices, suits, neckties, or modern glass skyscrapers.
+   ALWAYS ground the imagery firmly inside this historical epoch (e.g., an ancient throne room with towering stone pillars, the ruler gazing down coldly, or a solitary silhouette against the ancient desert riverbanks).
+2. CHARACTER VISUAL CONTINUITY:
+   Whenever a character appears or is referenced (e.g., Pharaoh, Moses/Musa, Astrologers, Egyptian Soldiers), incorporate their exact visual anchor description into the visual prompt to maintain visual likeness.
+3. PERIOD-AUTHENTIC ATTIRE ONLY:
+   All humans depicted MUST wear garments, accessories, and hairstyles authentic to ${bible.eraAndSetting}. Strictly NO modern clothing, NO medieval European plate armor, NO European crowns.
+4. FORBIDDEN ANACHRONISM EXCLUSIONS:
+   Every visual prompt MUST end with: "zero text, no watermarks, ${bible.strictAnachronismBans}."
+================================================================================`
+    : '';
+
   const systemInstruction = `You are an elite visual director for an AI film studio.
 Your task is to take a creative requirement, story, or script and break it down into sequential, cinematographically diverse visual scenes.
 ${countInstruction}
 ${requestedCount && targetDurationSec && targetDurationSec > 0 ? `Target total video duration is ~${Math.round(targetDurationSec)} seconds.` : ''}
 
 ${styleSection}
+
+${worldBibleSection}
 
 CRITICAL DURATION & PACING MANDATE (MINIMUM 3.0 SECONDS):
 - Visual cuts under 3.0 seconds are UNACCEPTABLE because images vanish during transitions before viewers can register them.
@@ -855,10 +998,11 @@ Then, as an elite visual director, interleave 6 universal B-roll lenses tailored
 VISUAL PROMPT MASTERY RULES — MANDATORY:
 The visual_prompt is the single most important output. Each must be 60-120 words, richly detailed, following this structure:
 1. ARTISTIC MEDIUM FIRST: Open EVERY visual_prompt with the project style's medium: "${coreMedium}".
-2. SUBJECT & COMPOSITION: Describe precisely what is depicted — subjects, spatial relationships, foreground/background, action.
-3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities from the project style (e.g. paper grain, ink, brushstrokes, lighting, color palette).
-4. CRAFT QUALITY ANCHORS: Include mastery indicators — "award-winning", "museum-quality", "masterwork", "artisan-crafted".
-5. NEGATIVE EXCLUSIONS: Always end with: "zero text, no watermarks, no modern UI elements, no flat digital vectors."
+2. ERA & SETTING CONTEXT: Clearly specify the historical period and setting from the World Bible.
+3. SUBJECT & COMPOSITION: Describe precisely what is depicted — subjects (using Character Visual Anchors when characters appear), spatial relationships, foreground/background, action.
+4. TEXTURE & MATERIAL DETAILS: Enumerate specific period-authentic textiles, stone/wood textures, and lighting from the World Bible.
+5. CRAFT QUALITY ANCHORS: Include mastery indicators — "award-winning", "museum-quality", "masterwork", "artisan-crafted".
+6. NEGATIVE EXCLUSIONS: Always end with: "zero text, no watermarks, no modern UI elements, ${bible?.strictAnachronismBans || 'no modern clothing, no suits'}."
 
 For every scene, output:
 - narration: The EXACT verbatim spoken line(s) from the user script corresponding to this scene. STRICT MANDATE: Keep ONLY the verbatim spoken script words. NEVER summarize, and NEVER append visual descriptions, editorial comments, or dashes (—).
@@ -910,6 +1054,11 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
       if (rawStyle && !visualPrompt.toLowerCase().includes(coreMedium.toLowerCase())) {
         visualPrompt = `${coreMedium}. ${visualPrompt}`;
       }
+
+      // Guarantee era and anachronism exclusions are clearly demarcated in negative exclusions
+      const cleanPrompt = visualPrompt.replace(/\s*(?:\(negative prompt:|zero text|no text|no watermarks)[\s\S]*$/i, '').trim();
+      const anachronismExclusion = bible?.strictAnachronismBans ? `, ${bible.strictAnachronismBans}` : ', modern clothing, modern buildings';
+      visualPrompt = `${cleanPrompt}. (avoid: text, watermarks, modern UI elements, flat digital vectors, ${anachronismExclusion}).`;
 
       const rawShotType = (typeof item.shot_type === "string" ? item.shot_type : typeof item.shotType === "string" ? item.shotType : "") as ShotType;
       const shot_type: ShotType = VALID_SHOT_TYPES.includes(rawShotType)

@@ -1,4 +1,4 @@
-import type { PacingProfile, ShotType, CutPace, VisualSceneType, CameraMotionEffect } from '@/types';
+import type { PacingProfile, ShotType, CutPace, VisualSceneType, CameraMotionEffect, VisualWorldBible } from '@/types';
 import { getPollinationsClient, breakdownRequirementToImageScenes } from '@/lib/pollinations';
 
 export interface SpokenSegment {
@@ -190,7 +190,7 @@ async function sliceAudioInBrowser(
     const duration = audioBuffer.duration;
 
     if (duration <= 45) {
-      await audioCtx.close().catch(() => {});
+      await audioCtx.close().catch(() => { });
       return null;
     }
 
@@ -215,7 +215,7 @@ async function sliceAudioInBrowser(
       chunks.push({ blob: wavBlob, startOffset: start });
     }
 
-    await audioCtx.close().catch(() => {});
+    await audioCtx.close().catch(() => { });
     return chunks;
   } catch (err) {
     console.warn('Browser audio slicing fallback:', err);
@@ -557,6 +557,8 @@ export interface DirectorOptions {
   onProgress?: (msg: string) => void;
   /** Word-level timestamps from Whisper for precise audio-scene alignment */
   words?: TimedWord[];
+  /** Optional pre-computed Visual Story World Bible */
+  worldBible?: VisualWorldBible;
 }
 
 /**
@@ -650,10 +652,10 @@ export function clusterShortScenes(
 ): TimedSceneSegment[] {
   if (!scenes || scenes.length <= 1) return scenes;
 
-  const getDur = (s: TimedSceneSegment): number =>
-    typeof s.durationSec === 'number' && !isNaN(s.durationSec)
-      ? s.durationSec
-      : parseFloat((s.audioEndSec - s.audioStartSec).toFixed(1));
+  const getDur = (scene: TimedSceneSegment): number =>
+    typeof scene.durationSec === 'number' && !isNaN(scene.durationSec)
+      ? scene.durationSec
+      : parseFloat((scene.audioEndSec - scene.audioStartSec).toFixed(1));
 
   const current = [...scenes];
   let changed = true;
@@ -700,25 +702,25 @@ export function clusterShortScenes(
 
     if (mergeTargetIdx === -1) break;
 
-    const lo = Math.min(i, mergeTargetIdx);
-    const hi = Math.max(i, mergeTargetIdx);
-    const mergedDur = parseFloat((current[hi].audioEndSec - current[lo].audioStartSec).toFixed(1));
+    const lowerBound = Math.min(i, mergeTargetIdx);
+    const upperBound = Math.max(i, mergeTargetIdx);
+    const mergedDur = parseFloat((current[upperBound].audioEndSec - current[lowerBound].audioStartSec).toFixed(1));
 
     const mergedScene: TimedSceneSegment = {
-      sceneId: current[lo].sceneId,
-      audioStartSec: current[lo].audioStartSec,
-      audioEndSec: current[hi].audioEndSec,
+      sceneId: current[lowerBound].sceneId,
+      audioStartSec: current[lowerBound].audioStartSec,
+      audioEndSec: current[upperBound].audioEndSec,
       durationSec: mergedDur,
-      narrationLine: `${current[lo].narrationLine} ${current[hi].narrationLine}`.trim(),
-      visualPrompt: current[lo].visualPrompt,
-      shotType: getDur(current[lo]) >= getDur(current[hi]) ? current[lo].shotType : current[hi].shotType,
-      bRollFocus: current[lo].bRollFocus || current[hi].bRollFocus,
+      narrationLine: `${current[lowerBound].narrationLine} ${current[upperBound].narrationLine}`.trim(),
+      visualPrompt: current[lowerBound].visualPrompt,
+      shotType: getDur(current[lowerBound]) >= getDur(current[upperBound]) ? current[lowerBound].shotType : current[upperBound].shotType,
+      bRollFocus: current[lowerBound].bRollFocus || current[upperBound].bRollFocus,
       cutPace: mergedDur <= 3.2 ? 'FAST_CUT' : mergedDur >= 7.0 ? 'ATMOSPHERIC_HOLD' : 'NORMAL',
-      visualType: current[lo].visualType === 'HERO_AI' || current[hi].visualType === 'HERO_AI' ? 'HERO_AI' : current[lo].visualType,
-      cameraMotion: current[lo].cameraMotion,
+      visualType: current[lowerBound].visualType === 'HERO_AI' || current[upperBound].visualType === 'HERO_AI' ? 'HERO_AI' : current[lowerBound].visualType,
+      cameraMotion: current[lowerBound].cameraMotion,
     };
 
-    current.splice(lo, 2, mergedScene);
+    current.splice(lowerBound, 2, mergedScene);
     changed = true;
   }
 
@@ -946,13 +948,14 @@ export async function directScenesFromAudioAndScript(
   if (!effectiveScript) return [];
 
   // Step 1: AI Visual Planning (analyzes full script, sets durationSec: null)
-  options.onProgress?.('Step 1: AI Director analyzing full narration script & creating visual plan…');
+  options.onProgress?.('Step 1: AI Concept Director analyzing narrative & establishing World Bible…');
   const plannedBreakdown = await breakdownRequirementToImageScenes(effectiveScript, {
     sceneCount: options.targetSceneCount,
     stylePrompt: options.stylePrompt,
     apiKey: options.apiKey,
     pacingProfile: options.pacingProfile,
     onProgress: options.onProgress,
+    worldBible: options.worldBible,
   });
 
   // Step 2: Acoustic Alignment from Whisper Word Timestamps

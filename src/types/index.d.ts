@@ -71,6 +71,26 @@ export interface ProjectManifest {
   hasCustomVoice?: boolean;
   /** Phase 3: AI YouTube and social media packaging kit */
   youtubePackaging?: YouTubePackagingData;
+  /** Phase 2: Visual Story World Bible (historical era, environment, costumes, character anchors) */
+  visualWorldBible?: VisualWorldBible;
+}
+
+// ─── Visual Story World Bible (Two-Stage AI Director) ──────────────────────────
+
+export interface CharacterVisualAnchor {
+  name: string;
+  role: string;
+  visualAnchor: string;
+}
+
+export interface VisualWorldBible {
+  summary: string;
+  eraAndSetting: string;
+  geographyAndEnvironment: string;
+  culturalContextAndCostumes: string;
+  characters: CharacterVisualAnchor[];
+  colorPaletteAndLighting: string;
+  strictAnachronismBans: string;
 }
 
 // ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────

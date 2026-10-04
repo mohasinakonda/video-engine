@@ -236,34 +236,7 @@ function ProjectPageInner() {
       : activeStyle.stylePrompt;
   }, [isPromptCustomized, customPrompt, activeStyle]);
 
-  const handleSelectPreset = (preset: BaseStylePreset) => {
-    setSelectedStyleId(preset.id);
-    setCustomPrompt(preset.stylePrompt);
-    setIsPromptCustomized(false);
-    saveUserPreferredStyleId(preset.id);
-  };
 
-  const handlePromptChange = (val: string) => {
-    setCustomPrompt(val);
-    setIsPromptCustomized(val.trim() !== activeStyle.stylePrompt.trim());
-  };
-
-  const handleAppendModifier = (modifier: string) => {
-    const base = (customPrompt || activeStyle.stylePrompt).trim();
-    const cleanMod = modifier.replace(/^\+\s*/, '');
-    if (base.toLowerCase().includes(cleanMod.toLowerCase())) {
-      return;
-    }
-    const updated = base ? `${base}, ${cleanMod}` : cleanMod;
-    setCustomPrompt(updated);
-    setIsPromptCustomized(true);
-    setShowPromptEditor(true);
-  };
-
-  const handleResetPrompt = () => {
-    setCustomPrompt(activeStyle.stylePrompt);
-    setIsPromptCustomized(false);
-  };
 
   // ─── Generate Visual Storyboard (Primary Action) ───────────────────────────
 
