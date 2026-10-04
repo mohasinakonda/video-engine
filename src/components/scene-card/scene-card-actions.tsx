@@ -52,15 +52,16 @@ export default function SceneCardActions({
       onClick={(e) => e.stopPropagation()}
     >
       <div
-        className={`flex items-center gap-0.5 p-0.5 rounded-full bg-black/75 backdrop-blur-md border border-white/20 shadow-xl transition-all duration-200 ${hovering || moreMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-          }`}
+        className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md border border-white/10 hover:border-white/20 shadow-md transition-all duration-200 ${
+          hovering || moreMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+        }`}
       >
         {/* Regenerate */}
         <button
           type="button"
           onClick={onRegenerate}
           disabled={isSubmittingRegenerate}
-          className="w-5 h-5 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-all active:scale-90"
+          className="w-5 h-5 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-all active:scale-90"
           title="Regenerate image"
         >
           <RefreshCw size={11} className={isSubmittingRegenerate ? 'animate-spin' : ''} />
@@ -72,7 +73,7 @@ export default function SceneCardActions({
             href={currentSrc}
             download={`scene_${scene.sceneId}.jpg`}
             onClick={() => onSetMoreMenuOpen(false)}
-            className="w-5 h-5 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-all active:scale-90"
+            className="w-5 h-5 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-all active:scale-90"
             title="Download image"
           >
             <Download size={11} className="text-cyan-400" />
@@ -84,8 +85,9 @@ export default function SceneCardActions({
           <button
             type="button"
             onClick={() => onSetMoreMenuOpen((v) => !v)}
-            className={`w-5 h-5 flex items-center justify-center rounded-full transition-all active:scale-90 ${moreMenuOpen ? 'bg-white/20 text-white' : 'text-white/80 hover:text-white hover:bg-white/20'
-              }`}
+            className={`w-5 h-5 flex items-center justify-center rounded-full transition-all active:scale-90 ${
+              moreMenuOpen ? 'bg-white/20 text-white' : 'text-white/80 hover:text-white hover:bg-white/15'
+            }`}
             title="More options (Creative Studio, B-Roll, Upload, Download)"
           >
             <MoreVertical size={11} />

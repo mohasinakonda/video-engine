@@ -49,9 +49,8 @@ export default function SceneCardMedia({
 
   return (
     <div
-      className={`absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden rounded-2xl ${
-        canPreview ? 'cursor-pointer' : ''
-      }`}
+      className={`absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden rounded-2xl ${canPreview ? 'cursor-pointer' : ''
+        }`}
       onClick={() => {
         if (canPreview && !editingPrompt) {
           onOpenPreview();
@@ -134,7 +133,7 @@ export default function SceneCardMedia({
                   <div className="w-9 h-9 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
                     <Sparkles size={18} className="text-purple-400" />
                   </div>
-                  <p className="text-xs font-semibold text-zinc-300">Hero AI Visual</p>
+                  <p className="text-xs font-semibold text-zinc-300">Hero Visual</p>
                   <p className="text-[10px] text-zinc-400">Ready for image generation</p>
                 </>
               )}
