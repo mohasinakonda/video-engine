@@ -35,9 +35,10 @@ import {
   getPollinationsImageModel,
 } from '@/lib/store';
 import { extractScenes } from '@/lib/gemini';
+import JSZip from 'jszip';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
-import { getMediaBlobUrl, saveMediaBlob, getAudioDuration } from '@/lib/media-storage';
+import { getMediaBlobUrl, saveMediaBlob, getMediaBlob, getAudioDuration } from '@/lib/media-storage';
 import { hasEnoughCredits, deductUserCredits, grantUserCredits, getUserCreditsRemaining } from '@/lib/subscription-store';
 import type {
   ProjectManifest,
@@ -73,6 +74,7 @@ export default function StoryboardInner() {
 
   const [loading, setLoading] = useState(true);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const [downloadProgressMsg, setDownloadProgressMsg] = useState('');
 
   // Pipeline stages
   const [extracting, setExtracting] = useState(false);
@@ -643,19 +645,123 @@ export default function StoryboardInner() {
     const readyScenes = scenes.filter((s) => !!s.imageUrl);
     if (readyScenes.length === 0) return;
     setDownloadingAll(true);
+    setDownloadProgressMsg('Preparing ZIP…');
+
     try {
-      for (const scene of readyScenes) {
-        if (!scene.imageUrl) continue;
-        const link = document.createElement('a');
-        link.href = scene.imageUrl;
-        link.download = `scene_${scene.sceneId}.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        await new Promise((r) => setTimeout(r, 200));
+      const zip = new JSZip();
+      const safeProjectTitle = (project?.title || 'storyboard')
+        .trim()
+        .replace(/[^a-zA-Z0-9_\u0980-\u09FF-]/g, '_')
+        .replace(/_+/g, '_')
+        .substring(0, 40) || 'scenes';
+
+      const folder = zip.folder(safeProjectTitle) || zip;
+      let packedCount = 0;
+
+      for (let i = 0; i < readyScenes.length; i++) {
+        const scene = readyScenes[i];
+        setDownloadProgressMsg(`Packing ${i + 1}/${readyScenes.length}…`);
+
+        let blob: Blob | null = null;
+
+        // 1. Try local IndexedDB first (fastest & offline)
+        if (project?.projectId) {
+          try {
+            const dbBlob = await getMediaBlob(`scene_${project.projectId}_${scene.sceneId}`);
+            if (dbBlob && dbBlob.size > 0) {
+              blob = dbBlob;
+            }
+          } catch (e) {
+            console.warn(`[ZIP] IndexedDB error for scene ${scene.sceneId}:`, e);
+          }
+        }
+
+        // 2. Fetch directly from imageUrl if not in IndexedDB
+        if (!blob && scene.imageUrl) {
+          try {
+            const res = await fetch(scene.imageUrl);
+            if (res.ok) {
+              blob = await res.blob();
+            }
+          } catch (fetchErr) {
+            console.warn(`[ZIP] Direct fetch failed for scene ${scene.sceneId}:`, fetchErr);
+          }
+
+          // 3. Fallback: Draw into canvas via Image object
+          if (!blob) {
+            try {
+              blob = await new Promise<Blob | null>((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => {
+                  try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth || img.width;
+                    canvas.height = img.naturalHeight || img.height;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) return resolve(null);
+                    ctx.drawImage(img, 0, 0);
+                    canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95);
+                  } catch {
+                    resolve(null);
+                  }
+                };
+                img.onerror = () => resolve(null);
+                img.src = scene.imageUrl!;
+              });
+            } catch {
+              blob = null;
+            }
+          }
+        }
+
+        if (blob) {
+          let ext = 'jpg';
+          if (blob.type.includes('png')) ext = 'png';
+          else if (blob.type.includes('webp')) ext = 'webp';
+
+          const fileName = `scene_${String(scene.sceneId).padStart(3, '0')}.${ext}`;
+          folder.file(fileName, blob);
+          packedCount++;
+        }
       }
+
+      if (packedCount === 0) {
+        alert('Could not download image files to generate ZIP.');
+        return;
+      }
+
+      setDownloadProgressMsg('Compressing ZIP…');
+      const zipBlob = await zip.generateAsync(
+        {
+          type: 'blob',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 6 },
+        },
+        (metadata) => {
+          setDownloadProgressMsg(`Compressing ${Math.round(metadata.percent)}%…`);
+        }
+      );
+
+      const zipFileName = `${safeProjectTitle}_all_images.zip`;
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = zipFileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to create ZIP package:', err);
+      alert('Failed to package images as ZIP. Check console for details.');
     } finally {
       setDownloadingAll(false);
+      setDownloadProgressMsg('');
     }
   }
 
@@ -753,11 +859,17 @@ export default function StoryboardInner() {
             <button
               onClick={handleDownloadAllImages}
               disabled={downloadingAll}
-              className="flex items-center gap-1.5 text-xs text-zinc-200 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition-colors"
-              title="Download all generated scene images"
+              className="flex items-center gap-1.5 text-xs text-zinc-200 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white transition-colors disabled:opacity-60"
+              title="Download all generated scene images as a single ZIP archive"
             >
-              {downloadingAll ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} className="text-emerald-400" />}
-              <span>{downloadingAll ? 'Downloading…' : 'Download All Images'}</span>
+              {downloadingAll ? (
+                <Loader2 size={12} className="animate-spin text-amber-400" />
+              ) : (
+                <Download size={12} className="text-emerald-400" />
+              )}
+              <span>
+                {downloadingAll ? (downloadProgressMsg || 'Creating ZIP…') : 'Download All Images (ZIP)'}
+              </span>
             </button>
           )}
 
