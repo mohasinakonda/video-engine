@@ -43,6 +43,7 @@ import {
 } from '@/lib/store';
 import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import {
+  alignAudioWithScript,
   transcribeAudioWithWhisper,
   directScenesFromAudioAndScript,
   extractOrganicThoughtUnits,
@@ -79,7 +80,7 @@ function ProjectPageInner() {
   const router = useRouter();
   const projectIdParam = searchParams.get('id');
 
-  const [projectId, setProjectId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>(() => generateId());
   const [projectTitle, setProjectTitle] = useState('');
   const [script, setScript] = useState('');
 
@@ -301,9 +302,11 @@ function ProjectPageInner() {
       });
 
       const totalDurationSec = cumSec;
+      const activeProjectId = projectId || existingProjectRef.current?.projectId || generateId();
+      if (projectId !== activeProjectId) setProjectId(activeProjectId);
 
       const manifest: ProjectManifest = {
-        projectId,
+        projectId: activeProjectId,
         title: projectTitle || 'Visual Storyboard',
         rawScript: script,
         voicePresetId: '',
@@ -318,7 +321,7 @@ function ProjectPageInner() {
       };
 
       await saveProject(manifest);
-      router.push(`/storyboard?id=${projectId}&autoGenerate=true`);
+      router.push(`/storyboard?id=${activeProjectId}&autoGenerate=true`);
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Scene extraction failed.');
       setGenerating(false);
@@ -358,8 +361,10 @@ function ProjectPageInner() {
       const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
       const effectiveStylePrompt = activeStylePrompt;
+      const activeProjectId = projectId || existingProjectRef.current?.projectId || generateId();
+      if (projectId !== activeProjectId) setProjectId(activeProjectId);
 
-      await saveMediaBlob(`audio_${projectId}_0`, customAudioFile);
+      await saveMediaBlob(`audio_${activeProjectId}_0`, customAudioFile);
       const audioUrl = URL.createObjectURL(customAudioFile);
       const targetDurationSec = customAudioDurationMs / 1000;
 
@@ -368,16 +373,16 @@ function ProjectPageInner() {
       let timedWords: TimedWord[] = [];
 
       const detectedLang = /[\u0980-\u09FF]/.test(script) ? 'bn' : 'en';
-      setGeneratingMsg('Transcribing audio with Whisper AI (word timestamps)…');
-      const whisperResult = await transcribeAudioWithWhisper(customAudioFile, {
+      setGeneratingMsg('Aligning audio with script (zero hallucination)…');
+      const alignResult = await alignAudioWithScript(customAudioFile, script.trim(), {
         pollinationsApiKey: apiKey,
         language: detectedLang,
         scriptPrompt: script.trim(),
         onProgress: (msg) => setGeneratingMsg(msg),
       });
-      spokenSegments = whisperResult.segments;
-      transcriptionText = whisperResult.fullText;
-      timedWords = whisperResult.words;
+      spokenSegments = alignResult.segments;
+      transcriptionText = alignResult.fullText;
+      timedWords = alignResult.words;
 
       if (!spokenSegments || spokenSegments.length === 0) {
         throw new Error('No speech detected in this audio file. Please verify audio content.');
@@ -414,18 +419,18 @@ function ProjectPageInner() {
         cameraMotion: item.cameraMotion,
         status: 'PENDING',
       }));
-      console.log('visualScenes', visualScenes)
+      console.log('visualScenes', visualScenes);
       const customChunk = {
         index: 0,
         text: `Custom Voice: ${customAudioFile.name}`,
-        filePath: `projects/${projectId}/audio/custom_voice.${customAudioFile.name.split('.').pop() || 'mp3'}`,
+        filePath: `projects/${activeProjectId}/audio/custom_voice.${customAudioFile.name.split('.').pop() || 'mp3'}`,
         durationMs: customAudioDurationMs,
         status: 'COMPLETED' as const,
         audioUrl,
       };
 
       const manifest: ProjectManifest = {
-        projectId,
+        projectId: activeProjectId,
         title: projectTitle || `Voice: ${customAudioFile.name.replace(/\.[^/.]+$/, '')}`,
         rawScript: effectiveScript,
         voicePresetId: '',
@@ -442,7 +447,7 @@ function ProjectPageInner() {
       };
 
       await saveProject(manifest);
-      router.push(`/storyboard?id=${projectId}&autoGenerate=true`);
+      router.push(`/storyboard?id=${activeProjectId}&autoGenerate=true`);
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Custom voice sync failed.');
       setGenerating(false);

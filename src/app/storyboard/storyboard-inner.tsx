@@ -73,6 +73,7 @@ export default function StoryboardInner() {
   const [showStyleModal, setShowStyleModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgressMsg, setDownloadProgressMsg] = useState('');
 
@@ -199,11 +200,25 @@ export default function StoryboardInner() {
   // ─── Load project ────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
-    if (!projectId) { router.push('/'); return; }
+    if (!projectId) {
+      console.warn('[Storyboard] Missing projectId in URL searchParams.');
+      router.push('/');
+      return;
+    }
     setLoading(true);
+    setLoadError(null);
     try {
-      const p = await getProject(projectId);
-      if (!p) { router.push('/'); return; }
+      let p = await getProject(projectId);
+      if (!p) {
+        // Wait 350ms and retry once in case of storage write latency
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        p = await getProject(projectId);
+      }
+      if (!p) {
+        console.error(`[Storyboard] Project "${projectId}" could not be loaded from storage.`);
+        setLoadError(`Project "${projectId}" could not be found.`);
+        return;
+      }
       projectRef.current = p;
       setProject(p);
 
@@ -799,6 +814,32 @@ export default function StoryboardInner() {
   const estimatedScenes = totalDurationSec > 0 ? Math.round(totalDurationSec / 4.5) : 0;
 
   // ─── Render ──────────────────────────────────────────────────────────────
+
+  if (loadError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-bg-base p-6 text-center">
+        <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4">
+          <AlertTriangle size={24} />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-2">Project Not Loaded</h2>
+        <p className="text-sm text-zinc-400 max-w-md mb-6">{loadError}</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => load()}
+            className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium transition"
+          >
+            Retry Loading
+          </button>
+          <button
+            onClick={() => router.push('/project/new')}
+            className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-medium transition"
+          >
+            New Project
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

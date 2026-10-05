@@ -18,8 +18,20 @@ export async function POST(req: Request) {
     const openaiKey = process.env.OPENAI_API_KEY;
     const pollinationsKey = process.env.POLLINATIONS_API_KEY;
 
-    const language = (formData.get('language') as string) || '';
-    const prompt = (formData.get('prompt') as string) || '';
+    const rawLanguage = (formData.get('language') as string) || '';
+    const rawPrompt = (formData.get('prompt') as string) || '';
+
+    // Auto-detect Bengali script in prompt or explicit language
+    const isBengali = rawLanguage === 'bn' || /[\u0980-\u09FF]/.test(rawPrompt);
+    const language = isBengali ? 'bn' : (rawLanguage || 'en');
+
+    // Anchor prompt with script text to prevent Whisper hallucination loops (max 800 bytes / 240 chars for multi-byte UTF-8)
+    let effectivePrompt = '';
+    if (rawPrompt.trim()) {
+      effectivePrompt = rawPrompt.slice(0, 240).trim();
+    } else if (isBengali) {
+      effectivePrompt = 'বাংলা স্পষ্ট কথ্যরূপ এবং সঠিক শব্দের নির্ভুল রূপান্তর।';
+    }
 
     // ─── 1. Attempt Groq Whisper Large v3 Turbo (Ultra fast ~1s) ───────────────
     if (groqKey && groqKey.trim()) {
@@ -32,7 +44,7 @@ export async function POST(req: Request) {
         groqFormData.append('timestamp_granularities[]', 'word');
         groqFormData.append('timestamp_granularities[]', 'segment');
         if (language) groqFormData.append('language', language);
-        if (prompt) groqFormData.append('prompt', prompt.slice(0, 450));
+        if (effectivePrompt) groqFormData.append('prompt', effectivePrompt);
 
         const groqRes = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
           method: 'POST',
@@ -60,10 +72,11 @@ export async function POST(req: Request) {
         openaiFormData.append('file', file, 'audio.mp3');
         openaiFormData.append('model', 'whisper-1');
         openaiFormData.append('response_format', 'verbose_json');
+        openaiFormData.append('temperature', '0');
         openaiFormData.append('timestamp_granularities[]', 'word');
         openaiFormData.append('timestamp_granularities[]', 'segment');
         if (language) openaiFormData.append('language', language);
-        if (prompt) openaiFormData.append('prompt', prompt.slice(0, 450));
+        if (effectivePrompt) openaiFormData.append('prompt', effectivePrompt);
 
         const openaiRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
           method: 'POST',
@@ -88,10 +101,11 @@ export async function POST(req: Request) {
       polFormData.append('file', file, 'audio.mp3');
       polFormData.append('model', 'openai/whisper-large-v3');
       polFormData.append('response_format', 'verbose_json');
+      polFormData.append('temperature', '0');
       polFormData.append('timestamp_granularities[]', 'word');
       polFormData.append('timestamp_granularities[]', 'segment');
       if (language) polFormData.append('language', language);
-      if (prompt) polFormData.append('prompt', prompt.slice(0, 450));
+      if (effectivePrompt) polFormData.append('prompt', effectivePrompt);
 
       const headers: Record<string, string> = {};
       if (pollinationsKey && pollinationsKey.trim()) {

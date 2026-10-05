@@ -670,7 +670,7 @@ export function splitIntoPacingChunks(text: string, targetWords = 400): string[]
   let currentWords = 0;
 
   for (const para of paragraphs) {
-    const sentences = para.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const sentences = para.split(/(?<=[.!?।])\s+/).filter(Boolean);
     for (const sentence of sentences) {
       const words = sentence.split(/\s+/).filter(Boolean).length;
       if (currentWords + words > targetWords && currentChunk.length > 0) {

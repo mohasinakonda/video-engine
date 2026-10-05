@@ -9,7 +9,13 @@
  */
 
 import type { VoicePreset, ProjectManifest, BaseStylePreset } from '@/types';
-import { deleteProjectMedia } from './media-storage';
+import {
+  deleteProjectMedia,
+  saveProjectToDB,
+  getProjectFromDB,
+  getAllProjectsFromDB,
+  deleteProjectFromDB,
+} from './media-storage';
 
 // ─── Generic Web Store Helpers ────────────────────────────────────────────────
 
@@ -134,20 +140,45 @@ export async function getDefaultPreset(): Promise<VoicePreset | null> {
 // ─── Project Manifests Accessors ──────────────────────────────────────────────
 
 export async function getAllProjects(): Promise<ProjectManifest[]> {
-  const projects = storeGet<ProjectManifest[]>('projects') || [];
-  return projects.sort((a, b) => b.updatedAt - a.updatedAt);
+  try {
+    const dbProjects = await getAllProjectsFromDB();
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+
+    const map = new Map<string, ProjectManifest>();
+    localProjects.forEach((p) => { if (p?.projectId) map.set(p.projectId, p); });
+    dbProjects.forEach((p) => { if (p?.projectId) map.set(p.projectId, p); });
+
+    return Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  } catch (err) {
+    console.warn('[store] getAllProjects fallback to localStorage:', err);
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    return localProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
 }
 
 export async function getProject(projectId: string): Promise<ProjectManifest | null> {
-  const projects = await getAllProjects();
-  return projects.find((p) => p.projectId === projectId) ?? null;
+  if (!projectId) return null;
+  try {
+    // 1. Check IndexedDB first (no 5MB quota limit)
+    const dbProject = await getProjectFromDB(projectId);
+    if (dbProject) return dbProject;
+
+    // 2. Fallback to localStorage
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    return localProjects.find((p) => p.projectId === projectId) ?? null;
+  } catch {
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    return localProjects.find((p) => p.projectId === projectId) ?? null;
+  }
 }
 
 export async function saveProject(manifest: ProjectManifest): Promise<void> {
-  const projects = await getAllProjects();
-  const idx = projects.findIndex((p) => p.projectId === manifest.projectId);
+  if (!manifest?.projectId) {
+    console.error('[store] saveProject called without a valid projectId!', manifest);
+    return;
+  }
 
-  // Sanitize manifest so ephemeral browser blob: URLs are never stored in localStorage
+  // Sanitize manifest so ephemeral browser blob: URLs are never persisted in JSON
   const sanitizedManifest: ProjectManifest = {
     ...manifest,
     scenes: manifest.scenes?.map(({ imageUrl, ...s }) => {
@@ -165,17 +196,28 @@ export async function saveProject(manifest: ProjectManifest): Promise<void> {
     }),
   };
 
-  if (idx >= 0) {
-    projects[idx] = sanitizedManifest;
-  } else {
-    projects.push(sanitizedManifest);
+  // 1. Primary Reliable Storage: IndexedDB (never hits 5MB quota error)
+  await saveProjectToDB(sanitizedManifest);
+
+  // 2. Synchronous mirror in localStorage (best-effort)
+  try {
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    const idx = localProjects.findIndex((p) => p.projectId === manifest.projectId);
+    if (idx >= 0) {
+      localProjects[idx] = sanitizedManifest;
+    } else {
+      localProjects.push(sanitizedManifest);
+    }
+    storeSet('projects', localProjects);
+  } catch (err) {
+    console.warn('[store] localStorage quota exceeded, manifest stored securely in IndexedDB:', err);
   }
-  storeSet('projects', projects);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  const projects = await getAllProjects();
-  storeSet('projects', projects.filter((p) => p.projectId !== projectId));
+  await deleteProjectFromDB(projectId);
+  const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+  storeSet('projects', localProjects.filter((p) => p.projectId !== projectId));
   await deleteProjectMedia(projectId);
 }
 
