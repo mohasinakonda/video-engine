@@ -12,7 +12,7 @@ const dm_sans = DM_Sans({
   weight: ['400', '500', '600', '700', '800', '900'],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://rendoza.ai';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.rendoza.com';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
