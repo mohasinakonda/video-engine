@@ -1,6 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, Lock, Eye, FileText } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, FileText } from 'lucide-react';
 
 export const metadata = {
   title: 'Privacy Policy | Rendoza AI',
@@ -9,18 +8,8 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-zinc-900 py-12 px-6">
+    <div className="py-12 px-6">
       <div className="max-w-3xl mx-auto space-y-8">
-        
-        {/* Navigation back */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-zinc-950 transition-colors"
-        >
-          <ArrowLeft size={14} />
-          <span>Back to Home</span>
-        </Link>
-
         {/* Header */}
         <div className="space-y-3 border-b border-[#E5E0D8] pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-mono font-semibold border border-emerald-200">
@@ -37,7 +26,6 @@ export default function PrivacyPage() {
 
         {/* Policy Content Card */}
         <div className="bg-white rounded-3xl border border-[#E5E0D8] p-6 sm:p-10 shadow-sm space-y-8 text-sm leading-relaxed text-zinc-700">
-          
           <section className="space-y-3">
             <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
               <Eye size={18} className="text-[#E05A30]" />
@@ -87,9 +75,7 @@ export default function PrivacyPage() {
               If you have any questions or data privacy inquiries, please reach out to our privacy officer via our official WhatsApp Support channel or email us at support@rendoza.ai.
             </p>
           </section>
-
         </div>
-
       </div>
     </div>
   );

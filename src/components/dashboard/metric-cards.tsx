@@ -59,7 +59,7 @@ export default function MetricCards({
         </div>
         <div className="flex justify-between items-center text-[10px]">
           <span className="text-zinc-500">{creditsPercent}% available</span>
-          <Link href="/pricing" className="text-amber-400 hover:underline font-semibold">
+          <Link href="/plan" className="text-amber-400 hover:underline font-semibold">
             Top-up &rarr;
           </Link>
         </div>

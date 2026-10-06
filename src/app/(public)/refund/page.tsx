@@ -1,6 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
-import { ArrowLeft, RefreshCw, CheckCircle2, Clock, MessageSquare } from 'lucide-react';
+import { RefreshCw, CheckCircle2, Clock, MessageSquare } from 'lucide-react';
 import { formatWhatsAppLink } from '@/lib/subscription-store';
 import { DEFAULT_ADMIN_SETTINGS } from '@/lib/subscription-store';
 
@@ -16,18 +15,8 @@ export default function RefundPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-zinc-900 py-12 px-6">
+    <div className="py-12 px-6">
       <div className="max-w-3xl mx-auto space-y-8">
-        
-        {/* Navigation back */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-zinc-950 transition-colors"
-        >
-          <ArrowLeft size={14} />
-          <span>Back to Home</span>
-        </Link>
-
         {/* Header */}
         <div className="space-y-3 border-b border-[#E5E0D8] pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-mono font-semibold border border-emerald-200">
@@ -44,7 +33,6 @@ export default function RefundPage() {
 
         {/* Refund Content Card */}
         <div className="bg-white rounded-3xl border border-[#E5E0D8] p-6 sm:p-10 shadow-sm space-y-8 text-sm leading-relaxed text-zinc-700">
-          
           <section className="space-y-3">
             <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
               <CheckCircle2 size={18} className="text-[#E05A30]" />
@@ -95,9 +83,7 @@ export default function RefundPage() {
               <span>Contact WhatsApp Billing Manager</span>
             </a>
           </section>
-
         </div>
-
       </div>
     </div>
   );

@@ -1338,7 +1338,7 @@ export default function StoryboardInner() {
               <button
                 onClick={() => {
                   setCreditModalOpen(false);
-                  router.push('/pricing');
+                  router.push('/plan');
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition-colors shadow-md shadow-emerald-500/20"
               >

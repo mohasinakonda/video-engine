@@ -27,32 +27,34 @@ export function PricingPlansGrid({
   return (
     <div className="space-y-8">
       {/* Billing Cycle Toggle */}
-      <div className="flex justify-center items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setBillingCycle('monthly')}
-          className={`px-5 py-2 rounded-xl text-sm font-medium transition-all ${
-            billingCycle === 'monthly'
-              ? 'bg-white text-zinc-950 shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
-          Monthly Billing
-        </button>
-        <button
-          type="button"
-          onClick={() => setBillingCycle('yearly')}
-          className={`px-5 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${
-            billingCycle === 'yearly'
-              ? 'bg-white text-zinc-950 shadow-sm'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
-          <span>Yearly Billing</span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold uppercase">
-            Save 20%
-          </span>
-        </button>
+      <div className="flex justify-center items-center">
+        <div className="p-1 rounded-2xl bg-[#F0ECE4] border border-[#E5E0D8] inline-flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setBillingCycle('monthly')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all ${
+              billingCycle === 'monthly'
+                ? 'bg-white text-zinc-950 font-semibold shadow-xs'
+                : 'text-zinc-600 hover:text-zinc-950'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingCycle('yearly')}
+            className={`px-4 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${
+              billingCycle === 'yearly'
+                ? 'bg-white text-zinc-950 font-semibold shadow-xs'
+                : 'text-zinc-600 hover:text-zinc-950'
+            }`}
+          >
+            <span>Yearly</span>
+            <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+              Save 20%
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* 3 Core Subscription Cards */}
@@ -80,67 +82,72 @@ export function PricingPlansGrid({
               (plan.id === 'STARTER' ? 18 : plan.id === 'CREATOR' ? 45 : 100)
           );
 
+          const isHighlighted = isRecommended || plan.popular;
+
           return (
             <div
               key={plan.id}
               id={`plan-${plan.id}`}
-              className={`relative flex flex-col rounded-3xl p-6 sm:p-8 transition-all ${
-                isRecommended
-                  ? 'bg-zinc-900 border-2 border-emerald-500 shadow-2xl shadow-emerald-950/40 ring-1 ring-emerald-500/50'
-                  : plan.popular
-                  ? 'bg-zinc-900 border-2 border-emerald-500/70 shadow-2xl'
-                  : 'bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700'
+              className={`relative flex flex-col rounded-3xl p-7 transition-all ${
+                isHighlighted
+                  ? 'bg-white border-2 border-[#E05A30] shadow-xl shadow-[#E05A30]/10'
+                  : 'bg-white border border-[#E5E0D8] hover:border-zinc-300 shadow-sm'
               }`}
             >
               {isRecommended ? (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-emerald-500 text-zinc-950 font-bold text-xs uppercase tracking-wider shadow-md flex items-center gap-1">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#E05A30] text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm flex items-center gap-1">
                   <Sparkles size={12} />
-                  Recommended for Your Output
+                  Recommended
+                </div>
+              ) : plan.popular ? (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#E05A30] text-white text-[10px] font-extrabold uppercase tracking-wider shadow-sm">
+                  Most Popular
                 </div>
               ) : plan.badge ? (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-xs uppercase tracking-wider shadow-md">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-[#F4F0EA] border border-[#E5E0D8] text-zinc-700 text-[10px] font-bold uppercase tracking-wider shadow-xs">
                   {plan.badge}
                 </div>
               ) : null}
 
               <div className="mb-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-white">{plan.name}</h3>
-                  <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                    ~{estVideoCount} Full Videos
+                  <h3 className="text-xl font-bold text-zinc-950">{plan.name}</h3>
+                  <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    ~{estVideoCount} Videos
                   </span>
                 </div>
 
-                <p className="text-xs text-zinc-400 mt-1.5">
-                  {plan.creditsPerMonth} image credits / month
+                <p className="text-xs text-[#E05A30] font-semibold mt-1.5 flex items-center gap-1">
+                  <Sparkles size={13} />
+                  <span>{plan.creditsPerMonth} Image Credits / month</span>
                 </p>
 
                 <div className="mt-4 flex items-baseline gap-2">
-                  <span className="text-4xl font-extrabold text-white">৳{displayPrice}</span>
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-4xl font-extrabold text-zinc-950">৳{displayPrice}</span>
+                  <span className="text-xs text-zinc-500">
                     / {billingCycle === 'yearly' ? 'year' : 'month'}
                   </span>
                   {displayPrice < rawPrice && (
-                    <span className="text-xs line-through text-zinc-500 font-mono">
+                    <span className="text-xs line-through text-zinc-400 font-mono">
                       ৳{rawPrice}
                     </span>
                   )}
                 </div>
 
-                <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-400">
-                  <span className="text-emerald-400 font-semibold font-mono">
+                <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
+                  <span className="text-emerald-700 font-semibold font-mono">
                     ~৳{estCostPerVid} per video
                   </span>
                   <span>·</span>
-                  <span className="text-zinc-400">Watermark Free</span>
+                  <span>Watermark Free</span>
                 </div>
               </div>
 
-              <ul className="space-y-3 text-sm text-zinc-300 flex-1 mb-8">
+              <ul className="space-y-3 text-xs text-zinc-700 flex-1 mb-8">
                 {plan.features.map((feat, i) => (
                   <li key={i} className="flex items-start gap-2.5">
-                    <Check size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-                    <span className="text-xs leading-relaxed">{feat}</span>
+                    <Check size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="leading-relaxed">{feat}</span>
                   </li>
                 ))}
               </ul>
@@ -148,14 +155,14 @@ export function PricingPlansGrid({
               <button
                 type="button"
                 onClick={() => onSelectPlan(plan)}
-                className={`w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                  isRecommended || plan.popular
-                    ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-lg shadow-emerald-500/20'
-                    : 'bg-white hover:bg-zinc-200 text-zinc-950'
+                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 ${
+                  isHighlighted
+                    ? 'bg-[#E05A30] hover:bg-[#C84C25] text-white shadow-md shadow-[#E05A30]/20'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-white shadow-xs'
                 }`}
               >
                 <span>Choose {plan.name}</span>
-                <ArrowRight size={15} />
+                <ArrowRight size={14} />
               </button>
             </div>
           );

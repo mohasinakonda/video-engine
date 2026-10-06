@@ -17,11 +17,6 @@ import type {
 import { usePricing } from '@/hooks/use-pricing';
 
 // Global & Modular Pricing Components
-import { OfferBanner } from '@/components/global/offer-banner';
-import { UserQuotaCards } from '@/components/pricing/user-quota-cards';
-import { TopupPacksSection } from '@/components/pricing/topup-packs-section';
-import { UserPlanRenewSection } from '@/components/pricing/user-plan-renew-section';
-import { PaymentHistorySection } from '@/components/pricing/payment-history-section';
 import { PricingHeader } from '@/components/pricing/pricing-header';
 import { CreditsExplainerSection } from '@/components/pricing/credits-explainer-section';
 import { RoiCalculatorSection } from '@/components/pricing/roi-calculator-section';
@@ -159,31 +154,6 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     setPaymentModalOpen(true);
   };
 
-  const hasActiveSubscription = Boolean(
-    (userProfile?.tier && userProfile.tier !== 'TRIAL') ||
-    (userSub?.tier && userSub.tier !== 'TRIAL')
-  );
-
-  const openCheckoutForTopup = (pack: CreditTopupPack) => {
-    if (!hasActiveSubscription) {
-      const plansElement = document.getElementById('plans-section');
-      if (plansElement) {
-        plansElement.scrollIntoView({ behavior: 'smooth' });
-      }
-      setToastMessage(
-        '🔒 Top-up packs are available exclusively for active plan subscribers. Please choose a subscription plan below to unlock top-ups!'
-      );
-      setTimeout(() => setToastMessage(null), 5000);
-      return;
-    }
-    setSelectedTopup(pack);
-    setSelectedPlan(null);
-    setSubmitSuccess(false);
-    setSubmitError('');
-    setLastSubmittedReq(null);
-    setPaymentModalOpen(true);
-  };
-
   const calculateFinalPrice = () => {
     let originalPrice = 0;
     let creditsToGrant = 0;
@@ -225,13 +195,6 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
 
     if (!senderNumber.trim()) {
       setSubmitError('Please enter your sender mobile number');
-      return;
-    }
-
-    if (selectedTopup && !hasActiveSubscription) {
-      setSubmitError(
-        'Credit top-ups are exclusively available for active plan subscribers. Please subscribe to a plan first.'
-      );
       return;
     }
 
@@ -278,102 +241,51 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     }
   };
 
-  const creditsRemaining = userProfile?.creditsRemaining ?? userSub?.creditsRemaining ?? 30;
-  const creditsUsed = userProfile?.creditsUsed ?? userSub?.creditsUsed ?? 0;
-  const totalCredits = creditsRemaining + creditsUsed;
-  const creditsPercent = Math.min(100, Math.round((creditsRemaining / Math.max(1, totalCredits)) * 100));
-  const isExpiringSoon =
-    userSub?.status === 'ACTIVE' && userSub.expiresAt - Date.now() < 3 * 24 * 3600 * 1000;
-  const isExpired = userSub?.status === 'EXPIRED';
-
   return (
-    <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <div className="w-full py-12 px-4 sm:px-8">
+      <div className="max-w-6xl mx-auto space-y-14">
+        <PricingHeader />
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            VIEW A: LOGGED-IN USAGE SUMMARY & ACTION HUB
-           ══════════════════════════════════════════════════════════════════════ */}
-        {isLoggedIn ? (
-          <div className="space-y-10">
-            <UserQuotaCards
-              userSub={userSub}
-              userProfile={userProfile}
-              creditsRemaining={creditsRemaining}
-              creditsUsed={creditsUsed}
-              creditsPercent={creditsPercent}
-              isExpiringSoon={isExpiringSoon}
-              isExpired={isExpired}
-              whatsappNumber={settings?.whatsappNumber}
-            />
+        <CreditsExplainerSection />
 
-            <TopupPacksSection
-              topupPacks={topupPacks}
-              hasActiveSubscription={hasActiveSubscription}
-              onSelectTopup={openCheckoutForTopup}
-            />
+        <RoiCalculatorSection
+          plans={plans}
+          billingCycle={billingCycle}
+          calculatorVideos={calculatorVideos}
+          setCalculatorVideos={setCalculatorVideos}
+          onSelectPlan={(planId) => {
+            const targetId = `plan-${planId}`;
+            document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        />
 
-            <UserPlanRenewSection
-              plans={plans}
-              billingCycle={billingCycle}
-              setBillingCycle={setBillingCycle}
-              userSub={userSub}
-              onSelectPlan={openCheckoutForPlan}
-            />
+        <PromoCodeBar
+          promoCodeInput={promoCodeInput}
+          setPromoCodeInput={setPromoCodeInput}
+          promoResult={promoResult}
+          onApplyPromo={handleApplyPromo}
+        />
 
-            <PaymentHistorySection
-              submissions={submissions}
-              whatsappNumber={settings?.whatsappNumber}
-            />
-          </div>
-        ) : (
-          /* ══════════════════════════════════════════════════════════════════════
-              VIEW B: GUEST VIEW (CLEAN GENERAL CREATOR PRICING)
-             ══════════════════════════════════════════════════════════════════════ */
-          <div className="space-y-14">
-            <PricingHeader />
+        <PricingPlansGrid
+          plans={plans}
+          billingCycle={billingCycle}
+          setBillingCycle={setBillingCycle}
+          promoAppliedCode={promoAppliedCode}
+          settings={settings}
+          calculatorVideos={calculatorVideos}
+          onSelectPlan={openCheckoutForPlan}
+        />
 
-            <CreditsExplainerSection />
+        <CreatorTrustPillars />
 
-            <RoiCalculatorSection
-              plans={plans}
-              billingCycle={billingCycle}
-              calculatorVideos={calculatorVideos}
-              setCalculatorVideos={setCalculatorVideos}
-              onSelectPlan={(planId) => {
-                const targetId = `plan-${planId}`;
-                document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' });
-              }}
-            />
+        <ComparisonTableSection
+          showComparison={showComparison}
+          setShowComparison={setShowComparison}
+        />
 
-            <PromoCodeBar
-              promoCodeInput={promoCodeInput}
-              setPromoCodeInput={setPromoCodeInput}
-              promoResult={promoResult}
-              onApplyPromo={handleApplyPromo}
-            />
+        <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
 
-            <PricingPlansGrid
-              plans={plans}
-              billingCycle={billingCycle}
-              setBillingCycle={setBillingCycle}
-              promoAppliedCode={promoAppliedCode}
-              settings={settings}
-              calculatorVideos={calculatorVideos}
-              onSelectPlan={openCheckoutForPlan}
-            />
-
-            <CreatorTrustPillars />
-
-            <ComparisonTableSection
-              showComparison={showComparison}
-              setShowComparison={setShowComparison}
-            />
-
-            <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />
-
-            <WhatsAppCtaSection whatsappNumber={settings?.whatsappNumber} />
-          </div>
-        )}
+        <WhatsAppCtaSection whatsappNumber={settings?.whatsappNumber} />
       </div>
 
       {/* Manual Payment Checkout Modal (WhatsApp Assisted) */}

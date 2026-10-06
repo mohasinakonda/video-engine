@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { LandingNavbar } from './landing/navbar';
 import { HeroSection } from './landing/hero-section';
 import { HowItWorksSection } from './landing/how-it-works-section';
 import { SceneBuilderSection } from './landing/scene-builder-section';
@@ -10,19 +9,13 @@ import { VisualStyleSection } from './landing/visual-style-section';
 import { BuiltForEditingSection } from './landing/built-for-editing-section';
 import { FeaturesSection } from './landing/features-section';
 import { PricingSection } from './landing/pricing-section';
-import { LandingFooter } from './landing/footer';
 
 export default function GuestView() {
-
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-zinc-900 selection:bg-orange-100 selection:text-orange-950 font-sans antialiased overflow-x-hidden">
-      {/* ─── Sticky Navbar ──────────────────────────────────────────────── */}
-      <LandingNavbar />
-
+    <div className="w-full">
       {/* ─── Hero Section ───────────────────────────────────────────────── */}
-      <HeroSection
+      <HeroSection />
 
-      />
       {/* ─── How It Works (6-Stage Stepper & Visual Mockups) ─────────────── */}
       <HowItWorksSection />
 
@@ -46,9 +39,6 @@ export default function GuestView() {
 
       {/* ─── Pricing Section (With Local Bangladesh Support) ───────────── */}
       <PricingSection />
-
-      {/* ─── Footer ─────────────────────────────────────────────────────── */}
-      <LandingFooter />
     </div>
   );
 }
