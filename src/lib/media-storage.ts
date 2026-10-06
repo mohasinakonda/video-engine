@@ -5,9 +5,12 @@
  * so they persist across page refreshes, routes, and browser restarts.
  */
 
+import type { ProjectManifest } from '@/types';
+
 const DB_NAME = 'ai_video_studio_media';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'media_blobs';
+const STORE_PROJECTS = 'projects_manifests';
 
 function getDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -21,10 +24,77 @@ function getDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
       }
+      if (!db.objectStoreNames.contains(STORE_PROJECTS)) {
+        db.createObjectStore(STORE_PROJECTS, { keyPath: 'projectId' });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
+}
+
+/** Save a ProjectManifest to persistent IndexedDB (no 5MB quota limit) */
+export async function saveProjectToDB(manifest: ProjectManifest): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_PROJECTS, 'readwrite');
+      const store = tx.objectStore(STORE_PROJECTS);
+      const req = store.put(manifest);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('Failed to save project manifest to IndexedDB:', err);
+  }
+}
+
+/** Retrieve a stored ProjectManifest from IndexedDB */
+export async function getProjectFromDB(projectId: string): Promise<ProjectManifest | null> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_PROJECTS, 'readonly');
+      const store = tx.objectStore(STORE_PROJECTS);
+      const req = store.get(projectId);
+      req.onsuccess = () => resolve((req.result as ProjectManifest) || null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Retrieve all ProjectManifests from IndexedDB */
+export async function getAllProjectsFromDB(): Promise<ProjectManifest[]> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_PROJECTS, 'readonly');
+      const store = tx.objectStore(STORE_PROJECTS);
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result as ProjectManifest[]) || []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Delete a ProjectManifest from IndexedDB */
+export async function deleteProjectFromDB(projectId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_PROJECTS, 'readwrite');
+      const store = tx.objectStore(STORE_PROJECTS);
+      const req = store.delete(projectId);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('Failed to delete project from IndexedDB:', err);
+  }
 }
 
 /** Save a binary Blob (audio WAV/MP3, scene JPEG/PNG) to persistent IndexedDB */

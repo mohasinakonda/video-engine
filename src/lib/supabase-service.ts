@@ -11,6 +11,8 @@ import type {
   PaymentSubmission,
   AdminSettings,
 } from '@/types/subscription';
+import type { BaseStylePreset } from '@/types';
+import { SUB_STYLES_CATALOG } from '@/lib/style-taxonomy';
 
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -825,5 +827,156 @@ export async function creditAffiliateCommissionRemote(
     return false;
   }
 }
+
+// ─── ART STYLES & TAXONOMY REMOTE API ──────────────────────────────────────────
+
+/**
+ * Fetch all art styles from Supabase.
+ * If includeInactive is false, only active styles are returned.
+ */
+export async function fetchArtStylesRemote(includeInactive = false): Promise<BaseStylePreset[] | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const supabase = createClient();
+    let query = supabase
+      .from('art_styles')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return null;
+
+    return data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      familyId: row.family_id,
+      tag: row.tag || '',
+      description: row.description || '',
+      stylePrompt: row.style_prompt,
+      negativePrompt: row.negative_prompt || undefined,
+      thumbnailUrl: row.thumbnail_url || undefined,
+      aspectRatio: (row.aspect_ratio as '16:9' | '9:16' | '1:1') || '16:9',
+      isDefault: Boolean(row.is_default),
+      isActive: Boolean(row.is_active),
+      sortOrder: row.sort_order ?? 100,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+    }));
+  } catch (err) {
+    console.error('[Supabase] Failed to fetch art styles:', err);
+    return null;
+  }
+}
+
+/** Upsert an art style (create or update) in Supabase */
+export async function upsertArtStyleRemote(style: BaseStylePreset): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = createClient();
+    const payload = {
+      id: style.id,
+      name: style.name,
+      family_id: style.familyId || 'cinematic',
+      tag: style.tag || null,
+      description: style.description || null,
+      style_prompt: style.stylePrompt,
+      negative_prompt: style.negativePrompt || null,
+      thumbnail_url: style.thumbnailUrl || null,
+      aspect_ratio: style.aspectRatio || '16:9',
+      is_default: Boolean(style.isDefault),
+      is_active: style.isActive !== false,
+      sort_order: style.sortOrder ?? 100,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('art_styles').upsert(payload);
+    if (error) {
+      console.error('[Supabase] Failed to upsert art style:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error upserting art style:', err);
+    return false;
+  }
+}
+
+/** Toggle active/inactive status of an art style */
+export async function toggleArtStyleActiveRemote(id: string, isActive: boolean): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('art_styles')
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      console.error('[Supabase] Failed to toggle art style:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error toggling art style:', err);
+    return false;
+  }
+}
+
+/** Delete an art style from Supabase */
+export async function deleteArtStyleRemote(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.from('art_styles').delete().eq('id', id);
+    if (error) {
+      console.error('[Supabase] Failed to delete art style:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error deleting art style:', err);
+    return false;
+  }
+}
+
+/** Seed / Sync Default 30+ Catalog into Supabase art_styles table */
+export async function seedDefaultArtStylesRemote(): Promise<{ success: boolean; count: number; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, count: 0, error: 'Supabase credentials not configured' };
+  }
+  try {
+    const supabase = createClient();
+    const rows = SUB_STYLES_CATALOG.map((item, index) => ({
+      id: item.id,
+      name: item.name,
+      family_id: item.familyId,
+      tag: item.tag,
+      description: item.description,
+      style_prompt: item.stylePrompt,
+      negative_prompt: item.negativePrompt || null,
+      thumbnail_url: item.thumbnailUrl,
+      aspect_ratio: '16:9',
+      is_default: index === 0,
+      is_active: true,
+      sort_order: (index + 1) * 10,
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase.from('art_styles').upsert(rows);
+    if (error) {
+      console.error('[Supabase] Failed to seed default art styles:', error);
+      return { success: false, count: 0, error: error.message };
+    }
+    return { success: true, count: rows.length };
+  } catch (err: any) {
+    console.error('[Supabase] Error seeding default art styles:', err);
+    return { success: false, count: 0, error: err?.message || 'Unknown error' };
+  }
+}
+
 
 

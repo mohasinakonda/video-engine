@@ -185,17 +185,7 @@ export default function AdminUsersPage() {
                 <Users size={26} className="text-blue-400" />
                 User Directory & Anti-Abuse Manager
               </h1>
-              {isLiveSupabase ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Supabase Database Live
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  Local Storage Mode
-                </span>
-              )}
+
             </div>
             <p className="text-xs text-zinc-400 mt-1">
               Monitor active users, block fraudulent accounts, grant credits, and manage affiliate payouts
@@ -278,9 +268,8 @@ export default function AdminUsersPage() {
                     filteredUsers.map((user) => (
                       <tr
                         key={user.id}
-                        className={`hover:bg-zinc-850/40 transition-colors ${
-                          user.isBlocked ? 'bg-rose-950/20' : ''
-                        }`}
+                        className={`hover:bg-zinc-850/40 transition-colors ${user.isBlocked ? 'bg-rose-950/20' : ''
+                          }`}
                       >
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
@@ -304,95 +293,94 @@ export default function AdminUsersPage() {
                             </div>
                           </div>
                         </td>
-                      <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-300">
-                          {user.tier}
-                        </span>
-                        {user.isBlocked ? (
-                          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                            BLOCKED
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-300">
+                            {user.tier}
                           </span>
-                        ) : (
-                          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            ACTIVE
+                          {user.isBlocked ? (
+                            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                              BLOCKED
+                            </span>
+                          ) : (
+                            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              ACTIVE
+                            </span>
+                          )}
+                          {user.role === 'admin' && (
+                            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                              ADMIN
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-emerald-400 flex items-center gap-1 font-mono">
+                            <Zap size={13} className="fill-emerald-400" />
+                            {user.creditsRemaining} Left
                           </span>
-                        )}
-                        {user.role === 'admin' && (
-                          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                            ADMIN
+                          <span className="text-[10px] text-zinc-500">{user.creditsUsed} used</span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-white">
+                          ৳{user.totalSpentBDT} BDT
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-mono text-[11px] font-bold text-amber-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                            {user.referralCode}
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-bold text-emerald-400 flex items-center gap-1 font-mono">
-                          <Zap size={13} className="fill-emerald-400" />
-                          {user.creditsRemaining} Left
-                        </span>
-                        <span className="text-[10px] text-zinc-500">{user.creditsUsed} used</span>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-white">
-                        ৳{user.totalSpentBDT} BDT
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-mono text-[11px] font-bold text-amber-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
-                          {user.referralCode}
-                        </span>
-                        <span className="text-[11px] text-zinc-400 block mt-1">
-                          {user.referralCount} users · ৳{user.referralEarningsBDT} earned
-                        </span>
-                        {user.assignedPromoCode && (
-                          <span className="text-[10px] text-purple-400 block mt-0.5">
-                            Special Code: {user.assignedPromoCode}
+                          <span className="text-[11px] text-zinc-400 block mt-1">
+                            {user.referralCount} users · ৳{user.referralEarningsBDT} earned
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setCreditModalOpen(true);
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium flex items-center gap-1"
-                            title="Adjust Credits"
-                          >
-                            <Coins size={12} className="text-amber-400" />
-                            Credit
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setPromoModalOpen(true);
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium flex items-center gap-1"
-                            title="Assign Promo Code"
-                          >
-                            <Tag size={12} className="text-purple-400" />
-                            Promo
-                          </button>
-                          <button
-                            onClick={() => handleToggleBlock(user)}
-                            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors ${
-                              user.isBlocked
-                                ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950'
-                                : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400'
-                            }`}
-                          >
-                            {user.isBlocked ? (
-                              <>
-                                <ShieldCheck size={12} /> Unblock
-                              </>
-                            ) : (
-                              <>
-                                <ShieldAlert size={12} /> Block
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                          {user.assignedPromoCode && (
+                            <span className="text-[10px] text-purple-400 block mt-0.5">
+                              Special Code: {user.assignedPromoCode}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setCreditModalOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium flex items-center gap-1"
+                              title="Adjust Credits"
+                            >
+                              <Coins size={12} className="text-amber-400" />
+                              Credit
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setPromoModalOpen(true);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium flex items-center gap-1"
+                              title="Assign Promo Code"
+                            >
+                              <Tag size={12} className="text-purple-400" />
+                              Promo
+                            </button>
+                            <button
+                              onClick={() => handleToggleBlock(user)}
+                              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors ${user.isBlocked
+                                  ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950'
+                                  : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400'
+                                }`}
+                            >
+                              {user.isBlocked ? (
+                                <>
+                                  <ShieldCheck size={12} /> Unblock
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldAlert size={12} /> Block
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -440,11 +428,10 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-3 px-4">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            req.status === 'PAID'
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${req.status === 'PAID'
                               ? 'bg-emerald-500/20 text-emerald-400'
                               : 'bg-amber-500/20 text-amber-400'
-                          }`}
+                            }`}
                         >
                           {req.status}
                         </span>

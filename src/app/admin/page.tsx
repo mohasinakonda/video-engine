@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Database,
   Loader2,
+  Palette,
 } from 'lucide-react';
 import {
   getAllPaymentSubmissions,
@@ -263,17 +264,7 @@ export default function AdminHubPage() {
                   <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                     Admin Monetization & Revenue Hub
                   </h1>
-                  {isLiveSupabase ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      Supabase Database Live
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                      <span className="w-2 h-2 rounded-full bg-amber-400" />
-                      Local Storage Mode
-                    </span>
-                  )}
+
                 </div>
                 <p className="text-xs text-zinc-400 mt-1">
                   Manage manual bKash/Nagad/Bank payments, promo codes, and credit quotas
@@ -284,27 +275,28 @@ export default function AdminHubPage() {
 
           <div className="flex items-center gap-3 flex-wrap">
             <Link
+              href="/admin/styles"
+              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            >
+              <Palette size={14} /> Art Styles
+            </Link>
+            <Link
               href="/admin/plan"
-              className="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-semibold text-emerald-400 transition-colors"
+              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               Plans & Pricing
             </Link>
             <Link
               href="/admin/users"
-              className="px-3.5 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-xs font-semibold text-blue-400 transition-colors"
+              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               User Directory
             </Link>
-            <Link
-              href="/pricing"
-              className="px-3.5 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-700/80 text-xs font-semibold text-zinc-200 transition-colors"
-            >
-              View Pricing Page
-            </Link>
+
             <button
               onClick={refreshData}
               disabled={isLoading}
-              className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               Refresh
@@ -388,8 +380,8 @@ export default function AdminHubPage() {
                   key={filter}
                   onClick={() => setStatusFilter(filter)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${statusFilter === filter
-                      ? 'bg-zinc-100 text-zinc-950 font-bold'
-                      : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                    ? 'bg-zinc-100 text-zinc-950 font-bold'
+                    : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
                     }`}
                 >
                   {filter}
@@ -473,10 +465,10 @@ export default function AdminHubPage() {
                         <td className="py-3.5 px-4">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${sub.status === 'APPROVED'
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : sub.status === 'REJECTED'
-                                  ? 'bg-rose-500/20 text-rose-400'
-                                  : 'bg-amber-500/20 text-amber-400 animate-pulse'
+                              ? 'bg-emerald-500/20 text-emerald-400'
+                              : sub.status === 'REJECTED'
+                                ? 'bg-rose-500/20 text-rose-400'
+                                : 'bg-amber-500/20 text-amber-400 animate-pulse'
                               }`}
                           >
                             {sub.status}

@@ -26,19 +26,27 @@ import {
   ArrowRight,
   Sliders,
   CheckCircle2,
+  RotateCcw,
+  Plus,
+  Minus,
+  Edit3,
 } from 'lucide-react';
 import ScriptInput from '@/components/script-input';
+import StylePresetModal from '@/components/style-preset-modal';
 import {
   getPollinationsApiKey,
   getProject,
   saveProject,
   getDefaultStylePreset,
   getStylePresets,
+  saveUserPreferredStyleId,
 } from '@/lib/store';
 import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import {
+  alignAudioWithScript,
   transcribeAudioWithWhisper,
   directScenesFromAudioAndScript,
+  extractOrganicThoughtUnits,
   SpokenSegment,
   TimedWord,
 } from '@/lib/audio-transcriber';
@@ -72,7 +80,7 @@ function ProjectPageInner() {
   const router = useRouter();
   const projectIdParam = searchParams.get('id');
 
-  const [projectId, setProjectId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>(() => generateId());
   const [projectTitle, setProjectTitle] = useState('');
   const [script, setScript] = useState('');
 
@@ -82,9 +90,16 @@ function ProjectPageInner() {
   // Visual Style Presets State
   const [stylePresets, setStylePresets] = useState<BaseStylePreset[]>([]);
   const [selectedStyleId, setSelectedStyleId] = useState<string>('');
+  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [isPromptCustomized, setIsPromptCustomized] = useState<boolean>(false);
+  const [showPromptEditor, setShowPromptEditor] = useState<boolean>(false);
+  const [showStyleModal, setShowStyleModal] = useState<boolean>(false);
+  const [modalInitialTab, setModalInitialTab] = useState<'catalog' | 'architect' | 'library'>('catalog');
 
-  // Pacing Profile
-  const [pacingProfile, setPacingProfile] = useState<PacingProfile>('balanced');
+  // Pacing Profile (Default: transcript for voice & thought organic sync)
+  const [pacingProfile, setPacingProfile] = useState<PacingProfile>('transcript');
+  // Optional user scene count override (null = auto calculated from pacing profile & audio duration)
+  const [customSceneCount, setCustomSceneCount] = useState<number | null>(null);
 
   // Generation status
   const [generating, setGenerating] = useState(false);
@@ -109,6 +124,7 @@ function ProjectPageInner() {
     const defaultStyle = await getDefaultStylePreset();
     if (defaultStyle) {
       setSelectedStyleId(defaultStyle.id);
+      setCustomPrompt(defaultStyle.stylePrompt);
       if (defaultStyle.aspectRatio) {
         setAspectRatio(defaultStyle.aspectRatio);
       }
@@ -128,6 +144,14 @@ function ProjectPageInner() {
         setScript(existing.rawScript);
         if (existing.aspectRatio) setAspectRatio(existing.aspectRatio);
         if (existing.baseStylePresetId) setSelectedStyleId(existing.baseStylePresetId);
+        if (existing.customStylePrompt) {
+          setCustomPrompt(existing.customStylePrompt);
+          setIsPromptCustomized(true);
+          setShowPromptEditor(true);
+        } else if (existing.baseStylePresetId) {
+          const match = allStyles.find((s) => s.id === existing.baseStylePresetId);
+          if (match) setCustomPrompt(match.stylePrompt);
+        }
         if (existing.pacingProfile) setPacingProfile(existing.pacingProfile);
         if (existing.hasCustomVoice && existing.customAudioFileName) {
           setShowVoiceDrawer(true);
@@ -157,21 +181,44 @@ function ProjectPageInner() {
 
   // ─── Script Analytics Calculations ──────────────────────────────────────────
 
+  const hasVoice = !!customAudioFile;
+
   const scriptAnalytics = useMemo(() => {
     const trimmed = script.trim();
     const words = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
     const chars = trimmed.length;
 
-    // Speaking pace estimate based on profile
-    const wpm = pacingProfile === 'fast' ? 145 : pacingProfile === 'cinematic' ? 120 : 135;
-    const estSec = words > 0 ? Math.max(12, Math.round((words / wpm) * 60)) : 0;
+    // Speaking pace estimate based on profile (for rough estimate only)
+    const wpm = pacingProfile === 'fast' ? 145 : pacingProfile === 'cinematic' ? 115 : 130;
+    const wordEstSec = words > 0 ? Math.max(12, Math.round((words / wpm) * 60)) : 0;
+    const effectiveSec = customAudioDurationMs > 0 ? customAudioDurationMs / 1000 : wordEstSec;
 
-    // Cut duration based on profile
-    const cutSec = pacingProfile === 'fast' ? 2.5 : pacingProfile === 'cinematic' ? 5.5 : 4.0;
-    const estScenes = estSec > 0 ? Math.max(1, Math.round(estSec / cutSec)) : 0;
+    // Directorial scene estimation:
+    let autoScenes = 0;
+    if (pacingProfile === 'transcript') {
+      const organicThoughts = extractOrganicThoughtUnits(trimmed);
+      autoScenes = organicThoughts.length > 0
+        ? organicThoughts.length
+        : (effectiveSec > 0 ? Math.max(1, Math.round(effectiveSec / 5.2)) : 0);
+    } else {
+      const targetSceneSec = pacingProfile === 'fast' ? 3.8 : pacingProfile === 'documentary' ? 5.2 : pacingProfile === 'cinematic' ? 12.0 : 6.5;
+      autoScenes = effectiveSec > 0 ? Math.max(1, Math.round(effectiveSec / targetSceneSec)) : 0;
+    }
 
-    return { words, chars, estSec, estScenes };
-  }, [script, pacingProfile]);
+    const isManualOverride = typeof customSceneCount === 'number' && customSceneCount > 0;
+    const targetScenes = isManualOverride ? customSceneCount : autoScenes;
+    const avgCutSec = (effectiveSec > 0 && targetScenes > 0) ? (effectiveSec / targetScenes).toFixed(1) : '5.2';
+
+    const estScenesDisplay = hasVoice
+      ? '🎙️ Whisper Sync (Acoustic Pauses)'
+      : isManualOverride
+        ? `${customSceneCount} scenes (Manual Override)`
+        : words > 0
+          ? `AI Decides (~${autoScenes} scene beats)`
+          : '0 scenes';
+
+    return { words, chars, estSec: effectiveSec, estScenes: targetScenes, autoScenes, estScenesDisplay, avgCutSec, isManualOverride };
+  }, [script, pacingProfile, customAudioDurationMs, customSceneCount, hasVoice]);
 
   const activeStyle = useMemo(() => {
     return (
@@ -184,6 +231,14 @@ function ProjectPageInner() {
     );
   }, [stylePresets, selectedStyleId]);
 
+  const activeStylePrompt = useMemo(() => {
+    return isPromptCustomized && customPrompt.trim()
+      ? customPrompt.trim()
+      : activeStyle.stylePrompt;
+  }, [isPromptCustomized, customPrompt, activeStyle]);
+
+
+
   // ─── Generate Visual Storyboard (Primary Action) ───────────────────────────
 
   async function handleGenerateVisualStoryboard() {
@@ -195,38 +250,40 @@ function ProjectPageInner() {
 
     setGenerating(true);
     setGenerationError('');
-    setGeneratingMsg('AI Director extracting visual scenes & pacing…');
+    setGeneratingMsg('AI Director reading script narrative & deciding scenes…');
 
     try {
       const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
+      const effectiveStylePrompt = activeStylePrompt;
 
-      const words = script.trim().split(/\s+/).filter(Boolean).length;
-      const wpm = pacingProfile === 'fast' ? 145 : pacingProfile === 'cinematic' ? 120 : 135;
-      const wordEstSec = Math.max(15, Math.round((words / wpm) * 60));
-      const targetDurationSec = customAudioDurationMs > 0 ? customAudioDurationMs / 1000 : wordEstSec;
+      // In Script-Only Mode:
+      // If user provided a manual override (customSceneCount), pass it.
+      // Otherwise pass undefined so the AI Director decides based on narrative beats!
+      const userSceneCount = customSceneCount && customSceneCount > 0 ? customSceneCount : undefined;
+
+      setGeneratingMsg(
+        userSceneCount
+          ? `AI Director extracting ~${userSceneCount} visual scenes & pacing…`
+          : 'AI Director analyzing script beats & deciding scene count & pacing…'
+      );
 
       const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
-        targetDurationSec,
-        stylePrompt: chosenStyle.stylePrompt,
+        sceneCount: userSceneCount,
+        stylePrompt: effectiveStylePrompt,
         apiKey,
         pacingProfile,
         onProgress: (msg) => setGeneratingMsg(msg),
       });
-
-      // Scale scenes to cover targetDurationSec perfectly
-      const rawTotal = breakdown.reduce(
-        (sum, item) => sum + (typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0),
-        0
-      );
-      const scale = rawTotal > 0 ? targetDurationSec / rawTotal : 1;
-
+      console.log('breakdown', breakdown)
+      // NO mathematical scaling formula!
+      // In Script-Only mode, the AI Director determines the natural durationSec for each visual beat.
+      // Scene start and end times are simply accumulated from the AI's natural durations.
       let cumSec = 0;
       const newScenes: SceneItem[] = breakdown.map((item, idx) => {
-        const rawDur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 4.0;
-        const dur = rawDur * scale;
+        const dur = typeof item.durationSec === 'number' && item.durationSec > 0 ? item.durationSec : 5.0;
         const start = cumSec;
-        const end = idx === breakdown.length - 1 ? targetDurationSec : cumSec + dur;
+        const end = cumSec + dur;
         cumSec = end;
 
         return {
@@ -235,29 +292,36 @@ function ProjectPageInner() {
           audioEndSec: parseFloat(end.toFixed(1)),
           narrationLine: item.narration,
           visualPrompt: item.visual_prompt,
-          fullPrompt: `${item.visual_prompt}. ${chosenStyle.stylePrompt}`,
+          fullPrompt: `${item.visual_prompt}. ${effectiveStylePrompt}`,
           shotType: item.shot_type,
           bRollFocus: item.b_roll_focus,
+          visualType: item.visual_type,
+          cameraMotion: item.camera_motion,
           status: 'PENDING',
         };
       });
 
+      const totalDurationSec = cumSec;
+      const activeProjectId = projectId || existingProjectRef.current?.projectId || generateId();
+      if (projectId !== activeProjectId) setProjectId(activeProjectId);
+
       const manifest: ProjectManifest = {
-        projectId,
+        projectId: activeProjectId,
         title: projectTitle || 'Visual Storyboard',
         rawScript: script,
         voicePresetId: '',
         pacingProfile,
         aspectRatio,
         audioChunks: [],
-        totalDurationMs: Math.round(targetDurationSec * 1000),
+        totalDurationMs: Math.round(totalDurationSec * 1000),
         scenes: newScenes,
         baseStylePresetId: chosenStyle.id,
+        customStylePrompt: isPromptCustomized ? customPrompt.trim() : undefined,
         updatedAt: Date.now(),
       };
 
       await saveProject(manifest);
-      router.push(`/storyboard?id=${projectId}&autoGenerate=true`);
+      router.push(`/storyboard?id=${activeProjectId}&autoGenerate=true`);
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Scene extraction failed.');
       setGenerating(false);
@@ -276,6 +340,7 @@ function ProjectPageInner() {
       const durSec = await getAudioDuration(file);
       setCustomAudioFile(file);
       setCustomAudioDurationMs(Math.round(durSec * 1000));
+      setPacingProfile('transcript');
     } catch (err) {
       console.error('Failed to read audio duration:', err);
       setGenerationError('Could not read audio file. Please upload an MP3, WAV, or M4A file.');
@@ -295,8 +360,11 @@ function ProjectPageInner() {
     try {
       const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
+      const effectiveStylePrompt = activeStylePrompt;
+      const activeProjectId = projectId || existingProjectRef.current?.projectId || generateId();
+      if (projectId !== activeProjectId) setProjectId(activeProjectId);
 
-      await saveMediaBlob(`audio_${projectId}_0`, customAudioFile);
+      await saveMediaBlob(`audio_${activeProjectId}_0`, customAudioFile);
       const audioUrl = URL.createObjectURL(customAudioFile);
       const targetDurationSec = customAudioDurationMs / 1000;
 
@@ -304,14 +372,17 @@ function ProjectPageInner() {
       let transcriptionText = '';
       let timedWords: TimedWord[] = [];
 
-      setGeneratingMsg('Transcribing audio with Whisper AI (word timestamps)…');
-      const whisperResult = await transcribeAudioWithWhisper(customAudioFile, {
+      const detectedLang = /[\u0980-\u09FF]/.test(script) ? 'bn' : 'en';
+      setGeneratingMsg('Aligning audio with script (zero hallucination)…');
+      const alignResult = await alignAudioWithScript(customAudioFile, script.trim(), {
         pollinationsApiKey: apiKey,
+        language: detectedLang,
+        scriptPrompt: script.trim(),
         onProgress: (msg) => setGeneratingMsg(msg),
       });
-      spokenSegments = whisperResult.segments;
-      transcriptionText = whisperResult.fullText;
-      timedWords = whisperResult.words;
+      spokenSegments = alignResult.segments;
+      transcriptionText = alignResult.fullText;
+      timedWords = alignResult.words;
 
       if (!spokenSegments || spokenSegments.length === 0) {
         throw new Error('No speech detected in this audio file. Please verify audio content.');
@@ -320,12 +391,15 @@ function ProjectPageInner() {
       const effectiveScript = script.trim() || transcriptionText;
       if (!script.trim()) setScript(effectiveScript);
 
-      setGeneratingMsg('AI Director aligning visual scenes to voice timestamps…');
+      // Scene count is NOT forced here — the AI Director decides it from the real
+      // transcript's narrative beats, topic shifts, and speech pauses. Scene duration
+      // comes from Whisper's actual word/sentence timestamps, never a guess.
+      setGeneratingMsg('AI Director analyzing voice timing & deciding scenes…');
       const visualScenes = await directScenesFromAudioAndScript(spokenSegments, {
         userScript: effectiveScript,
         totalAudioDurationSec: targetDurationSec,
         pacingProfile,
-        stylePrompt: chosenStyle.stylePrompt,
+        stylePrompt: effectiveStylePrompt,
         apiKey,
         words: timedWords,
         onProgress: (msg) => setGeneratingMsg(msg),
@@ -336,25 +410,27 @@ function ProjectPageInner() {
         audioStartSec: item.audioStartSec,
         audioEndSec: item.audioEndSec,
         narrationLine: item.narrationLine,
-        visualPrompt: item.visualPrompt || `Cinematic frame capturing: ${item.narrationLine.slice(0, 100)}`,
-        fullPrompt: `${item.visualPrompt || ''}. ${chosenStyle.stylePrompt}`,
+        visualPrompt: item.visualPrompt || `Visual frame capturing: ${item.narrationLine.trim()}`,
+        fullPrompt: `${item.visualPrompt || ''}. ${effectiveStylePrompt}`,
         shotType: item.shotType,
         bRollFocus: item.bRollFocus,
         cutPace: item.cutPace,
+        visualType: item.visualType,
+        cameraMotion: item.cameraMotion,
         status: 'PENDING',
       }));
-
+      console.log('visualScenes', visualScenes);
       const customChunk = {
         index: 0,
         text: `Custom Voice: ${customAudioFile.name}`,
-        filePath: `projects/${projectId}/audio/custom_voice.${customAudioFile.name.split('.').pop() || 'mp3'}`,
+        filePath: `projects/${activeProjectId}/audio/custom_voice.${customAudioFile.name.split('.').pop() || 'mp3'}`,
         durationMs: customAudioDurationMs,
         status: 'COMPLETED' as const,
         audioUrl,
       };
 
       const manifest: ProjectManifest = {
-        projectId,
+        projectId: activeProjectId,
         title: projectTitle || `Voice: ${customAudioFile.name.replace(/\.[^/.]+$/, '')}`,
         rawScript: effectiveScript,
         voicePresetId: '',
@@ -366,11 +442,12 @@ function ProjectPageInner() {
         totalDurationMs: customAudioDurationMs,
         scenes: newScenes,
         baseStylePresetId: chosenStyle.id,
+        customStylePrompt: isPromptCustomized ? customPrompt.trim() : undefined,
         updatedAt: Date.now(),
       };
 
       await saveProject(manifest);
-      router.push(`/storyboard?id=${projectId}&autoGenerate=true`);
+      router.push(`/storyboard?id=${activeProjectId}&autoGenerate=true`);
     } catch (err) {
       setGenerationError(err instanceof Error ? err.message : 'Custom voice sync failed.');
       setGenerating(false);
@@ -403,12 +480,7 @@ function ProjectPageInner() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-emerald-400 bg-emerald-950/50 border border-emerald-800/40 px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5">
-            <Sparkles size={11} />
-            Pollinations AI (Free Tier)
-          </span>
-        </div>
+
       </header>
 
       {/* Main Workspace: 2-Column Studio */}
@@ -430,7 +502,7 @@ function ProjectPageInner() {
                     <span>·</span>
                     <span>~{scriptAnalytics.estSec}s duration</span>
                     <span>·</span>
-                    <span className="text-emerald-400 font-semibold">~{scriptAnalytics.estScenes} scenes</span>
+                    <span className="text-emerald-400 font-semibold">{scriptAnalytics.estScenesDisplay}</span>
                   </div>
                 )}
               </div>
@@ -499,70 +571,185 @@ function ProjectPageInner() {
             </div>
 
             {/* ─── Visual Art Style Preset ──────────────────────────────────── */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Palette size={12} className="text-emerald-400" />
                   Visual Art Style
                 </label>
-                <span className="text-[10px] text-emerald-400/90 font-mono truncate max-w-[180px]">
-                  {activeStyle.name}
-                </span>
+                {isPromptCustomized && (
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Prompt Modified
+                  </span>
+                )}
               </div>
-              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                {stylePresets.map((preset) => {
-                  const isSelected = preset.id === selectedStyleId;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => setSelectedStyleId(preset.id)}
-                      className={`text-left p-2.5 rounded-xl border transition-all ${isSelected
-                        ? 'bg-zinc-800/95 border-emerald-500/60 shadow-sm'
-                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
-                        }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className={`text-xs font-medium truncate ${isSelected ? 'text-white font-semibold' : 'text-zinc-300'}`}>
-                          {preset.name}
+
+              {/* Active Selected Style Display Card */}
+              <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700/80 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-sm">
+                <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                  {activeStyle.thumbnailUrl ? (
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-zinc-950 flex-shrink-0 border border-zinc-700/60 shadow-inner">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={activeStyle.thumbnailUrl}
+                        alt={activeStyle.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {activeStyle.tag && (
+                        <span className="absolute bottom-1 left-1 text-[8px] font-mono uppercase px-1 py-0.5 rounded bg-black/80 text-zinc-300">
+                          {activeStyle.tag}
                         </span>
-                        {isSelected && <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />}
-                      </div>
-                      <p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight">
-                        {preset.stylePrompt}
-                      </p>
-                    </button>
-                  );
-                })}
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center flex-shrink-0 text-emerald-400">
+                      <Palette size={22} />
+                    </div>
+                  )}
+
+                  <div className="min-w-0 space-y-1 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white truncate">
+                        {activeStyle.name}
+                      </span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 flex-shrink-0">
+                        <CheckCircle2 size={10} /> Active
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 font-mono line-clamp-2 leading-relaxed">
+                      {isPromptCustomized ? customPrompt : activeStyle.stylePrompt}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalInitialTab('catalog');
+                    setShowStyleModal(true);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700/80 font-semibold text-xs transition-colors flex items-center justify-center gap-2 flex-shrink-0 shadow-sm"
+                >
+                  <Wand2 size={13} className="text-amber-400" />
+                  <span>Change Style</span>
+                </button>
               </div>
             </div>
 
-            {/* ─── Scene Pacing Profile ─────────────────────────────────────── */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
+            {/* ─── Scene Pacing Profile & Target Cuts ─────────────────────── */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
                 <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Gauge size={12} className="text-cyan-400" />
                   Directorial Pacing
                 </label>
                 <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
-                  {pacingProfile === 'fast' ? '~2.5s cuts' : pacingProfile === 'balanced' ? '~4.0s dynamic' : '~5.5s cinematic'}
+                  {pacingProfile === 'transcript'
+                    ? '🎙️ Transcript Sync (100% Voice Pauses)'
+                    : pacingProfile === 'documentary'
+                      ? '~5.2s Vox Hybrid'
+                      : pacingProfile === 'cinematic'
+                        ? '~12s Ambient Film'
+                        : pacingProfile === 'fast'
+                          ? '~3.8s Snappy Cuts'
+                          : '~6.5s Natural Story'}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-zinc-900 border border-zinc-800">
-                {(['fast', 'balanced', 'cinematic'] as const).map((p) => (
+              <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-zinc-900 border border-zinc-800">
+                {(['transcript', 'documentary', 'fast', 'balanced', 'cinematic'] as const).map((p) => (
                   <button
                     key={p}
                     type="button"
-                    onClick={() => setPacingProfile(p)}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-medium capitalize transition-colors ${pacingProfile === p
-                      ? 'bg-zinc-800 text-white border border-zinc-700 shadow-sm font-semibold'
+                    onClick={() => {
+                      setPacingProfile(p);
+                      setCustomSceneCount(null);
+                    }}
+                    className={`py-1.5 px-1 rounded-lg text-[11px] font-medium capitalize transition-colors text-center ${pacingProfile === p
+                      ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30 shadow-sm font-semibold'
                       : 'text-zinc-400 hover:text-white'
                       }`}
                   >
-                    {p}
+                    {p === 'transcript' ? '🎙️ Sync' : p === 'documentary' ? 'Vox Doc' : p}
                   </button>
                 ))}
               </div>
+
+              {/* Visual Cuts & Scene Density Stepper */}
+              {hasVoice ? (
+                <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800 flex items-center gap-2">
+                  <Layers size={12} className="text-amber-400 flex-shrink-0" />
+                  <p className="text-[11px] text-zinc-400">
+                    <span className="text-zinc-200 font-medium">AI Director decides scene count</span> from your uploaded voice's real transcript and timing — the manual target below only applies when generating from script text alone (no voice).
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Layers size={12} className="text-amber-400" />
+                      <span className="text-[11px] font-medium text-zinc-300">Target Visual Cuts:</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setCustomSceneCount(Math.max(5, (customSceneCount || scriptAnalytics.autoScenes) - 2))}
+                          className="w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                          title="Decrease scenes"
+                        >
+                          <Minus size={11} />
+                        </button>
+                        <span className="text-xs font-bold font-mono text-emerald-400 px-1 text-center">
+                          {customSceneCount !== null ? customSceneCount : 'Auto (AI)'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setCustomSceneCount((customSceneCount || scriptAnalytics.autoScenes) + 2)}
+                          className="w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                          title="Increase scenes"
+                        >
+                          <Plus size={11} />
+                        </button>
+                      </div>
+                      <span className="text-[10px] font-mono text-zinc-400">
+                        {customSceneCount !== null ? `(~${scriptAnalytics.avgCutSec}s / cut)` : 'AI Narrative Beats'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Presets for Scene Density */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[9px] font-mono text-zinc-500">Preset Cuts:</span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomSceneCount(null)}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-all border ${customSceneCount === null
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
+                        : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border-zinc-700'
+                        }`}
+                    >
+                      ✨ Auto (AI Decides)
+                    </button>
+                    {[
+                      { label: '52 (Vox Doc)', count: 52 },
+                      { label: '65 (Fast Cuts)', count: 65 },
+                      { label: '40 (Balanced)', count: 40 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setCustomSceneCount(preset.count)}
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded transition-all border ${customSceneCount === preset.count
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
+                          : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border-zinc-700'
+                          }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ─── Optional Custom Voiceover Drawer ─────────────────────────── */}
@@ -682,18 +869,30 @@ function ProjectPageInner() {
                   <Loader2 size={16} className="animate-spin" />
                   <span>{generatingMsg || 'Creating Storyboard…'}</span>
                 </>
+              ) : hasVoice ? (
+                <>
+                  <Mic size={16} className="text-emerald-600" />
+                  <span>Sync Voiceover &amp; Generate Storyboard</span>
+                  <ArrowRight size={15} />
+                </>
               ) : (
                 <>
-                  <Sparkles size={16} />
+                  <Sparkles size={16} className="text-amber-500" />
                   <span>
                     Generate Visual Storyboard
-                    {scriptAnalytics.estScenes > 0 ? ` (~${scriptAnalytics.estScenes} Scenes)` : ''}
+                    {scriptAnalytics.isManualOverride
+                      ? ` (${customSceneCount} scenes)`
+                      : ' (AI Decides Scenes)'}
                   </span>
                   <ArrowRight size={15} />
                 </>
               )}
             </button>
-
+            <p className="text-[10px] text-center text-zinc-400">
+              {hasVoice
+                ? '🎙️ Whisper AI extracts word timecodes for 100% accurate scene durations & speech sync.'
+                : '📝 AI Director reads your script, decides scene cuts & assigns natural durations without voice.'}
+            </p>
           </div>
         </div>
 
@@ -741,11 +940,18 @@ function ProjectPageInner() {
                   <div className="w-12 h-12 rounded-2xl bg-zinc-800/80 border border-zinc-700 flex items-center justify-center mx-auto mb-3 shadow-inner text-emerald-400">
                     <Images size={22} />
                   </div>
-                  <h4 className="text-xs font-semibold text-white tracking-wide mb-1">
-                    {activeStyle.name}
-                  </h4>
+                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                    <h4 className="text-xs font-semibold text-white tracking-wide">
+                      {activeStyle.name}
+                    </h4>
+                    {isPromptCustomized && (
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Customized
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[10px] text-zinc-400 line-clamp-2 max-w-xs mx-auto">
-                    {activeStyle.stylePrompt}
+                    {activeStylePrompt}
                   </p>
                 </div>
 
@@ -764,8 +970,8 @@ function ProjectPageInner() {
             <div className="w-full grid grid-cols-3 gap-3">
               <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-center">
                 <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500">Scenes</span>
-                <p className="text-base font-bold text-white mt-0.5">
-                  {scriptAnalytics.estScenes > 0 ? `~${scriptAnalytics.estScenes}` : '0'}
+                <p className="text-sm font-bold text-white mt-0.5 truncate px-1">
+                  {scriptAnalytics.estScenes > 0 ? scriptAnalytics.estScenesDisplay : '0'}
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-center">
@@ -784,6 +990,23 @@ function ProjectPageInner() {
           </div>
         </div>
       </div>
+
+      {/* Style Preset Modal */}
+      {showStyleModal && (
+        <StylePresetModal
+          initialTab={modalInitialTab}
+          onClose={() => setShowStyleModal(false)}
+          onSelect={async (preset) => {
+            const allStyles = await getStylePresets();
+            setStylePresets(allStyles);
+            setSelectedStyleId(preset.id);
+            setCustomPrompt(preset.stylePrompt);
+            setIsPromptCustomized(false);
+            setShowStyleModal(false);
+          }}
+          selectedId={selectedStyleId}
+        />
+      )}
     </div>
   );
 }

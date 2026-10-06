@@ -1,7 +1,7 @@
 "use client";
 
 import OpenAI from "openai";
-import type { ShotType, PacingProfile } from "@/types";
+import type { ShotType, PacingProfile, VisualSceneType, CameraMotionEffect, VisualWorldBible, CharacterVisualAnchor } from "@/types";
 
 /**
  * Types & Interfaces
@@ -9,9 +9,11 @@ import type { ShotType, PacingProfile } from "@/types";
 export interface ScriptSceneBreakdown {
   narration: string;
   visual_prompt: string;
-  durationSec: number;
+  durationSec: number | null;
   shot_type?: ShotType;
   b_roll_focus?: string;
+  visual_type?: VisualSceneType;
+  camera_motion?: CameraMotionEffect;
 }
 
 export type SupportedTtsVoice =
@@ -216,6 +218,7 @@ export async function breakdownScriptToScenes(
   options?: {
     pacingProfile?: PacingProfile;
     stylePrompt?: string;
+    sceneCount?: number;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   if (!script || !script.trim()) {
@@ -233,24 +236,24 @@ export async function breakdownScriptToScenes(
     'WIDE_ESTABLISHING',
   ];
 
-  const pacing = options?.pacingProfile || 'balanced';
-  const paceConfig = {
-    fast: { avgSec: 2.8, minSec: 1.8, maxSec: 3.8, desc: 'Fast, punchy cutaways (1.8s - 3.8s)' },
-    balanced: { avgSec: 4.0, minSec: 2.2, maxSec: 5.5, desc: 'Dynamic natural pacing (2.2s - 5.5s)' },
-    cinematic: { avgSec: 5.5, minSec: 3.5, maxSec: 7.5, desc: 'Cinematic, atmospheric rhythm (3.5s - 7.5s)' },
-  }[pacing];
+  const pacing = options?.pacingProfile || 'documentary';
+  const paceConfigMap: Record<PacingProfile, { avgSec: number; minSec: number; maxSec: number; desc: string }> = {
+    fast: { avgSec: 3.8, minSec: 2.2, maxSec: 5.0, desc: 'Snappy fast-paced visual cuts (2.2s - 5.0s)' },
+    balanced: { avgSec: 6.5, minSec: 4.0, maxSec: 9.0, desc: 'Dynamic natural pacing (4.0s - 9.0s)' },
+    cinematic: { avgSec: 12.0, minSec: 6.5, maxSec: 18.0, desc: 'Cinematic, atmospheric rhythm (6.5s - 18.0s)' },
+    documentary: { avgSec: 5.2, minSec: 3.0, maxSec: 7.0, desc: 'Vox / Johnny Harris hybrid documentary rhythm (3.0s - 7.0s)' },
+    transcript: { avgSec: 5.2, minSec: 2.5, maxSec: 7.5, desc: 'Voice-synchronized organic transcript pacing (cuts land on spoken pauses and thoughts)' },
+  };
+  const paceConfig = paceConfigMap[pacing] || paceConfigMap.documentary;
 
-  const estimatedSceneCount = targetDurationSec && targetDurationSec > 0
-    ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
-    : undefined;
-
-  const durationGuidance = targetDurationSec && targetDurationSec > 0
-    ? `Target total narration audio duration is ~${Math.round(targetDurationSec)} seconds. Generate approximately ${estimatedSceneCount} sequential scenes with natural variable lengths (${paceConfig.desc}) so that visual scene transitions span the entire ${Math.round(targetDurationSec)}-second narration smoothly.`
-    : `Each scene represents roughly ${paceConfig.minSec} to ${paceConfig.maxSec} seconds of narration based on sentence length and shot emotion.`;
+  const requestedCount = typeof options?.sceneCount === "number" && options.sceneCount > 0 ? options.sceneCount : undefined;
+  const countInstruction = requestedCount
+    ? `Target approximately ${requestedCount} sequential scenes (between ${Math.max(1, requestedCount - 2)} and ${requestedCount + 2} scenes) as requested by the user.`
+    : `YOU ARE THE DIRECTOR: Analyze the narrative beats, questions, and emotional transitions. YOU decide the total number of scenes needed to visually tell this story without rushing or dragging. Group 1-2 sentences per scene for dynamic pacing (${paceConfig.desc}).`;
 
   const systemInstruction = `You are an elite documentary film director and visual auteur (in the league of BBC Earth, National Geographic, and IMAX).
 Your job is to parse a video narration script into a sequential list of cinematographically rich visual scenes.
-${durationGuidance}
+${countInstruction}
 
 CINEMATIC PACING & UNIVERSAL B-ROLL MANDATE:
 Do NOT produce repetitive or literal visuals that depict only the primary subject from the same angle.
@@ -366,16 +369,20 @@ Do not include any explanation, intro text, or conversational markdown outside t
       };
     });
   } catch (error) {
-    console.warn("Pollinations scene breakdown error, using dynamic sentence partition:", error);
-    const sentences = script.split(/(?<=[.!?\n])\s+/).filter((s) => s.trim().length > 0);
-    const targetCount = targetDurationSec && targetDurationSec > 0
-      ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
-      : Math.max(1, Math.ceil(sentences.length / 2));
-    const sceneCount = Math.max(1, Math.min(sentences.length, targetCount));
-    const chunkSize = Math.max(1, Math.ceil(sentences.length / sceneCount));
 
-    return Array.from({ length: sceneCount }, (_, idx) => {
-      const slice = sentences.slice(idx * chunkSize, (idx + 1) * chunkSize);
+    const sentences = script.split(/(?<=[.!?\n।])\s+/).map((s) => s.trim()).filter(Boolean);
+    const targetCount = typeof options?.sceneCount === "number" && options.sceneCount > 0
+      ? options.sceneCount
+      : targetDurationSec && targetDurationSec > 0
+        ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
+        : Math.max(1, Math.min(sentences.length, Math.ceil(sentences.length / 1.4)));
+
+    const finalCount = Math.max(1, Math.min(sentences.length, targetCount));
+
+    return Array.from({ length: finalCount }, (_, idx) => {
+      const startIdx = Math.floor((idx * sentences.length) / finalCount);
+      const endIdx = Math.floor(((idx + 1) * sentences.length) / finalCount);
+      const slice = sentences.slice(startIdx, Math.max(startIdx + 1, endIdx));
       const narration = slice.join(" ") || `Scene ${idx + 1}`;
       const shot_type = VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
       const words = narration.split(/\s+/).filter(Boolean).length;
@@ -601,6 +608,21 @@ export async function generateSceneImage(
     }
   }
 
+  // If still no apiKey on client-side, retrieve server-configured key
+  if (!apiKey && typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/pollinations-key");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.apiKey && !data.apiKey.startsWith("AIza") && data.apiKey.toLowerCase() !== "pollinations") {
+          apiKey = data.apiKey.trim();
+        }
+      }
+    } catch {
+      // ignore network errors
+    }
+  }
+
   const headers: Record<string, string> = {};
 
   let primaryUrl = "";
@@ -653,17 +675,17 @@ export async function generateSceneImage(
 }
 
 /**
- * Splits long script text into natural semantic chunks (~120–160 words each),
+ * Splits very long script text into natural semantic chapters (~350–500 words each),
  * respecting paragraph and sentence boundaries.
  */
-export function splitIntoPacingChunks(text: string, targetWords = 140): string[] {
+export function splitIntoPacingChunks(text: string, targetWords = 400): string[] {
   const paragraphs = text.split(/\n\s*\n/).filter(Boolean);
   const chunks: string[] = [];
   let currentChunk: string[] = [];
   let currentWords = 0;
 
   for (const para of paragraphs) {
-    const sentences = para.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const sentences = para.split(/(?<=[.!?।])\s+/).filter(Boolean);
     for (const sentence of sentences) {
       const words = sentence.split(/\s+/).filter(Boolean).length;
       if (currentWords + words > targetWords && currentChunk.length > 0) {
@@ -684,9 +706,102 @@ export function splitIntoPacingChunks(text: string, targetWords = 140): string[]
 }
 
 /**
+ * Stage 1: AI Concept & World Director
+ * Analyzes the entire narrative script to establish an immutable Visual Story World Bible:
+ * - Historical Era & Civilization
+ * - Topography, Architecture & Environment
+ * - Authentic Costumes, Grooming & Material Culture
+ * - Character Visual Anchors (physical likeness, clothing, props)
+ * - Curated Color Palette & Volumetric Lighting
+ * - Strict Forbidden Anachronisms (negative prompt constraints)
+ */
+export async function generateStoryWorldBible(
+  script: string,
+  options?: {
+    apiKey?: string;
+    stylePrompt?: string;
+    onProgress?: (msg: string) => void;
+  }
+): Promise<VisualWorldBible> {
+  const aiClient = getPollinationsClient(options?.apiKey);
+  const cleanScript = script.trim();
+
+  options?.onProgress?.("Stage 1: AI Concept Director establishing Story World Bible (Era, Costumes, Characters)…");
+
+  const systemPrompt = `You are an elite Hollywood Production Designer, Historical Scholar, and World-Building Visual Director.
+Your task is to analyze a video script (in Bengali, English, or any language) and construct the definitive, immutable VISUAL STORY WORLD BIBLE.
+
+This World Bible serves as the master creative directive for the scene storyboard director to ensure:
+1. 100% Historical Accuracy: Strictly adhere to the genuine epoch (e.g. Ancient Egypt ~1300 BCE, Mesopotamia, Medieval Bengal, 19th Century, Cyberpunk future, etc.).
+2. Cultural & Costume Fidelity: Exact period-authentic clothing, hairstyles, fabrics, ornaments, and weaponry.
+3. Character Visual Continuity: Fixed physical and stylistic visual anchors for all primary figures (e.g. Pharaoh, Prophet Moses/Musa, Sorcerers, Soldiers).
+4. Zero Anachronisms: Ground abstract philosophical opening lines in the story's actual historical environment (e.g. an ancient throne room or desert dunes, NEVER a modern corporate office).
+
+OUTPUT SPECIFICATION:
+You must return ONLY a JSON object matching this schema:
+{
+  "summary": "Concise 2-sentence synopsis of the narrative arc and core theme",
+  "eraAndSetting": "Exact historical period, civilization, and geographic region (e.g. 'Ancient Egypt, New Kingdom (~13th Century BCE), Bronze Age Nile Valley')",
+  "geographyAndEnvironment": "Topography, architectural monuments, building materials, vegetation, and natural elements (e.g. 'Sun-drenched golden limestone cliffs, sweeping Sahara dunes, muddy reed banks of the Nile, colossal stone pylon temples with carved hieroglyphs, lotus-column courtyards, mudbrick workers quarters')",
+  "culturalContextAndCostumes": "Detailed period-authentic attire, textiles, accessories, and weapons (e.g. 'Pleated sheer white linen shendyt kilts, striped Nemes headdresses, heavy usekh collar necklaces with turquoise and carnelian beads, kohl eyeliner, bronze khopesh swords, reed baskets, wooden war chariots. ZERO modern clothing, ZERO medieval European armor')",
+  "characters": [
+    {
+      "name": "Character or Group Name (e.g. Pharaoh / ফেরাউন)",
+      "role": "Narrative role (e.g. Tyrannical Ruler)",
+      "visualAnchor": "Detailed prompt fragment describing face, skin tone, attire, crown, and props for consistent rendering"
+    }
+  ],
+  "colorPaletteAndLighting": "Curated color tones and lighting style (e.g. 'Golden ochre sandstone, deep Egyptian lapis blue, Nile turquoise, terracotta red, rich gold leaf highlights; harsh blinding desert daylight with deep volumetric dust shadows, warm flickering torchlight at night')",
+  "strictAnachronismBans": "Explicit comma-separated negative list of forbidden contemporary or misplaced items (e.g. 'modern business suits, modern shirts, neckties, eyeglasses, wristwatches, concrete or glass skyscrapers, modern boats, asphalt roads, medieval European armor, Renaissance castles, paper books, electricity')"
+}`;
+
+  const userPrompt = `Analyze this video script and output the complete VISUAL STORY WORLD BIBLE in strict JSON format:\n\n"""\n${cleanScript.slice(0, 4500)}\n"""`;
+
+  try {
+    const response = await aiClient.chat.completions.create({
+      model: "openai",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    });
+
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("Empty response from AI Concept Director.");
+    }
+
+    const parsed = JSON.parse(content);
+    return {
+      summary: parsed.summary || cleanScript.slice(0, 120),
+      eraAndSetting: parsed.eraAndSetting || "Historical period documentary",
+      geographyAndEnvironment: parsed.geographyAndEnvironment || "Atmospheric cinematic landscapes",
+      culturalContextAndCostumes: parsed.culturalContextAndCostumes || "Authentic period clothing and garments",
+      characters: Array.isArray(parsed.characters) ? parsed.characters : [],
+      colorPaletteAndLighting: parsed.colorPaletteAndLighting || "Cinematic volumetric lighting",
+      strictAnachronismBans: parsed.strictAnachronismBans || "modern clothing, suits, skyscrapers, digital elements",
+    };
+  } catch (err) {
+    console.warn("generateStoryWorldBible error, using fallback world baseline:", err);
+    return {
+      summary: cleanScript.slice(0, 120),
+      eraAndSetting: "Historical narrative setting",
+      geographyAndEnvironment: "Cinematic landscapes matching the story environment",
+      culturalContextAndCostumes: "Authentic period clothing matching the narrative epoch",
+      characters: [],
+      colorPaletteAndLighting: "Cinematic atmospheric lighting",
+      strictAnachronismBans: "modern clothing, suits, skyscrapers, digital elements",
+    };
+  }
+}
+
+/**
  * 5. breakdownRequirementToImageScenes
- * Takes user creative requirements or story prompt and breaks them down into
- * sequential visual scenes ready for image generation, without requiring voice generation.
+ * Two-Stage Multi-Agent AI Director:
+ * Stage 1: Establishes the Story World Bible (historical epoch, costumes, character anchors, environment).
+ * Stage 2: Directs and formats every sequential visual scene to match the World Bible.
  * Supports auto-batching for long scripts (e.g. 23+ minutes).
  */
 export async function breakdownRequirementToImageScenes(
@@ -698,21 +813,37 @@ export async function breakdownRequirementToImageScenes(
     apiKey?: string;
     pacingProfile?: PacingProfile;
     onProgress?: (msg: string) => void;
+    worldBible?: VisualWorldBible;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   if (!requirement || !requirement.trim()) {
     throw new Error("Requirement cannot be empty.");
   }
 
+  // Stage 1: Build Visual Story World Bible if not already provided
+  let worldBible = options?.worldBible;
+  if (!worldBible) {
+    try {
+      worldBible = await generateStoryWorldBible(requirement, {
+        apiKey: options?.apiKey,
+        stylePrompt: options?.stylePrompt,
+        onProgress: options?.onProgress,
+      });
+    } catch (err) {
+      console.warn("Failed to generate Story World Bible, proceeding without:", err);
+    }
+  }
+
   const words = requirement.trim().split(/\s+/).filter(Boolean).length;
-  const isLongScript = !options?.sceneCount && (words > 180 || (options?.targetDurationSec && options.targetDurationSec > 90));
+  // Batch scripts over 220 words (~1.5+ mins) into sequential chapters so the LLM never hits output token limits and never skips paragraphs
+  const isLongScript = !options?.sceneCount && (words > 220 || (options?.targetDurationSec && options.targetDurationSec > 120));
 
   // Multi-chunk batching for long scripts to prevent token truncation & enforce rich scene count
   if (isLongScript) {
-    const batches = splitIntoPacingChunks(requirement, 140);
-    options?.onProgress?.(`Divided into ${batches.length} sequential story batches for high-density visual extraction…`);
+    const batches = splitIntoPacingChunks(requirement, 200);
+    options?.onProgress?.(`Divided into ${batches.length} sequential story chapters for cinematic visual extraction…`);
 
-    const totalTargetSec = options?.targetDurationSec || Math.max(15, Math.round((words / 135) * 60));
+    const totalTargetSec = options?.targetDurationSec || Math.max(20, Math.round((words / 135) * 60));
     const allScenes: ScriptSceneBreakdown[] = [];
 
     for (let i = 0; i < batches.length; i++) {
@@ -721,13 +852,14 @@ export async function breakdownRequirementToImageScenes(
       const batchDurationSec = totalTargetSec > 0 ? (batchWords / words) * totalTargetSec : undefined;
 
       options?.onProgress?.(
-        `Extracting scenes: Batch ${i + 1} of ${batches.length} (${allScenes.length} scenes created so far)…`
+        `Stage 2: Extracting scenes for Chapter ${i + 1}/${batches.length} (${allScenes.length} scenes created)…`
       );
 
       try {
         const batchScenes = await breakdownRequirementToImageScenesSingle(batchText, {
           ...options,
           targetDurationSec: batchDurationSec,
+          worldBible,
         });
         allScenes.push(...batchScenes);
       } catch (err) {
@@ -735,16 +867,32 @@ export async function breakdownRequirementToImageScenes(
         const fallbackBatch = await breakdownRequirementToImageScenesSingle(batchText, {
           ...options,
           targetDurationSec: batchDurationSec,
+          worldBible,
         });
         allScenes.push(...fallbackBatch);
       }
     }
 
-    options?.onProgress?.(`Successfully generated ${allScenes.length} diverse scenes across ${batches.length} batches.`);
+    options?.onProgress?.(`Successfully generated ${allScenes.length} diverse scenes across ${batches.length} chapters.`);
     return allScenes;
   }
 
-  return breakdownRequirementToImageScenesSingle(requirement, options);
+  return breakdownRequirementToImageScenesSingle(requirement, {
+    ...options,
+    worldBible,
+  });
+}
+
+/**
+ * Extracts the primary sentence/phrase of an artistic style preset, or returns it cleanly.
+ */
+export function extractCoreMedium(stylePrompt?: string): string {
+  if (!stylePrompt || !stylePrompt.trim()) {
+    return 'Cinematic cinematography';
+  }
+  const clean = stylePrompt.trim();
+  const firstSentence = clean.split(/(?<=[.!?])\s+/)[0] || clean;
+  return firstSentence.replace(/[.]+$/, '').trim();
 }
 
 /** Single-batch scene breakdown */
@@ -756,27 +904,49 @@ async function breakdownRequirementToImageScenesSingle(
     stylePrompt?: string;
     apiKey?: string;
     pacingProfile?: PacingProfile;
+    worldBible?: VisualWorldBible;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   const aiClient = getPollinationsClient(options?.apiKey);
   const targetDurationSec = options?.targetDurationSec;
 
-  const pacing = options?.pacingProfile || 'balanced';
+  const rawStyle = options?.stylePrompt?.trim();
+  const coreMedium = extractCoreMedium(rawStyle);
+
+  const styleSection = rawStyle
+    ? `
+================================================================================
+PROJECT VISUAL STYLE & ARTISTIC MEDIUM (APPLIES TO EVERY SINGLE SCENE):
+"""
+${rawStyle}
+"""
+
+STRICT DIRECTORIAL MANDATES (NON-NEGOTIABLE):
+1. UNIFIED AESTHETIC: Every single scene's "visual_prompt" MUST explicitly belong to and be rendered in the above artistic style.
+2. ZERO STYLE DRIFT / NO MEDIUM SWITCHING: Under NO circumstance should you switch to a different art form.
+   - If the style is an illustration, painting, printmaking, anime, or digital art: NEVER introduce photographic terminology (no "photorealistic", "film still", "35mm camera", "analog photograph", "drone shot", "skin pores", or "camera lens"). ALL visual scenes MUST be depicted as art matching the style.
+   - If the style is photographic: Maintain cinematic photography throughout.
+3. ADAPT PERSPECTIVES TO THE STYLE: B-roll perspectives (aerial/top-down, macro, portrait, wide) must be rendered in the specified artistic medium, honoring the color palette and textures defined in the style.
+================================================================================`
+    : `VISUAL STYLE: Studio-grade cinematic documentary, photorealistic 8k, atmospheric volumetric lighting.`;
+
+  const pacing = options?.pacingProfile || 'documentary';
   const paceConfig = {
-    fast: { avgSec: 2.8, minSec: 1.8, maxSec: 3.8, desc: 'Fast, punchy cutaways (1.8s - 3.8s)' },
-    balanced: { avgSec: 4.0, minSec: 2.2, maxSec: 5.5, desc: 'Dynamic natural pacing (2.2s - 5.5s)' },
-    cinematic: { avgSec: 5.5, minSec: 3.5, maxSec: 7.5, desc: 'Cinematic, atmospheric rhythm (3.5s - 7.5s)' },
-  }[pacing];
+    fast: { avgSec: 4.0, minSec: 3.0, maxSec: 5.5, desc: 'Snappy visual cuts (3.0s - 5.5s)' },
+    documentary: { avgSec: 5.2, minSec: 3.2, maxSec: 7.0, desc: 'Vox / Johnny Harris dynamic hybrid documentary (3.2s - 7.0s)' },
+    balanced: { avgSec: 6.5, minSec: 3.8, maxSec: 9.0, desc: 'Engaging storytelling rhythm (3.8s - 9.0s)' },
+    cinematic: { avgSec: 12.0, minSec: 6.5, maxSec: 18.0, desc: 'Atmospheric cinematic takes (6.5s - 18s)' },
+    transcript: { avgSec: 5.0, minSec: 3.0, maxSec: 7.5, desc: 'Voice-synchronized organic transcript pacing (min 3.0s)' },
+  }[pacing] || { avgSec: 5.0, minSec: 3.0, maxSec: 7.5, desc: 'Voice-synchronized organic transcript pacing (min 3.0s)' };
 
-  const estimatedScenes = targetDurationSec && targetDurationSec > 0
-    ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
-    : undefined;
-
-  const countInstruction = typeof options?.sceneCount === "number" && options.sceneCount > 0
-    ? `Create exactly ${options.sceneCount} distinct, sequential cinematic visual scenes.`
-    : targetDurationSec && targetDurationSec > 0
-      ? `Generate approximately ${estimatedScenes} sequential scenes with dynamic variable lengths (${paceConfig.desc}) so that the visual timeline covers ~${Math.round(targetDurationSec)} seconds smoothly.`
-      : `Determine the natural number of sequential cinematic visual scenes based directly on the story progression, key moments, and narrative beats of the content.`;
+  const requestedCount = typeof options?.sceneCount === "number" && options.sceneCount > 0 ? options.sceneCount : undefined;
+  const countInstruction = requestedCount
+    ? `Target approximately ${requestedCount} distinct, sequential cinematic visual scenes (between ${Math.max(1, requestedCount - 2)} and ${requestedCount + 2} scenes) as requested by the user.`
+    : `YOU ARE THE DIRECTOR: Read and analyze the entire narrative carefully. DO NOT use any rigid mathematical formula.
+Instead, decide the total number of scenes based on the story's natural visual rhythm:
+- Every major thought unit, philosophical contrast, metaphor, subject change, or emotional beat should be a visual scene.
+- GROUP 1 TO 3 RELATED SHORT SENTENCES into each scene so every scene naturally lasts between ${paceConfig.minSec}s and ${paceConfig.maxSec}s.
+- CRITICAL: NEVER isolate tiny phrases (< 5 words) into standalone scenes. Group consecutive rapid lines (e.g. "Save some money. Build a house. Pay off the loan.") into a single cohesive scene.`;
 
   const VALID_SHOT_TYPES: ShotType[] = [
     'AERIAL_GEOMETRY',
@@ -787,40 +957,70 @@ async function breakdownRequirementToImageScenesSingle(
     'WIDE_ESTABLISHING',
   ];
 
-  const systemInstruction = `You are an elite visual director for an AI film and documentary studio.
+  const bible = options?.worldBible;
+  const worldBibleSection = bible
+    ? `
+================================================================================
+MANDATORY VISUAL STORY WORLD BIBLE (HISTORICAL ERA, COSTUMES & CHARACTERS):
+Historical Epoch & Setting: ${bible.eraAndSetting}
+Geography, Environment & Architecture: ${bible.geographyAndEnvironment}
+Authentic Cultural Costumes & Materials: ${bible.culturalContextAndCostumes}
+Character Visual Anchors:
+${bible.characters && bible.characters.length > 0 ? bible.characters.map((c) => `- ${c.name} (${c.role}): ${c.visualAnchor}`).join('\n') : 'Historical period figures authentic to the epoch'}
+Color Palette & Atmosphere: ${bible.colorPaletteAndLighting}
+STRICT FORBIDDEN ANACHRONISMS: ${bible.strictAnachronismBans}
+
+IRONCLAD HISTORICAL & CULTURAL FIDELITY MANDATES:
+1. ERA INTEGRITY FOR ABSTRACT NARRATION:
+   If narration opens or speaks in abstract philosophical or psychological terms (e.g. "Power traps the human soul...", "Death is inevitable..."):
+   NEVER depict contemporary scenes, modern offices, suits, neckties, or modern glass skyscrapers.
+   ALWAYS ground the imagery firmly inside this historical epoch (e.g., an ancient throne room with towering stone pillars, the ruler gazing down coldly, or a solitary silhouette against the ancient desert riverbanks).
+2. CHARACTER VISUAL CONTINUITY:
+   Whenever a character appears or is referenced (e.g., Pharaoh, Moses/Musa, Astrologers, Egyptian Soldiers), incorporate their exact visual anchor description into the visual prompt to maintain visual likeness.
+3. PERIOD-AUTHENTIC ATTIRE ONLY:
+   All humans depicted MUST wear garments, accessories, and hairstyles authentic to ${bible.eraAndSetting}. Strictly NO modern clothing, NO medieval European plate armor, NO European crowns.
+4. FORBIDDEN ANACHRONISM EXCLUSIONS:
+   Every visual prompt MUST end with: "zero text, no watermarks, ${bible.strictAnachronismBans}."
+================================================================================`
+    : '';
+
+  const systemInstruction = `You are an elite visual director for an AI film studio.
 Your task is to take a creative requirement, story, or script and break it down into sequential, cinematographically diverse visual scenes.
 ${countInstruction}
-${targetDurationSec && targetDurationSec > 0 ? `Target total video duration is ~${Math.round(targetDurationSec)} seconds.` : ''}
+${requestedCount && targetDurationSec && targetDurationSec > 0 ? `Target total video duration is ~${Math.round(targetDurationSec)} seconds.` : ''}
+
+${styleSection}
+
+${worldBibleSection}
+
+CRITICAL DURATION & PACING MANDATE (MINIMUM 3.0 SECONDS):
+- Visual cuts under 3.0 seconds are UNACCEPTABLE because images vanish during transitions before viewers can register them.
+- EVERY scene MUST have a duration of AT LEAST 3.0 SECONDS (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
+- Combine rapid consecutive punchy lines into one rich visual progression rather than chopping them into 1-second fragments.
 
 CINEMATIC PACING & UNIVERSAL B-ROLL MANDATE:
-Do NOT produce repetitive or literal visuals. A professional documentary cuts dynamically between scales and perspectives:
+Do NOT produce repetitive or literal visuals. A professional director cuts dynamically between scales and perspectives:
 First, analyze the core subject, ecosystem, or theme of the story (e.g. Sea, Desert, Mountain, Rainforest, Metropolis, Ancient Civilization, Deep Space, Technology, etc.).
 Then, as an elite visual director, interleave 6 universal B-roll lenses tailored directly to that specific world:
 
-1. "AERIAL_GEOMETRY": Grand scale bird's-eye (90° top-down drone or orbital satellite) revealing geometric patterns, natural contours, and vast topological scale (e.g., dune ridges in deserts, swell breaks in oceans, knife-edge mountain ridges, canopy fractals in forests, street grid networks in cities).
-2. "MACRO_TEXTURE": Extreme tactile close-ups of micro details native to this environment (e.g., individual shifting sand grains, sea foam bubbles & salt crystals, glacial ice facets, moss spores & dew, weathered wood grain, microcircuit traces, stone carvings).
-3. "CULTURAL_HUMAN": The human and living heartbeat connected to this world — native dwellers, explorers, artisans, workers, or inhabitants interacting authentically with the environment (e.g., nomads brewing tea in desert tents, pearl divers, mountain climbers adjusting gear, monks in cliffside shrines, street artisans).
-4. "HISTORICAL_HERITAGE": Deep time, archaeology, and historical memory — ancient monuments, weathered ruins, fossil layers, petroglyphs, ancestral relics, or enduring architecture shaped by centuries.
-5. "ATMOSPHERIC_MOOD": Dramatic elemental weather and lighting transitions — shifting mirages, blizzards, rolling ocean fog, dust storms, sunbeams cutting through haze, twilight silhouettes, or native wildlife in the elements.
+1. "AERIAL_GEOMETRY": Grand scale perspective (top-down or high-angle) revealing geometric patterns, natural contours, and vast topological scale.
+2. "MACRO_TEXTURE": Extreme tactile close-ups of micro details native to this environment.
+3. "CULTURAL_HUMAN": The human and living heartbeat connected to this world — authentic human interaction.
+4. "HISTORICAL_HERITAGE": Deep time, archaeology, and historical memory.
+5. "ATMOSPHERIC_MOOD": Dramatic elemental weather and lighting transitions.
 6. "WIDE_ESTABLISHING": Majestic panoramic establishing shots that orient the viewer to the broader landscape.
 
-CRITICAL PACING & VARIABLE DURATION RULES:
-- Durations must NEVER be uniform! They must vary dynamically:
-  * Short action, punchy lines, or MACRO_TEXTURE: ${paceConfig.minSec}s - ${(paceConfig.minSec + 1.2).toFixed(1)}s
-  * Medium action or CULTURAL_HUMAN / HISTORICAL_HERITAGE: ${(paceConfig.avgSec - 0.5).toFixed(1)}s - ${(paceConfig.avgSec + 0.8).toFixed(1)}s
-  * Panoramic scenery, AERIAL_GEOMETRY, or ATMOSPHERIC_MOOD: ${(paceConfig.avgSec + 0.8).toFixed(1)}s - ${paceConfig.maxSec}s
-- Never use the same shot_type consecutively. Maintain visual rhythm.
-
 VISUAL PROMPT MASTERY RULES — MANDATORY:
-The visual_prompt is the single most important output. Each must be 60-120 words, richly detailed, and follow this exact structure:
-1. ARTISTIC MEDIUM/TECHNIQUE FIRST: Open with the rendering medium matching the project style${options?.stylePrompt ? ` ("${options.stylePrompt.slice(0, 80)}...")` : ' (cinematic 35mm film photography, photorealistic 8k)'}.
-2. SUBJECT & COMPOSITION: Describe precisely what is depicted — subjects, spatial relationships, foreground/background, action.
-3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities — grain, ink, paper, light, material surfaces.
-4. CRAFT QUALITY ANCHORS: Include mastery indicators — "award-winning", "museum-quality", "masterwork", "artisan-crafted".
-5. NEGATIVE EXCLUSIONS: Always end with: "zero text, no watermarks, no modern UI elements, no flat digital vectors."
+The visual_prompt is the single most important output. Each must be 60-120 words, richly detailed, following this structure:
+1. ARTISTIC MEDIUM FIRST: Open EVERY visual_prompt with the project style's medium: "${coreMedium}".
+2. ERA & SETTING CONTEXT: Clearly specify the historical period and setting from the World Bible.
+3. SUBJECT & COMPOSITION: Describe precisely what is depicted — subjects (using Character Visual Anchors when characters appear), spatial relationships, foreground/background, action.
+4. TEXTURE & MATERIAL DETAILS: Enumerate specific period-authentic textiles, stone/wood textures, and lighting from the World Bible.
+5. CRAFT QUALITY ANCHORS: Include mastery indicators — "award-winning", "museum-quality", "masterwork", "artisan-crafted".
+6. NEGATIVE EXCLUSIONS: Always end with: "zero text, no watermarks, no modern UI elements, ${bible?.strictAnachronismBans || 'no modern clothing, no suits'}."
 
 For every scene, output:
-- narration: A brief narrative or caption line (1-2 sentences) summarizing what happens in this scene.
+- narration: The EXACT verbatim spoken line(s) from the user script corresponding to this scene. STRICT MANDATE: Keep ONLY the verbatim spoken script words. NEVER summarize, and NEVER append visual descriptions, editorial comments, or dashes (—).
 - visual_prompt: Studio-grade 60-120 word prompt following VISUAL PROMPT MASTERY RULES above.
 - durationSec: Estimated duration in seconds (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
@@ -829,7 +1029,7 @@ For every scene, output:
 CRITICAL: Return ONLY a valid JSON array of scene objects with keys "narration", "visual_prompt", "durationSec", "shot_type", "b_roll_focus".
 No conversational text, markdown introduction, or backticks outside the JSON.`;
 
-  const userPrompt = `Break down this requirement into sequential cinematic visual scenes with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
+  const userPrompt = `Break down this requirement into sequential visual scenes matching the project art style with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
 
   try {
     const response = await aiClient.chat.completions.create({
@@ -856,12 +1056,24 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
 
     return parsed.map((item: Record<string, unknown>, index: number) => {
       const narration = typeof item.narration === "string" ? item.narration.trim() : `Scene ${index + 1}`;
-      const visualPrompt =
+      let visualPrompt =
         typeof item.visual_prompt === "string"
           ? item.visual_prompt.trim()
           : typeof item.visualPrompt === "string"
             ? item.visualPrompt.trim()
-            : `Cinematic frame for ${requirement.slice(0, 60)}`;
+            : rawStyle
+              ? `${rawStyle}. Depicting: ${narration}`
+              : `Cinematic frame for ${narration}`;
+
+      // If user provided a style and the prompt doesn't already contain the core medium, prepend it
+      if (rawStyle && !visualPrompt.toLowerCase().includes(coreMedium.toLowerCase())) {
+        visualPrompt = `${coreMedium}. ${visualPrompt}`;
+      }
+
+      // Guarantee era and anachronism exclusions are clearly demarcated in negative exclusions
+      const cleanPrompt = visualPrompt.replace(/\s*(?:\(negative prompt:|zero text|no text|no watermarks)[\s\S]*$/i, '').trim();
+      const anachronismExclusion = bible?.strictAnachronismBans ? `, ${bible.strictAnachronismBans}` : ', modern clothing, modern buildings';
+      visualPrompt = `${cleanPrompt}. (avoid: text, watermarks, modern UI elements, flat digital vectors, ${anachronismExclusion}).`;
 
       const rawShotType = (typeof item.shot_type === "string" ? item.shot_type : typeof item.shotType === "string" ? item.shotType : "") as ShotType;
       const shot_type: ShotType = VALID_SHOT_TYPES.includes(rawShotType)
@@ -891,7 +1103,18 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
           ? item.b_roll_focus.trim()
           : typeof item.bRollFocus === "string" && item.bRollFocus.trim()
             ? item.bRollFocus.trim()
-            : shot_type.replace('_', ' ').toLowerCase();
+            : undefined;
+      const rawVisualType = (typeof item.visual_type === 'string' ? item.visual_type : typeof item.visualType === 'string' ? item.visualType : '') as VisualSceneType;
+      const visual_type: VisualSceneType =
+        rawVisualType === 'HERO_AI' || rawVisualType === 'STOCK_BROLL' || rawVisualType === 'MOTION_GRAPHIC'
+          ? rawVisualType
+          : (index % 5 === 0 || index % 5 === 3) ? 'HERO_AI' : (index % 5 === 4) ? 'MOTION_GRAPHIC' : 'STOCK_BROLL';
+
+      const rawCameraMotion = (typeof item.camera_motion === 'string' ? item.camera_motion : typeof item.cameraMotion === 'string' ? item.cameraMotion : '') as CameraMotionEffect;
+      const camera_motion: CameraMotionEffect =
+        rawCameraMotion === 'ZOOM_IN' || rawCameraMotion === 'ZOOM_OUT' || rawCameraMotion === 'PAN_LEFT' || rawCameraMotion === 'PAN_RIGHT' || rawCameraMotion === 'STATIC'
+          ? rawCameraMotion
+          : (['ZOOM_IN', 'ZOOM_OUT', 'PAN_LEFT', 'PAN_RIGHT'] as const)[index % 4];
 
       return {
         narration,
@@ -899,19 +1122,24 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
         durationSec,
         shot_type,
         b_roll_focus,
+        visual_type,
+        camera_motion,
       };
     });
   } catch {
-    const lines = requirement.split(/(?<=[.!?\n])\s+/).filter((l) => l.trim().length > 3);
+    const lines = requirement.split(/(?<=[.!?\n।])\s+/).map((l) => l.trim()).filter((l) => l.length > 2);
     const count = typeof options?.sceneCount === "number" && options.sceneCount > 0
       ? options.sceneCount
       : targetDurationSec && targetDurationSec > 0
-        ? Math.max(1, Math.min(lines.length, Math.round(targetDurationSec / paceConfig.avgSec)))
-        : Math.max(1, Math.min(25, Math.ceil(lines.length / 2)));
-    const chunkSize = Math.max(1, Math.ceil(lines.length / count));
+        ? Math.max(1, Math.round(targetDurationSec / paceConfig.avgSec))
+        : Math.max(1, Math.min(lines.length, Math.ceil(lines.length / 1.4)));
 
-    return Array.from({ length: count }, (_, idx) => {
-      const chunkText = lines.slice(idx * chunkSize, (idx + 1) * chunkSize).join(' ') || lines[idx] || `Visual Scene ${idx + 1}`;
+    const finalCount = Math.max(1, Math.min(lines.length, count));
+
+    return Array.from({ length: finalCount }, (_, idx) => {
+      const startIdx = Math.floor((idx * lines.length) / finalCount);
+      const endIdx = Math.floor(((idx + 1) * lines.length) / finalCount);
+      const chunkText = lines.slice(startIdx, Math.max(startIdx + 1, endIdx)).join(' ') || `Visual Scene ${idx + 1}`;
       const shot_type = VALID_SHOT_TYPES[idx % VALID_SHOT_TYPES.length];
       const words = chunkText.split(/\s+/).filter(Boolean).length;
       const shotFactor = shot_type === 'MACRO_TEXTURE' ? 0.85 : shot_type === 'WIDE_ESTABLISHING' ? 1.25 : 1.0;
@@ -919,13 +1147,21 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
         paceConfig.minSec,
         Math.min(paceConfig.maxSec, parseFloat(((Math.max(4, words) / 2.5) * shotFactor).toFixed(1)))
       );
+      const visual_type: VisualSceneType = (idx % 5 === 0 || idx % 5 === 3) ? 'HERO_AI' : (idx % 5 === 4) ? 'MOTION_GRAPHIC' : 'STOCK_BROLL';
+      const camera_motion: CameraMotionEffect = (['ZOOM_IN', 'ZOOM_OUT', 'PAN_LEFT', 'PAN_RIGHT'] as const)[idx % 4];
+
+      const fallbackPrompt = rawStyle
+        ? `${rawStyle}. Depicting ${shot_type.replace('_', ' ').toLowerCase()}: ${chunkText}. Masterwork, museum-quality finish. zero text, no watermarks, no modern UI elements, no flat digital vectors.`
+        : `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} scene, dramatic lighting: ${chunkText}. Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`;
 
       return {
         narration: chunkText,
-        visual_prompt: `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} movie still, photorealistic 8k, dramatic lighting: ${chunkText}`,
+        visual_prompt: fallbackPrompt,
         durationSec: dur,
         shot_type,
         b_roll_focus: shot_type.replace('_', ' ').toLowerCase(),
+        visual_type,
+        camera_motion,
       };
     });
   }
@@ -952,10 +1188,10 @@ export async function generateBRollPrompt(
     WIDE_ESTABLISHING: "Expansive panoramic cinematic wide establishing shot showcasing the vast horizon and grand scale to anchor the viewer",
   };
 
-  const systemInstruction = `You are a world-class documentary visual artist.
+  const systemInstruction = `You are a world-class visual artist.
 Convert the given scene context into a specific B-Roll visual prompt for an AI image generator (Flux/SDXL).
 Target Shot Type: ${targetShotType} (${shotDescriptions[targetShotType]}).
-${stylePrompt ? `Project Artistic Style Mandate: Strictly align camera framing, medium, and aesthetic details with the project visual style: "${stylePrompt.slice(0, 150)}..."` : 'Visual Style: Studio-grade, evocative, atmospheric lighting and textures.'}
+${stylePrompt ? `Project Artistic Style Mandate (Strict Non-Negotiable): Every detail, texture, medium, and aesthetic MUST align with the project visual style:\n"${stylePrompt.trim()}"` : 'Visual Style: Studio-grade, evocative, atmospheric lighting and textures.'}
 Adapt the perspective organically to the subject's environment (e.g. desert, sea, mountain, forest, city, space, etc.).
 Return ONLY a valid JSON object with:
 - "visual_prompt": Studio-grade prompt detailing camera framing, subject action/elements, lighting, textures${stylePrompt ? '' : ', photorealistic 8k, masterwork'}.
@@ -988,33 +1224,33 @@ Return ONLY a valid JSON object with:
     console.warn("generateBRollPrompt fallback:", err);
   }
 
-  // High quality fallback
-  const cleanContext = context.slice(0, 100).trim();
-  const styleSuffix = stylePrompt ? ` ${stylePrompt}` : '';
+  // Universal fallback
+  const cleanContext = context.trim();
+  const styleSuffix = stylePrompt ? ` ${stylePrompt.trim()}` : '';
   const fallbackTemplates: Record<ShotType, { visual_prompt: string; b_roll_focus: string }> = {
     AERIAL_GEOMETRY: {
-      visual_prompt: `Breathtaking 90-degree bird's-eye drone overhead shot capturing geometric contours, topological patterns, and sweeping environmental scale of: ${cleanContext}.${styleSuffix || ' Top-down cinematic photography, 8k resolution.'}`,
-      b_roll_focus: "Overhead Drone Geometry",
+      visual_prompt: `High-angle aerial perspective capturing grand contours and sweeping environmental scale of: ${cleanContext}.${styleSuffix || ' Top-down panoramic vantage point.'}`,
+      b_roll_focus: "Overhead Geometry",
     },
     MACRO_TEXTURE: {
-      visual_prompt: `Extreme tactile macro close-up revealing intricate surface textures, micro details, and fine organic elements of: ${cleanContext}.${styleSuffix || ' Razor-sharp focus, shallow depth of field, 8k photorealistic.'}`,
-      b_roll_focus: "Tactile Macro Details",
+      visual_prompt: `Tactile close-up revealing intricate surface textures and fine organic elements of: ${cleanContext}.${styleSuffix || ' Rich material details, sharp clarity.'}`,
+      b_roll_focus: "Tactile Details",
     },
     CULTURAL_HUMAN: {
-      visual_prompt: `Intimate cinematic documentary shot of people, native dwellers, or travelers engaged in authentic practices related to: ${cleanContext}.${styleSuffix || ' Authentic cultural clothing, candid realism, evocative lighting.'}`,
-      b_roll_focus: "Human Culture & Life",
+      visual_prompt: `Documentary shot of people or artisans engaged in authentic practices related to: ${cleanContext}.${styleSuffix || ' Authentic cultural clothing, evocative lighting.'}`,
+      b_roll_focus: "Human Life",
     },
     HISTORICAL_HERITAGE: {
-      visual_prompt: `Atmospheric historical documentary frame showcasing ancient architecture, weathered monuments, and archaeological relics related to: ${cleanContext}.${styleSuffix || ' Timeless chiaroscuro lighting, 35mm film look.'}`,
-      b_roll_focus: "Ancient Heritage & History",
+      visual_prompt: `Atmospheric frame showcasing architecture, weathered monuments, and relics related to: ${cleanContext}.${styleSuffix || ' Chiaroscuro lighting, timeless patina.'}`,
+      b_roll_focus: "Ancient Heritage",
     },
     ATMOSPHERIC_MOOD: {
-      visual_prompt: `Cinematic atmospheric composition capturing evocative weather, volumetric lighting, and dramatic mood transitions surrounding: ${cleanContext}.${styleSuffix || ' Poetic color grading, 8k.'}`,
-      b_roll_focus: "Atmospheric Mood & Weather",
+      visual_prompt: `Atmospheric composition capturing evocative weather and dramatic mood transitions surrounding: ${cleanContext}.${styleSuffix || ' Poetic lighting and color tones.'}`,
+      b_roll_focus: "Atmospheric Mood",
     },
     WIDE_ESTABLISHING: {
-      visual_prompt: `Expansive panoramic cinematic wide establishing shot capturing the breathtaking horizon and vast environmental expanse of: ${cleanContext}.${styleSuffix || ' IMAX 70mm cinematography, dramatic sky.'}`,
-      b_roll_focus: "Wide Establishing Vista",
+      visual_prompt: `Expansive panoramic wide establishing shot capturing the horizon and environmental expanse of: ${cleanContext}.${styleSuffix || ' Dramatic horizon, expansive scale.'}`,
+      b_roll_focus: "Wide Vista",
     },
   };
 
@@ -1055,6 +1291,26 @@ export async function generatePromptsForTimedSegments(
     'WIDE_ESTABLISHING',
   ];
 
+  const rawStyle = options?.stylePrompt?.trim();
+  const coreMedium = extractCoreMedium(rawStyle);
+
+  const styleSection = rawStyle
+    ? `
+================================================================================
+PROJECT VISUAL STYLE & ARTISTIC MEDIUM (APPLIES TO EVERY SINGLE SCENE):
+"""
+${rawStyle}
+"""
+
+STRICT DIRECTORIAL MANDATES (NON-NEGOTIABLE):
+1. UNIFIED AESTHETIC: Every single scene's "visual_prompt" MUST explicitly belong to and be rendered in the above artistic style.
+2. ZERO STYLE DRIFT / NO MEDIUM SWITCHING: Under NO circumstance should you switch to a different art form.
+   - If the style is an illustration, painting, printmaking, anime, or digital art: NEVER introduce photographic terminology (no "photorealistic", "film still", "35mm camera", "analog photograph", "drone shot", "skin pores", or "camera lens"). ALL visual scenes MUST be depicted as art matching the style.
+   - If the style is photographic: Maintain cinematic photography throughout.
+3. ADAPT PERSPECTIVES TO THE STYLE: B-roll perspectives (aerial/top-down, macro, portrait, wide) must be rendered in the specified artistic medium, honoring the color palette and textures defined in the style.
+================================================================================`
+    : `VISUAL STYLE: Studio-grade cinematic documentary, photorealistic 8k, atmospheric volumetric lighting.`;
+
   const aiClient = getPollinationsClient(options?.apiKey);
   const results: {
     sceneId: number;
@@ -1073,25 +1329,27 @@ export async function generatePromptsForTimedSegments(
     const batchNum = Math.floor(b / BATCH_SIZE) + 1;
     const totalBatches = Math.ceil(scenes.length / BATCH_SIZE);
 
-    options?.onProgress?.(`Generating cinematic visual prompts (Batch ${batchNum}/${totalBatches})…`);
+    options?.onProgress?.(`Generating visual prompts (Batch ${batchNum}/${totalBatches})…`);
 
-    const systemPrompt = `You are an elite visual director for an AI film and documentary studio.
+    const systemPrompt = `You are an elite visual director for an AI film studio.
 You are given a list of consecutive spoken narration lines from a real voiceover track, with their exact duration.
 For each scene, craft an exceptional visual prompt for an AI image generator (Flux), pick a diverse shot_type, and provide a b_roll_focus.
 
+${styleSection}
+
 AVAILABLE SHOT TYPES:
-1. "AERIAL_GEOMETRY": Grand 90° top-down drone or orbital satellite view.
+1. "AERIAL_GEOMETRY": Grand high-angle or top-down perspective revealing vast geometric contours.
 2. "MACRO_TEXTURE": Extreme tactile close-up of micro textures, organic details, or artifacts.
-3. "CULTURAL_HUMAN": Authentic human life, native dwellers, artisans, or travelers.
+3. "CULTURAL_HUMAN": Authentic human life, native dwellers, artisans, or travelers in this art style.
 4. "HISTORICAL_HERITAGE": Ancient monuments, relics, ruins, and deep archaeological memory.
-5. "ATMOSPHERIC_MOOD": Dramatic weather, volumetric light beams, fog, or twilight mood.
+5. "ATMOSPHERIC_MOOD": Dramatic weather, volumetric lighting, fog, or twilight mood.
 6. "WIDE_ESTABLISHING": Majestic panoramic establishing vistas orienting the landscape.
 
 VISUAL PROMPT MASTERY RULES — MANDATORY FOR EVERY SCENE:
-Each visual_prompt must be 60-120 words, richly detailed, following this EXACT structure:
-1. ARTISTIC MEDIUM/TECHNIQUE FIRST: Open with the rendering medium matching the project style${options?.stylePrompt ? `: "${options.stylePrompt.slice(0, 100)}"` : ': cinematic 35mm film photography, photorealistic 8k, masterwork cinematography'}.
+Each visual_prompt must be 60-120 words, richly detailed, following this structure:
+1. ARTISTIC MEDIUM FIRST: Open EVERY visual_prompt with the project style's medium: "${coreMedium}".
 2. SUBJECT & COMPOSITION: Precisely describe what is depicted — subjects, spatial arrangement, foreground/background, action occurring.
-3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities — grain, paper, ink, light, material surfaces.
+3. TEXTURE & MATERIAL DETAILS: Enumerate specific tactile qualities from the project style (grain, paper, ink, light, material surfaces).
 4. CRAFT QUALITY ANCHORS: Include mastery indicators like "award-winning", "museum-quality", "masterwork", "artisan-crafted".
 5. NEGATIVE EXCLUSIONS: Always end with "zero text, no watermarks, no modern UI elements, no flat digital vectors."
 
@@ -1102,14 +1360,14 @@ MANDATE:
 
     const userContent = `Here are the scenes:
 ${JSON.stringify(
-  batch.map((s) => ({
-    sceneId: s.sceneId,
-    durationSec: parseFloat((s.audioEndSec - s.audioStartSec).toFixed(1)),
-    narration: s.narrationLine,
-  })),
-  null,
-  2
-)}${options?.creativeContext ? `\n\nOverall Creative Story Context: ${options.creativeContext.slice(0, 500)}` : ''}`;
+      batch.map((s) => ({
+        sceneId: s.sceneId,
+        durationSec: parseFloat((s.audioEndSec - s.audioStartSec).toFixed(1)),
+        narration: s.narrationLine,
+      })),
+      null,
+      2
+    )}${options?.creativeContext ? `\n\nOverall Creative Story Context: ${options.creativeContext.trim()}` : ''}`;
 
     try {
       const response = await aiClient.chat.completions.create({
@@ -1147,8 +1405,14 @@ ${JSON.stringify(
           ? shotTypeRaw
           : VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
 
-        const visualPrompt = match?.visual_prompt?.trim() ||
-          `Cinematic documentary frame depicting: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, 35mm lens, atmospheric volumetric lighting.`;
+        let visualPrompt = match?.visual_prompt?.trim() ||
+          (rawStyle
+            ? `${rawStyle}. Depicting: ${orig.narrationLine.trim()}. Masterwork, museum-quality finish. zero text, no watermarks, no modern UI elements, no flat digital vectors.`
+            : `Cinematic frame capturing: ${orig.narrationLine.trim()}. Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`);
+
+        if (rawStyle && !visualPrompt.toLowerCase().includes(coreMedium.toLowerCase())) {
+          visualPrompt = `${coreMedium}. ${visualPrompt}`;
+        }
 
         const bRollFocus = match?.b_roll_focus?.trim() || shotType.replace('_', ' ').toLowerCase();
 
@@ -1167,12 +1431,15 @@ ${JSON.stringify(
       for (let i = 0; i < batch.length; i++) {
         const orig = batch[i];
         const shotType = VALID_SHOT_TYPES[(orig.sceneId - 1) % VALID_SHOT_TYPES.length];
+        const fallbackPrompt = rawStyle
+          ? `${rawStyle}. Depicting: ${orig.narrationLine.trim()}. Masterwork artisan craft, museum quality. zero text, no watermarks, no modern UI elements, no flat digital vectors.`
+          : `Cinematic frame capturing: ${orig.narrationLine.trim()}. Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`;
         results.push({
           sceneId: orig.sceneId,
           audioStartSec: orig.audioStartSec,
           audioEndSec: orig.audioEndSec,
           narrationLine: orig.narrationLine,
-          visualPrompt: `Cinematic frame capturing: ${orig.narrationLine.slice(0, 100)}. Photorealistic 8k, beautiful natural lighting, 35mm photography.`,
+          visualPrompt: fallbackPrompt,
           shotType,
           bRollFocus: shotType.replace('_', ' ').toLowerCase(),
         });
@@ -1228,11 +1495,11 @@ export async function enhanceScenePrompt(
 
   const cameraPref = options?.cameraLens || "35mm anamorphic cinema lens, shallow depth-of-field";
   const lightingPref = options?.lightingModifier || "cinematic golden hour with soft volumetric rim light";
-  const styleMandate = options?.stylePrompt ? `Project Base Style: "${options.stylePrompt.slice(0, 180)}"` : "Style: Photorealistic 8k, masterwork documentary cinematography";
+  const styleMandate = options?.stylePrompt ? `Project Base Style (Strict Mandate): "${options.stylePrompt.trim()}"` : "Style: Photorealistic 8k, masterwork documentary cinematography";
 
   const aiClient = getPollinationsClient(options?.apiKey);
 
-  const systemInstruction = `You are a world-class Hollywood cinematographer and elite AI prompt engineer for FLUX.1.
+  const systemInstruction = `You are a world-class visual director and elite AI prompt engineer for FLUX.1.
 Your task is to take a simple narrative scene concept and expand it into a studio-grade, 60-100 word visual prompt.
 
 DIRECTORIAL RULES:
@@ -1286,7 +1553,7 @@ Output format: Return ONLY a valid JSON object matching:
   }
 
   // Algorithmic Directorial Enhancement Fallback
-  const cleanSnippet = text.replace(/^(this is a|photo of|scene of|image of)\s+/i, '').slice(0, 140).trim();
+  const cleanSnippet = text.replace(/^(this is a|photo of|scene of|image of)\s+/i, '').trim();
   const shotDetails: Record<ShotType, { camera: string; mood: string; focus: string }> = {
     AERIAL_GEOMETRY: {
       camera: "Top-down 90-degree bird's-eye drone vantage point, geometric framing",

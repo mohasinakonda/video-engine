@@ -168,6 +168,8 @@ export default function SceneCard({
       <SceneCardHeader
         sceneId={scene.sceneId}
         duration={duration}
+        visualType={scene.visualType}
+        cameraMotion={scene.cameraMotion}
         onUpdateDuration={onUpdateDuration}
         disabled={disabled}
       />
@@ -189,10 +191,13 @@ export default function SceneCard({
         onSwitchShotType={handleSwitchShotType}
       />
 
-      {/* ── 4. Bottom: On-Hover Voice Narration Drawer ─────────────────────────── */}
+      {/* ── 4. Bottom: On-Hover Cinematic Caption Bar ─────────────────────────── */}
       <SceneCardNarration
         narrationText={scene.narrationLine || scene.visualPrompt}
         visible={hovering && !editingPrompt && !moreMenuOpen}
+        visualType={scene.visualType}
+        shotType={scene.shotType}
+        motionReady={scene.status === 'MOTION_READY'}
       />
 
       {/* ── 5. In-Card Prompt Editor Overlay ─────────────────────────────────────── */}
@@ -212,28 +217,13 @@ export default function SceneCard({
         />
       )}
 
-      {/* ── 6. Director Metadata: B-Roll Shot Type Badge ──────────────────────── */}
-      {scene.shotType && SHOT_TYPE_CONFIG[scene.shotType] && !moreMenuOpen && !editingPrompt && (
+      {/* ── 6. Motion Clip Status Pill (Idle micro-badge) ────────────────────── */}
+      {scene.status === 'MOTION_READY' && !hovering && !moreMenuOpen && !editingPrompt && (
         <div
-          className={`absolute bottom-2.5 left-2.5 z-10 hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium bg-black/75 backdrop-blur-md border border-white/15 text-zinc-300 transition-all duration-200 ${
-            hovering ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-          }`}
-        >
-          {(() => {
-            const Icon = SHOT_TYPE_CONFIG[scene.shotType!].icon;
-            return <Icon size={9} className="text-zinc-400" />;
-          })()}
-          <span>{SHOT_TYPE_CONFIG[scene.shotType].shortLabel}</span>
-        </div>
-      )}
-
-      {/* ── 7. Motion Clip Status Pill ─────────────────────────────────────────── */}
-      {scene.status === 'MOTION_READY' && !moreMenuOpen && !editingPrompt && (
-        <div
-          className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/80 backdrop-blur-md border border-emerald-500/40 text-emerald-300 shadow-md transition-all duration-200"
+          className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/30 text-emerald-300 shadow-sm transition-all duration-200 select-none"
           title="Motion clip rendered and ready"
         >
-          <Video size={10} className="text-emerald-400" />
+          <Video size={9} className="text-emerald-400" />
           <span className="text-[9px] font-mono font-medium">Motion</span>
         </div>
       )}

@@ -12,7 +12,17 @@ import {
   getStylePresets,
   getDefaultStylePreset,
   getYouTubeApiKey,
+  getPollinationsApiKey,
+  getPollinationsImageModel,
 } from '@/lib/store';
+import {
+  getUserCreditsRemaining,
+  deductUserCredits,
+  grantUserCredits,
+  hasEnoughCredits,
+} from '@/lib/subscription-store';
+import { generateImage, base64ToUint8Array } from '@/lib/gemini';
+import { saveMediaBlob } from '@/lib/media-storage';
 
 interface LaunchKitContextValue {
   // Core project & packaging
@@ -20,6 +30,7 @@ interface LaunchKitContextValue {
   packaging: YouTubePackagingData | undefined;
   onUpdateProject: (updated: ProjectManifest) => void;
   showToast: (msg: string) => void;
+  userCredits: number;
 
   // Voice script
   voiceScript: string;
@@ -42,16 +53,23 @@ interface LaunchKitContextValue {
   // Copy helper
   copiedKey: string | null;
   handleCopy: (text: string, key: string, label: string) => void;
+  handleCopyMasterLaunchPack: () => void;
 
-  // Competitor research
+  // Competitor research & Standout test
   competitorSearchInput: string;
   setCompetitorSearchInput: (val: string) => void;
   isSearchingCompetitors: boolean;
   handleSearchCompetitors: (queryToSearch?: string) => Promise<void>;
+  standoutMode: boolean;
+  setStandoutMode: (val: boolean) => void;
 
   // Titles
   selectedTitle: string;
   handleSelectTitle: (idx: number) => Promise<void>;
+
+  // Mockup view mode
+  mockupViewMode: 'mobile' | 'desktop' | 'shorts';
+  setMockupViewMode: (val: 'mobile' | 'desktop' | 'shorts') => void;
 
   // Thumbnails
   activeThumbnail: string;
@@ -69,6 +87,13 @@ interface LaunchKitContextValue {
   handleAddCustomConcept: () => Promise<void>;
   handleDeleteConcept: (id: string) => Promise<void>;
   handleGenerateThumbnail: (concept: ThumbnailConcept) => Promise<void>;
+  handleUpdateBadge: (
+    conceptId: string,
+    badgeText: string,
+    color?: 'yellow' | 'red' | 'white' | 'cyan',
+    position?: 'top-left' | 'top-right' | 'bottom-left' | 'center'
+  ) => Promise<void>;
+  handleDownloadThumbnail: (concept: ThumbnailConcept) => void;
 
   // Format helpers
   isVertical: boolean;
@@ -111,6 +136,22 @@ export function LaunchKitProvider({
   const [customFocus, setCustomFocus] = useState(project.youtubePackaging?.customTopicPrompt || '');
   const [isScriptSaved, setIsScriptSaved] = useState(false);
   const [stylePreset, setStylePreset] = useState<BaseStylePreset | null>(null);
+
+  // User credits & Creator Testing states
+  const [userCredits, setUserCredits] = useState<number>(() => {
+    return typeof window !== 'undefined' ? getUserCreditsRemaining() : 70;
+  });
+  const [standoutMode, setStandoutMode] = useState(false);
+  const [mockupViewMode, setMockupViewMode] = useState<'mobile' | 'desktop' | 'shorts'>('mobile');
+
+  useEffect(() => {
+    function updateCredits() {
+      setUserCredits(getUserCreditsRemaining());
+    }
+    updateCredits();
+    window.addEventListener('credits_updated', updateCredits);
+    return () => window.removeEventListener('credits_updated', updateCredits);
+  }, []);
 
   const packaging = project.youtubePackaging;
   const isVertical = project.aspectRatio === '9:16';
@@ -465,31 +506,84 @@ export function LaunchKitProvider({
       showToast('Please enter a visual prompt before generating');
       return;
     }
+
+    if (!hasEnoughCredits(1)) {
+      showToast('⚠️ Insufficient credits. Please upgrade or purchase credits to generate a thumbnail.');
+      return;
+    }
+
+    const deducted = deductUserCredits(1, 'YouTube Thumbnail generation');
+    if (!deducted) {
+      showToast('⚠️ Could not deduct credit. Insufficient balance or account blocked.');
+      return;
+    }
+
     setGeneratingThumbId(concept.id);
     try {
-      showToast(`Generating style-consistent thumbnail (${project.aspectRatio || '16:9'})...`);
+      showToast(`Generating high-res thumbnail with Pollinations (${project.aspectRatio || '16:9'})...`);
 
-      const res = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: concept.visualPrompt.trim(),
-          aspectRatio: project.aspectRatio === '9:16' ? '9:16' : '16:9',
-          stylePrompt: stylePreset?.stylePrompt,
-          negativePrompt: stylePreset?.negativePrompt,
-        }),
-      });
+      const apiKey = (await getPollinationsApiKey()) || '';
+      const chosenModel = await getPollinationsImageModel();
+      const isVertical = project.aspectRatio === '9:16';
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Thumbnail generation failed');
+      let imageUrl = '';
+
+      try {
+        // Primary: Direct high-speed client-side generation (same engine as Storyboard)
+        const result = await generateImage(
+          apiKey,
+          concept.visualPrompt.trim(),
+          stylePreset?.negativePrompt,
+          {
+            model: chosenModel,
+            baseStyle: stylePreset?.stylePrompt,
+            aspectRatio: isVertical ? '9:16' : '16:9',
+            width: isVertical ? 1080 : 1920,
+            height: isVertical ? 1920 : 1080,
+          }
+        );
+
+        if (result.base64Image) {
+          imageUrl = result.base64Image.startsWith('data:')
+            ? result.base64Image
+            : `data:${result.mimeType || 'image/jpeg'};base64,${result.base64Image}`;
+
+          // Also persist blob to IndexedDB for instant offline/browser load
+          try {
+            const bytes = base64ToUint8Array(result.base64Image);
+            const blob = new Blob([bytes.buffer as ArrayBuffer], { type: result.mimeType || 'image/jpeg' });
+            const projectId = project.projectId || 'default';
+            await saveMediaBlob(`thumb_${projectId}_${concept.id}`, blob);
+          } catch (storageErr) {
+            console.warn('[ThumbnailStudio] Blob persistence warning:', storageErr);
+          }
+        }
+      } catch (clientErr) {
+        console.warn('[ThumbnailStudio] Direct generation failed, attempting API route fallback:', clientErr);
+        // Fallback: try server route with apiKey forwarded
+        const res = await fetch('/api/generate-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: concept.visualPrompt.trim(),
+            aspectRatio: isVertical ? '9:16' : '16:9',
+            stylePrompt: stylePreset?.stylePrompt,
+            negativePrompt: stylePreset?.negativePrompt,
+            apiKey,
+            model: chosenModel,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          imageUrl = data.imageUrl || data.url || data.base64Image;
+        } else {
+          throw clientErr;
+        }
       }
 
-      const data = await res.json();
-      const imageUrl = data.imageUrl || data.url || data.base64Image;
-
       if (!imageUrl) {
-        throw new Error('No image URL returned');
+        throw new Error('No image returned from generation engine');
       }
 
       if (typeof window !== 'undefined') {
@@ -516,13 +610,88 @@ export function LaunchKitProvider({
 
       await saveProject(updated);
       onUpdateProject(updated);
-      showToast('Thumbnail generated! In-place input box replaced with high-res image.');
+      showToast('✓ Thumbnail generated successfully!');
     } catch (err: any) {
       console.error('Failed to generate thumbnail:', err);
+      grantUserCredits(1, 'Refund: YouTube Thumbnail generation failed');
       showToast(`Thumbnail generation failed: ${err.message}`);
     } finally {
       setGeneratingThumbId(null);
     }
+  };
+
+  const handleUpdateBadge = async (
+    conceptId: string,
+    badgeText: string,
+    color: 'yellow' | 'red' | 'white' | 'cyan' = 'yellow',
+    position: 'top-left' | 'top-right' | 'bottom-left' | 'center' = 'top-left'
+  ) => {
+    if (!packaging?.thumbnailConcepts) return;
+    const updatedConcepts = packaging.thumbnailConcepts.map((c) =>
+      c.id === conceptId
+        ? {
+            ...c,
+            customBadgeText: badgeText,
+            badgeColor: color,
+            badgePosition: position,
+          }
+        : c
+    );
+    const updatedPackaging: YouTubePackagingData = {
+      ...packaging,
+      thumbnailConcepts: updatedConcepts,
+    };
+    const updated: ProjectManifest = {
+      ...project,
+      youtubePackaging: updatedPackaging,
+    };
+    await saveProject(updated);
+    onUpdateProject(updated);
+    showToast('Thumbnail text overlay badge updated');
+  };
+
+  const handleDownloadThumbnail = (concept: ThumbnailConcept) => {
+    const imageUrl = concept.imageUrl || activeThumbnail;
+    if (!imageUrl) {
+      showToast('No generated image to download');
+      return;
+    }
+    const cleanTitle = (project.title || 'youtube_thumbnail').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `${cleanTitle}_1280x720.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Downloaded High-Res Thumbnail (1280x720)');
+  };
+
+  const handleCopyMasterLaunchPack = () => {
+    if (!packaging) return;
+    const activeTitle = selectedTitle;
+    const chaptersText = (packaging.chapters || []).map((c) => `${c.time} ${c.title}`).join('\n');
+    const tagsCsv = (packaging.tags || []).join(', ');
+    const hashtagsStr = (packaging.hashtags || []).join(' ');
+
+    const fullPack = `=== YOUTUBE VIDEO TITLE ===
+${activeTitle}
+
+=== VIDEO DESCRIPTION ===
+${packaging.description}
+
+=== TIMESTAMPS / CHAPTERS ===
+${chaptersText}
+
+=== TAGS (CSV) ===
+${tagsCsv}
+
+=== HASHTAGS ===
+${hashtagsStr}`;
+
+    navigator.clipboard.writeText(fullPack);
+    setCopiedKey('master_launch_pack');
+    setTimeout(() => setCopiedKey(null), 3000);
+    showToast('✨ Copied Complete YouTube Launch Pack to clipboard!');
   };
 
   const selectedTitle = packaging?.titles?.[packaging.selectedTitleIndex ?? 0]?.title || project.title;
@@ -554,6 +723,7 @@ export function LaunchKitProvider({
         packaging,
         onUpdateProject,
         showToast,
+        userCredits,
         voiceScript,
         setVoiceScript,
         isScriptSaved,
@@ -568,12 +738,17 @@ export function LaunchKitProvider({
         handleGeneratePackaging,
         copiedKey,
         handleCopy,
+        handleCopyMasterLaunchPack,
         competitorSearchInput,
         setCompetitorSearchInput,
         isSearchingCompetitors,
         handleSearchCompetitors,
+        standoutMode,
+        setStandoutMode,
         selectedTitle,
         handleSelectTitle,
+        mockupViewMode,
+        setMockupViewMode,
         activeThumbnail,
         activeConceptId,
         setActiveConceptId,
@@ -589,6 +764,8 @@ export function LaunchKitProvider({
         handleAddCustomConcept,
         handleDeleteConcept,
         handleGenerateThumbnail,
+        handleUpdateBadge,
+        handleDownloadThumbnail,
         isVertical,
         durationStr,
       }}

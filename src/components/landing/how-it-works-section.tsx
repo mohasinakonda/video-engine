@@ -1,13 +1,13 @@
-import React from 'react';
 import {
   Check,
   Play,
   ChevronDown,
 } from 'lucide-react';
+import { LANDING_SECTION_IMAGES } from './types-and-data';
 
 export const HowItWorksSection: React.FC = () => {
   return (
-    <section id="how-it-works" className="py-24 px-6 border-b border-[#2e2e2e] bg-[#fbfbfb] text-zinc-900">
+    <section id="how-it-works" className="py-24 px-6 border-b border-[#E5E0D8] bg-[#FAF8F5] text-zinc-900">
       <div className="max-w-7xl mx-auto space-y-12">
 
         {/* Header */}
@@ -37,7 +37,7 @@ export const HowItWorksSection: React.FC = () => {
                 <span className="text-sm font-bold text-zinc-900 mt-0.5">{step.label}</span>
               </div>
               {idx < 5 && (
-                <div className="flex-1 h-[1px] bg-zinc-200 mx-3 sm:mx-4" />
+                <div className="flex-1 h-[1px] bg-[#E5E0D8] mx-3 sm:mx-4" />
               )}
             </div>
           ))}
@@ -54,15 +54,15 @@ export const HowItWorksSection: React.FC = () => {
             </div>
 
             {/* Card 1: Your Script */}
-            <div className="bg-[#121215] border border-[#2e2e2e] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
+            <div className="bg-white border border-[#E5E0D8] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
               <div className="space-y-2">
-                <span className="text-[11px] font-medium text-zinc-300 block">Your script</span>
-                <div className="p-2.5 rounded-lg bg-[#18181c] border border-[#2e2e2e] text-[10px] sm:text-[11px] font-mono text-zinc-300 leading-relaxed min-h-[58px]">
+                <span className="text-[11px] font-semibold text-zinc-700 block">Your script</span>
+                <div className="p-2.5 rounded-lg bg-[#F7F5F0] border border-[#E5E0D8] text-[10px] sm:text-[11px] font-mono text-zinc-800 leading-relaxed min-h-[58px]">
                   &ldquo;In 1969, humans took their first steps on the Moon...&rdquo;
                 </div>
               </div>
               <div className="flex justify-end pt-1">
-                <span className="text-[9px] font-mono text-zinc-500">124/2000</span>
+                <span className="text-[9px] font-mono text-zinc-400">124/2000</span>
               </div>
             </div>
 
@@ -83,35 +83,35 @@ export const HowItWorksSection: React.FC = () => {
             </div>
 
             {/* Card 2: AI Analysis */}
-            <div className="bg-[#121215] border border-[#2e2e2e] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
+            <div className="bg-white border border-[#E5E0D8] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-zinc-300">AI Analysis</span>
-                <span className="w-4 h-4 rounded-full bg-zinc-800 border border-[#2e2e2e] flex items-center justify-center text-emerald-400">
+                <span className="text-[11px] font-semibold text-zinc-700">AI Analysis</span>
+                <span className="w-4 h-4 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
                   <Check size={10} />
                 </span>
               </div>
 
-              <div className="p-2 rounded-lg bg-[#18181c] border border-[#2e2e2e] space-y-1 text-[10px] font-mono text-zinc-300">
+              <div className="p-2 rounded-lg bg-[#F7F5F0] border border-[#E5E0D8] space-y-1 text-[10px] font-mono text-zinc-700">
                 <div className="flex items-center gap-1.5">
-                  <Play size={8} className="text-zinc-500 fill-zinc-500" />
+                  <Play size={8} className="text-zinc-400 fill-zinc-400" />
                   <span>Key topics</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Play size={8} className="text-zinc-500 fill-zinc-500" />
+                  <Play size={8} className="text-zinc-400 fill-zinc-400" />
                   <span>Scene breakdown</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Play size={8} className="text-zinc-500 fill-zinc-500" />
+                  <Play size={8} className="text-zinc-400 fill-zinc-400" />
                   <span>Visual suggestions</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Play size={8} className="text-zinc-500 fill-zinc-500" />
+                  <Play size={8} className="text-zinc-400 fill-zinc-400" />
                   <span>Estimated duration</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between text-[9px] font-mono text-zinc-500 px-0.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[7px]">✓</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[7px] font-bold">✓</span>
                 <span>4/4 Analyzed</span>
               </div>
             </div>
@@ -133,26 +133,26 @@ export const HowItWorksSection: React.FC = () => {
             </div>
 
             {/* Card 3: Scene Plan */}
-            <div className="bg-[#121215] border border-[#2e2e2e] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
-              <span className="text-[11px] font-medium text-zinc-300">Scene Plan</span>
+            <div className="bg-white border border-[#E5E0D8] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
+              <span className="text-[11px] font-semibold text-zinc-700">Scene Plan</span>
 
-              <div className="p-2 rounded-lg bg-[#18181c] border border-[#2e2e2e] space-y-1.5 text-[9px] font-mono">
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span className="truncate pr-1"><strong className="text-zinc-400">01</strong> The journey begins</span>
+              <div className="p-2 rounded-lg bg-[#F7F5F0] border border-[#E5E0D8] space-y-1.5 text-[9px] font-mono">
+                <div className="flex items-center justify-between text-zinc-800">
+                  <span className="truncate pr-1"><strong className="text-zinc-900">01</strong> The journey begins</span>
                   <span className="text-zinc-500 shrink-0">0:00 - 0:07</span>
                 </div>
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span className="truncate pr-1"><strong className="text-zinc-400">02</strong> The mission</span>
+                <div className="flex items-center justify-between text-zinc-800">
+                  <span className="truncate pr-1"><strong className="text-zinc-900">02</strong> The mission</span>
                   <span className="text-zinc-500 shrink-0">0:07 - 0:15</span>
                 </div>
-                <div className="flex items-center justify-between text-zinc-300">
-                  <span className="truncate pr-1"><strong className="text-zinc-400">03</strong> A new perspective</span>
+                <div className="flex items-center justify-between text-zinc-800">
+                  <span className="truncate pr-1"><strong className="text-zinc-900">03</strong> A new perspective</span>
                   <span className="text-zinc-500 shrink-0">0:15 - 0:24</span>
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <span className="text-[9px] font-mono text-emerald-400">3 Scenes Ready</span>
+                <span className="text-[9px] font-mono text-emerald-700 font-semibold">3 Scenes Ready</span>
               </div>
             </div>
 
@@ -173,14 +173,14 @@ export const HowItWorksSection: React.FC = () => {
             </div>
 
             {/* Card 4: Visual Generation */}
-            <div className="bg-[#121215] border border-[#2e2e2e] rounded-2xl overflow-hidden aspect-[4/3.4] relative shadow-sm group">
+            <div className="bg-white border border-[#E5E0D8] rounded-2xl overflow-hidden aspect-[4/3.4] relative shadow-sm group">
               <img
-                src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80"
-                alt="Visual generation astronaut"
+                src={LANDING_SECTION_IMAGES.howItWorks.visualGeneration}
+                alt="Visual generation AI artwork"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
-              <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-[9px] font-mono text-zinc-200 border border-white/10">
-                Flux 8K
+              <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-[9px] font-mono text-zinc-100 border border-white/20">
+                AI 8K
               </div>
             </div>
 
@@ -201,23 +201,23 @@ export const HowItWorksSection: React.FC = () => {
             </div>
 
             {/* Card 5: Narration Voice */}
-            <div className="bg-[#121215] border border-[#2e2e2e] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
+            <div className="bg-white border border-[#E5E0D8] rounded-2xl p-3.5 aspect-[4/3.4] flex flex-col justify-between shadow-sm">
               {/* Waveform Graphic */}
               <div className="h-9 flex items-center justify-between gap-1 px-1">
                 {[30, 60, 40, 90, 100, 70, 45, 80, 95, 60, 40, 85, 50, 30].map((h, i) => (
                   <span
                     key={i}
                     style={{ height: `${h}%` }}
-                    className="w-1 bg-zinc-300 rounded-full inline-block"
+                    className="w-1 bg-[#E05A30]/80 rounded-full inline-block"
                   />
                 ))}
               </div>
 
               <div className="space-y-1">
-                <span className="text-[9px] font-mono text-zinc-400 block">AI Voice</span>
-                <div className="p-1.5 px-2.5 rounded-lg bg-[#18181c] border border-[#2e2e2e] text-[10px] font-mono text-zinc-200 flex items-center justify-between">
+                <span className="text-[9px] font-mono text-zinc-500 block">AI Voice</span>
+                <div className="p-1.5 px-2.5 rounded-lg bg-[#F7F5F0] border border-[#E5E0D8] text-[10px] font-mono text-zinc-800 flex items-center justify-between">
                   <span>Professional</span>
-                  <ChevronDown size={11} className="text-zinc-400" />
+                  <ChevronDown size={11} className="text-zinc-500" />
                 </div>
               </div>
             </div>
@@ -239,21 +239,21 @@ export const HowItWorksSection: React.FC = () => {
             </div>
 
             {/* Card 6: Final Video Player with Rocket */}
-            <div className="bg-[#121215] border border-[#2e2e2e] rounded-2xl overflow-hidden aspect-[4/3.4] relative shadow-sm flex flex-col justify-end group">
+            <div className="bg-white border border-[#E5E0D8] rounded-2xl overflow-hidden aspect-[4/3.4] relative shadow-sm flex flex-col justify-end group">
               <img
-                src="https://images.unsplash.com/photo-1517976487507-598f11183307?auto=format&fit=crop&w=600&q=80"
-                alt="Rocket launch final video"
+                src={LANDING_SECTION_IMAGES.howItWorks.finalVideo}
+                alt="Final cinema video render"
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
 
               {/* Overlay Player Bar */}
               <div className="relative z-10 p-2">
-                <div className="p-1.5 px-2 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 flex items-center justify-between text-[9px] font-mono text-zinc-300">
+                <div className="p-1.5 px-2 rounded-lg bg-black/70 backdrop-blur-md border border-white/20 flex items-center justify-between text-[9px] font-mono text-white">
                   <Play size={9} className="fill-white text-white" />
-                  <div className="flex-1 h-1 bg-zinc-700/80 rounded-full mx-2 overflow-hidden">
-                    <div className="w-1/2 h-full bg-white rounded-full" />
+                  <div className="flex-1 h-1 bg-zinc-600 rounded-full mx-2 overflow-hidden">
+                    <div className="w-1/2 h-full bg-[#E05A30] rounded-full" />
                   </div>
-                  <ChevronDown size={10} className="text-zinc-400" />
+                  <ChevronDown size={10} className="text-zinc-300" />
                 </div>
               </div>
             </div>

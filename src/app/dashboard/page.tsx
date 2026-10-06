@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import {
   FolderKanban,
-  Palette,
   Share2,
   CreditCard,
   CheckCircle2,
@@ -15,12 +14,11 @@ import DashboardHeader from '@/components/dashboard/dashboard-header';
 import MetricCards from '@/components/dashboard/metric-cards';
 import QuickLaunchSection from '@/components/dashboard/quick-launch-section';
 import ProjectsTab from '@/components/dashboard/tabs/projects-tab';
-import TemplatesTab from '@/components/dashboard/tabs/templates-tab';
 import AffiliateTab from '@/components/dashboard/tabs/affiliate-tab';
 import BillingTab from '@/components/dashboard/tabs/billing-tab';
 import PayoutModal from '@/components/dashboard/payout-modal';
 
-type DashboardTab = 'projects' | 'templates' | 'affiliate' | 'billing';
+type DashboardTab = 'projects' | 'affiliate' | 'billing';
 
 export default function UserDashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('projects');
@@ -42,7 +40,6 @@ export default function UserDashboardPage() {
     settings,
     projects,
     thumbnails,
-    stylePresets,
     storageInfo,
     isLiveSupabase,
     isLoggedIn,
@@ -150,18 +147,6 @@ export default function UserDashboardPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab('templates')}
-            className={`pb-3 pt-1 px-1 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors ${
-              activeTab === 'templates'
-                ? 'border-white text-white font-bold'
-                : 'border-transparent text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            <Palette size={15} />
-            <span>Visual Styles & Templates</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('affiliate')}
             className={`pb-3 pt-1 px-1 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors ${
               activeTab === 'affiliate'
@@ -204,10 +189,6 @@ export default function UserDashboardPage() {
             deletingId={deletingId}
             onDeleteProject={handleDeleteProject}
           />
-        )}
-
-        {activeTab === 'templates' && (
-          <TemplatesTab stylePresets={stylePresets} />
         )}
 
         {activeTab === 'affiliate' && (

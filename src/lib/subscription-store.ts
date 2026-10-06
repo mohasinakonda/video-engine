@@ -42,7 +42,7 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     maxVideoDurationSec: 180,
     maxResolution: '1080p',
     features: [
-      '600 Image Credits / month (~15-20 videos)',
+      '600 Image Credits / month (~15–20 standard videos)',
       'Up to 3-minute video duration per project',
       '1080p Full HD crisp rendering',
       '100% Watermark-Free Export',
@@ -64,7 +64,7 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     maxVideoDurationSec: 480,
     maxResolution: '1080p',
     features: [
-      '800 Image Credits / month (~40-50 videos)',
+      '800 Image Credits / month (~20–25 extended videos)',
       'Up to 8-minute video duration per project',
       '1080p Full HD crisp rendering',
       '100% Watermark-Free Export',
@@ -87,7 +87,7 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     maxVideoDurationSec: 1200,
     maxResolution: '4k',
     features: [
-      '1,500 Image Credits / month (~100+ videos)',
+      '1,500 Image Credits / month (~40–50 long-form videos)',
       'Up to 20-minute video duration',
       '4K Ultra HD pristine rendering',
       '100% Watermark-Free Export',

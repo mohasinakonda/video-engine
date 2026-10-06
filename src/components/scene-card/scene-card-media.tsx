@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Loader2, AlertCircle, RefreshCw, ImageIcon } from 'lucide-react';
-import type { SceneItem } from '@/types';
+import { Loader2, AlertCircle, RefreshCw, ImageIcon, Video, Layers, Sparkles } from 'lucide-react';
+import type { SceneItem, CameraMotionEffect } from '@/types';
 import { getMediaBlobUrl } from '@/lib/media-storage';
 
 interface SceneCardMediaProps {
@@ -16,6 +16,21 @@ interface SceneCardMediaProps {
   onRegenerate: () => void;
   onRecoverSrc: (url: string) => void;
   onSetImgError: (hasError: boolean) => void;
+}
+
+function getCameraMotionClass(motion?: CameraMotionEffect): string {
+  switch (motion) {
+    case 'ZOOM_IN':
+      return 'group-hover:scale-115 origin-center';
+    case 'ZOOM_OUT':
+      return 'scale-110 group-hover:scale-100 origin-center';
+    case 'PAN_LEFT':
+      return 'group-hover:-translate-x-3 group-hover:scale-110 origin-left';
+    case 'PAN_RIGHT':
+      return 'group-hover:translate-x-3 group-hover:scale-110 origin-right';
+    default:
+      return 'group-hover:scale-105 origin-center';
+  }
 }
 
 export default function SceneCardMedia({
@@ -34,9 +49,8 @@ export default function SceneCardMedia({
 
   return (
     <div
-      className={`absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden rounded-2xl ${
-        canPreview ? 'cursor-pointer' : ''
-      }`}
+      className={`absolute inset-0 w-full h-full bg-zinc-950 overflow-hidden rounded-2xl ${canPreview ? 'cursor-pointer' : ''
+        }`}
       onClick={() => {
         if (canPreview && !editingPrompt) {
           onOpenPreview();
@@ -49,7 +63,9 @@ export default function SceneCardMedia({
         <img
           src={currentSrc}
           alt={`Scene ${scene.sceneId}`}
-          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+          className={`w-full h-full object-cover transition-transform duration-1000 ease-out ${getCameraMotionClass(
+            scene.cameraMotion
+          )}`}
           onError={async () => {
             if (projectId) {
               try {
@@ -91,9 +107,36 @@ export default function SceneCardMedia({
               </button>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-1.5 text-zinc-600">
-              <ImageIcon size={24} />
-              <p className="text-xs text-zinc-400">No Image</p>
+            <div className="flex flex-col items-center gap-1.5 px-3">
+              {scene.visualType === 'STOCK_BROLL' ? (
+                <>
+                  <div className="w-9 h-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                    <Video size={18} className="text-emerald-400" />
+                  </div>
+                  <p className="text-xs font-semibold text-emerald-300">Stock B-Roll Slot</p>
+                  <p className="text-[10px] text-zinc-400 line-clamp-2 max-w-[210px] text-center">
+                    {scene.bRollFocus || 'Real footage overlay cue'}
+                  </p>
+                </>
+              ) : scene.visualType === 'MOTION_GRAPHIC' ? (
+                <>
+                  <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                    <Layers size={18} className="text-amber-400" />
+                  </div>
+                  <p className="text-xs font-semibold text-amber-300">Motion Graphic Slot</p>
+                  <p className="text-[10px] text-zinc-400 line-clamp-2 max-w-[210px] text-center">
+                    Kinetic typography, timeline or data callout
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="w-9 h-9 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                    <Sparkles size={18} className="text-purple-400" />
+                  </div>
+                  <p className="text-xs font-semibold text-zinc-300">Hero Visual</p>
+                  <p className="text-[10px] text-zinc-400">Ready for image generation</p>
+                </>
+              )}
             </div>
           )}
         </div>

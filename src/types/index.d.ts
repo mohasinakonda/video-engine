@@ -53,6 +53,10 @@ export interface ProjectManifest {
   scenes?: SceneItem[];
   /** Phase 2: the selected base style preset ID */
   baseStylePresetId?: string;
+  /** Phase 2: customized style prompt for image generation */
+  customStylePrompt?: string;
+  /** Phase 2: customized negative style prompt */
+  customNegativePrompt?: string;
   /** Phase 2: project-level aspect ratio */
   aspectRatio?: '16:9' | '9:16' | '1:1';
   /** Phase 2: export configuration settings */
@@ -67,11 +71,34 @@ export interface ProjectManifest {
   hasCustomVoice?: boolean;
   /** Phase 3: AI YouTube and social media packaging kit */
   youtubePackaging?: YouTubePackagingData;
+  /** Phase 2: Visual Story World Bible (historical era, environment, costumes, character anchors) */
+  visualWorldBible?: VisualWorldBible;
+}
+
+// ─── Visual Story World Bible (Two-Stage AI Director) ──────────────────────────
+
+export interface CharacterVisualAnchor {
+  name: string;
+  role: string;
+  visualAnchor: string;
+}
+
+export interface VisualWorldBible {
+  summary: string;
+  eraAndSetting: string;
+  geographyAndEnvironment: string;
+  culturalContextAndCostumes: string;
+  characters: CharacterVisualAnchor[];
+  colorPaletteAndLighting: string;
+  strictAnachronismBans: string;
 }
 
 // ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────
 
-export type PacingProfile = 'fast' | 'balanced' | 'cinematic';
+export type PacingProfile = 'fast' | 'balanced' | 'cinematic' | 'documentary' | 'transcript';
+
+export type VisualSceneType = 'HERO_AI' | 'STOCK_BROLL' | 'MOTION_GRAPHIC';
+export type CameraMotionEffect = 'ZOOM_IN' | 'ZOOM_OUT' | 'PAN_LEFT' | 'PAN_RIGHT' | 'STATIC';
 
 // ─── Phase 3: Export Types ───────────────────────────────────────────────────
 
@@ -84,13 +111,14 @@ export type TransitionType = 'crossfade' | 'fade_black' | 'cut' | 'slide_left' |
 export interface ExportSettings {
   resolution: ExportResolution;
   encoder: HardwareEncoder;
-  bgmFilePath?: string;
-  bgmVolume: number; // 0.0 to 1.0 (default 0.15)
-  enableAutoDucking: boolean; // default true
+
   outputPath: string;
   transitionType?: TransitionType;
   transitionDurationSec?: number;
   aspectRatio?: '16:9' | '9:16' | '1:1';
+  bgmFilePath?: string;
+  bgmVolume?: number;
+  enableAutoDucking?: boolean;
 }
 
 export type ExportStage =
@@ -139,6 +167,18 @@ export interface BaseStylePreset {
   /** True = shipped with the app, cannot be deleted */
   isBuiltIn?: boolean;
   createdAt: number;
+  /** Visual preview thumbnail image URL */
+  thumbnailUrl?: string;
+  /** Primary movement/family ID (e.g. 'cinematic', 'printmaking') */
+  familyId?: string;
+  /** Short descriptive tag (e.g. 'Warm 1970s Cinema') */
+  tag?: string;
+  /** Extended aesthetic description */
+  description?: string;
+  /** Active status (controlled via Admin) */
+  isActive?: boolean;
+  /** Sort order for display hierarchy */
+  sortOrder?: number;
 }
 
 // ─── Phase 2: Motion Profile ─────────────────────────────────────────────────
@@ -194,6 +234,10 @@ export interface SceneItem {
   bRollFocus?: string;
   /** Dynamic directorial pacing decision */
   cutPace?: CutPace;
+  /** Hybrid visual classification: Hero AI Image, Real Stock B-Roll, or Editorial Motion Graphic */
+  visualType?: VisualSceneType;
+  /** Cinematic 2.5D camera movement (Ken Burns zoom/pan) */
+  cameraMotion?: CameraMotionEffect;
   status: SceneStatus;
   error?: string;
   retryCount?: number;
@@ -212,6 +256,9 @@ export interface TitleOption {
   title: string;
   hookStyle: HookStyle;
   ctrScore?: number;
+  whyItWorks?: string;
+  charCount?: number;
+  pairedConceptId?: string;
 }
 
 export interface ChapterItem {
@@ -226,10 +273,19 @@ export interface ThumbnailConcept {
   visualPrompt: string;
   originalPrompt?: string;
   textOverlayHint: string;
+  customBadgeText?: string;
+  badgePosition?: 'top-left' | 'top-right' | 'bottom-left' | 'center';
+  badgeColor?: 'yellow' | 'red' | 'white' | 'cyan';
   visualHook?: string;
   compositionType?: 'split_contrast' | 'focal_close_up' | 'cinematic_scale' | 'custom';
   imageUrl?: string;
   isGenerating?: boolean;
+}
+
+export interface ShortsRepurposeIdea {
+  timestamp: string;
+  hook: string;
+  reason: string;
 }
 
 export interface ScriptIntelligence {
@@ -238,6 +294,13 @@ export interface ScriptIntelligence {
   keyTalkingPoints: string[];
   targetAudience: string;
   searchKeywords: string[];
+  hookRetentionScore?: number;
+  hookAnalysis?: string;
+  suggestedPowerHook?: string;
+  emotionalTriggers?: string[];
+  viralAngles?: string[];
+  shortsIdeas?: ShortsRepurposeIdea[];
+  competitorGap?: string;
 }
 
 export interface CompetitorVideo {

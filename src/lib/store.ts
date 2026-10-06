@@ -9,7 +9,13 @@
  */
 
 import type { VoicePreset, ProjectManifest, BaseStylePreset } from '@/types';
-import { deleteProjectMedia } from './media-storage';
+import {
+  deleteProjectMedia,
+  saveProjectToDB,
+  getProjectFromDB,
+  getAllProjectsFromDB,
+  deleteProjectFromDB,
+} from './media-storage';
 
 // ─── Generic Web Store Helpers ────────────────────────────────────────────────
 
@@ -134,20 +140,45 @@ export async function getDefaultPreset(): Promise<VoicePreset | null> {
 // ─── Project Manifests Accessors ──────────────────────────────────────────────
 
 export async function getAllProjects(): Promise<ProjectManifest[]> {
-  const projects = storeGet<ProjectManifest[]>('projects') || [];
-  return projects.sort((a, b) => b.updatedAt - a.updatedAt);
+  try {
+    const dbProjects = await getAllProjectsFromDB();
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+
+    const map = new Map<string, ProjectManifest>();
+    localProjects.forEach((p) => { if (p?.projectId) map.set(p.projectId, p); });
+    dbProjects.forEach((p) => { if (p?.projectId) map.set(p.projectId, p); });
+
+    return Array.from(map.values()).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  } catch (err) {
+    console.warn('[store] getAllProjects fallback to localStorage:', err);
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    return localProjects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
 }
 
 export async function getProject(projectId: string): Promise<ProjectManifest | null> {
-  const projects = await getAllProjects();
-  return projects.find((p) => p.projectId === projectId) ?? null;
+  if (!projectId) return null;
+  try {
+    // 1. Check IndexedDB first (no 5MB quota limit)
+    const dbProject = await getProjectFromDB(projectId);
+    if (dbProject) return dbProject;
+
+    // 2. Fallback to localStorage
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    return localProjects.find((p) => p.projectId === projectId) ?? null;
+  } catch {
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    return localProjects.find((p) => p.projectId === projectId) ?? null;
+  }
 }
 
 export async function saveProject(manifest: ProjectManifest): Promise<void> {
-  const projects = await getAllProjects();
-  const idx = projects.findIndex((p) => p.projectId === manifest.projectId);
+  if (!manifest?.projectId) {
+    console.error('[store] saveProject called without a valid projectId!', manifest);
+    return;
+  }
 
-  // Sanitize manifest so ephemeral browser blob: URLs are never stored in localStorage
+  // Sanitize manifest so ephemeral browser blob: URLs are never persisted in JSON
   const sanitizedManifest: ProjectManifest = {
     ...manifest,
     scenes: manifest.scenes?.map(({ imageUrl, ...s }) => {
@@ -165,17 +196,28 @@ export async function saveProject(manifest: ProjectManifest): Promise<void> {
     }),
   };
 
-  if (idx >= 0) {
-    projects[idx] = sanitizedManifest;
-  } else {
-    projects.push(sanitizedManifest);
+  // 1. Primary Reliable Storage: IndexedDB (never hits 5MB quota error)
+  await saveProjectToDB(sanitizedManifest);
+
+  // 2. Synchronous mirror in localStorage (best-effort)
+  try {
+    const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+    const idx = localProjects.findIndex((p) => p.projectId === manifest.projectId);
+    if (idx >= 0) {
+      localProjects[idx] = sanitizedManifest;
+    } else {
+      localProjects.push(sanitizedManifest);
+    }
+    storeSet('projects', localProjects);
+  } catch (err) {
+    console.warn('[store] localStorage quota exceeded, manifest stored securely in IndexedDB:', err);
   }
-  storeSet('projects', projects);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  const projects = await getAllProjects();
-  storeSet('projects', projects.filter((p) => p.projectId !== projectId));
+  await deleteProjectFromDB(projectId);
+  const localProjects = storeGet<ProjectManifest[]>('projects') || [];
+  storeSet('projects', localProjects.filter((p) => p.projectId !== projectId));
   await deleteProjectMedia(projectId);
 }
 
@@ -185,6 +227,8 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
   {
     id: 'builtin_cinematic',
     name: 'Dark Cinematic Documentary',
+    familyId: 'cinematic',
+    tag: '35mm IMAX Film',
     stylePrompt:
       'Cinematic 35mm anamorphic photography, photorealistic 8k ultra-detailed, dramatic chiaroscuro lighting, muted desaturated color grade, deep shadows with warm highlight accents, masterwork composition with rule-of-thirds framing, film grain texture, shallow depth of field, professional documentary cinematography, IMAX quality',
     negativePrompt: 'cartoon, anime, blurry, distorted faces, low resolution, CGI, oversaturated, watermark, text, flat illustration, modern UI elements',
@@ -192,10 +236,13 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: true,
     isBuiltIn: true,
     createdAt: 0,
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278399392_70mm_imax_photorealism.jpg',
   },
   {
     id: 'builtin_artisan_linocut',
     name: 'Artisan Linocut Masterwork',
+    familyId: 'printmaking',
+    tag: 'Hand-Carved Relief',
     stylePrompt:
       'Intricate masterwork linocut relief print by an artisan printmaker, deeply carved woodblock print style. Chiseled relief grooves, rough tactile ink press texture on fibrous cream archival paper, heavy contrasting black ink, sharp carved contours, rich hatching and crosshatching, master printmaking aesthetic, award-winning linoleum block art',
     negativePrompt: 'photorealism, 3D render, CGI, glossy digital illustration, smooth vector gradients, plastic textures, modern UI, neon colors, oversaturated, pure white background, blurry, text, watermark, bad anatomy, no modern graphics, no flat vectors',
@@ -203,10 +250,13 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278794685_artisan_linocut_relief.jpg',
   },
   {
     id: 'builtin_conceptual_illustration',
     name: 'Conceptual Illustration',
+    familyId: 'printmaking',
+    tag: 'Warm Archival Paper',
     stylePrompt:
       'Conceptual illustration in a traditional hand-carved linocut and relief-print style printed on warm textured off-white archival paper (#F1E7D0). Hand-carved woodblock aesthetic with rough irregular carved edges, visible ink texture, coarse paper grain, organic cross-hatching, stippling and dot patterns, carved negative space details, and expressive silhouettes. Strict limited print palette: warm aged ivory cream paper, deep charcoal-green primary ink (#17251F), muted forest green (#486044), dusty sage olive (#718064), and muted terracotta peach sky (#D98267) with faded peach highlights (#E9B49A). Tonal transitions rendered exclusively via halftone dots, stippling, and carved line density without smooth digital gradients. Poetic visual metaphor and symbolic transformation connecting subject with landscape, layered rolling hills, foliage motifs, and hidden narrative details. Print-based chiaroscuro with strong silhouettes and exposed cream paper highlights. Subtle vintage aged paper border, museum-quality editorial relief art print',
     negativePrompt:
@@ -215,10 +265,13 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791279321369_editorial_gouache___collage.jpg',
   },
   {
     id: 'builtin_anime',
     name: 'Anime / Manga',
+    familyId: 'animation',
+    tag: 'Ghibli Hand-Drawn',
     stylePrompt:
       'High-quality anime illustration, detailed hand-drawn style, vibrant colors, clean linework, dramatic lighting, Studio Ghibli inspired',
     negativePrompt: 'realistic, photograph, 3D render, blurry, watermark, text',
@@ -226,10 +279,13 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281431651_studio_ghibli_nostalgia.jpg',
   },
   {
     id: 'builtin_cyberpunk',
     name: 'Cyberpunk Neon City',
+    familyId: 'cinematic',
+    tag: 'Neon Rain Metropolis',
     stylePrompt:
       'Futuristic cyberpunk aesthetic, neon lights, rain-slicked streets, ultra-detailed digital art, volumetric fog, holographic displays, blade runner inspired',
     negativePrompt: 'natural, daylight, countryside, low tech, sketch, watermark',
@@ -237,10 +293,13 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281330212_cyberpunk_neon_noir.jpg',
   },
   {
     id: 'builtin_flat_vector',
     name: '2D Flat Vector',
+    familyId: 'graphic',
+    tag: 'Clean Explainer',
     stylePrompt:
       'Modern 2D flat design illustration, bold clean shapes, minimal shadows, geometric forms, professional corporate explainer video style',
     negativePrompt: 'photograph, realistic, 3D, dark, gritty, complex textures',
@@ -248,10 +307,13 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281813178_modern_2d_flat_vector.jpg',
   },
   {
     id: 'builtin_oil_painting',
     name: 'Vintage Oil Painting',
+    familyId: 'painting',
+    tag: 'Museum Impasto Canvas',
     stylePrompt:
       'Rich oil painting, impressionist style, visible brushstrokes, warm golden palette, old masters technique, museum quality fine art',
     negativePrompt: 'digital art, photograph, anime, flat design, neon, modern',
@@ -259,33 +321,81 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281588480_impressionist_oil_canvas.jpg',
   },
 ];
 
 // ─── Style Preset CRUD Accessors ──────────────────────────────────────────────
 
+let cachedApiStyles: BaseStylePreset[] | null = null;
+let lastApiFetchTime = 0;
+
+/** Fetch live art styles from /api/styles with 60-second in-memory cache */
+export async function fetchLiveArtStyles(): Promise<BaseStylePreset[] | null> {
+  const now = Date.now();
+  if (cachedApiStyles && now - lastApiFetchTime < 60000) {
+    return cachedApiStyles;
+  }
+  try {
+    if (typeof window !== 'undefined') {
+      const res = await fetch('/api/styles');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.styles) && data.styles.length > 0) {
+          cachedApiStyles = data.styles;
+          lastApiFetchTime = now;
+          return cachedApiStyles;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[store] fetchLiveArtStyles fallback:', err);
+  }
+  return null;
+}
+
+// ─── Local Storage Sync for Admin Art Styles ───────────────────────────────────
+
+export function getAdminArtStyles(): BaseStylePreset[] {
+  return storeGet<BaseStylePreset[]>('admin-art-styles') || [];
+}
+
+export function saveAdminArtStyle(style: BaseStylePreset): void {
+  const current = getAdminArtStyles();
+  const idx = current.findIndex((s) => s.id === style.id);
+  if (idx >= 0) {
+    current[idx] = { ...current[idx], ...style };
+  } else {
+    current.unshift(style);
+  }
+  storeSet('admin-art-styles', current);
+}
+
+export function deleteAdminArtStyle(id: string): void {
+  const current = getAdminArtStyles();
+  storeSet('admin-art-styles', current.filter((s) => s.id !== id));
+}
+
 export async function getStylePresets(): Promise<BaseStylePreset[]> {
   const custom = storeGet<BaseStylePreset[]>('style-presets') || [];
-  const allIds = new Set(custom.map((p) => p.id));
-  const merged = [
-    ...BUILT_IN_STYLE_PRESETS.filter((p) => !allIds.has(p.id)),
-    ...custom,
-  ];
+  const adminStyles = getAdminArtStyles();
+  const liveStyles = await fetchLiveArtStyles();
+  const baseList = liveStyles && liveStyles.length > 0 ? liveStyles : BUILT_IN_STYLE_PRESETS;
+  
+  // Merge admin overrides over baseList
+  const adminMap = new Map(adminStyles.map((s) => [s.id, s]));
+  const mergedBase = baseList.map((s) => adminMap.get(s.id) || s);
+  
+  // Include newly added admin styles not in baseList
+  const baseIds = new Set(baseList.map((s) => s.id));
+  const newAdminStyles = adminStyles.filter((s) => !baseIds.has(s.id));
 
-  const customPrompt = await getGlobalBaseStylePrompt();
-  const customNeg = await getGlobalNegativePrompt();
-  if (customPrompt && customPrompt.trim()) {
-    return merged.map((p) => {
-      if (p.isDefault || p.id === 'builtin_cinematic') {
-        return {
-          ...p,
-          stylePrompt: customPrompt.trim(),
-          negativePrompt: customNeg ? customNeg.trim() : p.negativePrompt,
-        };
-      }
-      return p;
-    });
-  }
+  const allSystem = [...mergedBase, ...newAdminStyles];
+  const systemIds = new Set(allSystem.map((p) => p.id));
+  const merged = [
+    ...allSystem,
+    ...custom.filter((p) => !systemIds.has(p.id)),
+  ];
 
   return merged;
 }
@@ -306,7 +416,16 @@ export async function deleteStylePreset(id: string): Promise<void> {
   storeSet('style-presets', custom.filter((p) => p.id !== id));
 }
 
+export function getUserPreferredStyleId(): string | null {
+  return storeGet<string>('user-preferred-style-id') || null;
+}
+
+export function saveUserPreferredStyleId(id: string): void {
+  storeSet('user-preferred-style-id', id);
+}
+
 export async function setDefaultStylePreset(id: string): Promise<void> {
+  saveUserPreferredStyleId(id);
   const custom = storeGet<BaseStylePreset[]>('style-presets') || [];
   const updated = custom.map((p) => ({ ...p, isDefault: p.id === id }));
   storeSet('style-presets', updated);
@@ -336,18 +455,10 @@ export async function saveGlobalNegativePrompt(prompt: string): Promise<void> {
 
 export async function getDefaultStylePreset(): Promise<BaseStylePreset> {
   const all = await getStylePresets();
-  const def = all.find((p) => p.isDefault) ?? all[0] ?? BUILT_IN_STYLE_PRESETS[0];
-
-  const customPrompt = await getGlobalBaseStylePrompt();
-  const customNeg = await getGlobalNegativePrompt();
-
-  if (customPrompt && customPrompt.trim()) {
-    return {
-      ...def,
-      stylePrompt: customPrompt.trim(),
-      negativePrompt: customNeg ? customNeg.trim() : def.negativePrompt,
-    };
+  const preferredId = getUserPreferredStyleId();
+  if (preferredId) {
+    const match = all.find((p) => p.id === preferredId);
+    if (match) return match;
   }
-
-  return def;
+  return all.find((p) => p.isDefault) ?? all[0] ?? BUILT_IN_STYLE_PRESETS[0];
 }

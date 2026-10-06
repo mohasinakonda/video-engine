@@ -9,7 +9,7 @@ import {
 
 export const BuiltForEditingSection: React.FC = () => {
   return (
-    <section className="py-20 sm:py-24 px-6 border-b border-[#2e2e2e] bg-[#fbfbfb] text-zinc-900">
+    <section className="py-20 sm:py-24 px-6 border-b border-[#E5E0D8] bg-[#FAF8F5] text-zinc-900">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-8 xl:gap-12 items-center">
 
@@ -30,8 +30,8 @@ export const BuiltForEditingSection: React.FC = () => {
           <div className="lg:col-span-5 xl:col-span-5 flex items-start justify-between sm:justify-start sm:gap-6 md:gap-8">
             {/* Step 1: Generate */}
             <div className="flex flex-col items-start max-w-[110px]">
-              <div className="w-12 h-12 rounded-xl bg-white border border-zinc-200/90 shadow-sm flex items-center justify-center text-zinc-800">
-                <Sparkles size={20} strokeWidth={1.8} className="text-zinc-800" />
+              <div className="w-12 h-12 rounded-xl bg-white border border-[#E5E0D8] shadow-sm flex items-center justify-center text-zinc-800">
+                <Sparkles size={20} strokeWidth={1.8} className="text-[#E05A30]" />
               </div>
               <div className="text-xs font-bold text-zinc-950 mt-3">
                 Generate
@@ -42,13 +42,13 @@ export const BuiltForEditingSection: React.FC = () => {
             </div>
 
             {/* Connecting arrow 1 */}
-            <div className="pt-3 text-zinc-300">
+            <div className="pt-3 text-zinc-400">
               <ArrowRight size={16} />
             </div>
 
             {/* Step 2: Edit */}
             <div className="flex flex-col items-start max-w-[110px]">
-              <div className="w-12 h-12 rounded-xl bg-white border border-zinc-200/90 shadow-sm flex items-center justify-center text-zinc-800">
+              <div className="w-12 h-12 rounded-xl bg-white border border-[#E5E0D8] shadow-sm flex items-center justify-center text-zinc-800">
                 <ArrowUpDown size={18} strokeWidth={2} className="text-zinc-800" />
               </div>
               <div className="text-xs font-bold text-zinc-950 mt-3">
@@ -60,13 +60,13 @@ export const BuiltForEditingSection: React.FC = () => {
             </div>
 
             {/* Connecting arrow 2 */}
-            <div className="pt-3 text-zinc-300">
+            <div className="pt-3 text-zinc-400">
               <ArrowRight size={16} />
             </div>
 
             {/* Step 3: Export */}
             <div className="flex flex-col items-start max-w-[110px]">
-              <div className="w-12 h-12 rounded-xl bg-white border border-zinc-200/90 shadow-sm flex items-center justify-center text-zinc-800">
+              <div className="w-12 h-12 rounded-xl bg-white border border-[#E5E0D8] shadow-sm flex items-center justify-center text-zinc-800">
                 <Upload size={18} strokeWidth={2} className="text-zinc-800" />
               </div>
               <div className="text-xs font-bold text-zinc-950 mt-3">
@@ -84,7 +84,7 @@ export const BuiltForEditingSection: React.FC = () => {
               <div className="text-xs font-semibold text-zinc-700 mb-2">
                 Export to
               </div>
-              <div className="bg-white rounded-2xl border border-zinc-200/90 shadow-xl shadow-zinc-200/60 p-3 space-y-2.5">
+              <div className="bg-white rounded-2xl border border-[#E5E0D8] shadow-lg shadow-zinc-950/[0.03] p-3 space-y-2.5">
                 {/* Premiere Pro */}
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-lg bg-[#00005b] text-[#9999ff] font-extrabold text-[11px] flex items-center justify-center font-sans tracking-tight shrink-0 shadow-xs">
@@ -104,10 +104,21 @@ export const BuiltForEditingSection: React.FC = () => {
                   </div>
                   <span className="text-xs font-semibold text-zinc-900">DaVinci Resolve</span>
                 </div>
+                {/* CapCut */}
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-black flex items-center justify-center p-1.5 shrink-0 shadow-xs">
+                    <svg viewBox="0 0 24 24" className="w-4 h-4">
+                      <circle cx="12" cy="6" r="3.5" fill="#EF4444" />
+                      <circle cx="6.5" cy="16" r="3.5" fill="#10B981" />
+                      <circle cx="17.5" cy="16" r="3.5" fill="#3B82F6" />
+                    </svg>
+                  </div>
+                  <span className="text-xs font-semibold text-zinc-900">Capcut</span>
+                </div>
 
                 {/* Full Video */}
                 <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-[#0d1527] text-sky-400 flex items-center justify-center shrink-0 shadow-xs">
+                  <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0 shadow-xs">
                     <Download size={13} strokeWidth={2.5} />
                   </div>
                   <span className="text-xs font-semibold text-zinc-900">Full Video</span>
