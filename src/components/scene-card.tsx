@@ -76,8 +76,9 @@ export default function SceneCard({
     stylePrompt,
   });
 
-  const isGenerating =
-    scene.status === 'GENERATING_IMAGE' || scene.status === 'GENERATING_MOTION';
+  const isGenerating = scene.status === 'GENERATING_IMAGE' || scene.status === 'GENERATING_MOTION';
+
+
 
   const duration = (scene.audioEndSec - scene.audioStartSec).toFixed(1);
   const timeRange = `${scene.audioStartSec.toFixed(1)}s – ${scene.audioEndSec.toFixed(1)}s`;
@@ -130,124 +131,125 @@ export default function SceneCard({
   }
 
   return (
-    <div
-      className={`relative group rounded-2xl border transition-all duration-300 shadow-md hover:shadow-2xl ${
-        moreMenuOpen ? 'z-40 overflow-visible' : 'overflow-hidden'
-      } ${
-        aspectRatio === '9:16'
-          ? 'aspect-[9/16]'
-          : aspectRatio === '1:1'
-          ? 'aspect-square'
-          : 'aspect-video'
-      } ${hovering ? 'border-zinc-500/70' : 'border-white/10'} ${
-        isGenerating ? 'ring-2 ring-emerald-500/50 animate-pulse' : ''
-      }`}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => {
-        setHovering(false);
-        setMoreMenuOpen(false);
-        if (editingPrompt) setEditingPrompt(false);
-      }}
-      style={{ background: 'var(--bg-surface)' }}
-    >
-      {/* ── 1. Full-bleed Artwork Canvas ────────────────────────────────────────── */}
-      <SceneCardMedia
-        scene={scene}
-        projectId={projectId}
-        currentSrc={currentSrc}
-        imgError={imgError}
-        isGenerating={isGenerating}
-        editingPrompt={editingPrompt}
-        onOpenPreview={() => setPreviewOpen(true)}
-        onRegenerate={handleRegenerate}
-        onRecoverSrc={setCurrentSrc}
-        onSetImgError={setImgError}
-      />
-
-      {/* ── 2. Top-Left: Scene # & Duration Stepper ─────────────────────────────── */}
-      <SceneCardHeader
-        sceneId={scene.sceneId}
-        duration={duration}
-        visualType={scene.visualType}
-        cameraMotion={scene.cameraMotion}
-        onUpdateDuration={onUpdateDuration}
-        disabled={disabled}
-      />
-
-      {/* ── 3. Top-Right: Quick Actions Capsule & Dropdown ──────────────────────── */}
-      <SceneCardActions
-        scene={scene}
-        currentSrc={currentSrc}
-        imgError={imgError}
-        isGenerating={isGenerating}
-        disabled={disabled}
-        hovering={hovering}
-        moreMenuOpen={moreMenuOpen}
-        isSubmittingRegenerate={isSubmittingRegenerate}
-        onSetMoreMenuOpen={setMoreMenuOpen}
-        onRegenerate={handleRegenerate}
-        onOpenPreview={() => setPreviewOpen(true)}
-        onUploadClick={handleUploadClick}
-        onSwitchShotType={handleSwitchShotType}
-      />
-
-      {/* ── 4. Bottom: On-Hover Cinematic Caption Bar ─────────────────────────── */}
-      <SceneCardNarration
-        narrationText={scene.narrationLine || scene.visualPrompt}
-        visible={hovering && !editingPrompt && !moreMenuOpen}
-        visualType={scene.visualType}
-        shotType={scene.shotType}
-        motionReady={scene.status === 'MOTION_READY'}
-      />
-
-      {/* ── 5. In-Card Prompt Editor Overlay ─────────────────────────────────────── */}
-      {editingPrompt && (
-        <ScenePromptEditorOverlay
-          sceneId={scene.sceneId}
-          promptDraft={promptDraft}
-          setPromptDraft={setPromptDraft}
-          isEnhancingPrompt={isEnhancingPrompt}
+    <>
+      <div
+        className={`relative group rounded-2xl border transition-all duration-300 shadow-md hover:shadow-2xl ${moreMenuOpen ? 'z-40 overflow-visible' : 'overflow-hidden'
+          } ${aspectRatio === '9:16'
+            ? 'aspect-[9/16]'
+            : aspectRatio === '1:1'
+              ? 'aspect-square'
+              : 'aspect-video'
+          } ${hovering ? 'border-zinc-500/70' : 'border-white/10'} ${isGenerating ? 'ring-2 ring-emerald-500/50 animate-pulse' : ''
+          }`}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => {
+          setHovering(false);
+          setMoreMenuOpen(false);
+          if (editingPrompt) setEditingPrompt(false);
+        }}
+        style={{ background: 'var(--bg-surface)' }}
+      >
+        {/* ── 1. Full-bleed Artwork Canvas ────────────────────────────────────────── */}
+        <SceneCardMedia
+          scene={scene}
+          projectId={projectId}
+          currentSrc={currentSrc}
+          imgError={imgError}
           isGenerating={isGenerating}
-          isSubmittingRegenerate={isSubmittingRegenerate}
-          disabled={disabled}
-          onEnhancePrompt={handleEnhancePrompt}
-          onAppendModifier={handleAppendModifier}
+          editingPrompt={editingPrompt}
+          onOpenPreview={() => setPreviewOpen(true)}
           onRegenerate={handleRegenerate}
-          onClose={() => setEditingPrompt(false)}
+          onRecoverSrc={setCurrentSrc}
+          onSetImgError={setImgError}
         />
-      )}
 
-      {/* ── 6. Motion Clip Status Pill (Idle micro-badge) ────────────────────── */}
-      {scene.status === 'MOTION_READY' && !hovering && !moreMenuOpen && !editingPrompt && (
-        <div
-          className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/30 text-emerald-300 shadow-sm transition-all duration-200 select-none"
-          title="Motion clip rendered and ready"
-        >
-          <Video size={9} className="text-emerald-400" />
-          <span className="text-[9px] font-mono font-medium">Motion</span>
-        </div>
-      )}
+        {/* ── 2. Top-Left: Scene # & Duration Stepper ─────────────────────────────── */}
+        <SceneCardHeader
+          sceneId={scene.sceneId}
+          duration={duration}
+          visualType={scene.visualType}
+          cameraMotion={scene.cameraMotion}
+          onUpdateDuration={onUpdateDuration}
+          disabled={disabled}
+        />
 
-      {/* Error notification if failed */}
-      {scene.error && scene.status === 'FAILED' && (
-        <div className="absolute inset-x-3 bottom-3 z-20 flex items-start gap-1.5 p-2 rounded-xl bg-red-950/90 border border-red-800/60 shadow-lg backdrop-blur-md animate-fade-in">
-          <AlertTriangle size={12} className="text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-200 line-clamp-2 leading-tight flex-1">
-            {scene.error}
-          </p>
-        </div>
-      )}
+        {/* ── 3. Top-Right: Quick Actions Capsule & Dropdown ──────────────────────── */}
+        <SceneCardActions
+          scene={scene}
+          currentSrc={currentSrc}
+          imgError={imgError}
+          isGenerating={isGenerating}
+          disabled={disabled}
+          hovering={hovering}
+          moreMenuOpen={moreMenuOpen}
+          isSubmittingRegenerate={isSubmittingRegenerate}
+          onSetMoreMenuOpen={setMoreMenuOpen}
+          onRegenerate={handleRegenerate}
+          onOpenPreview={() => setPreviewOpen(true)}
+          onUploadClick={handleUploadClick}
+          onSwitchShotType={handleSwitchShotType}
+        />
 
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
+        {/* ── 4. Bottom: On-Hover Cinematic Caption Bar ─────────────────────────── */}
+        <SceneCardNarration
+          narrationText={scene.narrationLine || scene.visualPrompt}
+          visible={hovering && !editingPrompt && !moreMenuOpen}
+          visualType={scene.visualType}
+          shotType={scene.shotType}
+          motionReady={scene.status === 'MOTION_READY'}
+        />
 
-      {/* Lightbox Full Preview & Creative Studio Modal */}
+        {/* ── 5. In-Card Prompt Editor Overlay ─────────────────────────────────────── */}
+        {editingPrompt && (
+          <ScenePromptEditorOverlay
+            sceneId={scene.sceneId}
+            promptDraft={promptDraft}
+            setPromptDraft={setPromptDraft}
+            isEnhancingPrompt={isEnhancingPrompt}
+            isGenerating={isGenerating}
+            isSubmittingRegenerate={isSubmittingRegenerate}
+            disabled={disabled}
+            onEnhancePrompt={handleEnhancePrompt}
+            onAppendModifier={handleAppendModifier}
+            onRegenerate={handleRegenerate}
+            onClose={() => setEditingPrompt(false)}
+          />
+        )}
+
+        {/* ── 6. Motion Clip Status Pill (Idle micro-badge) ────────────────────── */}
+        {scene.status === 'MOTION_READY' && !hovering && !moreMenuOpen && !editingPrompt && (
+          <div
+            className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/30 text-emerald-300 shadow-sm transition-all duration-200 select-none"
+            title="Motion clip rendered and ready"
+          >
+            <Video size={9} className="text-emerald-400" />
+            <span className="text-[9px] font-mono font-medium">Motion</span>
+          </div>
+        )}
+
+        {/* Error notification if failed */}
+        {scene.error && scene.status === 'FAILED' && (
+          <div className="absolute inset-x-3 bottom-3 z-20 flex items-start gap-1.5 p-2 rounded-xl bg-red-950/90 border border-red-800/60 shadow-lg backdrop-blur-md animate-fade-in">
+            <AlertTriangle size={12} className="text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-[10px] text-red-200 line-clamp-2 leading-tight flex-1">
+              {scene.error}
+            </p>
+          </div>
+        )}
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
+        {/* Lightbox Full Preview & Creative Studio Modal */}
+
+      </div>
+
       {previewOpen && (currentSrc || scene.imageUrl) && (
         <SceneStudioModal
           scene={scene}
@@ -270,6 +272,6 @@ export default function SceneCard({
           }}
         />
       )}
-    </div>
+    </>
   );
 }

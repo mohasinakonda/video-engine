@@ -1,6 +1,5 @@
 import React from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Scale, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Scale, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 export const metadata = {
   title: 'Terms of Service | Rendoza AI',
@@ -9,18 +8,8 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-zinc-900 py-12 px-6">
+    <div className="py-12 px-6">
       <div className="max-w-3xl mx-auto space-y-8">
-        
-        {/* Navigation back */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-600 hover:text-zinc-950 transition-colors"
-        >
-          <ArrowLeft size={14} />
-          <span>Back to Home</span>
-        </Link>
-
         {/* Header */}
         <div className="space-y-3 border-b border-[#E5E0D8] pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-mono font-semibold border border-blue-200">
@@ -37,7 +26,6 @@ export default function TermsPage() {
 
         {/* Terms Content Card */}
         <div className="bg-white rounded-3xl border border-[#E5E0D8] p-6 sm:p-10 shadow-sm space-y-8 text-sm leading-relaxed text-zinc-700">
-          
           <section className="space-y-3">
             <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
               <CheckCircle2 size={18} className="text-[#E05A30]" />
@@ -86,9 +74,7 @@ export default function TermsPage() {
               These Terms are governed by and construed in accordance with the applicable laws of Bangladesh and international copyright standards.
             </p>
           </section>
-
         </div>
-
       </div>
     </div>
   );

@@ -57,6 +57,7 @@ export default function SceneStudioModal({
   const isSubmitDisabled =
     !promptDraft.trim() || isGenerating || isSubmittingRegenerate || disabled;
 
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/90 backdrop-blur-md animate-fade-in"
@@ -135,7 +136,7 @@ export default function SceneStudioModal({
               <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20">
                 <Loader2 size={32} className="text-emerald-400 animate-spin" />
                 <p className="text-xs font-medium text-zinc-200">
-                  Regenerating scene image with Pollinations AI…
+                  Regenerating scene image
                 </p>
               </div>
             )}

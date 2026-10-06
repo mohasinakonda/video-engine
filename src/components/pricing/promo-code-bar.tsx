@@ -25,10 +25,10 @@ export function PromoCodeBar({
   };
 
   return (
-    <div className="max-w-xl mx-auto bg-zinc-900/80 border border-zinc-800 rounded-2xl p-4 shadow-md backdrop-blur-sm">
-      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+    <div className="max-w-xl mx-auto bg-white border border-[#E5E0D8] rounded-2xl p-4 shadow-sm">
+      <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-2 flex items-center justify-between">
         <span className="flex items-center gap-1.5">
-          <Tag size={13} className="text-amber-400" />
+          <Tag size={13} className="text-[#E05A30]" />
           Have a Promo Code or Referral Coupon?
         </span>
         <span className="text-[11px] text-zinc-500 font-normal">Try: EARLY50</span>
@@ -40,12 +40,12 @@ export function PromoCodeBar({
           onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
           onKeyDown={handleKeyDown}
           placeholder="e.g. EARLY50, LAUNCH20"
-          className="flex-1 bg-zinc-950 border border-zinc-700/80 rounded-xl px-4 py-2.5 text-sm font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-amber-400 transition-colors"
+          className="flex-1 bg-[#FAF8F5] border border-[#E5E0D8] rounded-xl px-4 py-2.5 text-sm font-mono text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-[#E05A30] focus:ring-1 focus:ring-[#E05A30] transition-colors"
         />
         <button
           type="button"
           onClick={onApplyPromo}
-          className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-zinc-950 text-sm font-semibold rounded-xl transition-colors shadow-sm"
+          className="px-5 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-semibold rounded-xl transition-colors shadow-xs active:scale-95"
         >
           Apply
         </button>
@@ -55,14 +55,14 @@ export function PromoCodeBar({
         <div
           className={`mt-3 text-xs p-2.5 rounded-lg flex items-center gap-2 ${
             promoResult.valid
-              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-              : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border border-rose-200 text-rose-700'
           }`}
         >
           {promoResult.valid ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
           <span>{promoResult.message}</span>
           {promoResult.valid && (
-            <span className="ml-auto font-bold uppercase tracking-wider bg-emerald-500/20 px-2 py-0.5 rounded text-[10px]">
+            <span className="ml-auto font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px]">
               Applied
             </span>
           )}

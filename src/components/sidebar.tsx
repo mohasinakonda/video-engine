@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Video,
-  Mic2,
   Settings,
   PlusCircle,
   Zap,
@@ -22,10 +21,10 @@ import { useAuth } from '@/contexts/auth-context';
 import { signOutUser } from '@/lib/supabase-service';
 
 const navItems = [
-  { href: '/', label: 'Projects', icon: Video },
+  { href: '/projects', label: 'Projects', icon: Video },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   // { href: '/voice-studio', label: 'Voice Studio', icon: Mic2 },
-  { href: '/pricing', label: 'Plans & Credits', icon: CreditCard },
+  { href: '/plan', label: 'Plans & Credits', icon: CreditCard },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
@@ -48,10 +47,7 @@ export default function Sidebar() {
     }
   }
 
-  // Extract project ID from routes for context nav
-  const storyboardMatch = pathname.startsWith('/storyboard');
-  const projectPageMatch = pathname.startsWith('/project/new');
-  const exportMatch = pathname.startsWith('/export');
+
   const adminMatch = pathname.startsWith('/admin');
 
   const creditsPercent = sub
@@ -201,7 +197,7 @@ export default function Sidebar() {
               </div>
 
               <Link
-                href="/pricing"
+                href="/plan"
                 className="flex items-center justify-between w-full pt-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 <span>Top-up / Upgrade</span>

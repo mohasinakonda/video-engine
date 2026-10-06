@@ -53,7 +53,7 @@ export default function BillingTab({
             </p>
           </div>
           <Link
-            href="/pricing"
+            href="/plan"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors pt-1"
           >
             <span>Upgrade or Change Plan</span>

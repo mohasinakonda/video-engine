@@ -32,23 +32,27 @@ export function UserPlanRenewSection({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
           <button
             onClick={() => setBillingCycle('monthly')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${
-              billingCycle === 'monthly' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              billingCycle === 'monthly'
+                ? 'bg-white text-zinc-950 shadow-sm'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             Monthly
           </button>
           <button
             onClick={() => setBillingCycle('yearly')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 ${
-              billingCycle === 'yearly' ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              billingCycle === 'yearly'
+                ? 'bg-white text-zinc-950 shadow-sm'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             <span>Yearly</span>
-            <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-white text-[9px] font-bold">
+            <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-zinc-950 text-[9px] font-bold">
               20% OFF
             </span>
           </button>
@@ -63,18 +67,18 @@ export function UserPlanRenewSection({
           return (
             <div
               key={plan.id}
-              className={`p-6 rounded-3xl border transition-all flex flex-col ${
+              className={`p-6 rounded-3xl border transition-all flex flex-col shadow-xl ${
                 isCurrent
-                  ? 'bg-zinc-850/60 border-emerald-500'
+                  ? 'bg-zinc-850/60 border-2 border-emerald-500 ring-1 ring-emerald-500/30'
                   : plan.popular
-                  ? 'bg-zinc-900 border-zinc-700'
-                  : 'bg-zinc-900/40 border-zinc-800'
+                  ? 'bg-zinc-900/90 border-2 border-emerald-500/60'
+                  : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
               }`}
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="font-bold text-white text-base">{plan.name}</span>
                 {isCurrent && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-zinc-950">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     Active Plan
                   </span>
                 )}
@@ -99,10 +103,10 @@ export function UserPlanRenewSection({
 
               <button
                 onClick={() => onSelectPlan(plan)}
-                className={`w-full py-2.5 rounded-xl font-bold text-xs transition-colors ${
+                className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all ${
                   isCurrent
-                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-white hover:bg-zinc-200 text-zinc-950'
+                    ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 shadow-sm'
+                    : 'bg-white hover:bg-zinc-200 text-zinc-950 shadow-md'
                 }`}
               >
                 {isCurrent ? 'Renew This Plan' : `Switch to ${plan.name}`}

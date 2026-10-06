@@ -12,7 +12,6 @@ import {
   AlertCircle,
   MessageCircle,
   Tag,
-  Sparkles,
 } from 'lucide-react';
 import {
   getWhatsAppVerificationUrl,
@@ -93,7 +92,7 @@ export function PaymentCheckoutModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-zinc-900 border border-zinc-700/80 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto text-white">
         <button
           onClick={onClose}
           type="button"
@@ -127,7 +126,7 @@ export function PaymentCheckoutModal({
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition-transform hover:scale-105"
               >
                 <MessageCircle size={18} />
-                Message Admin on WhatsApp Now
+                <span>Message Admin on WhatsApp Now</span>
               </a>
             </div>
 
@@ -400,7 +399,7 @@ export function PaymentCheckoutModal({
             </div>
 
             {submitError && (
-              <p className="text-xs text-rose-400 flex items-center gap-1.5">
+              <p className="text-xs text-rose-400 flex items-center gap-1.5 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
                 <AlertCircle size={14} />
                 {submitError}
               </p>

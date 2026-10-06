@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 import GuestView from '@/components/guest-view';
-import UserDashboardView from '@/components/user-dashboard-view';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,15 +12,13 @@ export default async function Page() {
     const { data } = await supabase.auth.getUser();
     user = data?.user ?? null;
   } catch {
-    // If Supabase keys are not set up yet or cookies are unavailable
     user = null;
   }
 
-  // 1. Unauthenticated / Guest View
-  if (!user) {
-    return <GuestView />;
+  if (user) {
+    redirect('/dashboard');
   }
 
-  // 2. Authenticated / Logged-in View
-  return <UserDashboardView user={user} />;
+  return <GuestView />;
 }
+

@@ -35,7 +35,7 @@ export function TopupPacksSection({
         {topupPacks.map((pack) => (
           <div
             key={pack.id}
-            className={`rounded-3xl p-6 bg-zinc-900/80 border transition-all relative ${
+            className={`rounded-3xl p-6 bg-zinc-900/80 border transition-all relative shadow-xl ${
               !hasActiveSubscription
                 ? 'border-zinc-800/80 opacity-90'
                 : pack.popular
@@ -50,7 +50,7 @@ export function TopupPacksSection({
                 </span>
               </div>
             ) : pack.popular ? (
-              <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full bg-amber-400 text-zinc-950 font-bold text-[10px] uppercase tracking-wider">
+              <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full bg-amber-400 text-zinc-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
                 Most Popular
               </span>
             ) : null}

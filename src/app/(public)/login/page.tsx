@@ -6,9 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Zap,
   Sparkles,
-  ArrowRight,
   ShieldCheck,
-  CheckCircle2,
   AlertCircle,
   Film,
   Coins,
@@ -43,27 +41,30 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-base text-zinc-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full p-8 rounded-3xl bg-zinc-900 border border-zinc-800 shadow-2xl space-y-7 relative overflow-hidden">
-        {/* Top Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-emerald-500/10 blur-2xl pointer-events-none" />
+    <div className="py-16 px-4 flex items-center justify-center">
+      <div className="max-w-md w-full p-8 sm:p-10 rounded-3xl bg-white border border-[#E5E0D8] shadow-xl space-y-7 relative overflow-hidden">
+        {/* Top subtle decorative glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-orange-100/60 blur-3xl pointer-events-none" />
 
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white text-zinc-950 font-black shadow-xl shadow-white/10 mb-1">
-            <Zap size={26} className="fill-zinc-950" />
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 text-white font-black shadow-md shadow-zinc-900/10 mb-1">
+            <Zap size={24} className="text-[#E05A30] fill-[#E05A30]" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              AI Video Studio
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight flex items-center justify-center gap-2">
+              <span>Rendoza AI</span>
+              <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-[#F4F0EA] text-zinc-600 border border-[#E5E0D8]">
+                v2.0
+              </span>
             </h1>
-            <p className="text-xs text-zinc-400 mt-1">
-              Sign in with your Google account to start generating videos
+            <p className="text-xs text-zinc-600 mt-1">
+              Sign in with your Google account to start creating videos
             </p>
           </div>
 
           {/* 30 Free Credits Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[#E05A30] text-xs font-bold uppercase tracking-wider">
             <Gift size={14} />
             <span>Claim 30 Free Credits on Sign-In</span>
           </div>
@@ -75,10 +76,10 @@ export default function LoginPage() {
             type="button"
             disabled={loading}
             onClick={handleGoogleSignIn}
-            className="w-full py-3.5 px-5 rounded-2xl bg-white hover:bg-zinc-100 text-zinc-950 font-bold text-sm flex items-center justify-center gap-3 transition-all duration-200 shadow-lg hover:shadow-white/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+            className="w-full py-3.5 px-5 rounded-2xl bg-white hover:bg-zinc-50 text-zinc-950 font-bold text-sm flex items-center justify-center gap-3 transition-all duration-200 border border-[#E5E0D8] hover:border-zinc-400 shadow-sm hover:shadow active:scale-[0.99] disabled:opacity-50"
           >
             {loading ? (
-              <span className="text-xs">Connecting to Google...</span>
+              <span className="text-xs text-zinc-600">Connecting to Google...</span>
             ) : (
               <>
                 <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
@@ -105,7 +106,7 @@ export default function LoginPage() {
           </button>
 
           {errorMsg && (
-            <p className="text-xs text-rose-400 flex items-center justify-center gap-1.5 p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+            <p className="text-xs text-rose-600 flex items-center justify-center gap-1.5 p-2 rounded-xl bg-rose-50 border border-rose-200">
               <AlertCircle size={14} />
               {errorMsg}
             </p>
@@ -119,27 +120,27 @@ export default function LoginPage() {
         </div>
 
         {/* Feature Highlights */}
-        <div className="pt-4 border-t border-zinc-800/80 space-y-2.5">
+        <div className="pt-4 border-t border-[#E5E0D8] space-y-2.5">
           <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-center">
             What you get with your account
           </p>
 
-          <div className="grid grid-cols-2 gap-2 text-xs text-zinc-300">
-            <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center gap-2">
-              <Coins size={15} className="text-amber-400 shrink-0" />
-              <span>30 Free Credits</span>
+          <div className="grid grid-cols-2 gap-2 text-xs text-zinc-700">
+            <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5E0D8] flex items-center gap-2">
+              <Coins size={15} className="text-amber-500 shrink-0" />
+              <span className="font-medium">30 Free Credits</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center gap-2">
-              <Film size={15} className="text-blue-400 shrink-0" />
-              <span>1080p Video Export</span>
+            <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5E0D8] flex items-center gap-2">
+              <Film size={15} className="text-blue-500 shrink-0" />
+              <span className="font-medium">1080p Video Export</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center gap-2">
-              <ShieldCheck size={15} className="text-emerald-400 shrink-0" />
-              <span>bKash / Nagad Topup</span>
+            <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5E0D8] flex items-center gap-2">
+              <ShieldCheck size={15} className="text-emerald-600 shrink-0" />
+              <span className="font-medium">bKash / Nagad Topup</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center gap-2">
-              <Sparkles size={15} className="text-purple-400 shrink-0" />
-              <span>15% Referral Cash</span>
+            <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5E0D8] flex items-center gap-2">
+              <Sparkles size={15} className="text-purple-500 shrink-0" />
+              <span className="font-medium">15% Referral Cash</span>
             </div>
           </div>
         </div>
@@ -147,7 +148,15 @@ export default function LoginPage() {
         {/* Footer info */}
         <div className="text-center pt-2">
           <p className="text-[11px] text-zinc-500 leading-relaxed">
-            By signing in, you agree to our Terms of Service. No passwords required.
+            By signing in, you agree to our{' '}
+            <Link href="/terms" className="underline hover:text-zinc-950 font-medium">
+              Terms of Service
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" className="underline hover:text-zinc-950 font-medium">
+              Privacy Policy
+            </Link>
+            . No passwords required.
           </p>
         </div>
       </div>

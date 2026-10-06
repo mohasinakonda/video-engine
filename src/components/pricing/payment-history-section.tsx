@@ -16,7 +16,7 @@ export function PaymentHistorySection({ submissions, whatsappNumber }: PaymentHi
   return (
     <div className="space-y-4 pt-6 border-t border-zinc-800">
       <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
-        <Clock size={16} />
+        <Clock size={16} className="text-emerald-400" />
         Your Recent Payment Submissions
       </h3>
       <div className="space-y-2">
@@ -32,7 +32,7 @@ export function PaymentHistorySection({ submissions, whatsappNumber }: PaymentHi
           return (
             <div
               key={sub.id}
-              className="p-3.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg"
             >
               <div>
                 <div className="flex items-center gap-2">
@@ -52,10 +52,10 @@ export function PaymentHistorySection({ submissions, whatsappNumber }: PaymentHi
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                     sub.status === 'APPROVED'
-                      ? 'bg-emerald-500/20 text-emerald-400'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                       : sub.status === 'REJECTED'
-                      ? 'bg-rose-500/20 text-rose-400'
-                      : 'bg-amber-500/20 text-amber-400'
+                      ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   }`}
                 >
                   {sub.status}
@@ -65,7 +65,7 @@ export function PaymentHistorySection({ submissions, whatsappNumber }: PaymentHi
                     href={waUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-[10px] flex items-center gap-1"
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-[10px] flex items-center gap-1 shadow-sm"
                   >
                     <MessageCircle size={12} /> Confirm on WhatsApp
                   </a>
