@@ -1,7 +1,7 @@
 import React from 'react';
 
 export default function JsonLd() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://rendoza.com';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.rendoza.com';
 
   const softwareSchema = {
     '@context': 'https://schema.org',
