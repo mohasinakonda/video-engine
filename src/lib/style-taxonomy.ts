@@ -75,7 +75,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: true,
     isBuiltIn: true,
     createdAt: 1,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278399392_70mm_imax_photorealism.jpg',
   },
   {
     id: 'sub_35mm_kodachrome',
@@ -91,7 +91,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 2,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281261838_35mm_vintage_kodachrome.jpg',
   },
   {
     id: 'sub_classic_noir',
@@ -107,7 +107,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 3,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281283943_classic_film_noir.jpg',
   },
   {
     id: 'sub_macro_wildlife',
@@ -123,7 +123,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 4,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281310550_bbc_earth_macro_cosmos.jpg',
   },
   {
     id: 'sub_cyberpunk_neon',
@@ -139,7 +139,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 5,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281330212_cyberpunk_neon_noir.jpg',
   },
   {
     id: 'sub_16mm_indie',
@@ -155,7 +155,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 6,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278736152_16mm_gritty_documentary.jpg',
   },
 
   // ─── 2. Printmaking & Relief ──────────────────────────────────────────────────
@@ -173,7 +173,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 7,
-    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/1790875798525_image.webp',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278794685_artisan_linocut_relief.jpg',
   },
   {
     id: 'sub_ukiyo_e',
@@ -189,7 +189,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 8,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281358860_japanese_ukiyo_e_woodblock.jpg',
   },
   {
     id: 'sub_ligne_claire',
@@ -205,7 +205,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 9,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278915070_french_ligne_claire_comic.jpg',
   },
   {
     id: 'sub_risograph',
@@ -221,7 +221,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 10,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281384842_risograph_screenprint.jpg',
   },
   {
     id: 'sub_botanical_etching',
@@ -237,7 +237,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 11,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281408125_copperplate_etching___engraving.jpg',
   },
   {
     id: 'sub_editorial_gouache',
@@ -253,7 +253,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 12,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791279321369_editorial_gouache___collage.jpg',
   },
 
   // ─── 3. Animation & Anime ─────────────────────────────────────────────────────
@@ -271,7 +271,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 13,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281431651_studio_ghibli_nostalgia.jpg',
   },
   {
     id: 'sub_90s_akira_anime',
@@ -287,7 +287,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 14,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281463993_90s_retro_cyberpunk_anime.jpg',
   },
   {
     id: 'sub_makoto_shinkai',
@@ -303,7 +303,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 15,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281486029_makoto_shinkai_high_gloss.jpg',
   },
   {
     id: 'sub_claymation_stopmotion',
@@ -319,7 +319,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 16,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1560421683-680b9383563b?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281505995_claymation___stop_motion_3d.jpg',
   },
   {
     id: 'sub_rubber_hose_1930',
@@ -335,7 +335,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 17,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281528176_1930s_rubber_hose_animation.jpg',
   },
   {
     id: 'sub_papercraft_shadowbox',
@@ -351,7 +351,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 18,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281549673_papercraft___shadowbox_3d.jpg',
   },
 
   // ─── 4. Fine Art Painting ─────────────────────────────────────────────────────
@@ -369,7 +369,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 19,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281588480_impressionist_oil_canvas.jpg',
   },
   {
     id: 'sub_sumi_e_ink',
@@ -385,7 +385,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 20,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281610044_sumi_e_zen_ink_wash.jpg',
   },
   {
     id: 'sub_baroque_chiaroscuro',
@@ -401,7 +401,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 21,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281640375_baroque_dramatic_chiaroscuro.jpg',
   },
   {
     id: 'sub_surrealist_dream',
@@ -417,7 +417,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 22,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281859509_surrealist_symbolic_dreamscape.jpg',
   },
   {
     id: 'sub_wet_watercolor',
@@ -433,7 +433,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 23,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281838961_wet_on_wet_luminous_watercolor.jpg',
   },
 
   // ─── 5. Graphic Design & Digital ──────────────────────────────────────────────
@@ -451,7 +451,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 24,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281813178_modern_2d_flat_vector.jpg',
   },
   {
     id: 'sub_bauhaus_constructivism',
@@ -467,7 +467,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 25,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281786610_bauhaus___constructivism.jpg',
   },
   {
     id: 'sub_isometric_3d',
@@ -483,7 +483,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 26,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281764443_isometric_3d_diorama.jpg',
   },
   {
     id: 'sub_blueprint_schematic',
@@ -499,7 +499,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 27,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281742344_cyanotype_technical_blueprint.jpg',
   },
   {
     id: 'sub_retro_synthwave',
@@ -515,7 +515,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 28,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281720461_retro_synthwave___wireframe.jpg',
   },
 
   // ─── 6. Retro Analog & Vintage Media ──────────────────────────────────────────
@@ -533,7 +533,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 29,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281697861_1970s_polaroid_sx_70.jpg',
   },
   {
     id: 'sub_vhs_camcorder',
@@ -549,7 +549,7 @@ export const SUB_STYLES_CATALOG: SubStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 30,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281676476_1980s_vhs_magnetic_tape.jpg',
   },
 ];
 

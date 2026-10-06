@@ -6,7 +6,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from 'lucide-react';
-import { FEATURED_STYLES } from './types-and-data';
+import { LANDING_SECTION_IMAGES } from './types-and-data';
 
 
 export const StoryboardShowcaseSection = () => {
@@ -65,7 +65,7 @@ export const StoryboardShowcaseSection = () => {
               {/* Visual Viewport */}
               <div className="sm:col-span-7 relative rounded-xl overflow-hidden aspect-video border border-[#E5E0D8] bg-zinc-100 shadow-sm">
                 <img
-                  src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80"
+                  src={LANDING_SECTION_IMAGES.storyboard.viewport}
                   alt="Active Scene Viewport"
                   className="w-full h-full object-cover"
                 />
@@ -117,22 +117,25 @@ export const StoryboardShowcaseSection = () => {
 
             {/* Bottom Scrubber Strip */}
             <div className="p-3 border-t border-[#E5E0D8] bg-[#F7F5F0] grid grid-cols-6 gap-2">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  onClick={() => setActiveSceneTab(i)}
-                  className={`cursor-pointer rounded-lg overflow-hidden aspect-video border transition-all ${activeSceneTab === i
-                    ? 'border-[#E05A30] ring-2 ring-[#E05A30]/30 shadow-xs'
-                    : 'border-[#E5E0D8] opacity-70 hover:opacity-100'
-                    }`}
-                >
-                  <img
-                    src={FEATURED_STYLES[0].images[(i - 1) % FEATURED_STYLES[0].images.length].url}
-                    alt={`Scene frame ${i}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
+              {LANDING_SECTION_IMAGES.storyboard.scrubber.map((item, idx) => {
+                const sceneNum = idx + 1;
+                return (
+                  <div
+                    key={sceneNum}
+                    onClick={() => setActiveSceneTab(sceneNum)}
+                    className={`cursor-pointer rounded-lg overflow-hidden aspect-video border transition-all ${activeSceneTab === sceneNum
+                      ? 'border-[#E05A30] ring-2 ring-[#E05A30]/30 shadow-xs'
+                      : 'border-[#E5E0D8] opacity-70 hover:opacity-100'
+                      }`}
+                  >
+                    <img
+                      src={item.url}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                );
+              })}
             </div>
 
           </div>

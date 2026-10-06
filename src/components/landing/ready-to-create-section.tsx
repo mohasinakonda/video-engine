@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FEATURED_STYLES } from './types-and-data';
+import { LANDING_SECTION_IMAGES } from './types-and-data';
 import { useRouter } from 'next/navigation';
 
 
@@ -73,7 +73,7 @@ export const ReadyToCreateSection = ({
               {/* Card 1 (Far Left) */}
               <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden -rotate-6 opacity-70 shadow-md -mr-5 shrink-0 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100">
                 <img
-                  src={FEATURED_STYLES[0].images[3].url}
+                  src={LANDING_SECTION_IMAGES.readyToCreate[0]}
                   alt="Scene preview 1"
                   className="w-full h-full object-cover"
                 />
@@ -82,7 +82,7 @@ export const ReadyToCreateSection = ({
               {/* Card 2 (Mid Left) */}
               <div className="w-16 h-24 sm:w-20 sm:h-28 rounded-xl overflow-hidden -rotate-3 opacity-90 shadow-lg -mr-4 shrink-0 z-10 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100">
                 <img
-                  src={FEATURED_STYLES[0].images[1].url}
+                  src={LANDING_SECTION_IMAGES.readyToCreate[1]}
                   alt="Scene preview 2"
                   className="w-full h-full object-cover"
                 />
@@ -91,7 +91,7 @@ export const ReadyToCreateSection = ({
               {/* Card 3 (Center Hero) */}
               <div className="w-20 h-28 sm:w-24 sm:h-34 rounded-xl overflow-hidden shadow-xl shrink-0 z-20 border-2 border-white ring-2 ring-[#E5E0D8] bg-zinc-100">
                 <img
-                  src={FEATURED_STYLES[0].images[0].url}
+                  src={LANDING_SECTION_IMAGES.readyToCreate[2]}
                   alt="Scene preview center"
                   className="w-full h-full object-cover"
                 />
@@ -100,7 +100,7 @@ export const ReadyToCreateSection = ({
               {/* Card 4 (Mid Right) */}
               <div className="w-16 h-24 sm:w-20 sm:h-28 rounded-xl overflow-hidden rotate-3 opacity-90 shadow-lg -ml-4 shrink-0 z-10 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100">
                 <img
-                  src={FEATURED_STYLES[0].images[4].url}
+                  src={LANDING_SECTION_IMAGES.readyToCreate[3]}
                   alt="Scene preview 4"
                   className="w-full h-full object-cover"
                 />
@@ -109,7 +109,7 @@ export const ReadyToCreateSection = ({
               {/* Card 5 (Far Right) */}
               <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden rotate-6 opacity-70 shadow-md -ml-5 shrink-0 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100">
                 <img
-                  src={FEATURED_STYLES[0].images[2].url}
+                  src={LANDING_SECTION_IMAGES.readyToCreate[4]}
                   alt="Scene preview 5"
                   className="w-full h-full object-cover"
                 />

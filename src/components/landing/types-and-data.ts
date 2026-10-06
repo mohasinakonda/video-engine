@@ -32,203 +32,275 @@ export interface ArtStylePreset {
 export const FEATURED_STYLES: ArtStylePreset[] = [
   {
     id: 'cinematic',
-    title: 'Cinematic AI',
-    tag: 'Sci-Fi & Epic',
+    title: 'Cinematic Film',
+    tag: 'Documentary & Sci-Fi',
     description: 'Volumetric atmospheric lighting, anamorphic 35mm lens grain, deep shadows, and cinematic color science.',
-    prompt: 'Cinematic wide shot, sci-fi astronaut in crystal alien valley, anamorphic lens, volumetric golden light, 8k resolution',
+    prompt: '70mm IMAX documentary cinematography, photorealistic 8k, pristine optical clarity, natural balanced lighting',
     images: [
       {
-        url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-        caption: 'Exploration astronaut in alien crystal dunes',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278399392_70mm_imax_photorealism.jpg',
+        caption: '70mm IMAX Photorealism',
       },
       {
-        url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
-        caption: 'Neo-Tokyo anime skyline at twilight',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281261838_35mm_vintage_kodachrome.jpg',
+        caption: '35mm Vintage Kodachrome',
       },
       {
-        url: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=800&q=80',
-        caption: 'Floating fantasy castle above the clouds',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281283943_classic_film_noir.jpg',
+        caption: 'Classic Film Noir',
       },
       {
-        url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
-        caption: 'Deep space interstellar planet approach',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281310550_bbc_earth_macro_cosmos.jpg',
+        caption: 'BBC Earth Macro Cosmos',
       },
       {
-        url: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
-        caption: 'Bioluminescent cybernetic character frame',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281330212_cyberpunk_neon_noir.jpg',
+        caption: 'Cyberpunk Neon Noir',
       },
       {
-        url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=800&q=80',
-        caption: 'Rain-slicked neon street at midnight',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278736152_16mm_gritty_documentary.jpg',
+        caption: '16mm Gritty Documentary',
       },
     ],
   },
   {
-    id: 'documentary',
-    title: 'Documentary',
-    tag: 'Historical & Lore',
-    description: 'Historical authenticity, aged stone textures, golden hour dust particles, and timeless architectural grandeur.',
-    prompt: 'Ancient palace courtyard, dramatic dust beams through carved stone pillars, historical documentary photography, hyper-detailed',
+    id: 'animation',
+    title: 'Animation & Anime',
+    tag: 'Studio & Stop-Motion',
+    description: 'Nostalgic watercolor skies, cyberpunk anime linework, tactile stop-motion clay, and hand-drawn character design.',
+    prompt: 'Studio Ghibli nostalgic anime aesthetic, lush watercolor meadows, painterly clouds, gentle emotional atmosphere',
     images: [
       {
-        url: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=800&q=80',
-        caption: 'Ancient terracotta palace',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281431651_studio_ghibli_nostalgia.jpg',
+        caption: 'Studio Ghibli Nostalgia',
       },
       {
-        url: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?auto=format&fit=crop&w=800&q=80',
-        caption: 'Mountain stone citadel',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281463993_90s_retro_cyberpunk_anime.jpg',
+        caption: '90s Retro Cyberpunk Anime',
       },
       {
-        url: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=800&q=80',
-        caption: 'Golden desert expedition',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281486029_makoto_shinkai_high_gloss.jpg',
+        caption: 'Makoto Shinkai High-Gloss',
       },
       {
-        url: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80',
-        caption: 'Archive library sanctuary',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281505995_claymation___stop_motion_3d.jpg',
+        caption: 'Claymation & Stop-Motion 3D',
       },
       {
-        url: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=800&q=80',
-        caption: 'Classical amphitheater dusk',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281528176_1930s_rubber_hose_animation.jpg',
+        caption: '1930s Rubber Hose Animation',
       },
       {
-        url: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=800&q=80',
-        caption: 'Misty fortress courtyard',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281549673_papercraft___shadowbox_3d.jpg',
+        caption: 'Papercraft & Shadowbox 3D',
       },
     ],
   },
   {
-    id: 'editorial',
-    title: 'Editorial',
-    tag: 'Fashion & Polish',
-    description: 'Crisp studio lighting, high-fashion compositions, elegant color blocking, and refined visual aesthetics.',
-    prompt: 'Editorial fashion portrait, clean studio lighting, high key elegance, contemporary color grading',
+    id: 'printmaking',
+    title: 'Print & Relief',
+    tag: 'Woodblock & Risograph',
+    description: 'Hand-carved linocut grooves, traditional Japanese Ukiyo-e, Franco-Belgian ligne claire, and tactile screenprints.',
+    prompt: 'Intricate masterwork linocut relief print by an artisan printmaker, deeply carved woodblock style on cream archival paper',
     images: [
       {
-        url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
-        caption: 'High fashion portrait',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278794685_artisan_linocut_relief.jpg',
+        caption: 'Artisan Linocut Relief',
       },
       {
-        url: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=800&q=80',
-        caption: 'Editorial studio composition',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281358860_japanese_ukiyo_e_woodblock.jpg',
+        caption: 'Japanese Ukiyo-e Woodblock',
       },
       {
-        url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=800&q=80',
-        caption: 'Minimal fashion colorblock',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278915070_french_ligne_claire_comic.jpg',
+        caption: 'French Ligne Claire Comic',
       },
       {
-        url: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=800&q=80',
-        caption: 'Haute couture texture study',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281384842_risograph_screenprint.jpg',
+        caption: 'Risograph Screenprint',
       },
       {
-        url: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=800&q=80',
-        caption: 'Runway silhouette motion',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791279321369_editorial_gouache___collage.jpg',
+        caption: 'Editorial Gouache & Collage',
       },
       {
-        url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=800&q=80',
-        caption: 'Metropolitan fashion aesthetic',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281408125_copperplate_etching___engraving.jpg',
+        caption: 'Copperplate Etching & Engraving',
       },
     ],
   },
   {
-    id: 'vintage',
-    title: 'Vintage',
-    tag: 'Warm 35mm Retro',
-    description: 'Hand-painted watercolor aesthetic, nostalgic pastel skies, emotional warmth, and classic analog character.',
-    prompt: 'Vintage 35mm warm film photography, nostalgic color palette, golden sun rays, retro aesthetic',
+    id: 'painting',
+    title: 'Fine Art Painting',
+    tag: 'Oil, Ink & Chiaroscuro',
+    description: 'Rich impasto oil canvas strokes, meditative sumi-e zen ink washes, dramatic baroque light, and wet watercolors.',
+    prompt: 'Impressionist oil painting on linen canvas, visible textured palette knife marks, rich impasto, museum masterpiece',
     images: [
       {
-        url: 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=800&q=80',
-        caption: 'Vintage train journey',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281588480_impressionist_oil_canvas.jpg',
+        caption: 'Impressionist Oil Canvas',
       },
       {
-        url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
-        caption: 'Warm retro room interior',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281610044_sumi_e_zen_ink_wash.jpg',
+        caption: 'Sumi-e Zen Ink Wash',
       },
       {
-        url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80',
-        caption: 'Sunbeam enchanted forest',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281640375_baroque_dramatic_chiaroscuro.jpg',
+        caption: 'Baroque Dramatic Chiaroscuro',
       },
       {
-        url: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=800&q=80',
-        caption: 'Pastoral countryside dawn',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281859509_surrealist_symbolic_dreamscape.jpg',
+        caption: 'Surrealist Symbolic Dreamscape',
       },
       {
-        url: 'https://images.unsplash.com/photo-1473496169904-658ba7c44d8a?auto=format&fit=crop&w=800&q=80',
-        caption: 'Retro coastline warm hour',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281838961_wet_on_wet_luminous_watercolor.jpg',
+        caption: 'Wet-on-Wet Luminous Watercolor',
       },
       {
-        url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
-        caption: 'Riverside misty sunrise',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281697861_1970s_polaroid_sx_70.jpg',
+        caption: '1970s Polaroid SX-70',
       },
     ],
   },
   {
-    id: 'minimal',
-    title: 'Minimal',
-    tag: 'Architectural Clean',
-    description: 'Pure geometry, balanced negative space, subtle monochromes, and refined architectural structure.',
-    prompt: 'Architectural minimalism, crisp geometric lines, balanced negative space, clean modernist aesthetics',
+    id: 'graphic',
+    title: 'Graphic & Digital',
+    tag: 'Vector, Isometric & Retro',
+    description: 'Clean modern 2D flat vectors, Bauhaus constructivism, isometric 3D dioramas, and retro synthwave wireframes.',
+    prompt: 'Modern 2D flat vector graphic illustration, clean geometric shapes, balanced minimalist negative space',
     images: [
       {
-        url: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
-        caption: 'Modernist skyscraper geometry',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281813178_modern_2d_flat_vector.jpg',
+        caption: 'Modern 2D Flat Vector',
       },
       {
-        url: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=800&q=80',
-        caption: 'Clean white facade architecture',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281786610_bauhaus___constructivism.jpg',
+        caption: 'Bauhaus & Constructivism',
       },
       {
-        url: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&w=800&q=80',
-        caption: 'Minimalist creative workspace',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281764443_isometric_3d_diorama.jpg',
+        caption: 'Isometric 3D Diorama',
       },
       {
-        url: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80',
-        caption: 'Clean silhouette monochrome',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281742344_cyanotype_technical_blueprint.jpg',
+        caption: 'Cyanotype Technical Blueprint',
       },
       {
-        url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80',
-        caption: 'Spacious contemporary interior',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281720461_retro_synthwave___wireframe.jpg',
+        caption: 'Retro Synthwave & Wireframe',
       },
       {
-        url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
-        caption: 'Cosmic orbit horizon',
-      },
-    ],
-  },
-  {
-    id: 'custom',
-    title: 'Custom',
-    tag: 'Creative Prompting',
-    description: 'Dynamic cyberpunk neon, futuristic textures, rain reflections, and bespoke artistic direction.',
-    prompt: 'Cyberpunk mega-city street at midnight in heavy neon rain, holographic billboards reflecting on wet pavement',
-    images: [
-      {
-        url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=800&q=80',
-        caption: 'Rain-slicked neon street',
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1515260268569-9271009adfdb?auto=format&fit=crop&w=800&q=80',
-        caption: 'Cybernetic character study',
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80',
-        caption: 'Skyline highway overpass lights',
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=800&q=80',
-        caption: 'Underground city alley',
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?auto=format&fit=crop&w=800&q=80',
-        caption: 'Dynamic velocity light trail',
-      },
-      {
-        url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=800&q=80',
-        caption: 'Digital abstract matrix',
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281676476_1980s_vhs_magnetic_tape.jpg',
+        caption: '1980s VHS Magnetic Tape',
       },
     ],
   },
 ];
+
+// ─── Dedicated curated unique presets for each landing section (Zero duplicates across the page) ───
+export const LANDING_SECTION_IMAGES = {
+  hero: [
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281330212_cyberpunk_neon_noir.jpg',
+      caption: 'Cyberpunk Neon Noir',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281463993_90s_retro_cyberpunk_anime.jpg',
+      caption: '90s Retro Cyberpunk Anime',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278399392_70mm_imax_photorealism.jpg',
+      caption: '70mm IMAX Photorealism',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281431651_studio_ghibli_nostalgia.jpg',
+      caption: 'Studio Ghibli Nostalgia',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281859509_surrealist_symbolic_dreamscape.jpg',
+      caption: 'Surrealist Symbolic Dreamscape',
+    },
+  ],
+  howItWorks: {
+    visualGeneration: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281486029_makoto_shinkai_high_gloss.jpg',
+    finalVideo: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281261838_35mm_vintage_kodachrome.jpg',
+  },
+  sceneBuilder: [
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278736152_16mm_gritty_documentary.jpg',
+      title: 'Scene 01: 16mm Gritty Documentary',
+      duration: '7s',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281310550_bbc_earth_macro_cosmos.jpg',
+      title: 'Scene 02: BBC Earth Macro Cosmos',
+      duration: '7s',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281283943_classic_film_noir.jpg',
+      title: 'Scene 03: Classic Film Noir',
+      duration: '6s',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281588480_impressionist_oil_canvas.jpg',
+      title: 'Scene 04: Impressionist Oil Canvas',
+      duration: '6s',
+    },
+  ],
+  narrationTimeline: [
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281358860_japanese_ukiyo_e_woodblock.jpg',
+      title: 'Japanese Ukiyo-e Woodblock',
+      duration: '7s',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281838961_wet_on_wet_luminous_watercolor.jpg',
+      title: 'Luminous Watercolor',
+      duration: '8s',
+    },
+    {
+      url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281610044_sumi_e_zen_ink_wash.jpg',
+      title: 'Sumi-e Zen Ink Wash',
+      duration: '9s',
+    },
+  ],
+  storyboard: {
+    viewport: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281640375_baroque_dramatic_chiaroscuro.jpg',
+    scrubber: [
+      {
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278794685_artisan_linocut_relief.jpg',
+        title: 'Artisan Linocut Relief',
+      },
+      {
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278915070_french_ligne_claire_comic.jpg',
+        title: 'French Ligne Claire Comic',
+      },
+      {
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281384842_risograph_screenprint.jpg',
+        title: 'Risograph Screenprint',
+      },
+      {
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791279321369_editorial_gouache___collage.jpg',
+        title: 'Editorial Gouache & Collage',
+      },
+      {
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281408125_copperplate_etching___engraving.jpg',
+        title: 'Copperplate Etching',
+      },
+      {
+        url: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281505995_claymation___stop_motion_3d.jpg',
+        title: 'Claymation & Stop-Motion 3D',
+      },
+    ],
+  },
+  readyToCreate: [
+    'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281528176_1930s_rubber_hose_animation.jpg',
+    'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281549673_papercraft___shadowbox_3d.jpg',
+    'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281813178_modern_2d_flat_vector.jpg',
+    'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281764443_isometric_3d_diorama.jpg',
+    'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281742344_cyanotype_technical_blueprint.jpg',
+  ],
+};
 
 // ─── 6 Process Steps ──────────────────────────────────────────────────────────
 

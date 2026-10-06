@@ -82,6 +82,11 @@ export const VisualStyleSection = () => {
                     alt={img.caption || `Scene ${i + 1}`}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
+                  <div className="absolute inset-x-0 bottom-0 p-1.5 px-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[10px] font-medium text-white truncate block">
+                      {img.caption}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

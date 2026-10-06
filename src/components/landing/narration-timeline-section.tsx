@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import { SpactrumBlue } from '@/icons/spactrum-blue';
 import { SpectrumGreen } from '@/icons/spactrum-green';
 import { SpactrumOrange } from '@/icons/spactrum-orange';
+import { LANDING_SECTION_IMAGES } from './types-and-data';
 
 export const NarrationTimelineSection: React.FC = () => {
   return (
@@ -26,8 +27,8 @@ export const NarrationTimelineSection: React.FC = () => {
 
               <div className="relative rounded-xl overflow-hidden aspect-[16/9] border border-[#E5E0D8] bg-zinc-100 shadow-xs group">
                 <img
-                  src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80"
-                  alt="Scene 01 visual"
+                  src={LANDING_SECTION_IMAGES.narrationTimeline[0].url}
+                  alt={LANDING_SECTION_IMAGES.narrationTimeline[0].title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute bottom-2 left-2 w-5 h-5 rounded bg-black/70 backdrop-blur-sm flex items-center justify-center text-white shadow">
@@ -52,8 +53,8 @@ export const NarrationTimelineSection: React.FC = () => {
 
               <div className="relative rounded-xl overflow-hidden aspect-[16/9] border border-[#E5E0D8] bg-zinc-100 shadow-xs group">
                 <img
-                  src="https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=600&q=80"
-                  alt="Scene 02 visual"
+                  src={LANDING_SECTION_IMAGES.narrationTimeline[1].url}
+                  alt={LANDING_SECTION_IMAGES.narrationTimeline[1].title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute bottom-2 left-2 w-5 h-5 rounded bg-black/70 backdrop-blur-sm flex items-center justify-center text-white shadow">
@@ -78,8 +79,8 @@ export const NarrationTimelineSection: React.FC = () => {
 
               <div className="relative rounded-xl overflow-hidden aspect-[16/9] border border-[#E5E0D8] bg-zinc-100 shadow-xs group">
                 <img
-                  src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=600&q=80"
-                  alt="Scene 03 visual"
+                  src={LANDING_SECTION_IMAGES.narrationTimeline[2].url}
+                  alt={LANDING_SECTION_IMAGES.narrationTimeline[2].title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute bottom-2 left-2 w-5 h-5 rounded bg-black/70 backdrop-blur-sm flex items-center justify-center text-white shadow">

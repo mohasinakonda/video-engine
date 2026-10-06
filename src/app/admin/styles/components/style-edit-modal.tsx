@@ -113,7 +113,7 @@ export function StyleEditModal({
         'ugly, blurry, distorted faces, oversaturated cartoon, plastic smooth CGI, generic 3D render'
       );
       setFormThumbnailUrl(
-        'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80'
+        'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278399392_70mm_imax_photorealism.jpg'
       );
       setCustomImageUrlInput('');
       setFormSortOrder(defaultSortOrder);
@@ -664,7 +664,7 @@ export function StyleEditModal({
                       type="url"
                       value={customImageUrlInput}
                       onChange={(e) => setCustomImageUrlInput(e.target.value)}
-                      placeholder="https://images.unsplash.com/..."
+                      placeholder="https://..."
                       className="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500"
                     />
                     <button

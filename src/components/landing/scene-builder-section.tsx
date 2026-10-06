@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Play,
 } from 'lucide-react';
+import { LANDING_SECTION_IMAGES } from './types-and-data';
 
 export const SceneBuilderSection: React.FC = () => {
   return (
@@ -71,38 +72,18 @@ export const SceneBuilderSection: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-4 gap-2">
-              <div className="relative rounded-lg overflow-hidden aspect-video border border-[#E5E0D8] group">
-                <img
-                  src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=75"
-                  alt="Scene 1"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-1 right-1 text-[9px] font-mono px-1 rounded bg-black/70 text-white">7s</span>
-              </div>
-              <div className="relative rounded-lg overflow-hidden aspect-video border border-[#E5E0D8] group">
-                <img
-                  src="https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=75"
-                  alt="Scene 2"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-1 right-1 text-[9px] font-mono px-1 rounded bg-black/70 text-white">7s</span>
-              </div>
-              <div className="relative rounded-lg overflow-hidden aspect-video border border-[#E5E0D8] group">
-                <img
-                  src="https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=400&q=75"
-                  alt="Scene 3"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-1 right-1 text-[9px] font-mono px-1 rounded bg-black/70 text-white">6s</span>
-              </div>
-              <div className="relative rounded-lg overflow-hidden aspect-video border border-[#E5E0D8] group">
-                <img
-                  src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=75"
-                  alt="Scene 4"
-                  className="w-full h-full object-cover"
-                />
-                <span className="absolute bottom-1 right-1 text-[9px] font-mono px-1 rounded bg-black/70 text-white">7s</span>
-              </div>
+              {LANDING_SECTION_IMAGES.sceneBuilder.map((scene, idx) => (
+                <div key={idx} className="relative rounded-lg overflow-hidden aspect-video border border-[#E5E0D8] group">
+                  <img
+                    src={scene.url}
+                    alt={scene.title}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <span className="absolute bottom-1 right-1 text-[9px] font-mono px-1 rounded bg-black/70 text-white">
+                    {scene.duration}
+                  </span>
+                </div>
+              ))}
             </div>
 
             {/* Scrubber timeline */}

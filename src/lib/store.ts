@@ -236,7 +236,7 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: true,
     isBuiltIn: true,
     createdAt: 0,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278399392_70mm_imax_photorealism.jpg',
   },
   {
     id: 'builtin_artisan_linocut',
@@ -250,7 +250,7 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
-    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/1790875798525_image.webp',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791278794685_artisan_linocut_relief.jpg',
   },
   {
     id: 'builtin_conceptual_illustration',
@@ -265,7 +265,7 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791279321369_editorial_gouache___collage.jpg',
   },
   {
     id: 'builtin_anime',
@@ -279,7 +279,7 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281431651_studio_ghibli_nostalgia.jpg',
   },
   {
     id: 'builtin_cyberpunk',
@@ -293,7 +293,7 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281330212_cyberpunk_neon_noir.jpg',
   },
   {
     id: 'builtin_flat_vector',
@@ -307,7 +307,7 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281813178_modern_2d_flat_vector.jpg',
   },
   {
     id: 'builtin_oil_painting',
@@ -321,7 +321,7 @@ export const BUILT_IN_STYLE_PRESETS: BaseStylePreset[] = [
     isDefault: false,
     isBuiltIn: true,
     createdAt: 0,
-    thumbnailUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=600&q=80',
+    thumbnailUrl: 'https://xvctobddvxmvohicrenf.supabase.co/storage/v1/object/public/scene-images/styles/thumb_1791281588480_impressionist_oil_canvas.jpg',
   },
 ];
 

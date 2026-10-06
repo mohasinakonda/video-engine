@@ -1,9 +1,9 @@
-import React from 'react';
 import {
   Check,
   Play,
   ChevronDown,
 } from 'lucide-react';
+import { LANDING_SECTION_IMAGES } from './types-and-data';
 
 export const HowItWorksSection: React.FC = () => {
   return (
@@ -175,12 +175,12 @@ export const HowItWorksSection: React.FC = () => {
             {/* Card 4: Visual Generation */}
             <div className="bg-white border border-[#E5E0D8] rounded-2xl overflow-hidden aspect-[4/3.4] relative shadow-sm group">
               <img
-                src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80"
-                alt="Visual generation astronaut"
+                src={LANDING_SECTION_IMAGES.howItWorks.visualGeneration}
+                alt="Visual generation AI artwork"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-[9px] font-mono text-zinc-100 border border-white/20">
-                Flux 8K
+                AI 8K
               </div>
             </div>
 
@@ -241,8 +241,8 @@ export const HowItWorksSection: React.FC = () => {
             {/* Card 6: Final Video Player with Rocket */}
             <div className="bg-white border border-[#E5E0D8] rounded-2xl overflow-hidden aspect-[4/3.4] relative shadow-sm flex flex-col justify-end group">
               <img
-                src="https://images.unsplash.com/photo-1517976487507-598f11183307?auto=format&fit=crop&w=600&q=80"
-                alt="Rocket launch final video"
+                src={LANDING_SECTION_IMAGES.howItWorks.finalVideo}
+                alt="Final cinema video render"
                 className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
 
