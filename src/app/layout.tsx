@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { DM_Sans } from 'next/font/google';
-import AppShell from '@/components/app-shell';
 import JsonLd from '@/components/seo/json-ld';
 
 const dm_sans = DM_Sans({
@@ -74,9 +73,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <JsonLd />
       </head>
       <body className="min-h-screen bg-bg-base text-slate-100 antialiased font-sans">
-        <AppShell>
-          {children}
-        </AppShell>
+
+        {children}
+
       </body>
     </html>
   );

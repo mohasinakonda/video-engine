@@ -25,21 +25,12 @@ export const LandingFooter: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6 text-zinc-600">
-          <a href="#how-it-works" className="hover:text-zinc-950 transition-colors">How it works</a>
-          <a href="#features" className="hover:text-zinc-950 transition-colors">Features</a>
-          <a href="#pricing" className="hover:text-zinc-950 transition-colors">Pricing</a>
+
+
           <Link href="/privacy" className="hover:text-zinc-950 transition-colors">Privacy</Link>
           <Link href="/terms" className="hover:text-zinc-950 transition-colors">Terms</Link>
           <Link href="/refund" className="hover:text-zinc-950 transition-colors">Refund Policy</Link>
-          <a
-            href={whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-emerald-700 hover:text-emerald-800 font-semibold hover:underline flex items-center gap-1.5"
-          >
-            <MessageSquare size={13} />
-            <span>WhatsApp Support</span>
-          </a>
+
         </div>
       </div>
     </footer>

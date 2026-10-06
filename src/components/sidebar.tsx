@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Video,
-  Mic2,
   Settings,
   PlusCircle,
   Zap,
@@ -48,10 +47,7 @@ export default function Sidebar() {
     }
   }
 
-  // Extract project ID from routes for context nav
-  const storyboardMatch = pathname.startsWith('/storyboard');
-  const projectPageMatch = pathname.startsWith('/project/new');
-  const exportMatch = pathname.startsWith('/export');
+
   const adminMatch = pathname.startsWith('/admin');
 
   const creditsPercent = sub

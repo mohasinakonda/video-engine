@@ -28,7 +28,7 @@ export const LandingNavbar: React.FC = () => {
           <a href="#storyboard" className="hover:text-zinc-950 transition-colors">Storyboard</a>
           <a href="#styles" className="hover:text-zinc-950 transition-colors">Styles</a>
           <a href="#features" className="hover:text-zinc-950 transition-colors">Features</a>
-          <a href="#pricing" className="hover:text-zinc-950 transition-colors">Pricing</a>
+          <a href="/pricing" className="hover:text-zinc-950 transition-colors">Pricing</a>
         </nav>
 
         {/* CTA Buttons */}
