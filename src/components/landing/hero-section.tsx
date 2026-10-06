@@ -89,7 +89,7 @@ export const HeroSection = () => {
               <div className="w-16 h-28 sm:w-20 sm:h-36 md:w-24 md:h-40 rounded-2xl overflow-hidden -rotate-6 opacity-100 shadow-lg -mr-6 sm:-mr-8 shrink-0 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100 transition-transform duration-300 hover:opacity-100 hover:-translate-y-2">
                 <img
                   src={LANDING_SECTION_IMAGES.hero[4].url}
-                  alt={LANDING_SECTION_IMAGES.hero[0].caption}
+                  alt={LANDING_SECTION_IMAGES.hero[4]?.caption || 'AI generated video scene'}
                   className="w-full h-full object-cover"
                 />
               </div>
