@@ -154,7 +154,7 @@ export default function Sidebar() {
               User Directory
             </Link>
             <Link
-              href="/admin/style"
+              href="/admin/styles"
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/users'
                 ? 'bg-zinc-850 text-white border border-zinc-800'
                 : 'text-zinc-400 hover:text-white'
@@ -166,32 +166,7 @@ export default function Sidebar() {
           </div>
         )}
 
-        {/* Contextual navigation when in a project */}
-        {(storyboardMatch || projectPageMatch || exportMatch) && (
-          <div className="pt-4 mt-2 border-t border-bg-border/60">
-            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-3 pb-2">
-              Current Project
-            </p>
-            {projectPageMatch && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-850 border border-zinc-800">
-                <Mic2 size={13} className="text-zinc-400" />
-                Phase 1 · Audio
-              </div>
-            )}
-            {storyboardMatch && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-850 border border-zinc-800">
-                <Film size={13} className="text-zinc-400" />
-                Phase 2 · Storyboard
-              </div>
-            )}
-            {exportMatch && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium text-zinc-300 bg-zinc-850 border border-zinc-800">
-                <Video size={13} className="text-zinc-400" />
-                Phase 3 · Final Export
-              </div>
-            )}
-          </div>
-        )}
+
       </nav>
 
       {/* Credit Balance Meter Card */}
@@ -287,7 +262,7 @@ export default function Sidebar() {
               type="button"
               onClick={handleSignOut}
               disabled={signingOut}
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-1 disabled:opacity-50 shrink-0"
+              className="p-1.5 rounded-lg text-rose-400 bg-rose-500/10 transition-colors ml-1 disabled:opacity-50 shrink-0"
               title="Sign Out"
             >
               {signingOut ? (

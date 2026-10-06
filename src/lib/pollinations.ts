@@ -608,6 +608,21 @@ export async function generateSceneImage(
     }
   }
 
+  // If still no apiKey on client-side, retrieve server-configured key
+  if (!apiKey && typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/pollinations-key");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.apiKey && !data.apiKey.startsWith("AIza") && data.apiKey.toLowerCase() !== "pollinations") {
+          apiKey = data.apiKey.trim();
+        }
+      }
+    } catch {
+      // ignore network errors
+    }
+  }
+
   const headers: Record<string, string> = {};
 
   let primaryUrl = "";

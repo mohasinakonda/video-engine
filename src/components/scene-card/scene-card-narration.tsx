@@ -37,10 +37,10 @@ export default function SceneCardNarration({
             {visualType && (
               <span
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border ${visualType === 'HERO_AI'
-                    ? 'bg-purple-950/80 border-purple-500/40 text-purple-300'
-                    : visualType === 'STOCK_BROLL'
-                      ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300'
-                      : 'bg-amber-950/80 border-amber-500/40 text-amber-300'
+                  ? 'bg-purple-950/80 border-purple-500/40 text-purple-300'
+                  : visualType === 'STOCK_BROLL'
+                    ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300'
+                    : 'bg-amber-950/80 border-amber-500/40 text-amber-300'
                   }`}
               >
                 {visualType === 'HERO_AI' ? (
@@ -70,12 +70,7 @@ export default function SceneCardNarration({
               </span>
             )}
 
-            {motionReady && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono">
-                <Video size={9} />
-                <span>Motion Ready</span>
-              </span>
-            )}
+
           </div>
         )}
 
