@@ -320,9 +320,17 @@ export function LaunchKitProvider({
         setCompetitorSearchInput(data.marketInsights.marketSearchQuery);
       }
 
+      if (typeof data.remainingCredits === 'number' && typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('subscription_credits_updated', {
+            detail: { creditsRemaining: data.remainingCredits },
+          })
+        );
+      }
+
       await saveProject(updated);
       onUpdateProject(updated);
-      showToast('100% Genuine AI YouTube Launch Kit generated!');
+      showToast('100% Genuine AI YouTube Launch Kit generated! (-15 credits)');
     } catch (err: any) {
       console.error('Error generating packaging:', err);
       setErrorMessage(err.message || 'AI generation failed. Please try again.');

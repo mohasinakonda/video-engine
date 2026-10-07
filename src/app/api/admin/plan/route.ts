@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   fetchPlansRemote,
   savePlansRemote,
@@ -37,10 +38,17 @@ export async function GET() {
 
   if (configured) {
     try {
+      let serverClient: any = null;
+      try {
+        serverClient = createServerClient();
+      } catch (err) {
+        console.warn('[API /api/admin/plan] Could not create serverClient, falling back to anon:', err);
+      }
+
       const [remotePlans, remoteTopups, remoteSettings, remotePromos] = await Promise.all([
-        fetchPlansRemote(),
-        fetchTopupPacksRemote(),
-        fetchAdminSettingsRemote(),
+        fetchPlansRemote(serverClient),
+        fetchTopupPacksRemote(serverClient),
+        fetchAdminSettingsRemote(serverClient),
         fetchPromoCodesRemote(),
       ]);
 
@@ -97,10 +105,11 @@ export async function POST(req: Request) {
     // 1. Sync to Supabase cloud if configured
     if (isSupabaseConfigured()) {
       try {
+        const serverClient = createServerClient();
         const promises = [];
-        if (plans) promises.push(savePlansRemote(plans));
-        if (topupPacks) promises.push(saveTopupPacksRemote(topupPacks));
-        if (settings) promises.push(saveAdminSettingsRemote(settings));
+        if (plans) promises.push(savePlansRemote(plans, serverClient));
+        if (topupPacks) promises.push(saveTopupPacksRemote(topupPacks, serverClient));
+        if (settings) promises.push(saveAdminSettingsRemote(settings, serverClient));
 
         const results = await Promise.all(promises);
         savedToSupabase = results.every(Boolean);

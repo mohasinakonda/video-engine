@@ -122,7 +122,7 @@ export function usePricing({ initialUser }: UsePricingOptions = {}): UsePricingR
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => getCurrentUserProfile());
   const [submissions, setSubmissions] = useState<PaymentSubmission[]>(() => getAllPaymentSubmissions());
   const [isLoading, setIsLoading] = useState(true);
-
+  console.log('plan', plans)
   const refreshData = useCallback(async () => {
     setIsLoading(true);
 

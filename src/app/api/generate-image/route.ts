@@ -63,7 +63,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // ─── 0. Authenticate Caller & Atomically Deduct 1 Credit (if Supabase user exists) ───
+    // ─── 0. Authenticate Caller & Atomically Deduct 2 Credits (if Supabase user exists) ───
+    const CREDITS_PER_IMAGE = 2;
     if (isSupabaseConfigured()) {
       try {
         const serverSupabase = createServerClient();
@@ -87,16 +88,16 @@ export async function POST(req: Request) {
             );
           }
 
-          if (profile && profile.credits_remaining < 1) {
+          if (profile && profile.credits_remaining < CREDITS_PER_IMAGE) {
             return NextResponse.json(
-              { error: 'Insufficient credits. Please purchase a top-up pack or upgrade your subscription plan.' },
+              { error: `Insufficient credits. Image generation requires ${CREDITS_PER_IMAGE} credits. You currently have ${profile.credits_remaining} credits.` },
               { status: 402 }
             );
           }
 
-          const deducted = await deductCreditsRemote(user.id, 1);
+          const deducted = await deductCreditsRemote(user.id, CREDITS_PER_IMAGE);
           if (deducted && profile) {
-            remainingCredits = profile.credits_remaining - 1;
+            remainingCredits = profile.credits_remaining - CREDITS_PER_IMAGE;
           }
         }
       } catch (authErr) {
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
           width: reqWidth,
           height: reqHeight,
           seed,
-          numInferenceSteps: 4,
+          numInferenceSteps: 12,
           guidanceScale: 3.5,
           negativePrompt: finalNegative,
           apiKey: deepinfraKey,
@@ -246,13 +247,13 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('API /api/generate-image error:', error);
 
-    // If an error occurred after credit deduction, refund the credit
+    // If an error occurred after credit deduction, refund the 2 credits
     if (authenticatedUserId && isSupabaseConfigured()) {
       try {
-        await grantCreditsRemote(authenticatedUserId, 1);
-        console.log(`[API /api/generate-image] Refunded 1 credit to ${authenticatedUserId} due to generation failure`);
+        await grantCreditsRemote(authenticatedUserId, 2);
+        console.log(`[API /api/generate-image] Refunded 2 credits to ${authenticatedUserId} due to generation failure`);
       } catch (refundErr) {
-        console.error('[API /api/generate-image] Failed to refund credit:', refundErr);
+        console.error('[API /api/generate-image] Failed to refund credits:', refundErr);
       }
     }
 

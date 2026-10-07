@@ -102,7 +102,11 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
     }
 
     const samplePrice = selectedPlan
-      ? (billingCycle === 'yearly' ? selectedPlan.priceYearly : selectedPlan.priceMonthly)
+      ? (billingCycle === 'quarterly'
+          ? (selectedPlan.priceQuarterly ?? Math.round(selectedPlan.priceMonthly * 2.7))
+          : billingCycle === 'yearly'
+          ? (selectedPlan.priceYearly ?? selectedPlan.priceMonthly * 10)
+          : selectedPlan.priceMonthly)
       : (selectedTopup ? selectedTopup.priceBDT : 1000);
     const userIdentifier = initialUser?.id || initialUser?.email || userEmail || undefined;
     const planId = selectedPlan ? selectedPlan.id : undefined;
@@ -172,8 +176,18 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
     let creditsToGrant = 0;
 
     if (selectedPlan) {
-      originalPrice = billingCycle === 'yearly' ? selectedPlan.priceYearly : selectedPlan.priceMonthly;
-      creditsToGrant = selectedPlan.creditsPerMonth;
+      originalPrice =
+        billingCycle === 'quarterly'
+          ? (selectedPlan.priceQuarterly ?? Math.round(selectedPlan.priceMonthly * 2.7))
+          : billingCycle === 'yearly'
+          ? (selectedPlan.priceYearly ?? selectedPlan.priceMonthly * 10)
+          : selectedPlan.priceMonthly;
+      creditsToGrant =
+        billingCycle === 'quarterly'
+          ? selectedPlan.creditsPerMonth * 3
+          : billingCycle === 'yearly'
+          ? selectedPlan.creditsPerMonth * 12
+          : selectedPlan.creditsPerMonth;
     } else if (selectedTopup) {
       originalPrice = selectedTopup.priceBDT;
       creditsToGrant = selectedTopup.credits;

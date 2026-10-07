@@ -37,12 +37,14 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     badge: 'Popular for Beginners',
     popular: false,
     priceMonthly: 1200,
-    priceYearly: 5000,
+    priceQuarterly: 3200,
+    priceYearly: 12000,
     creditsPerMonth: 600,
     maxVideoDurationSec: 180,
     maxResolution: '1080p',
     features: [
-      '600 Image Credits / month (~15–20 standard videos)',
+      '1200 Credits / month',
+      'YouTube Launch Kit & SEO Kit',
       'Up to 3-minute video duration per project',
       '1080p Full HD crisp rendering',
       '100% Watermark-Free Export',
@@ -58,14 +60,16 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     name: 'Creator',
     badge: 'Most Popular',
     popular: true,
-    priceMonthly: 1800,
-    priceYearly: 12000,
-    creditsPerMonth: 800,
-    maxVideoDurationSec: 480,
+    priceMonthly: 1650,
+    priceQuarterly: 4500,
+    priceYearly: 16000,
+    creditsPerMonth: 2000,
+    maxVideoDurationSec: 600,
     maxResolution: '1080p',
     features: [
-      '800 Image Credits / month (~20–25 extended videos)',
-      'Up to 8-minute video duration per project',
+      '2,000 Credits / month',
+      'Complete YouTube Launch Kit & SEO Director',
+      'Up to 10-minute video duration per project',
       '1080p Full HD crisp rendering',
       '100% Watermark-Free Export',
       'Bangla & English AI Voiceovers included',
@@ -82,12 +86,14 @@ export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     badge: 'Full Power',
     popular: false,
     priceMonthly: 2500,
+    priceQuarterly: 6800,
     priceYearly: 25000,
-    creditsPerMonth: 1500,
+    creditsPerMonth: 3500,
     maxVideoDurationSec: 1200,
     maxResolution: '4k',
     features: [
-      '1,500 Image Credits / month (~40–50 long-form videos)',
+      '3,500 Credits / month',
+      'YouTube Launch Kit & SEO Director',
       'Up to 20-minute video duration',
       '4K Ultra HD pristine rendering',
       '100% Watermark-Free Export',
@@ -241,7 +247,7 @@ export function getSubscriptionPlans(): SubscriptionPlan[] {
   if (typeof window !== 'undefined') {
     try {
       localStorage.removeItem('custom_subscription_plans');
-    } catch {}
+    } catch { }
   }
   return DEFAULT_SUBSCRIPTION_PLANS;
 }

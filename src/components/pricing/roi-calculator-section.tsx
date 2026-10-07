@@ -24,8 +24,10 @@ export function RoiCalculatorSection({
   const calcRecommendedPlan =
     plans.find((p) => p.id === calcRecommendedTier) || plans[0];
   const calcPlanPrice = calcRecommendedPlan
-    ? billingCycle === 'yearly'
-      ? Math.round(calcRecommendedPlan.priceYearly / 12)
+    ? billingCycle === 'quarterly'
+      ? Math.round((calcRecommendedPlan.priceQuarterly ?? calcRecommendedPlan.priceMonthly * 2.7) / 3)
+      : billingCycle === 'yearly'
+      ? Math.round((calcRecommendedPlan.priceYearly ?? calcRecommendedPlan.priceMonthly * 10) / 12)
       : calcRecommendedPlan.priceMonthly
     : 1200;
   const costPerVideo = Math.max(1, Math.round(calcPlanPrice / Math.max(1, calculatorVideos)));

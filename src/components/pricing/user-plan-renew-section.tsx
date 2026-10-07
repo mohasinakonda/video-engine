@@ -44,16 +44,16 @@ export function UserPlanRenewSection({
             Monthly
           </button>
           <button
-            onClick={() => setBillingCycle('yearly')}
+            onClick={() => setBillingCycle('quarterly')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              billingCycle === 'yearly'
+              billingCycle === 'quarterly'
                 ? 'bg-white text-zinc-950 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
-            <span>Yearly</span>
+            <span>3 Months</span>
             <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-zinc-950 text-[9px] font-bold">
-              20% OFF
+              SAVE
             </span>
           </button>
         </div>
@@ -61,7 +61,12 @@ export function UserPlanRenewSection({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
-          const rawPrice = billingCycle === 'yearly' ? plan.priceYearly : plan.priceMonthly;
+          const rawPrice =
+            billingCycle === 'quarterly'
+              ? (plan.priceQuarterly ?? (plan.priceYearly ? Math.round(plan.priceYearly / 4) : Math.round(plan.priceMonthly * 3 * 0.9)))
+              : billingCycle === 'yearly'
+              ? (plan.priceYearly ?? (plan.priceQuarterly ? plan.priceQuarterly * 4 : plan.priceMonthly * 10))
+              : plan.priceMonthly;
           const isCurrent = userSub?.tier === plan.id && userSub?.status === 'ACTIVE';
 
           return (
@@ -86,9 +91,9 @@ export function UserPlanRenewSection({
 
               <div className="mb-4">
                 <span className="text-3xl font-extrabold text-white">৳{rawPrice}</span>
-                <span className="text-xs text-zinc-400"> / {billingCycle}</span>
+                <span className="text-xs text-zinc-400"> / {billingCycle === 'quarterly' ? '3 months' : billingCycle}</span>
                 <p className="text-xs text-emerald-400 font-semibold mt-1">
-                  {plan.creditsPerMonth} Image Credits / month
+                  {plan.creditsPerMonth.toLocaleString()} Credits / month
                 </p>
               </div>
 

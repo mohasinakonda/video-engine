@@ -212,10 +212,10 @@ export async function uploadMediaToSupabaseStorage(
 }
 
 /** Fetch Subscription Plans from Supabase */
-export async function fetchPlansRemote(): Promise<SubscriptionPlan[] | null> {
+export async function fetchPlansRemote(clientOverride?: any): Promise<SubscriptionPlan[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const supabase = createClient();
+    const supabase = clientOverride || createClient();
     const { data, error } = await supabase
       .from('plans')
       .select('*')
@@ -223,12 +223,13 @@ export async function fetchPlansRemote(): Promise<SubscriptionPlan[] | null> {
 
     if (error || !data || data.length === 0) return null;
 
-    return data.map((row) => ({
+    return (data as any[]).map((row: any) => ({
       id: row.id,
       name: row.name,
       badge: row.badge,
       popular: row.popular,
       priceMonthly: row.price_monthly,
+      priceQuarterly: row.price_quarterly ?? (row.price_yearly ? Math.round(row.price_yearly / 4) : Math.round(row.price_monthly * 3 * 0.9)),
       priceYearly: row.price_yearly,
       creditsPerMonth: row.credits_per_month,
       maxVideoDurationSec: row.max_video_duration_sec,
@@ -243,17 +244,18 @@ export async function fetchPlansRemote(): Promise<SubscriptionPlan[] | null> {
 }
 
 /** Save / Upsert Subscription Plans to Supabase */
-export async function savePlansRemote(plans: SubscriptionPlan[]): Promise<boolean> {
+export async function savePlansRemote(plans: SubscriptionPlan[], clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = clientOverride || createClient();
     const rows = plans.map((p) => ({
       id: p.id,
       name: p.name,
       badge: p.badge || null,
       popular: Boolean(p.popular),
       price_monthly: p.priceMonthly,
-      price_yearly: p.priceYearly,
+      price_quarterly: p.priceQuarterly ?? (p.priceYearly ? Math.round(p.priceYearly / 4) : Math.round(p.priceMonthly * 3 * 0.9)),
+      price_yearly: p.priceYearly ?? (p.priceQuarterly ? p.priceQuarterly * 4 : p.priceMonthly * 10),
       credits_per_month: p.creditsPerMonth,
       max_video_duration_sec: p.maxVideoDurationSec,
       max_resolution: p.maxResolution,
@@ -274,10 +276,10 @@ export async function savePlansRemote(plans: SubscriptionPlan[]): Promise<boolea
 }
 
 /** Fetch Top-up Packs from Supabase */
-export async function fetchTopupPacksRemote(): Promise<CreditTopupPack[] | null> {
+export async function fetchTopupPacksRemote(clientOverride?: any): Promise<CreditTopupPack[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const supabase = createClient();
+    const supabase = clientOverride || createClient();
     const { data, error } = await supabase
       .from('topup_packs')
       .select('*')
@@ -285,7 +287,7 @@ export async function fetchTopupPacksRemote(): Promise<CreditTopupPack[] | null>
 
     if (error || !data || data.length === 0) return null;
 
-    return data.map((row) => ({
+    return (data as any[]).map((row: any) => ({
       id: row.id,
       name: row.name,
       credits: row.credits,
@@ -300,10 +302,10 @@ export async function fetchTopupPacksRemote(): Promise<CreditTopupPack[] | null>
 }
 
 /** Save Topup Packs to Supabase */
-export async function saveTopupPacksRemote(packs: CreditTopupPack[]): Promise<boolean> {
+export async function saveTopupPacksRemote(packs: CreditTopupPack[], clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = clientOverride || createClient();
     const rows = packs.map((p) => ({
       id: p.id,
       name: p.name,
@@ -326,10 +328,10 @@ export async function saveTopupPacksRemote(packs: CreditTopupPack[]): Promise<bo
 }
 
 /** Delete Topup Pack from Supabase */
-export async function deleteTopupPackRemote(id: string): Promise<boolean> {
+export async function deleteTopupPackRemote(id: string, clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = clientOverride || createClient();
     const { error } = await supabase.from('topup_packs').delete().eq('id', id);
     return !error;
   } catch (err) {
@@ -339,10 +341,10 @@ export async function deleteTopupPackRemote(id: string): Promise<boolean> {
 }
 
 /** Fetch Admin Settings from Supabase */
-export async function fetchAdminSettingsRemote(): Promise<AdminSettings | null> {
+export async function fetchAdminSettingsRemote(clientOverride?: any): Promise<AdminSettings | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const supabase = createClient();
+    const supabase = clientOverride || createClient();
     const { data, error } = await supabase
       .from('admin_settings')
       .select('*')
@@ -368,10 +370,10 @@ export async function fetchAdminSettingsRemote(): Promise<AdminSettings | null> 
 }
 
 /** Save Admin Settings to Supabase */
-export async function saveAdminSettingsRemote(settings: AdminSettings): Promise<boolean> {
+export async function saveAdminSettingsRemote(settings: AdminSettings, clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = clientOverride || createClient();
     const { error } = await supabase.from('admin_settings').upsert({
       id: 1,
       whatsapp_number: settings.whatsappNumber,

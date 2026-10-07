@@ -13,7 +13,7 @@ export interface ComparisonRowItem {
 export const CREATOR_FAQS: CreatorFaqItem[] = [
   {
     q: 'How are credits calculated and how many credits does one video require?',
-    a: 'Each newly generated image scene costs exactly 1 credit. A typical 1-minute video (YouTube Short or Facebook Reel) contains 10–12 scenes, meaning a complete video costs only ~10–12 credits. AI Scriptwriting, natural voiceover narration, and final 1080p/4K video rendering are 100% free and unlimited—no extra credits charged!',
+    a: 'Each newly generated scene image costs 2 credits. Generating a full YouTube Launch Kit (viral CTR titles, 3 thumbnail prompts, description, tags, and market intelligence) costs 15 credits. A typical 1-minute video contains 10–12 scenes (~20–24 credits). On our Creator plan (2,000 credits), you can generate up to 1,000 images or 35–45 complete videos with full launch kits. AI voiceovers and MP4 rendering are 100% free!',
   },
   {
     q: 'Can I monetize the generated videos on YouTube and Facebook?',
@@ -43,21 +43,27 @@ export const CREATOR_FAQS: CreatorFaqItem[] = [
 
 export const COMPARISON_ROWS: ComparisonRowItem[] = [
   {
-    name: 'Monthly Image Credits Quota',
-    starter: '600 Credits / month',
-    creator: '800 Credits / month',
-    studio: '1,500 Credits / month',
+    name: 'Monthly Credits Quota',
+    starter: '600 Credits (300 Images)',
+    creator: '2,000 Credits (1,000 Images)',
+    studio: '3,500 Credits (1,750 Images)',
+  },
+  {
+    name: 'Credit Consumption Rate',
+    starter: '2 cr/img · 15 cr/YouTube kit',
+    creator: '2 cr/img · 15 cr/YouTube kit',
+    studio: '2 cr/img · 15 cr/YouTube kit',
   },
   {
     name: 'Estimated Finished Videos',
-    starter: '~15–20 Full Videos',
-    creator: '~40–50 Full Videos',
-    studio: '~100+ Full Videos',
+    starter: '~12–15 Full Videos',
+    creator: '~35–45 Full Videos',
+    studio: '~80+ Full Videos',
   },
   {
     name: 'Max Video Length (Per Project)',
     starter: '3 Minutes (Shorts/Reels)',
-    creator: '8 Minutes (Mid-form & Stories)',
+    creator: '10 Minutes (Mid-form & Stories)',
     studio: '20 Minutes (Long Documentaries)',
   },
   {

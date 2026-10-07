@@ -165,8 +165,18 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      officialOriginalPrice = billingCycle === 'yearly' ? plan.priceYearly : plan.priceMonthly;
-      baseCredits = plan.creditsPerMonth;
+      officialOriginalPrice =
+        billingCycle === 'quarterly'
+          ? (plan.priceQuarterly ?? Math.round(plan.priceMonthly * 2.7))
+          : billingCycle === 'yearly'
+          ? (plan.priceYearly ?? plan.priceMonthly * 10)
+          : plan.priceMonthly;
+      baseCredits =
+        billingCycle === 'quarterly'
+          ? plan.creditsPerMonth * 3
+          : billingCycle === 'yearly'
+          ? plan.creditsPerMonth * 12
+          : plan.creditsPerMonth;
     } else if (itemType === 'topup') {
       const allTopups = getTopupPacks() || DEFAULT_TOPUP_PACKS;
       const pack = allTopups.find((p) => p.id === topupId);
