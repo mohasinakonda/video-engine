@@ -22,6 +22,9 @@ export default function AffiliateTab({
   onCopyCode,
   onRequestPayoutClick,
 }: AffiliateTabProps) {
+  const commPercent = profile.referralCommissionPercent ?? 15;
+  const discPercent = profile.referralDiscountPercent ?? 20;
+
   return (
     <div className="space-y-6">
       <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-b from-zinc-900 to-zinc-950 border border-zinc-800 space-y-6">
@@ -32,11 +35,11 @@ export default function AffiliateTab({
               Creator Affiliate & Referral Program
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Earn 15% Lifetime Commission on Every Referral
+              Earn {commPercent}% Lifetime Commission on Every Referral
             </h2>
             <p className="text-xs text-zinc-400 mt-1 max-w-2xl">
               Share your personal promo code with other content creators or YouTube subscribers. 
-              They get a <strong>20% discount</strong> and you get a <strong>15% cash commission</strong> straight to your bKash or Nagad wallet!
+              They get a <strong>{discPercent}% discount</strong> and you get a <strong>{commPercent}% cash commission</strong> straight to your bKash or Nagad wallet!
             </p>
           </div>
 
@@ -100,7 +103,7 @@ export default function AffiliateTab({
           <div className="flex items-center gap-2">
             <a
               href={`https://wa.me/?text=${encodeURIComponent(
-                `Use my promo code ${profile.referralCode} to get 20% discount on AI Video Engine! Create viral faceless videos in minutes: https://video-engine.vercel.app/pricing`
+                `Use my promo code ${profile.referralCode} to get ${discPercent}% discount on AI Video Engine! Create viral faceless videos in minutes: https://video-engine.vercel.app/pricing`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

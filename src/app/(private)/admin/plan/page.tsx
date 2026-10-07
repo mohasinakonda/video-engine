@@ -447,7 +447,7 @@ export default function AdminPlanSettingsPage() {
               Monthly & Yearly Subscription Plans
             </h2>
             <p className="text-xs text-zinc-400">
-              Customize the monthly price, yearly price, and monthly credit allowance for each tier
+              Customize the monthly price, 3-month (quarterly) bundle price, and monthly credit allowance for each tier
             </p>
           </div>
 
@@ -482,11 +482,15 @@ export default function AdminPlanSettingsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 text-[11px]">Yearly Price (BDT)</label>
+                    <label className="block text-zinc-400 text-[11px]">3-Month Package Price (BDT)</label>
                     <input
                       type="number"
-                      value={plan.priceYearly}
-                      onChange={(e) => handleUpdatePlan(idx, 'priceYearly', Number(e.target.value))}
+                      value={plan.priceQuarterly ?? (plan.priceYearly ? Math.round(plan.priceYearly / 4) : Math.round(plan.priceMonthly * 3 * 0.9))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        handleUpdatePlan(idx, 'priceQuarterly', val);
+                        handleUpdatePlan(idx, 'priceYearly', val * 4);
+                      }}
                       className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 text-white font-mono"
                     />
                   </div>

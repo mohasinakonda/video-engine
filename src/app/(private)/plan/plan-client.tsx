@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
 import {
   validateAndApplyPromoCode,
+  cacheValidatedPromo,
   type PromoValidationResult,
 } from '@/lib/subscription-store';
 import type { User } from '@supabase/supabase-js';
@@ -69,15 +70,7 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
 
       if (candidateCode) {
         setPromoCodeInput(candidateCode);
-        const userIdentifier = initialUser?.id || initialUser?.email || undefined;
-        const res = validateAndApplyPromoCode(candidateCode, 1000, userIdentifier);
-        setPromoResult(res);
-        if (res.valid) {
-          setPromoAppliedCode(candidateCode);
-          sessionStorage.setItem('pending_promo_code', candidateCode);
-        } else {
-          sessionStorage.removeItem('pending_promo_code');
-        }
+        handleApplyPromo(candidateCode);
       }
     } catch (e) {
       console.error('Error restoring promo code:', e);
@@ -90,7 +83,7 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  const handleApplyPromo = (codeToApply?: string) => {
+  const handleApplyPromo = async (codeToApply?: string) => {
     const rawCode = (codeToApply !== undefined ? codeToApply : promoCodeInput).trim().toUpperCase();
     if (!rawCode) {
       setPromoResult(null);
@@ -102,10 +95,48 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
     }
 
     const samplePrice = selectedPlan
-      ? (billingCycle === 'yearly' ? selectedPlan.priceYearly : selectedPlan.priceMonthly)
+      ? (billingCycle === 'quarterly'
+          ? (selectedPlan.priceQuarterly ?? (selectedPlan.priceYearly ? Math.round(selectedPlan.priceYearly / 4) : Math.round(selectedPlan.priceMonthly * 3 * 0.9)))
+          : billingCycle === 'yearly'
+          ? (selectedPlan.priceYearly ?? (selectedPlan.priceQuarterly ? selectedPlan.priceQuarterly * 4 : selectedPlan.priceMonthly * 10))
+          : selectedPlan.priceMonthly)
       : (selectedTopup ? selectedTopup.priceBDT : 1000);
     const userIdentifier = initialUser?.id || initialUser?.email || userEmail || undefined;
     const planId = selectedPlan ? selectedPlan.id : undefined;
+
+    // Remote validation via /api/promos/validate (handles Supabase referral codes like REF-BBD2D and promo codes)
+    try {
+      const resp = await fetch('/api/promos/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: rawCode,
+          originalPriceBDT: samplePrice,
+          userIdentifier,
+          planId,
+        }),
+      });
+      const data = await resp.json();
+      if (data && typeof data.valid === 'boolean') {
+        setPromoResult(data);
+        setPromoCodeInput(rawCode);
+        if (data.valid) {
+          setPromoAppliedCode(rawCode);
+          cacheValidatedPromo(rawCode, data);
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('pending_promo_code', rawCode);
+          }
+        } else {
+          setPromoAppliedCode('');
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('pending_promo_code');
+          }
+        }
+        return;
+      }
+    } catch (err) {
+      console.warn('API promo validation failed, falling back to local:', err);
+    }
 
     const res = validateAndApplyPromoCode(rawCode, samplePrice, userIdentifier, planId);
     setPromoResult(res);
@@ -113,6 +144,7 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
 
     if (res.valid) {
       setPromoAppliedCode(rawCode);
+      cacheValidatedPromo(rawCode, res);
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('pending_promo_code', rawCode);
       }
@@ -172,8 +204,18 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
     let creditsToGrant = 0;
 
     if (selectedPlan) {
-      originalPrice = billingCycle === 'yearly' ? selectedPlan.priceYearly : selectedPlan.priceMonthly;
-      creditsToGrant = selectedPlan.creditsPerMonth;
+      originalPrice =
+        billingCycle === 'quarterly'
+          ? (selectedPlan.priceQuarterly ?? Math.round(selectedPlan.priceMonthly * 2.7))
+          : billingCycle === 'yearly'
+          ? (selectedPlan.priceYearly ?? selectedPlan.priceMonthly * 10)
+          : selectedPlan.priceMonthly;
+      creditsToGrant =
+        billingCycle === 'quarterly'
+          ? selectedPlan.creditsPerMonth * 3
+          : billingCycle === 'yearly'
+          ? selectedPlan.creditsPerMonth * 12
+          : selectedPlan.creditsPerMonth;
     } else if (selectedTopup) {
       originalPrice = selectedTopup.priceBDT;
       creditsToGrant = selectedTopup.credits;

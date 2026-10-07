@@ -1,6 +1,6 @@
 export type PlanTier = 'TRIAL' | 'STARTER' | 'CREATOR' | 'STUDIO';
 
-export type BillingCycle = 'monthly' | 'yearly';
+export type BillingCycle = 'monthly' | 'quarterly' | 'yearly';
 
 export interface SubscriptionPlan {
   id: PlanTier;
@@ -8,7 +8,8 @@ export interface SubscriptionPlan {
   badge?: string;
   popular?: boolean;
   priceMonthly: number;
-  priceYearly: number;
+  priceQuarterly?: number; // 3-month bundle price
+  priceYearly?: number;
   creditsPerMonth: number;
   maxVideoDurationSec: number;
   maxResolution: '1080p' | '4k';
@@ -42,6 +43,14 @@ export interface PromoCode {
   maxUsesPerUser?: number; // Max times a single user/email can redeem (default: 1)
   firstPurchaseOnly?: boolean; // If true, only valid on user's first order
   applicablePlans?: PlanTier[]; // Restrict to specific plan tiers (e.g. ['CREATOR', 'STUDIO'])
+}
+
+export interface PromoValidationResult {
+  valid: boolean;
+  message: string;
+  discountedPriceBDT?: number;
+  bonusCredits?: number;
+  promo?: PromoCode;
 }
 
 export type PaymentMethod = 'bkash' | 'nagad' | 'bank';
@@ -100,6 +109,8 @@ export interface UserProfile {
   referralPendingBDT: number; // pending payout
   referralPaidBDT: number; // paid out
   assignedPromoCode?: string;
+  referralDiscountPercent?: number; // Custom negotiated discount % for audience (default: 20)
+  referralCommissionPercent?: number; // Custom negotiated commission % for influencer (default: 15)
   role?: 'admin' | 'user';
   subscriptionExpiresAt?: number;
 }

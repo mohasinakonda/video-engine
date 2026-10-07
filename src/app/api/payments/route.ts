@@ -5,6 +5,9 @@ import {
   fetchSupabaseProfile,
   isSupabaseConfigured,
   incrementPromoUsageRemote,
+  validatePromoOrReferralRemote,
+  fetchPlansRemote,
+  fetchTopupPacksRemote,
 } from '@/lib/supabase-service';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
@@ -158,17 +161,29 @@ export async function POST(req: Request) {
     let baseCredits = 0;
 
     if (itemType === 'subscription') {
-      const plan = DEFAULT_SUBSCRIPTION_PLANS.find((p) => p.id === planId);
+      const dbPlans = await fetchPlansRemote();
+      const plan = dbPlans?.find((p) => p.id === planId) || DEFAULT_SUBSCRIPTION_PLANS.find((p) => p.id === planId);
       if (!plan) {
         return NextResponse.json(
           { success: false, error: `Invalid subscription plan: ${planId}` },
           { status: 400 }
         );
       }
-      officialOriginalPrice = billingCycle === 'yearly' ? plan.priceYearly : plan.priceMonthly;
-      baseCredits = plan.creditsPerMonth;
+      officialOriginalPrice =
+        billingCycle === 'quarterly'
+          ? (plan.priceQuarterly ?? Math.round(plan.priceMonthly * 2.7))
+          : billingCycle === 'yearly'
+          ? (plan.priceYearly ?? plan.priceMonthly * 10)
+          : plan.priceMonthly;
+      baseCredits =
+        billingCycle === 'quarterly'
+          ? plan.creditsPerMonth * 3
+          : billingCycle === 'yearly'
+          ? plan.creditsPerMonth * 12
+          : plan.creditsPerMonth;
     } else if (itemType === 'topup') {
-      const allTopups = getTopupPacks() || DEFAULT_TOPUP_PACKS;
+      const dbTopups = await fetchTopupPacksRemote();
+      const allTopups = (dbTopups && dbTopups.length > 0) ? dbTopups : (getTopupPacks() || DEFAULT_TOPUP_PACKS);
       const pack = allTopups.find((p) => p.id === topupId);
       if (!pack) {
         return NextResponse.json(
@@ -211,12 +226,24 @@ export async function POST(req: Request) {
         }
       }
 
-      const promoResult = validateAndApplyPromoCode(
-        cleanCode,
-        officialOriginalPrice,
-        userIdentifier,
-        itemType === 'subscription' ? (planId as PlanTier) : undefined
-      );
+      let promoResult;
+      if (isSupabaseConfigured()) {
+        const serverSupabase = createServerClient();
+        promoResult = await validatePromoOrReferralRemote(
+          cleanCode,
+          officialOriginalPrice,
+          userIdentifier,
+          itemType === 'subscription' ? (planId as PlanTier) : undefined,
+          serverSupabase
+        );
+      } else {
+        promoResult = validateAndApplyPromoCode(
+          cleanCode,
+          officialOriginalPrice,
+          userIdentifier,
+          itemType === 'subscription' ? (planId as PlanTier) : undefined
+        );
+      }
 
       if (!promoResult.valid) {
         return NextResponse.json(

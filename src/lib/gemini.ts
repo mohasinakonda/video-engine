@@ -28,7 +28,7 @@ export { enhanceScenePrompt, type EnhancedScenePromptResult };
 
 export const TEXT_MODEL = 'pollinations-text'; // Script chunking & scene extraction
 export const TTS_MODEL = 'pollinations-audio'; // Voice generation
-export const IMAGE_MODEL = 'flux'; // Primary image generation engine
+export const IMAGE_MODEL = 'black-forest-labs/FLUX-1-schnell'; // Primary DeepInfra image generation engine
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -399,7 +399,7 @@ export async function generateImage(
 
   const imageBuffer = await generateSceneImage(prompt, options?.baseStyle, options?.seed, {
     negativePrompt,
-    model: options?.model,
+    model: options?.model || IMAGE_MODEL,
     width: options?.width || defaultWidth,
     height: options?.height || defaultHeight,
     apiKey,

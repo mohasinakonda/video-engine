@@ -145,7 +145,7 @@ export class ExportEngine {
             try {
               const res = await fetch(chunk.audioUrl);
               if (res.ok) arrayBuffer = await res.arrayBuffer();
-            } catch {}
+            } catch { }
           }
 
           if (arrayBuffer && arrayBuffer.byteLength > 0) {
@@ -394,7 +394,7 @@ export class ExportEngine {
               videoCodec = candidate;
               break;
             }
-          } catch {}
+          } catch { }
         }
 
         const videoEncoder = new win.VideoEncoder({
@@ -565,7 +565,7 @@ export class ExportEngine {
           setTimeout(() => { document.body.removeChild(a); }, 2000);
         }
 
-        if (audioContext) audioContext.close().catch(() => {});
+        if (audioContext) audioContext.close().catch(() => { });
         return blobUrl;
       } catch (encodeErr) {
         console.warn('[ExportEngine] WebCodecs encoding error, falling back to MediaRecorder:', encodeErr);
@@ -628,7 +628,7 @@ export class ExportEngine {
     for (let f = 0; f < totalFrames; f++) {
       if (this.cancelled) {
         if (recorder && recorder.state !== 'inactive') recorder.stop();
-        if (audioSourceNode) { try { audioSourceNode.stop(); } catch {} }
+        if (audioSourceNode) { try { audioSourceNode.stop(); } catch { } }
         throw new Error('Export cancelled by user.');
       }
 
@@ -673,7 +673,7 @@ export class ExportEngine {
         recorder!.stop();
       });
     }
-    if (audioSourceNode) { try { audioSourceNode.stop(); } catch {} }
+    if (audioSourceNode) { try { audioSourceNode.stop(); } catch { } }
 
     const finalBlob = recordedBlobs.length > 0
       ? new Blob(recordedBlobs, { type: mimeType })
@@ -695,7 +695,7 @@ export class ExportEngine {
       }, 2000);
     }
 
-    if (audioContext) audioContext.close().catch(() => {});
+    if (audioContext) audioContext.close().catch(() => { });
     return blobUrl;
   }
 }

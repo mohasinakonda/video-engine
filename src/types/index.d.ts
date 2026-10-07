@@ -332,5 +332,6 @@ export interface YouTubePackagingData {
   thumbnailConcepts: ThumbnailConcept[];
   selectedThumbnailUrl?: string;
   generatedAt?: number;
+  remainingCredits?: number;
 }
 

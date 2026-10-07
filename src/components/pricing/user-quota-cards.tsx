@@ -87,15 +87,15 @@ export function UserQuotaCards({
         <div className="p-6 rounded-3xl bg-zinc-900/90 border border-zinc-800 space-y-4 shadow-xl hover:border-zinc-700 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              Available Image Credits
+              Available AI Credits
             </span>
             <Zap size={18} className="text-amber-400 fill-amber-400" />
           </div>
 
           <div>
-            <p className="text-2xl font-black text-emerald-400">{creditsRemaining} Credits</p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              {creditsUsed} credits consumed for generated scenes
+            <p className="text-2xl font-black text-emerald-400">{creditsRemaining.toLocaleString()} Credits</p>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              2 credits / image · 15 credits / YouTube Launch Kit
             </p>
           </div>
 
@@ -103,7 +103,7 @@ export function UserQuotaCards({
             <div className="w-full bg-zinc-950 h-2 rounded-full overflow-hidden border border-zinc-800">
               <div
                 className={`h-full transition-all duration-500 ${
-                  creditsRemaining > 20 ? 'bg-emerald-400' : 'bg-rose-500'
+                  creditsRemaining > 30 ? 'bg-emerald-400' : 'bg-rose-500'
                 }`}
                 style={{ width: `${Math.max(5, creditsPercent)}%` }}
               />
@@ -111,13 +111,13 @@ export function UserQuotaCards({
             <div className="flex justify-between items-center text-[11px]">
               <span
                 className={`font-semibold ${
-                  creditsRemaining > 20 ? 'text-emerald-400' : 'text-rose-400'
+                  creditsRemaining > 30 ? 'text-emerald-400' : 'text-rose-400'
                 }`}
               >
-                {creditsRemaining > 50
-                  ? '🟢 Ready for ~15+ videos'
-                  : creditsRemaining > 10
-                  ? '🟡 Low credits warning'
+                {creditsRemaining > 100
+                  ? '🟢 Plenty of credits available'
+                  : creditsRemaining > 30
+                  ? '🟡 Moderate balance'
                   : '🔴 Recharging needed'}
               </span>
               <a href="#topup-section" className="text-amber-400 hover:underline font-semibold">

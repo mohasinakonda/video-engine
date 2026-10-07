@@ -24,13 +24,28 @@ export function CreditsExplainerSection() {
             <div className="w-9 h-9 rounded-xl bg-orange-100/60 border border-orange-200/60 text-[#E05A30] flex items-center justify-center font-bold text-sm">
               <Film size={18} />
             </div>
-            <h4 className="text-sm font-bold text-zinc-950">1 Credit = 1 Scene Image</h4>
+            <h4 className="text-sm font-bold text-zinc-950">2 Credits = 1 AI Image</h4>
             <p className="text-[11px] text-zinc-600 leading-relaxed">
-              Each newly generated AI image costs exactly 1 credit.
+              Each newly generated HD scene image costs exactly 2 credits (up to 1,000 images on Creator plan).
             </p>
           </div>
           <div className="mt-3 pt-2 border-t border-[#E5E0D8] text-[10px] text-[#E05A30] font-semibold">
-            ~10–12 credits = 1-min Reel
+            ~20–24 credits = 1-min Reel
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E5E0D8] flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="w-9 h-9 rounded-xl bg-amber-100/60 border border-amber-200/60 text-amber-700 flex items-center justify-center font-bold text-sm">
+              <Award size={18} />
+            </div>
+            <h4 className="text-sm font-bold text-zinc-950">15 Credits = YouTube Kit</h4>
+            <p className="text-[11px] text-zinc-600 leading-relaxed">
+              Viral CTR titles, 3 thumbnail prompts, description, tags, and market intelligence cost 15 credits.
+            </p>
+          </div>
+          <div className="mt-3 pt-2 border-t border-[#E5E0D8] text-[10px] text-amber-700 font-semibold">
+            Complete YouTube SEO & Strategy
           </div>
         </div>
 
@@ -41,41 +56,26 @@ export function CreditsExplainerSection() {
             </div>
             <h4 className="text-sm font-bold text-zinc-950">Free AI Voiceovers</h4>
             <p className="text-[11px] text-zinc-600 leading-relaxed">
-              Natural AI voice narration (Bangla, English & 30+ accents) is 100% free.
+              Natural AI voice narration (Bangla, English & 30+ accents) and script breakdown are 100% free.
             </p>
           </div>
           <div className="mt-3 pt-2 border-t border-[#E5E0D8] text-[10px] text-emerald-700 font-semibold">
-            0 extra credits for audio
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E5E0D8] flex flex-col justify-between">
-          <div className="space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-blue-100/60 border border-blue-200/60 text-blue-700 flex items-center justify-center font-bold text-sm">
-              <Sliders size={18} />
-            </div>
-            <h4 className="text-sm font-bold text-zinc-950">AI Director & Scripts</h4>
-            <p className="text-[11px] text-zinc-600 leading-relaxed">
-              Automatic script-to-scenes breakdown and prompt expansion are free.
-            </p>
-          </div>
-          <div className="mt-3 pt-2 border-t border-[#E5E0D8] text-[10px] text-blue-700 font-semibold">
-            Unlimited Storyboard AI
+            0 extra credits for audio & scripts
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E5E0D8] flex flex-col justify-between">
           <div className="space-y-2">
             <div className="w-9 h-9 rounded-xl bg-purple-100/60 border border-purple-200/60 text-purple-700 flex items-center justify-center font-bold text-sm">
-              <Award size={18} />
+              <Sliders size={18} />
             </div>
             <h4 className="text-sm font-bold text-zinc-950">Free 1080p/4K Exports</h4>
             <p className="text-[11px] text-zinc-600 leading-relaxed">
-              Rendering and downloading final MP4 videos cost zero credits.
+              Rendering and downloading final MP4 videos cost zero credits with 100% watermark-free export.
             </p>
           </div>
           <div className="mt-3 pt-2 border-t border-[#E5E0D8] text-[10px] text-purple-700 font-semibold">
-            Zero Watermarks
+            Zero Watermarks · 0 Export Fee
           </div>
         </div>
       </div>

@@ -248,7 +248,9 @@ export function PaymentCheckoutModal({
                   <div className="flex justify-between text-zinc-300">
                     <span>Item:</span>
                     <span className="font-semibold text-white">
-                      {selectedPlan ? `${selectedPlan.name} (${billingCycle})` : selectedTopup?.name}
+                      {selectedPlan
+                        ? `${selectedPlan.name} (${billingCycle === 'quarterly' ? '3 Months' : billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`
+                        : selectedTopup?.name}
                     </span>
                   </div>
                   <div className="flex justify-between text-zinc-300">

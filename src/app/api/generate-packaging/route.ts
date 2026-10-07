@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { YouTubePackagingData, BaseStylePreset } from '@/types';
 import { searchYouTubeMarket } from '@/lib/youtube-search';
+import {
+  isSupabaseConfigured,
+  deductCreditsRemote,
+  grantCreditsRemote,
+} from '@/lib/supabase-service';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 function formatSecondsToTime(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -9,6 +15,10 @@ function formatSecondsToTime(sec: number): string {
 }
 
 export async function POST(req: Request) {
+  let authenticatedUserId: string | null = null;
+  let remainingCredits: number | null = null;
+  const CREDITS_PER_PACKAGING = 15;
+
   try {
     const {
       title = 'Video',
@@ -24,6 +34,49 @@ export async function POST(req: Request) {
     const cleanScript = (script || '').trim();
     if (!cleanScript && scenes.length === 0) {
       return NextResponse.json({ error: 'Voice script content is required to generate packaging.' }, { status: 400 });
+    }
+
+    // ─── 0. Authenticate Caller & Atomically Deduct 15 Credits (if Supabase user exists) ───
+    if (isSupabaseConfigured()) {
+      try {
+        const serverSupabase = createServerClient();
+        const {
+          data: { user },
+        } = await serverSupabase.auth.getUser();
+
+        if (user) {
+          authenticatedUserId = user.id;
+
+          const { data: profile } = await serverSupabase
+            .from('profiles')
+            .select('credits_remaining, is_blocked, block_reason')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.is_blocked) {
+            return NextResponse.json(
+              { error: profile.block_reason || 'Your account is suspended.' },
+              { status: 403 }
+            );
+          }
+
+          if (profile && profile.credits_remaining < CREDITS_PER_PACKAGING) {
+            return NextResponse.json(
+              {
+                error: `Insufficient credits. Generating a YouTube Launch Kit requires ${CREDITS_PER_PACKAGING} credits. You currently have ${profile.credits_remaining} credits.`,
+              },
+              { status: 402 }
+            );
+          }
+
+          const deducted = await deductCreditsRemote(user.id, CREDITS_PER_PACKAGING);
+          if (deducted && profile) {
+            remainingCredits = profile.credits_remaining - CREDITS_PER_PACKAGING;
+          }
+        }
+      } catch (authErr) {
+        console.warn('[generate-packaging] Supabase auth check bypassed:', authErr);
+      }
     }
 
     // Filter out generic timestamp titles like "Project Sep 29 10:51 PM"
@@ -374,11 +427,23 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
           }))
         : [],
       generatedAt: Date.now(),
+      remainingCredits: remainingCredits ?? undefined,
     };
 
     return NextResponse.json(packagingData);
   } catch (error: any) {
     console.error('API /api/generate-packaging error:', error);
+
+    // If an error occurred after credit deduction, refund the 15 credits
+    if (authenticatedUserId && isSupabaseConfigured()) {
+      try {
+        await grantCreditsRemote(authenticatedUserId, CREDITS_PER_PACKAGING);
+        console.log(`[API /api/generate-packaging] Refunded ${CREDITS_PER_PACKAGING} credits to ${authenticatedUserId} due to generation failure`);
+      } catch (refundErr) {
+        console.error('[API /api/generate-packaging] Failed to refund credits:', refundErr);
+      }
+    }
+
     return NextResponse.json({ error: error.message || 'Failed to generate packaging' }, { status: 500 });
   }
 }

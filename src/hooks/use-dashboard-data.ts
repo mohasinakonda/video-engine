@@ -6,7 +6,6 @@ import {
   getUserSubscription,
   getAllPaymentSubmissions,
   getAdminSettings,
-  GUEST_USER_PROFILE,
 } from '@/lib/subscription-store';
 import {
   getSupabaseUser,
@@ -144,7 +143,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       // Guest / Local Fallback
       setIsLoggedIn(false);
       setIsLiveSupabase(false);
-      const prof = getCurrentUserProfile() || GUEST_USER_PROFILE;
+      const prof = getCurrentUserProfile() || null;
       setProfile(prof);
       const guestSub: UserSubscription = {
         tier: 'TRIAL',
@@ -161,7 +160,7 @@ export function useDashboardData(): UseDashboardDataReturn {
       setSettings(getAdminSettings());
     } catch (err) {
       console.warn('Dashboard fetch error in hook, falling back:', err);
-      const prof = getCurrentUserProfile() || GUEST_USER_PROFILE;
+      const prof = getCurrentUserProfile() || null;
       setProfile(prof);
       setSettings(getAdminSettings());
     } finally {
