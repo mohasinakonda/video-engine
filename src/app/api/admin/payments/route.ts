@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   fetchPaymentsRemote,
   approvePaymentRemote,
@@ -44,7 +45,8 @@ export async function GET() {
 
   if (isSupabaseConfigured()) {
     try {
-      const remote = await fetchPaymentsRemote();
+      const supabase = createServerClient();
+      const remote = await fetchPaymentsRemote(supabase);
       if (remote !== null) {
         isLiveSupabase = true;
         payments = remote;
@@ -54,7 +56,7 @@ export async function GET() {
     }
   }
 
-  const finalPayments = payments !== null ? payments : [];
+  const finalPayments = payments !== null ? payments : getAllPaymentSubmissions();
   const analytics = calculateAnalytics(finalPayments);
 
   return NextResponse.json({
@@ -67,6 +69,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const supabase = createServerClient();
     const { action, submissionId, adminNote }: { action: 'approve' | 'reject'; submissionId: string; adminNote?: string } = await req.json();
 
     if (!submissionId) {
@@ -78,7 +81,7 @@ export async function POST(req: Request) {
     if (action === 'approve') {
       if (isSupabaseConfigured()) {
         try {
-          remoteUpdated = await approvePaymentRemote(submissionId, adminNote);
+          remoteUpdated = await approvePaymentRemote(submissionId, adminNote, supabase);
         } catch (err) {
           console.warn('[API /api/admin/payments] Remote approval failed:', err);
         }
@@ -97,7 +100,7 @@ export async function POST(req: Request) {
     if (action === 'reject') {
       if (isSupabaseConfigured()) {
         try {
-          remoteUpdated = await rejectPaymentRemote(submissionId, adminNote || 'Rejected by admin');
+          remoteUpdated = await rejectPaymentRemote(submissionId, adminNote || 'Rejected by admin', supabase);
         } catch (err) {
           console.warn('[API /api/admin/payments] Remote rejection failed:', err);
         }

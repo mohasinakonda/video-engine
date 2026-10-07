@@ -52,21 +52,23 @@ export default function AdminUsersPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          setUsers(data.users || []);
-          setPayouts(data.payouts || []);
+          const remoteUsers = data.users || [];
+          const localUsers = getAllUsers();
+          setUsers(remoteUsers.length > 0 ? remoteUsers : localUsers);
+          setPayouts(data.payouts || getAllPayoutRequests());
           setIsLiveSupabase(!!data.isLiveSupabase);
         } else {
-          setUsers([]);
-          setPayouts([]);
+          setUsers(getAllUsers());
+          setPayouts(getAllPayoutRequests());
         }
       } else {
-        setUsers([]);
-        setPayouts([]);
+        setUsers(getAllUsers());
+        setPayouts(getAllPayoutRequests());
       }
     } catch (err) {
       console.warn('Error fetching users from API, falling back:', err);
-      setUsers([]);
-      setPayouts([]);
+      setUsers(getAllUsers());
+      setPayouts(getAllPayoutRequests());
     } finally {
       setIsLoading(false);
     }

@@ -427,10 +427,10 @@ export async function fetchPromoCodesRemote(): Promise<PromoCode[] | null> {
 }
 
 /** Create or Update Promo Code in Supabase */
-export async function createPromoCodeRemote(promo: PromoCode): Promise<boolean> {
+export async function createPromoCodeRemote(promo: PromoCode, client?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = client || createClient();
     const { error } = await supabase.from('promo_codes').upsert({
       code: promo.code,
       type: promo.type,
@@ -457,10 +457,10 @@ export async function createPromoCodeRemote(promo: PromoCode): Promise<boolean> 
 }
 
 /** Delete Promo Code from Supabase */
-export async function deletePromoCodeRemote(code: string): Promise<boolean> {
+export async function deletePromoCodeRemote(code: string, client?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = client || createClient();
     const { error } = await supabase.from('promo_codes').delete().eq('code', code);
     return !error;
   } catch (err) {
@@ -470,10 +470,10 @@ export async function deletePromoCodeRemote(code: string): Promise<boolean> {
 }
 
 /** Fetch all Payment Submissions from Supabase */
-export async function fetchPaymentsRemote(): Promise<PaymentSubmission[] | null> {
+export async function fetchPaymentsRemote(client?: any): Promise<PaymentSubmission[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const supabase = createClient();
+    const supabase = client || createClient();
     const { data, error } = await supabase
       .from('payments')
       .select('*')
@@ -481,7 +481,7 @@ export async function fetchPaymentsRemote(): Promise<PaymentSubmission[] | null>
 
     if (error || !data) return null;
 
-    return data.map((row) => ({
+    return data.map((row: any) => ({
       id: row.id,
       userId: row.user_id || 'usr_unknown',
       userEmail: row.user_email,
@@ -508,10 +508,10 @@ export async function fetchPaymentsRemote(): Promise<PaymentSubmission[] | null>
 }
 
 /** Approve Payment in Supabase, update status and credit user */
-export async function approvePaymentRemote(submissionId: string, adminNote?: string): Promise<boolean> {
+export async function approvePaymentRemote(submissionId: string, adminNote?: string, client?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = client || createClient();
 
     // 1. Fetch the submission details
     const { data: sub, error: fetchErr } = await supabase
@@ -575,10 +575,10 @@ export async function approvePaymentRemote(submissionId: string, adminNote?: str
 }
 
 /** Reject Payment in Supabase */
-export async function rejectPaymentRemote(submissionId: string, reason: string): Promise<boolean> {
+export async function rejectPaymentRemote(submissionId: string, reason: string, client?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = client || createClient();
     const { error } = await supabase
       .from('payments')
       .update({
@@ -596,10 +596,10 @@ export async function rejectPaymentRemote(submissionId: string, reason: string):
 }
 
 /** Fetch all User Profiles from Supabase */
-export async function fetchAllProfilesRemote(): Promise<UserProfile[] | null> {
+export async function fetchAllProfilesRemote(client?: any): Promise<UserProfile[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
-    const supabase = createClient();
+    const supabase = client || createClient();
 
     // Ensure any newly authenticated users without a profile are synced
     try {
@@ -615,7 +615,7 @@ export async function fetchAllProfilesRemote(): Promise<UserProfile[] | null> {
 
     if (error || !data) return null;
 
-    return data.map((row) => ({
+    return data.map((row: any) => ({
       id: row.id,
       name: row.full_name || 'Creator',
       email: row.email,
@@ -644,10 +644,10 @@ export async function fetchAllProfilesRemote(): Promise<UserProfile[] | null> {
 }
 
 /** Update User Profile in Supabase (block/unblock, credits, promo) */
-export async function updateProfileRemote(userId: string, updates: Partial<UserProfile>): Promise<boolean> {
+export async function updateProfileRemote(userId: string, updates: Partial<UserProfile>, client?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
-    const supabase = createClient();
+    const supabase = client || createClient();
     const payload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
