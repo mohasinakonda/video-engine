@@ -582,7 +582,7 @@ export async function generateSceneImage(
     ? seed
     : (typeof options?.seed === "number" && !isNaN(options.seed) ? options.seed : Math.floor(Math.random() * 1000000));
 
-  const model = options?.model || getStoredPollinationsImageModel();
+  const model = options?.model || 'black-forest-labs/FLUX-1-schnell';
   // MANDATORY MINIMUM RESOLUTION: Full HD (1920x1080 landscape, or 1080x1920 vertical)
   // Never generate images below 1920x1080.
   const isVertical = options?.aspectRatio === '9:16';
@@ -593,7 +593,54 @@ export async function generateSceneImage(
   const height = Math.max(minHeight, options?.height || minHeight);
   const nologo = options?.nologo !== false;
 
-  // Resolve API key if available
+  // ─── 1. Primary: DeepInfra FLUX-1-schnell (Ultra-Fast ~200ms) ─────────────
+  if (typeof window !== "undefined") {
+    try {
+      const apiRes = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          stylePrompt: baseStyle,
+          negativePrompt: options?.negativePrompt,
+          aspectRatio: options?.aspectRatio || '16:9',
+          seed: resolvedSeed,
+          model: 'black-forest-labs/FLUX-1-schnell',
+        }),
+      });
+
+      if (apiRes.ok) {
+        const data = await apiRes.json();
+        if (data.base64Image) {
+          const raw = data.base64Image as string;
+          const base64Pure = raw.includes(",") ? raw.split(",")[1] : raw;
+          const binStr = atob(base64Pure);
+          const bytes = new Uint8Array(binStr.length);
+          for (let i = 0; i < binStr.length; i++) {
+            bytes[i] = binStr.charCodeAt(i);
+          }
+          return bytes.buffer;
+        }
+      }
+    } catch (err) {
+      console.warn("[generateSceneImage] DeepInfra /api/generate-image error, using Pollinations fallback:", err);
+    }
+  } else if (typeof process !== "undefined" && process.env?.DEEPINFRA_API_KEY) {
+    try {
+      const { generateDeepInfraFluxImage } = await import('@/lib/deepinfra');
+      const diRes = await generateDeepInfraFluxImage(finalPrompt, {
+        stylePrompt: baseStyle,
+        negativePrompt: options?.negativePrompt,
+        aspectRatio: options?.aspectRatio || '16:9',
+        seed: resolvedSeed,
+      });
+      return diRes.arrayBuffer;
+    } catch (err) {
+      console.warn("[generateSceneImage] Server DeepInfra call failed:", err);
+    }
+  }
+
+  // Resolve API key if available for fallback
   let apiKey = options?.apiKey && typeof options.apiKey === 'string' && options.apiKey.trim().length > 0 ? options.apiKey.trim() : undefined;
 
   // If the passed apiKey is an old Gemini key (AIza...) or placeholder, discard it

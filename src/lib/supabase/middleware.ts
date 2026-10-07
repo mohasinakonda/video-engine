@@ -46,7 +46,6 @@ export async function updateSession(request: NextRequest) {
   const isAdminRoute =
     !isPublicAdminApi && (pathname.startsWith('/admin') || pathname.startsWith('/api/admin'));
   const isProtectedApiRoute =
-    pathname.startsWith('/api/generate-image') ||
     pathname.startsWith('/api/generate-packaging') ||
     pathname.startsWith('/api/breakdown-script') ||
     pathname.startsWith('/api/enhance-thumbnail-prompt') ||

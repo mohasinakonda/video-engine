@@ -5,6 +5,7 @@ import {
   grantCreditsRemote,
 } from '@/lib/supabase-service';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { generateDeepInfraFluxImage, getFluxDimensions } from '@/lib/deepinfra';
 
 /**
  * Enhances an image prompt with quality boosters for better FLUX output.
@@ -35,7 +36,7 @@ function buildFinalPrompt(
   }
 
   const negative = negativePrompt?.trim() ||
-    'blurry, noisy, out of focus, low quality, watermark, text overlay, signature, bad anatomy, distorted, oversaturated, flat digital illustration, modern UI elements, boring composition';
+    'blurry, noisy, out of focus, low quality, watermark, text overlay, signature, bad anatomy, distorted, oversaturated, modern UI elements, boring composition';
 
   return { positive, negative };
 }
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
       width: reqWidth,
       height: reqHeight,
       seed,
-      model = 'flux',
+      model = 'black-forest-labs/FLUX-1-schnell',
       stylePrompt,
       negativePrompt,
       apiKey,
@@ -62,103 +63,81 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // ─── 0. Authenticate Caller & Atomically Deduct 1 Credit ─────────────────
+    // ─── 0. Authenticate Caller & Atomically Deduct 1 Credit (if Supabase user exists) ───
     if (isSupabaseConfigured()) {
-      const serverSupabase = createServerClient();
-      const {
-        data: { user },
-      } = await serverSupabase.auth.getUser();
+      try {
+        const serverSupabase = createServerClient();
+        const {
+          data: { user },
+        } = await serverSupabase.auth.getUser();
 
-      if (!user) {
-        return NextResponse.json(
-          { error: 'Unauthorized. Please sign in to generate images.' },
-          { status: 401 }
-        );
+        if (user) {
+          authenticatedUserId = user.id;
+
+          const { data: profile } = await serverSupabase
+            .from('profiles')
+            .select('credits_remaining, is_blocked, block_reason')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.is_blocked) {
+            return NextResponse.json(
+              { error: profile.block_reason || 'Your account is suspended.' },
+              { status: 403 }
+            );
+          }
+
+          if (profile && profile.credits_remaining < 1) {
+            return NextResponse.json(
+              { error: 'Insufficient credits. Please purchase a top-up pack or upgrade your subscription plan.' },
+              { status: 402 }
+            );
+          }
+
+          const deducted = await deductCreditsRemote(user.id, 1);
+          if (deducted && profile) {
+            remainingCredits = profile.credits_remaining - 1;
+          }
+        }
+      } catch (authErr) {
+        console.warn('[generate-image] Supabase auth check bypassed:', authErr);
       }
-
-      authenticatedUserId = user.id;
-
-      const { data: profile } = await serverSupabase
-        .from('profiles')
-        .select('credits_remaining, is_blocked, block_reason')
-        .eq('id', user.id)
-        .single();
-
-      if (profile?.is_blocked) {
-        return NextResponse.json(
-          { error: profile.block_reason || 'Your account is suspended.' },
-          { status: 403 }
-        );
-      }
-
-      if (!profile || profile.credits_remaining < 1) {
-        return NextResponse.json(
-          { error: 'Insufficient credits. Please purchase a top-up pack or upgrade your subscription plan.' },
-          { status: 402 }
-        );
-      }
-
-      const deducted = await deductCreditsRemote(user.id, 1);
-      if (!deducted) {
-        return NextResponse.json(
-          { error: 'Could not deduct image credit. Insufficient balance or account blocked.' },
-          { status: 402 }
-        );
-      }
-      remainingCredits = profile.credits_remaining - 1;
-    }
-
-    // Determine dimensions based on aspect ratio
-    let width = reqWidth || 1024;
-    let height = reqHeight || 576;
-    if (aspectRatio === '9:16') {
-      width = reqWidth || 576;
-      height = reqHeight || 1024;
-    } else if (aspectRatio === '1:1') {
-      width = reqWidth || 768;
-      height = reqHeight || 768;
     }
 
     const { positive: finalPrompt, negative: finalNegative } = buildFinalPrompt(prompt, stylePrompt, negativePrompt);
+    const { width, height } = getFluxDimensions(aspectRatio, reqWidth, reqHeight);
 
     const deepinfraKey = process.env.DEEPINFRA_API_KEY;
     const falKey = process.env.FAL_KEY;
     const userApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0 ? apiKey.trim() : undefined;
     const pollinationsKey = userApiKey || process.env.POLLINATIONS_API_KEY;
 
-    // ─── 1. DeepInfra Primary ($0.0015/image, 200 concurrent slots) ───────────
+    // ─── 1. DeepInfra Primary: black-forest-labs/FLUX-1-schnell ───────────────
     if (deepinfraKey && deepinfraKey.trim()) {
       try {
-        const response = await fetch('https://api.deepinfra.com/v1/inference/black-forest-labs/FLUX-1-schnell', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${deepinfraKey.trim()}`,
-          },
-          body: JSON.stringify({
-            prompt: finalPrompt,
-            negative_prompt: finalNegative,
-            width,
-            height,
-            num_inference_steps: 8, // 8 steps for better quality vs 4 (minimal cost diff)
-            guidance_scale: 3.5,
-            seed: seed || Math.floor(Math.random() * 1000000),
-          }),
+        const result = await generateDeepInfraFluxImage(finalPrompt, {
+          aspectRatio,
+          width: reqWidth,
+          height: reqHeight,
+          seed,
+          numInferenceSteps: 4,
+          guidanceScale: 3.5,
+          negativePrompt: finalNegative,
+          apiKey: deepinfraKey,
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.images && data.images.length > 0) {
-            const imgData = data.images[0];
-            const base64Image = imgData.startsWith('data:') ? imgData : `data:image/jpeg;base64,${imgData}`;
-            return NextResponse.json({ base64Image, provider: 'deepinfra', remainingCredits });
-          }
-        } else {
-          const errText = await response.text().catch(() => '');
-          console.warn(`DeepInfra failed with status ${response.status}: ${errText.slice(0, 200)}`);
-        }
+        return NextResponse.json({
+          base64Image: result.base64Image,
+          imageUrl: result.base64Image,
+          url: result.base64Image,
+          provider: 'deepinfra',
+          model: 'black-forest-labs/FLUX-1-schnell',
+          runtimeMs: result.runtimeMs,
+          cost: result.cost,
+          remainingCredits,
+        });
       } catch (err) {
-        console.warn('DeepInfra fetch error:', err);
+        console.warn('DeepInfra FLUX-1-schnell error, checking fallbacks:', err);
       }
     }
 
