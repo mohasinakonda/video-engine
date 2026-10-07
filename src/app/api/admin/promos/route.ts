@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   createPromoCodeRemote,
   deletePromoCodeRemote,
@@ -32,12 +33,13 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const supabase = createServerClient();
     const promo: PromoCode = await req.json();
     let savedToSupabase = false;
 
     if (isSupabaseConfigured()) {
       try {
-        savedToSupabase = await createPromoCodeRemote(promo);
+        savedToSupabase = await createPromoCodeRemote(promo, supabase);
       } catch (err) {
         console.warn('[API /api/admin/promos] Remote promo creation failed:', err);
       }
@@ -61,6 +63,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const supabase = createServerClient();
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
 
@@ -73,7 +76,7 @@ export async function DELETE(req: Request) {
 
     if (isSupabaseConfigured()) {
       try {
-        await deletePromoCodeRemote(code);
+        await deletePromoCodeRemote(code, supabase);
       } catch (err) {
         console.warn('[API /api/admin/promos] Remote promo delete failed:', err);
       }

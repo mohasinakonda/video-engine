@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   fetchAllProfilesRemote,
   updateProfileRemote,
@@ -21,8 +22,12 @@ export async function GET() {
 
   if (isSupabaseConfigured()) {
     try {
-      const remote = await fetchAllProfilesRemote();
-      if (remote !== null) {
+      const supabase = createServerClient();
+      const remote = await fetchAllProfilesRemote(supabase);
+      if (remote !== null && remote.length > 0) {
+        users = remote;
+        isLiveSupabase = true;
+      } else if (remote !== null) {
         users = remote;
         isLiveSupabase = true;
       }
@@ -31,7 +36,8 @@ export async function GET() {
     }
   }
 
-  const finalUsers = users || [];
+  // Use fetched users, or fall back to local store
+  const finalUsers = (users && users.length > 0) ? users : getAllUsers();
   const payouts = getAllPayoutRequests();
 
   return NextResponse.json({
@@ -44,6 +50,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const supabase = createServerClient();
     const body = await req.json();
     const { action, userId, amount, isBlocked, reason, promoCode } = body;
 
@@ -56,7 +63,7 @@ export async function POST(req: Request) {
     if (action === 'toggleBlock') {
       if (isSupabaseConfigured()) {
         try {
-          remoteUpdated = await updateProfileRemote(userId, { isBlocked, blockReason: reason });
+          remoteUpdated = await updateProfileRemote(userId, { isBlocked, blockReason: reason }, supabase);
         } catch {}
       }
       setUserBlockStatus(userId, isBlocked, reason);
@@ -67,11 +74,11 @@ export async function POST(req: Request) {
       if (isSupabaseConfigured()) {
         try {
           // Adjust in Supabase
-          const profiles = await fetchAllProfilesRemote();
+          const profiles = await fetchAllProfilesRemote(supabase);
           const target = profiles?.find((p) => p.id === userId);
           if (target) {
             const nextCredits = Math.max(0, target.creditsRemaining + amount);
-            remoteUpdated = await updateProfileRemote(userId, { creditsRemaining: nextCredits });
+            remoteUpdated = await updateProfileRemote(userId, { creditsRemaining: nextCredits }, supabase);
           }
         } catch {}
       }
@@ -82,7 +89,7 @@ export async function POST(req: Request) {
     if (action === 'assignPromo') {
       if (isSupabaseConfigured()) {
         try {
-          remoteUpdated = await updateProfileRemote(userId, { assignedPromoCode: promoCode });
+          remoteUpdated = await updateProfileRemote(userId, { assignedPromoCode: promoCode }, supabase);
         } catch {}
       }
       assignUserPromoCode(userId, promoCode);
