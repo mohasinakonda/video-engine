@@ -45,6 +45,14 @@ export interface PromoCode {
   applicablePlans?: PlanTier[]; // Restrict to specific plan tiers (e.g. ['CREATOR', 'STUDIO'])
 }
 
+export interface PromoValidationResult {
+  valid: boolean;
+  message: string;
+  discountedPriceBDT?: number;
+  bonusCredits?: number;
+  promo?: PromoCode;
+}
+
 export type PaymentMethod = 'bkash' | 'nagad' | 'bank';
 export type PaymentStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -101,6 +109,8 @@ export interface UserProfile {
   referralPendingBDT: number; // pending payout
   referralPaidBDT: number; // paid out
   assignedPromoCode?: string;
+  referralDiscountPercent?: number; // Custom negotiated discount % for audience (default: 20)
+  referralCommissionPercent?: number; // Custom negotiated commission % for influencer (default: 15)
   role?: 'admin' | 'user';
   subscriptionExpiresAt?: number;
 }

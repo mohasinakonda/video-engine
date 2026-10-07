@@ -8,6 +8,7 @@ import type {
   SubscriptionPlan,
   CreditTopupPack,
   PromoCode,
+  PromoValidationResult,
   PaymentSubmission,
   AdminSettings,
 } from '@/types/subscription';
@@ -115,6 +116,8 @@ export async function fetchSupabaseProfile(userId: string): Promise<UserProfile 
     referralPendingBDT: data.referral_pending_bdt,
     referralPaidBDT: data.referral_paid_bdt,
     assignedPromoCode: data.assigned_promo_code,
+    referralDiscountPercent: data.referral_discount_percent ?? 20,
+    referralCommissionPercent: data.referral_commission_percent ?? 15,
     role: data.role || 'user',
     subscriptionExpiresAt: data.subscription_expires_at ? new Date(data.subscription_expires_at).getTime() : undefined,
   };
@@ -155,13 +158,42 @@ export async function grantCreditsRemote(userId: string, amount: number): Promis
 }
 
 /** Submit Payment to Supabase Payments Table */
-export async function submitPaymentRemote(submission: PaymentSubmission) {
+export async function submitPaymentRemote(submission: PaymentSubmission, clientOverride?: any) {
   if (!isSupabaseConfigured()) return null;
-  const supabase = createClient();
+  const supabase = clientOverride || createClient();
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const validUserId = submission.userId && UUID_REGEX.test(submission.userId) ? submission.userId : null;
 
-  const { data, error } = await supabase
+  try {
+    const { data, error } = await supabase.rpc('submit_payment_request', {
+      p_id: submission.id,
+      p_user_id: validUserId,
+      p_user_email: submission.userEmail,
+      p_plan_id: submission.planId || null,
+      p_topup_id: submission.topupId || null,
+      p_item_type: submission.itemType,
+      p_billing_cycle: submission.billingCycle || null,
+      p_original_price_bdt: submission.originalPriceBDT,
+      p_discounted_price_bdt: submission.discountedPriceBDT,
+      p_promo_code_applied: submission.promoCodeApplied || null,
+      p_credits_to_grant: submission.creditsToGrant,
+      p_payment_method: submission.paymentMethod,
+      p_sender_number: submission.senderNumber,
+      p_trx_id: submission.trxId || null,
+    });
+
+    if (!error && data) {
+      return data;
+    }
+    if (error) {
+      console.warn('[Supabase] RPC submit_payment_request error, trying direct insert:', error);
+    }
+  } catch (rpcErr) {
+    console.warn('[Supabase] RPC submit_payment_request exception:', rpcErr);
+  }
+
+  // Fallback direct insert without .select() to prevent SELECT RLS issues
+  const { error: insertErr } = await supabase
     .from('payments')
     .insert({
       id: submission.id,
@@ -179,15 +211,13 @@ export async function submitPaymentRemote(submission: PaymentSubmission) {
       sender_number: submission.senderNumber,
       trx_id: submission.trxId,
       status: submission.status,
-    })
-    .select()
-    .single();
+    });
 
-  if (error) {
-    console.error('[Supabase] Submit payment error:', error);
+  if (insertErr) {
+    console.error('[Supabase] Submit payment error:', insertErr);
     return null;
   }
-  return data;
+  return submission;
 }
 
 /** Upload Generated Image / Voiceover to Supabase Storage */
@@ -471,11 +501,207 @@ export async function deletePromoCodeRemote(code: string, client?: any): Promise
   }
 }
 
+/**
+ * Validate Promo Code or User Referral Code directly against Supabase database.
+ * Handles both public.profiles (referral codes like REF-BBD2D) and public.promo_codes (like EARLY50, LAUNCH20).
+ */
+export async function validatePromoOrReferralRemote(
+  inputCode: string,
+  originalPriceBDT: number,
+  userIdentifier?: string,
+  planId?: string,
+  client?: any
+): Promise<PromoValidationResult> {
+  const cleanCode = (inputCode || '').trim().toUpperCase();
+  if (!cleanCode) {
+    return { valid: true, message: '', discountedPriceBDT: originalPriceBDT };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { valid: false, message: 'Invalid promo code. Please check spelling.' };
+  }
+
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const supabase = client || createClient();
+
+  try {
+    // 1. Check User Referral Codes in public.profiles via lookup_influencer_rates RPC
+    const { data: refRows, error: refErr } = await supabase.rpc('lookup_influencer_rates', {
+      p_referral_code: cleanCode,
+    });
+
+    const profile = refRows && refRows.length > 0 ? refRows[0] : null;
+
+    if (!refErr && profile) {
+      // Check if user is trying to use their own referral code
+      if (userIdentifier) {
+        const cleanId = userIdentifier.trim().toLowerCase();
+        if (
+          profile.id.toLowerCase() === cleanId ||
+          (profile.email && profile.email.toLowerCase() === cleanId)
+        ) {
+          return { valid: false, message: 'You cannot use your own referral code.' };
+        }
+
+        // Check if user already used this referral code in payments
+        let query = supabase
+          .from('payments')
+          .select('id')
+          .ilike('promo_code_applied', cleanCode)
+          .neq('status', 'REJECTED');
+
+        if (UUID_REGEX.test(cleanId)) {
+          query = query.or(`user_id.eq.${cleanId},user_email.ilike.${cleanId}`);
+        } else {
+          query = query.ilike('user_email', cleanId);
+        }
+
+        const { data: priorPayments } = await query;
+        if (priorPayments && priorPayments.length > 0) {
+          return { valid: false, message: 'You have already redeemed a referral discount on this account.' };
+        }
+      }
+
+      const discountPercent = profile.discount_percent ?? 20;
+      const commissionPercent = profile.commission_percent ?? 15;
+      const discountAmount = Math.round(originalPriceBDT * (discountPercent / 100));
+      const discountedPrice = Math.max(0, originalPriceBDT - discountAmount);
+
+      return {
+        valid: true,
+        message: `${discountPercent}% discount applied!`,
+        discountedPriceBDT: discountedPrice,
+        bonusCredits: 0,
+        promo: {
+          code: cleanCode,
+          type: 'PERCENTAGE',
+          discountValue: discountPercent,
+          bonusCredits: 0,
+          validUntil: Date.now() + 365 * 24 * 3600 * 1000,
+          maxUses: 9999,
+          currentUses: profile.referral_count || 0,
+          maxUsesPerUser: 1,
+          firstPurchaseOnly: true,
+          description: `Referral discount from ${profile.full_name || 'Creator'}`,
+          isActive: true,
+          ownerUserId: profile.id,
+          commissionPercent: commissionPercent,
+        },
+      };
+    }
+
+    // 2. Check Standard Promo Codes in public.promo_codes (e.g. EARLY50, LAUNCH20, FREE30, FISH30)
+    const { data: promo, error: promoErr } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .ilike('code', cleanCode)
+      .maybeSingle();
+
+    if (!promoErr && promo) {
+      if (!promo.is_active) {
+        return { valid: false, message: 'This promo code is currently disabled.' };
+      }
+      if (promo.valid_until && new Date(promo.valid_until).getTime() < Date.now()) {
+        return { valid: false, message: 'This promo code has expired.' };
+      }
+      if (promo.max_uses > 0 && (promo.current_uses || 0) >= promo.max_uses) {
+        return { valid: false, message: 'This promo code has reached its maximum global limit.' };
+      }
+
+      // Check user usage limit in payments
+      if (userIdentifier) {
+        const cleanId = userIdentifier.trim().toLowerCase();
+        let query = supabase
+          .from('payments')
+          .select('id')
+          .ilike('promo_code_applied', cleanCode)
+          .neq('status', 'REJECTED');
+
+        if (UUID_REGEX.test(cleanId)) {
+          query = query.or(`user_id.eq.${cleanId},user_email.ilike.${cleanId}`);
+        } else {
+          query = query.ilike('user_email', cleanId);
+        }
+
+        const { data: priorPayments } = await query;
+        if (priorPayments && priorPayments.length >= (promo.max_uses_per_user || 1)) {
+          return { valid: false, message: 'You have already redeemed this promo code.' };
+        }
+      }
+
+      let calculatedPrice = originalPriceBDT;
+      let bonusCredits = promo.bonus_credits || 0;
+
+      if (promo.type === 'PERCENTAGE') {
+        const discount = Math.round((originalPriceBDT * (promo.discount_value || 0)) / 100);
+        calculatedPrice = Math.max(0, originalPriceBDT - discount);
+      } else if (promo.type === 'FIXED') {
+        calculatedPrice = Math.max(0, originalPriceBDT - (promo.discount_value || 0));
+      }
+
+      return {
+        valid: true,
+        message: promo.description || `${promo.code} applied successfully!`,
+        discountedPriceBDT: calculatedPrice,
+        bonusCredits,
+        promo: {
+          code: promo.code,
+          type: promo.type,
+          discountValue: promo.discount_value,
+          bonusCredits: promo.bonus_credits || 0,
+          validUntil: promo.valid_until ? new Date(promo.valid_until).getTime() : Date.now() + 30 * 86400000,
+          maxUses: promo.max_uses || 0,
+          currentUses: promo.current_uses || 0,
+          maxUsesPerUser: 1,
+          description: promo.description || '',
+          isActive: promo.is_active,
+          ownerUserId: promo.owner_user_id || undefined,
+          commissionPercent: promo.commission_percent || 15,
+        },
+      };
+    }
+  } catch (err) {
+    console.warn('[Supabase] Remote promo validation error:', err);
+  }
+
+  return { valid: false, message: 'Invalid promo code. Please check spelling.' };
+}
+
 /** Fetch all Payment Submissions from Supabase */
 export async function fetchPaymentsRemote(client?: any): Promise<PaymentSubmission[] | null> {
   if (!isSupabaseConfigured()) return null;
   try {
     const supabase = client || createClient();
+
+    // 1. Try secure admin RPC first
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_all_payments_admin');
+      if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+        return rpcData.map((row: any) => ({
+          id: row.id,
+          userId: row.user_id || 'usr_unknown',
+          userEmail: row.user_email,
+          planId: row.plan_id,
+          topupId: row.topup_id,
+          itemType: row.item_type,
+          billingCycle: row.billing_cycle,
+          originalPriceBDT: row.original_price_bdt,
+          discountedPriceBDT: row.discounted_price_bdt,
+          promoCodeApplied: row.promo_code_applied,
+          creditsToGrant: row.credits_to_grant,
+          paymentMethod: row.payment_method,
+          senderNumber: row.sender_number,
+          trxId: row.trx_id,
+          status: row.status,
+          submittedAt: new Date(row.submitted_at).getTime(),
+          reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).getTime() : undefined,
+          adminNote: row.admin_note,
+        }));
+      }
+    } catch (rpcErr) {
+      console.warn('[Supabase] get_all_payments_admin fallback:', rpcErr);
+    }
+
     const { data, error } = await supabase
       .from('payments')
       .select('*')
@@ -515,7 +741,21 @@ export async function approvePaymentRemote(submissionId: string, adminNote?: str
   try {
     const supabase = client || createClient();
 
-    // 1. Fetch the submission details
+    // 1. Try atomic admin RPC first
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('approve_payment_admin', {
+        p_submission_id: submissionId,
+        p_admin_note: adminNote || 'Approved by admin',
+      });
+      if (!rpcErr && rpcData === true) {
+        return true;
+      }
+    } catch (rpcErr) {
+      console.warn('[Supabase] approve_payment_admin fallback:', rpcErr);
+    }
+
+    // 2. Fallback direct update logic
+    // Fetch the submission details
     const { data: sub, error: fetchErr } = await supabase
       .from('payments')
       .select('*')
@@ -636,6 +876,8 @@ export async function fetchAllProfilesRemote(client?: any): Promise<UserProfile[
       referralPendingBDT: row.referral_pending_bdt ?? 0,
       referralPaidBDT: row.referral_paid_bdt ?? 0,
       assignedPromoCode: row.assigned_promo_code,
+      referralDiscountPercent: row.referral_discount_percent ?? 20,
+      referralCommissionPercent: row.referral_commission_percent ?? 15,
       role: row.role || 'user',
       subscriptionExpiresAt: row.subscription_expires_at ? new Date(row.subscription_expires_at).getTime() : undefined,
     }));

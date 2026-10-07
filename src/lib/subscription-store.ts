@@ -6,6 +6,7 @@ import type {
   SubscriptionPlan,
   CreditTopupPack,
   PromoCode,
+  PromoValidationResult,
   PaymentSubmission,
   UserSubscription,
   UserProfile,
@@ -20,221 +21,57 @@ import { deductCreditsRemote, grantCreditsRemote, isSupabaseConfigured } from '@
 // ─── Default Admin Settings ──────────────────────────────────────────────────
 
 export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
-  whatsappNumber: '01315055532',
-  bkashNumber: '01617420663',
-  nagadNumber: '01617420663',
-  bankDetails: 'City Bank PLC | Hazrat AI Studio | A/C: 1503204928001 | Dhanmondi Branch',
+  whatsappNumber: '',
+  bkashNumber: '',
+  nagadNumber: '',
+  bankDetails: '',
   globalDiscountPercent: 0,
   globalDiscountActive: false,
-  globalBannerText: '🎉 Launch Celebration: Get 50 Free Image Credits on any subscription plan!',
-  globalBannerActive: true,
+  globalBannerText: '',
+  globalBannerActive: false,
 };
 
-export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
-  {
-    id: 'STARTER',
-    name: 'Starter',
-    badge: 'Popular for Beginners',
-    popular: false,
-    priceMonthly: 1200,
-    priceQuarterly: 3200,
-    priceYearly: 12000,
-    creditsPerMonth: 600,
-    maxVideoDurationSec: 180,
-    maxResolution: '1080p',
-    features: [
-      '1200 Credits / month',
-      'YouTube Launch Kit & SEO Kit',
-      'Up to 3-minute video duration per project',
-      '1080p Full HD crisp rendering',
-      '100% Watermark-Free Export',
-      'Bangla & English AI Voiceovers included',
-      'AI Script-to-Scenes Director',
-      'Standard rendering queue',
-      'Standard customer support',
-    ],
-    isActive: true,
-  },
-  {
-    id: 'CREATOR',
-    name: 'Creator',
-    badge: 'Most Popular',
-    popular: true,
-    priceMonthly: 1650,
-    priceQuarterly: 4500,
-    priceYearly: 16000,
-    creditsPerMonth: 2000,
-    maxVideoDurationSec: 600,
-    maxResolution: '1080p',
-    features: [
-      '2,000 Credits / month',
-      'Complete YouTube Launch Kit & SEO Director',
-      'Up to 10-minute video duration per project',
-      '1080p Full HD crisp rendering',
-      '100% Watermark-Free Export',
-      'Bangla & English AI Voiceovers included',
-      'Custom visual styles & character consistency',
-      'Commercial monetization license (YouTube & FB)',
-      'Fast rendering priority queue',
-      'Priority WhatsApp VIP support',
-    ],
-    isActive: true,
-  },
-  {
-    id: 'STUDIO',
-    name: 'Studio Pro',
-    badge: 'Full Power',
-    popular: false,
-    priceMonthly: 2500,
-    priceQuarterly: 6800,
-    priceYearly: 25000,
-    creditsPerMonth: 3500,
-    maxVideoDurationSec: 1200,
-    maxResolution: '4k',
-    features: [
-      '3,500 Credits / month',
-      'YouTube Launch Kit & SEO Director',
-      'Up to 20-minute video duration',
-      '4K Ultra HD pristine rendering',
-      '100% Watermark-Free Export',
-      'All AI Voiceovers & Audio FX included',
-      'Instant VIP rendering queue',
-      'Full commercial & agency monetization rights',
-      'Dedicated 1-on-1 WhatsApp VIP manager',
-    ],
-    isActive: true,
-  },
-];
+export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [];
 
-export const DEFAULT_TOPUP_PACKS: CreditTopupPack[] = [
-  {
-    id: 'topup_50',
-    name: 'Quick Top-up',
-    credits: 50,
-    priceBDT: 50,
-    perCreditBDT: 1.0,
-  },
-  {
-    id: 'topup_100',
-    name: 'Standard Boost',
-    credits: 100,
-    priceBDT: 100,
-    popular: true,
-    perCreditBDT: 1.0,
-  },
-  {
-    id: 'topup_250',
-    name: 'Power Pack',
-    credits: 250,
-    priceBDT: 200, // Discounted: ৳0.80 per credit
-    perCreditBDT: 0.8,
-  },
-];
+export const DEFAULT_TOPUP_PACKS: CreditTopupPack[] = [];
 
-const DEFAULT_PROMO_CODES: PromoCode[] = [
-  {
-    code: 'EARLY50',
-    type: 'PERCENTAGE',
-    discountValue: 50,
-    validUntil: Date.now() + 30 * 24 * 60 * 60 * 1000,
-    maxUses: 50,
-    currentUses: 14,
-    maxUsesPerUser: 1,
-    description: 'Launch special: 50% flat discount for early adopters',
-    isActive: true,
-    commissionPercent: 15,
-  },
-  {
-    code: 'LAUNCH20',
-    type: 'PERCENTAGE',
-    discountValue: 20,
-    validUntil: Date.now() + 60 * 24 * 60 * 60 * 1000,
-    maxUses: 500,
-    currentUses: 38,
-    maxUsesPerUser: 1,
-    description: '20% off on all monthly and yearly subscription plans',
-    isActive: true,
-    commissionPercent: 15,
-  },
-  {
-    code: 'FREE30',
-    type: 'CREDIT_BONUS',
-    discountValue: 0,
-    bonusCredits: 30,
-    validUntil: Date.now() + 90 * 24 * 60 * 60 * 1000,
-    maxUses: 200,
-    currentUses: 52,
-    maxUsesPerUser: 1,
-    description: 'Unlocks +30 free bonus credits for new creators',
-    isActive: true,
-  },
-];
-
-// Guest user profile fallback (no mock credits)
-export const GUEST_USER_PROFILE: UserProfile = {
-  id: 'guest',
-  name: 'Guest Creator',
-  email: '',
-  phone: '',
-  tier: 'TRIAL',
-  creditsRemaining: 0,
-  creditsUsed: 0,
-  totalSpentBDT: 0,
-  joinedAt: Date.now(),
-  isBlocked: false,
-  referralCode: '',
-  referralCount: 0,
-  referralEarningsBDT: 0,
-  referralPendingBDT: 0,
-  referralPaidBDT: 0,
-};
+const DEFAULT_PROMO_CODES: PromoCode[] = [];
 
 const DEFAULT_USER_LIST: UserProfile[] = [];
 
-const serverMemoryStore: Record<string, unknown> = {};
+// ─── In-Memory Store (Decoupled from LocalStorage) ───────────────────────────
+
+const memoryStore: Record<string, unknown> = {};
+
+// Clean up any legacy localStorage entries from user browsers
+if (typeof window !== 'undefined') {
+  try {
+    const legacyKeys = [
+      'admin_app_settings',
+      'custom_subscription_plans',
+      'custom_topup_packs',
+      'all_registered_users',
+      'promo_codes_list',
+      'payment_submissions_list',
+      'affiliate_payout_requests',
+      'active_user_profile',
+    ];
+    legacyKeys.forEach((k) => localStorage.removeItem(k));
+  } catch { }
+}
 
 function safeGet<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') {
-    return (serverMemoryStore[key] as T) ?? fallback;
-  }
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
+  return (memoryStore[key] as T) ?? fallback;
 }
 
 function safeSet(key: string, value: unknown): void {
-  if (typeof window === 'undefined') {
-    serverMemoryStore[key] = value;
-    return;
-  }
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch { }
+  memoryStore[key] = value;
 }
 
 // ─── Admin Settings Operations ───────────────────────────────────────────────
 
 export function getAdminSettings(): AdminSettings {
-  const current = safeGet<AdminSettings>('admin_app_settings', DEFAULT_ADMIN_SETTINGS);
-  // Auto-clean stale dummy numbers from user's localStorage
-  if (
-    current.whatsappNumber === '8801712345678' ||
-    current.bkashNumber === '01712345678' ||
-    current.nagadNumber === '01712345678'
-  ) {
-    const upgraded: AdminSettings = {
-      ...current,
-      whatsappNumber: current.whatsappNumber === '8801712345678' ? DEFAULT_ADMIN_SETTINGS.whatsappNumber : current.whatsappNumber,
-      bkashNumber: current.bkashNumber === '01712345678' ? DEFAULT_ADMIN_SETTINGS.bkashNumber : current.bkashNumber,
-      nagadNumber: current.nagadNumber === '01712345678' ? DEFAULT_ADMIN_SETTINGS.nagadNumber : current.nagadNumber,
-    };
-    saveAdminSettings(upgraded);
-    return upgraded;
-  }
-  return current;
+  return safeGet<AdminSettings>('admin_app_settings', DEFAULT_ADMIN_SETTINGS);
 }
 
 export function saveAdminSettings(settings: AdminSettings): void {
@@ -244,16 +81,11 @@ export function saveAdminSettings(settings: AdminSettings): void {
 // ─── Dynamic Plans Operations ────────────────────────────────────────────────
 
 export function getSubscriptionPlans(): SubscriptionPlan[] {
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem('custom_subscription_plans');
-    } catch { }
-  }
-  return DEFAULT_SUBSCRIPTION_PLANS;
+  return safeGet<SubscriptionPlan[]>('custom_subscription_plans', DEFAULT_SUBSCRIPTION_PLANS);
 }
 
-export function saveSubscriptionPlans(_plans: SubscriptionPlan[]): void {
-  // Plans are managed and synced via Supabase DB
+export function saveSubscriptionPlans(plans: SubscriptionPlan[]): void {
+  safeSet('custom_subscription_plans', plans);
 }
 
 export function getTopupPacks(): CreditTopupPack[] {
@@ -281,14 +113,9 @@ export function saveAllUsers(users: UserProfile[]): void {
   notifyCreditsUpdated();
 }
 
-/** Set the currently authenticated Supabase user profile into cache */
+/** Set the currently authenticated Supabase user profile into memory */
 export function setActiveUserProfile(profile: UserProfile | null, broadcast = true): void {
-  if (typeof window === 'undefined') return;
-  if (!profile) {
-    localStorage.removeItem('active_user_profile');
-  } else {
-    safeSet('active_user_profile', profile);
-  }
+  safeSet('active_user_profile', profile);
   if (broadcast) {
     notifyCreditsUpdated();
   }
@@ -371,7 +198,6 @@ export function deductUserCredits(amount: number, reason = 'image_generation'): 
   profile.creditsRemaining = Math.max(0, profile.creditsRemaining - amount);
   profile.creditsUsed += amount;
   setActiveUserProfile(profile);
-  console.log(`[Subscription] Deducted ${amount} credits for "${reason}". Remaining: ${profile.creditsRemaining}`);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('subscription_credits_updated', {
@@ -391,7 +217,6 @@ export function grantUserCredits(amount: number, reason = 'credit_grant'): void 
   if (!profile) return;
   profile.creditsRemaining += amount;
   setActiveUserProfile(profile);
-  console.log(`[Subscription] Granted ${amount} credits ("${reason}"). New balance: ${profile.creditsRemaining}`);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('subscription_credits_updated', {
@@ -414,12 +239,12 @@ export function savePromoCodes(codes: PromoCode[]): void {
   safeSet('promo_codes_list', codes);
 }
 
-export interface PromoValidationResult {
-  valid: boolean;
-  message: string;
-  promo?: PromoCode;
-  discountedPriceBDT?: number;
-  bonusCredits?: number;
+export type { PromoValidationResult };
+
+export function cacheValidatedPromo(code: string, result: PromoValidationResult): void {
+  if (!code) return;
+  const cleanCode = code.trim().toUpperCase();
+  safeSet(`promo_cache_${cleanCode}`, result);
 }
 
 /** Check how many times a user (by userId or userEmail) has redeemed a specific promo code */
@@ -475,6 +300,22 @@ export function validateAndApplyPromoCode(
     };
   }
 
+  // Check cached promo validation result (e.g. from /api/promos/validate)
+  const cached = safeGet<PromoValidationResult | null>(`promo_cache_${cleanCode}`, null);
+  if (cached && cached.valid) {
+    let recomputedPrice = originalPriceBDT;
+    if (cached.promo?.type === 'PERCENTAGE') {
+      const discount = Math.round((originalPriceBDT * (cached.promo.discountValue || 0)) / 100);
+      recomputedPrice = Math.max(0, originalPriceBDT - discount);
+    } else if (cached.promo?.type === 'FIXED') {
+      recomputedPrice = Math.max(0, originalPriceBDT - (cached.promo.discountValue || 0));
+    }
+    return {
+      ...cached,
+      discountedPriceBDT: Math.min(recomputedPrice, globalDiscountedPrice),
+    };
+  }
+
   // Check user referral codes as well!
   const users = getAllUsers();
   const referralOwner = users.find((u) => u.referralCode?.toUpperCase() === cleanCode);
@@ -492,21 +333,22 @@ export function validateAndApplyPromoCode(
       }
     }
 
-    // 20% discount for anyone using a user referral code
-    const referralDiscountedPrice = Math.max(0, Math.round(originalPriceBDT * 0.8));
+    const discountPercent = referralOwner.referralDiscountPercent ?? 20;
+    const commissionPercent = referralOwner.referralCommissionPercent ?? 15;
+    const referralDiscountedPrice = Math.max(0, Math.round(originalPriceBDT * (1 - discountPercent / 100)));
     // Best offer wins against global storewide discount
     const finalPrice = Math.min(referralDiscountedPrice, globalDiscountedPrice);
 
     return {
       valid: true,
-      message: `Referral code by ${referralOwner.name}: 20% discount applied!`,
+      message: `${discountPercent}% discount applied!`,
       discountedPriceBDT: finalPrice,
-      bonusCredits: 15,
+      bonusCredits: 0,
       promo: {
         code: cleanCode,
         type: 'PERCENTAGE',
-        discountValue: 20,
-        bonusCredits: 15,
+        discountValue: discountPercent,
+        bonusCredits: 0,
         validUntil: Date.now() + 365 * 24 * 3600 * 1000,
         maxUses: 9999,
         currentUses: referralOwner.referralCount,
@@ -515,7 +357,7 @@ export function validateAndApplyPromoCode(
         description: `Referral discount from ${referralOwner.name}`,
         isActive: true,
         ownerUserId: referralOwner.id,
-        commissionPercent: 15,
+        commissionPercent: commissionPercent,
       },
     };
   }

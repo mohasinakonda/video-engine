@@ -96,6 +96,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, remoteUpdated });
     }
 
+    if (action === 'updateReferralRates') {
+      const { referralCode, discountPercent, commissionPercent } = body;
+      if (isSupabaseConfigured()) {
+        try {
+          const updatePayload: Record<string, any> = {};
+          if (referralCode !== undefined && String(referralCode).trim()) {
+            updatePayload.referral_code = String(referralCode).trim().toUpperCase();
+          }
+          if (discountPercent !== undefined) {
+            updatePayload.referral_discount_percent = Math.max(1, Math.min(100, Number(discountPercent)));
+          }
+          if (commissionPercent !== undefined) {
+            updatePayload.referral_commission_percent = Math.max(1, Math.min(100, Number(commissionPercent)));
+          }
+
+          const { error } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
+          remoteUpdated = !error;
+        } catch (err) {
+          console.warn('Error updating referral rates:', err);
+        }
+      }
+      return NextResponse.json({ success: true, remoteUpdated });
+    }
+
     return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
   } catch (err: unknown) {
     return NextResponse.json(
