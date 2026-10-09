@@ -629,6 +629,8 @@ export interface DirectorOptions {
   words?: TimedWord[];
   /** Optional pre-computed Visual Story World Bible */
   worldBible?: VisualWorldBible;
+  /** Callback fired when the AI Concept Director creates or finalizes the Visual World Bible */
+  onWorldBibleReady?: (bible: VisualWorldBible) => void;
 }
 
 /**
@@ -1060,6 +1062,7 @@ export async function directScenesFromAudioAndScript(
     pacingProfile: options.pacingProfile,
     onProgress: options.onProgress,
     worldBible: options.worldBible,
+    onWorldBibleReady: options.onWorldBibleReady,
   });
 
   // Step 2: Acoustic Alignment from Whisper Word Timestamps

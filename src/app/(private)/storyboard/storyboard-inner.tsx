@@ -47,6 +47,7 @@ import type {
   AudioChunk,
   BaseStylePreset,
 } from '@/types';
+import type { AIImageModel } from '@/types/subscription';
 
 function formatDuration(ms: number): string {
   if (!ms) return '0:00';
@@ -71,6 +72,7 @@ export default function StoryboardInner() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_stylePresets, setStylePresets] = useState<BaseStylePreset[]>([]);
   const [showStyleModal, setShowStyleModal] = useState(false);
+  const [selectedAIModel, setSelectedAIModel] = useState<AIImageModel | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -125,27 +127,30 @@ export default function StoryboardInner() {
     const pendingScenes = currentScenes.filter((s) => s.status === 'PENDING' || s.status === 'FAILED');
     if (pendingScenes.length === 0) return;
 
+    const unitCost = selectedAIModel?.creditCost ?? 2;
     const availableCredits = getUserCreditsRemaining();
 
-    if (availableCredits <= 0) {
-      setRequiredCreditsNeeded(pendingScenes.length);
+    if (availableCredits < unitCost) {
+      setRequiredCreditsNeeded(pendingScenes.length * unitCost);
       setCreditModalOpen(true);
       return;
     }
 
-    // Process up to available credits (e.g. if user has 10 credits and 15 scenes, generate 10 scenes)
-    const scenesToProcess = pendingScenes.slice(0, availableCredits);
+    // Process up to available credits
+    const maxScenesAffordable = Math.floor(availableCredits / unitCost);
+    const scenesToProcess = pendingScenes.slice(0, maxScenesAffordable);
     const count = scenesToProcess.length;
+    const totalCreditsNeeded = count * unitCost;
 
-    const deducted = deductUserCredits(count, `Batch generate ${count} scenes`);
+    const deducted = deductUserCredits(totalCreditsNeeded, `Batch generate ${count} scenes (${selectedAIModel?.name || 'DeepInfra'})`);
     if (!deducted) {
-      setRequiredCreditsNeeded(count);
+      setRequiredCreditsNeeded(totalCreditsNeeded);
       setCreditModalOpen(true);
       return;
     }
 
     const apiKey = (await getPollinationsApiKey()) || '';
-    const chosenModel = await getPollinationsImageModel();
+    const chosenModel = selectedAIModel?.modelId || (await getPollinationsImageModel());
 
     setGeneratingImages(true);
     setPauseMsg('');
@@ -161,6 +166,9 @@ export default function StoryboardInner() {
       negativePrompt: preset?.negativePrompt,
       aspectRatio: projectRef.current?.aspectRatio || preset?.aspectRatio || '16:9',
       model: chosenModel,
+      creditCost: selectedAIModel?.creditCost,
+      inferenceSteps: selectedAIModel?.inferenceSteps,
+      guidanceScale: selectedAIModel?.guidanceScale,
       concurrency: 3,
       callbacks: {
         onSceneUpdate: (sceneId, update) => {
@@ -181,13 +189,13 @@ export default function StoryboardInner() {
           });
           // If there are still pending scenes remaining after exhausting credits, prompt with remaining count
           if (pendingScenes.length > count) {
-            setRequiredCreditsNeeded(pendingScenes.length - count);
+            setRequiredCreditsNeeded((pendingScenes.length - count) * unitCost);
             setCreditModalOpen(true);
           }
         },
         onError: (sceneId, error) => {
           console.warn(`Scene ${sceneId} failed:`, error);
-          grantUserCredits(1, `Refund: Scene ${sceneId} batch generation failed`);
+          grantUserCredits(unitCost, `Refund: Scene ${sceneId} batch generation failed`);
         },
         onPause: (reason, resumeInMs) => {
           setPauseMsg(`${reason} — resuming in ${resumeInMs / 1000}s`);
@@ -321,6 +329,43 @@ export default function StoryboardInner() {
   }, [projectId, router, searchParams, handleGenerateImages]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadActiveModel() {
+      try {
+        const storedModelId = await getPollinationsImageModel();
+        const targetModelId = projectRef.current?.imageModel || storedModelId;
+        const res = await fetch('/api/models');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.models)) {
+            const match =
+              data.models.find((m: AIImageModel) => m.modelId === targetModelId || m.id === targetModelId) ||
+              data.models.find((m: AIImageModel) => m.modelId === storedModelId || m.id === storedModelId) ||
+              data.models.find((m: AIImageModel) => m.isDefault) ||
+              data.models[0];
+            if (isMounted && match) setSelectedAIModel(match);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load initial active model in storyboard:', err);
+      }
+    }
+    loadActiveModel();
+
+    const handleGlobalModelUpdate = (e: Event) => {
+      const customEvt = e as CustomEvent<AIImageModel>;
+      if (customEvt.detail) {
+        setSelectedAIModel(customEvt.detail);
+      }
+    };
+    window.addEventListener('ai_model_updated', handleGlobalModelUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('ai_model_updated', handleGlobalModelUpdate);
+    };
+  }, []);
 
   // ─── Persist scenes ─────────────────────────────────────────────────────
 
@@ -566,15 +611,16 @@ export default function StoryboardInner() {
       return;
     }
 
-    if (!hasEnoughCredits(1)) {
-      setRequiredCreditsNeeded(1);
+    const unitCost = selectedAIModel?.creditCost ?? 2;
+    if (!hasEnoughCredits(unitCost)) {
+      setRequiredCreditsNeeded(unitCost);
       setCreditModalOpen(true);
       return;
     }
 
-    const deducted = deductUserCredits(1, `Scene ${scene.sceneId} regenerate`);
+    const deducted = deductUserCredits(unitCost, `Scene ${scene.sceneId} regenerate (${selectedAIModel?.name || 'DeepInfra'})`);
     if (!deducted) {
-      setRequiredCreditsNeeded(1);
+      setRequiredCreditsNeeded(unitCost);
       setCreditModalOpen(true);
       return;
     }
@@ -582,7 +628,7 @@ export default function StoryboardInner() {
     generatingSceneIdsRef.current.add(scene.sceneId);
 
     const apiKey = (await getPollinationsApiKey()) || '';
-    const chosenModel = await getPollinationsImageModel();
+    const chosenModel = selectedAIModel?.modelId || (await getPollinationsImageModel());
 
     const preset = presetRef.current;
     const effectiveVisual = newPrompt && newPrompt.trim() ? newPrompt.trim() : scene.visualPrompt;
@@ -604,6 +650,9 @@ export default function StoryboardInner() {
         apiKey,
         projectId,
         model: chosenModel,
+        creditCost: selectedAIModel?.creditCost,
+        inferenceSteps: selectedAIModel?.inferenceSteps,
+        guidanceScale: selectedAIModel?.guidanceScale,
         stylePrompt: preset?.stylePrompt,
         negativePrompt: preset?.negativePrompt,
         aspectRatio: projectRef.current?.aspectRatio || preset?.aspectRatio || '16:9',
@@ -621,7 +670,7 @@ export default function StoryboardInner() {
           onComplete: () => { },
           onError: (sceneId, err) => {
             console.error(`[Storyboard] Scene ${sceneId} regenerate error:`, err);
-            grantUserCredits(1, `Refund: Scene ${sceneId} regenerate failed`);
+            grantUserCredits(unitCost, `Refund: Scene ${sceneId} regenerate failed`);
           },
           onPause: () => { },
         },
@@ -629,7 +678,7 @@ export default function StoryboardInner() {
     } catch (err) {
       console.error(`[Storyboard] retryScene error for scene ${scene.sceneId}:`, err);
       if (!completedSuccessfully) {
-        grantUserCredits(1, `Refund: Scene ${scene.sceneId} exception`);
+        grantUserCredits(unitCost, `Refund: Scene ${scene.sceneId} exception`);
       }
     } finally {
       generatingSceneIdsRef.current.delete(scene.sceneId);
@@ -872,7 +921,7 @@ export default function StoryboardInner() {
           </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2.5 flex-wrap">
           {/* Hidden file input for uploading custom voiceover */}
           <input
             ref={voiceInputRef}
@@ -1182,16 +1231,22 @@ export default function StoryboardInner() {
 
             {/* Step 2: Generate Images */}
             {scenes.length > 0 && pendingImages > 0 && !generatingImages && !generatingMotion && (
-              <button
-                id="generate-images-btn"
-                onClick={() => handleGenerateImages(scenes)}
-                className="btn-primary w-full justify-center"
-              >
-                <PlayCircle size={15} />
-                {pendingImages < scenes.length
-                  ? `Resume Images (${pendingImages} left)`
-                  : `Generate ${scenes.length} Images (Pollinations)`}
-              </button>
+              <div className="space-y-1.5">
+                <button
+                  id="generate-images-btn"
+                  onClick={() => handleGenerateImages(scenes)}
+                  className="btn-primary w-full justify-center"
+                >
+                  <PlayCircle size={15} />
+                  {pendingImages < scenes.length
+                    ? `Resume Images (${pendingImages} left)`
+                    : `Generate ${scenes.length} Images (${scenes.length * (selectedAIModel?.creditCost ?? 2)} cr)`}
+                </button>
+                <div className="flex items-center justify-between px-1 text-[11px] text-zinc-400">
+                  <span className="truncate max-w-[150px]">{selectedAIModel?.name || 'AI Engine'}</span>
+                  <span className="font-mono text-cyan-400 font-bold">{selectedAIModel?.creditCost ?? 2} cr/img</span>
+                </div>
+              </div>
             )}
 
             {/* Stop button */}

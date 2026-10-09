@@ -3,6 +3,7 @@
 import React from 'react';
 import { Edit2, X, Loader2, Wand2, RefreshCw } from 'lucide-react';
 import PromptModifierChips from './prompt-modifier-chips';
+import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 
 interface ScenePromptEditorOverlayProps {
   sceneId: number;
@@ -86,23 +87,26 @@ export default function ScenePromptEditorOverlay({
         <PromptModifierChips onAppend={onAppendModifier} size="xs" />
       </div>
 
-      <div className="flex items-center gap-2 pt-2 border-t border-zinc-800">
-        <button
-          type="button"
-          onClick={onRegenerate}
-          disabled={isSubmitDisabled}
-          className="flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-[0.98]"
-        >
-          <RefreshCw size={11} className={isSubmittingRegenerate ? 'animate-spin' : ''} />
-          <span>Regenerate</span>
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-        >
-          Cancel
-        </button>
+      <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-zinc-800">
+        <ModelSelectorDropdown size="sm" compact direction="up" align="left" />
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onRegenerate}
+            disabled={isSubmitDisabled}
+            className="py-1.5 px-3 rounded-lg text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-[0.98]"
+          >
+            <RefreshCw size={11} className={isSubmittingRegenerate ? 'animate-spin' : ''} />
+            <span>Regenerate</span>
+          </button>
+        </div>
       </div>
     </div>
   );

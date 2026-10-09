@@ -133,6 +133,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         // Pass broadcast=false to prevent re-triggering credits_updated listener!
         setActiveUserProfile(profile, false);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth_profile_loaded', { detail: profile }));
+        }
       } else {
         setState({
           user: activeUser,
@@ -142,6 +145,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isLoading: false,
         });
         setActiveUserProfile(null, false);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth_profile_loaded', { detail: null }));
+        }
       }
     } catch (err) {
       console.warn('[AuthProvider] Error loading user data:', err);
@@ -199,4 +205,8 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+export function useOptionalAuth() {
+  return useContext(AuthContext);
 }

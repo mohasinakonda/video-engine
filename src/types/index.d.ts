@@ -59,6 +59,8 @@ export interface ProjectManifest {
   customNegativePrompt?: string;
   /** Phase 2: project-level aspect ratio */
   aspectRatio?: '16:9' | '9:16' | '1:1';
+  /** Phase 2: chosen AI image generation model */
+  imageModel?: string;
   /** Phase 2: export configuration settings */
   exportSettings?: ExportSettings;
   /** Phase 3: relative path to the rendered final MP4 video */
@@ -91,6 +93,8 @@ export interface VisualWorldBible {
   characters: CharacterVisualAnchor[];
   colorPaletteAndLighting: string;
   strictAnachronismBans: string;
+  videoTopicAndMotive?: string;
+  coreSubjectOrProtagonist?: string;
 }
 
 // ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────
@@ -334,4 +338,7 @@ export interface YouTubePackagingData {
   generatedAt?: number;
   remainingCredits?: number;
 }
+
+export type { AIImageModel } from './subscription';
+
 

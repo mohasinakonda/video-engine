@@ -14,6 +14,7 @@ import {
 import type { ThumbnailConcept } from '@/types';
 import { useLaunchKit } from '../../launch-kit-context';
 import { CopyButton } from '../../components/copy-button';
+import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 
 interface DraftPromptStageProps {
   concept: ThumbnailConcept;
@@ -34,6 +35,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
     packaging,
     stylePreset,
     userCredits,
+    selectedAIModel,
     generatingThumbId,
     enhancingThumbId,
     setConceptEditMode,
@@ -188,29 +190,33 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
             Renders in <strong className="text-white">{project.aspectRatio || '16:9'}</strong> matching{' '}
             <strong className="text-purple-300">{stylePreset?.name || 'Cinematic'}</strong>
           </span>
-
         </div>
 
-        <button
-          type="button"
-          onClick={() => handleGenerateThumbnail(concept)}
-          disabled={isGeneratingThis || Boolean(generatingThumbId)}
-          className="btn-primary text-xs px-6 py-2.5 flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 w-full sm:w-auto font-bold"
-        >
-          {isGeneratingThis ? (
-            <>
-              <Loader2 size={15} className="animate-spin text-white" />
-              <span>Rendering High-Res Thumbnail (FLUX)...</span>
-            </>
-          ) : (
-            <>
-              <Sparkles size={15} className="text-amber-300" />
-              <span>
-                {hasImage ? 'Re-render Thumbnail' : 'Generate Thumbnail (In-Place)'}
-              </span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+          <ModelSelectorDropdown size="sm" direction="up" />
+          <button
+            type="button"
+            onClick={() => handleGenerateThumbnail(concept)}
+            disabled={isGeneratingThis || Boolean(generatingThumbId)}
+            className="btn-primary text-xs px-6 py-2.5 flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 w-full sm:w-auto font-bold"
+          >
+            {isGeneratingThis ? (
+              <>
+                <Loader2 size={15} className="animate-spin text-white" />
+                <span>Rendering High-Res Thumbnail...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={15} className="text-amber-300" />
+                <span>
+                  {hasImage
+                    ? `Re-render (${selectedAIModel?.creditCost ?? 2} cr)`
+                    : `Generate Thumbnail (${selectedAIModel?.creditCost ?? 2} cr)`}
+                </span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

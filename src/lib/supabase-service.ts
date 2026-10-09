@@ -11,6 +11,7 @@ import type {
   PromoValidationResult,
   PaymentSubmission,
   AdminSettings,
+  AIImageModel,
 } from '@/types/subscription';
 import type { BaseStylePreset } from '@/types';
 import { SUB_STYLES_CATALOG } from '@/lib/style-taxonomy';
@@ -124,9 +125,9 @@ export async function fetchSupabaseProfile(userId: string): Promise<UserProfile 
 }
 
 /** Atomic credit deduction via Supabase RPC function */
-export async function deductCreditsRemote(userId: string, amount: number): Promise<boolean> {
+export async function deductCreditsRemote(userId: string, amount: number, clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
-  const supabase = createClient();
+  const supabase = clientOverride || createClient();
   const { data, error } = await supabase.rpc('deduct_credits', {
     p_user_id: userId,
     p_amount: amount,
@@ -141,9 +142,9 @@ export async function deductCreditsRemote(userId: string, amount: number): Promi
 }
 
 /** Atomic credit grant via Supabase RPC function */
-export async function grantCreditsRemote(userId: string, amount: number): Promise<boolean> {
+export async function grantCreditsRemote(userId: string, amount: number, clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
-  const supabase = createClient();
+  const supabase = clientOverride || createClient();
   const { error } = await supabase.rpc('grant_credits', {
     p_user_id: userId,
     p_amount: amount,
@@ -1221,6 +1222,203 @@ export async function seedDefaultArtStylesRemote(): Promise<{ success: boolean; 
     return { success: false, count: 0, error: err?.message || 'Unknown error' };
   }
 }
+
+// ─── AI IMAGE MODELS (DeepInfra Dynamic Catalog) ─────────────────────────────
+
+/** Fetch all AI models from Supabase */
+export async function fetchAIModelsRemote(
+  clientOrIncludeInactive?: any,
+  includeInactive?: boolean
+): Promise<AIImageModel[] | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    let supabase = createClient();
+    let shouldIncludeInactive = false;
+
+    if (clientOrIncludeInactive && typeof clientOrIncludeInactive === 'object' && 'from' in clientOrIncludeInactive) {
+      supabase = clientOrIncludeInactive;
+      shouldIncludeInactive = Boolean(includeInactive);
+    } else if (typeof clientOrIncludeInactive === 'boolean') {
+      shouldIncludeInactive = clientOrIncludeInactive;
+    }
+
+    let query = supabase
+      .from('ai_models')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (!shouldIncludeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return null;
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      modelId: row.model_id,
+      provider: row.provider || 'deepinfra',
+      description: row.description || '',
+      creditCost: typeof row.credit_cost === 'number' ? row.credit_cost : 2,
+      allowedPlans: Array.isArray(row.allowed_plans) ? row.allowed_plans : ['CREATOR', 'STUDIO'],
+      inferenceSteps: row.inference_steps ?? 4,
+      guidanceScale: row.guidance_scale ? Number(row.guidance_scale) : 1.0,
+      isDefault: Boolean(row.is_default),
+      isActive: Boolean(row.is_active),
+      sortOrder: row.sort_order ?? 10,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+      updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+    }));
+  } catch (err) {
+    console.error('[Supabase] Failed to fetch AI models:', err);
+    return null;
+  }
+}
+
+/** Upsert an AI model in Supabase */
+export async function upsertAIModelRemote(model: AIImageModel, client?: any): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = client || createClient();
+
+    if (model.isDefault) {
+      await supabase.from('ai_models').update({ is_default: false }).neq('id', model.id);
+    }
+
+    const payload = {
+      id: model.id,
+      name: model.name,
+      model_id: model.modelId,
+      provider: model.provider || 'deepinfra',
+      description: model.description || null,
+      credit_cost: Math.max(0, model.creditCost ?? 2),
+      allowed_plans: model.allowedPlans && model.allowedPlans.length > 0 ? model.allowedPlans : ['CREATOR', 'STUDIO'],
+      inference_steps: model.inferenceSteps ?? 4,
+      guidance_scale: model.guidanceScale ?? 1.0,
+      is_default: Boolean(model.isDefault),
+      is_active: model.isActive !== false,
+      sort_order: model.sortOrder ?? 10,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('ai_models').upsert(payload);
+    if (error) {
+      console.error('[Supabase] Failed to upsert AI model:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error upserting AI model:', err);
+    return false;
+  }
+}
+
+/** Toggle AI model active status */
+export async function toggleAIModelActiveRemote(id: string, isActive: boolean, client?: any): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = client || createClient();
+    const { error } = await supabase
+      .from('ai_models')
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
+      console.error('[Supabase] Failed to toggle AI model active:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error toggling AI model active:', err);
+    return false;
+  }
+}
+
+/** Delete an AI model */
+export async function deleteAIModelRemote(id: string, client?: any): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = client || createClient();
+    const { error } = await supabase.from('ai_models').delete().eq('id', id);
+    if (error) {
+      console.error('[Supabase] Failed to delete AI model:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error deleting AI model:', err);
+    return false;
+  }
+}
+
+/** Seed default standard DeepInfra models */
+export async function seedDefaultAIModelsRemote(client?: any): Promise<{ success: boolean; count: number; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, count: 0, error: 'Supabase credentials not configured' };
+  }
+  try {
+    const supabase = client || createClient();
+    const defaults = [
+      {
+        id: 'flux-1-schnell',
+        name: 'FLUX.1 Schnell',
+        model_id: 'black-forest-labs/FLUX-1-schnell',
+        provider: 'deepinfra',
+        description: 'Ultra-fast 4-step generation (~200ms) with sharp photorealism and high visual fidelity.',
+        credit_cost: 2,
+        allowed_plans: ['TRIAL', 'STARTER', 'CREATOR', 'STUDIO'],
+        inference_steps: 4,
+        guidance_scale: 1.0,
+        is_default: true,
+        is_active: true,
+        sort_order: 10,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'flux-1-dev',
+        name: 'FLUX.1 Dev (Ultra Pro)',
+        model_id: 'black-forest-labs/FLUX-1-dev',
+        provider: 'deepinfra',
+        description: 'Cinematic studio-grade photorealism, superior complex anatomy, and maximum character coherence.',
+        credit_cost: 4,
+        allowed_plans: ['CREATOR', 'STUDIO'],
+        inference_steps: 28,
+        guidance_scale: 3.5,
+        is_default: false,
+        is_active: true,
+        sort_order: 20,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'sdxl-turbo',
+        name: 'SDXL Turbo (Instant)',
+        model_id: 'stabilityai/sdxl-turbo',
+        provider: 'deepinfra',
+        description: 'Real-time single-step generation for rapid visual concepting and storyboard mockups.',
+        credit_cost: 1,
+        allowed_plans: ['STARTER', 'CREATOR', 'STUDIO'],
+        inference_steps: 1,
+        guidance_scale: 1.0,
+        is_default: false,
+        is_active: true,
+        sort_order: 30,
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
+    const { error } = await supabase.from('ai_models').upsert(defaults);
+    if (error) {
+      console.error('[Supabase] Failed to seed default AI models:', error);
+      return { success: false, count: 0, error: error.message };
+    }
+    return { success: true, count: defaults.length };
+  } catch (err: any) {
+    console.error('[Supabase] Error seeding default AI models:', err);
+    return { success: false, count: 0, error: err?.message || 'Unknown error' };
+  }
+}
+
 
 
 
