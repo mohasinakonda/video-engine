@@ -275,6 +275,12 @@ export default function AdminHubPage() {
 
           <div className="flex items-center gap-3 flex-wrap">
             <Link
+              href="/admin/models"
+              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 border border-cyan-500/20"
+            >
+              <Zap size={14} /> AI Models
+            </Link>
+            <Link
               href="/admin/styles"
               className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >

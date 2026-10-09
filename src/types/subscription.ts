@@ -148,3 +148,21 @@ export interface RevenueAnalytics {
   totalImagesGenerated: number;
   topPromoCodes: { code: string; uses: number; revenueBDT: number }[];
 }
+
+export interface AIImageModel {
+  id: string;
+  name: string;
+  modelId: string;
+  provider: 'deepinfra';
+  description?: string;
+  creditCost: number;
+  allowedPlans: PlanTier[];
+  inferenceSteps?: number;
+  guidanceScale?: number;
+  isDefault: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt?: number;
+  updatedAt?: number;
+}
+

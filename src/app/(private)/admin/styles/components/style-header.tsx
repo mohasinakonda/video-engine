@@ -29,7 +29,12 @@ export function StyleHeader({
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-
+        <a
+          href="/admin/models"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-cyan-400 text-xs font-semibold border border-cyan-500/20 transition-all"
+        >
+          AI Models
+        </a>
         <button
           onClick={onOpenCreateModal}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white shadow-lg shadow-purple-900/30 transition-all"

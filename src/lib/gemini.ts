@@ -390,7 +390,17 @@ export async function generateImage(
   apiKey: string,
   prompt: string,
   negativePrompt?: string,
-  options?: { model?: string; width?: number; height?: number; seed?: number; baseStyle?: string; aspectRatio?: '16:9' | '9:16' | '1:1' }
+  options?: {
+    model?: string;
+    width?: number;
+    height?: number;
+    seed?: number;
+    baseStyle?: string;
+    aspectRatio?: '16:9' | '9:16' | '1:1';
+    creditCost?: number;
+    inferenceSteps?: number;
+    guidanceScale?: number;
+  }
 ): Promise<ImageGenerationResult> {
   const isVertical = options?.aspectRatio === '9:16';
   const isSquare = options?.aspectRatio === '1:1';
@@ -404,6 +414,9 @@ export async function generateImage(
     height: options?.height || defaultHeight,
     apiKey,
     aspectRatio: options?.aspectRatio,
+    creditCost: options?.creditCost,
+    inferenceSteps: options?.inferenceSteps,
+    guidanceScale: options?.guidanceScale,
   });
 
   return {

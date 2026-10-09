@@ -3,7 +3,9 @@ import {
   isSupabaseConfigured,
   deductCreditsRemote,
   grantCreditsRemote,
+  fetchAIModelsRemote,
 } from '@/lib/supabase-service';
+import type { AIImageModel } from '@/types/subscription';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import OpenAI from 'openai';
 import { generateDeepInfraFluxImage, getFluxDimensions } from '@/lib/deepinfra';
@@ -54,8 +56,10 @@ function buildFinalPrompt(
 }
 
 export async function POST(req: Request) {
+  let serverSupabase: any = null;
   let authenticatedUserId: string | null = null;
   let remainingCredits: number | null = null;
+  let deductedCreditsCount = 0;
 
   try {
     const body = await req.json();
@@ -65,51 +69,142 @@ export async function POST(req: Request) {
       width: reqWidth,
       height: reqHeight,
       seed,
-      model = 'black-forest-labs/FLUX-1-schnell',
+      model,
       stylePrompt,
       negativePrompt,
       apiKey,
+      creditCost: reqCreditCost,
+      numInferenceSteps,
+      inferenceSteps: reqInferenceSteps,
+      guidanceScale: reqGuidanceScale,
     } = body;
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
     }
 
-    // ─── 0. Authenticate Caller & Atomically Deduct 2 Credits (if Supabase user exists) ───
-    const CREDITS_PER_IMAGE = 2;
+    // ─── Step 0: Resolve AI Model & Credit Cost dynamically from Supabase / Request ───
+    let modelRecord: AIImageModel | null = null;
+    let selectedModelId = typeof model === 'string' && model.trim() ? model.trim() : '';
+    let creditsPerImage: number | null = typeof reqCreditCost === 'number' && reqCreditCost > 0 ? reqCreditCost : null;
+    let inferenceSteps: number | null = typeof numInferenceSteps === 'number' && numInferenceSteps > 0
+      ? numInferenceSteps
+      : typeof reqInferenceSteps === 'number' && reqInferenceSteps > 0
+      ? reqInferenceSteps
+      : null;
+    let guidanceScale: number | null = typeof reqGuidanceScale === 'number' ? reqGuidanceScale : null;
+
     if (isSupabaseConfigured()) {
       try {
-        const serverSupabase = createServerClient();
-        const {
-          data: { user },
-        } = await serverSupabase.auth.getUser();
+        try {
+          serverSupabase = createServerClient();
+        } catch {}
 
-        if (user) {
-          authenticatedUserId = user.id;
+        const allModels = await fetchAIModelsRemote(serverSupabase, true);
 
-          const { data: profile } = await serverSupabase
-            .from('profiles')
-            .select('credits_remaining, is_blocked, block_reason')
-            .eq('id', user.id)
-            .single();
+        if (allModels && allModels.length > 0) {
+          // Find matching model dynamically by modelId, UUID id, or name (case-insensitive)
+          const matched = selectedModelId
+            ? allModels.find(
+                (m) =>
+                  m.modelId.toLowerCase() === selectedModelId.toLowerCase() ||
+                  m.id === selectedModelId ||
+                  m.name.toLowerCase() === selectedModelId.toLowerCase()
+              )
+            : null;
 
-          if (profile?.is_blocked) {
-            return NextResponse.json(
-              { error: profile.block_reason || 'Your account is suspended.' },
-              { status: 403 }
-            );
+          const chosen = matched || allModels.find((m) => m.isDefault) || allModels[0];
+
+          if (chosen) {
+            modelRecord = chosen;
+            selectedModelId = chosen.modelId;
+            if (creditsPerImage === null) creditsPerImage = chosen.creditCost ?? null;
+            if (inferenceSteps === null) inferenceSteps = chosen.inferenceSteps ?? null;
+            if (guidanceScale === null) guidanceScale = chosen.guidanceScale ?? null;
           }
+        }
+      } catch (dbErr) {
+        console.warn('[generate-image] Could not fetch model config from Supabase:', dbErr);
+      }
+    }
 
-          if (profile && profile.credits_remaining < CREDITS_PER_IMAGE) {
-            return NextResponse.json(
-              { error: `Insufficient credits. Image generation requires ${CREDITS_PER_IMAGE} credits. You currently have ${profile.credits_remaining} credits.` },
-              { status: 402 }
-            );
-          }
+    // Dynamic fallbacks if not resolved from Supabase
+    if (!selectedModelId) {
+      selectedModelId = 'black-forest-labs/FLUX-1-schnell';
+    }
+    if (creditsPerImage === null) {
+      creditsPerImage = selectedModelId.toLowerCase().includes('dev') ? 4 : 2;
+    }
+    if (inferenceSteps === null) {
+      const isDev = selectedModelId.toLowerCase().includes('dev');
+      const isTurbo = selectedModelId.toLowerCase().includes('turbo') || selectedModelId.toLowerCase().includes('lightning');
+      inferenceSteps = isDev ? 28 : isTurbo ? 1 : 4;
+    }
+    if (guidanceScale === null) {
+      const isDev = selectedModelId.toLowerCase().includes('dev');
+      guidanceScale = isDev ? 3.5 : 1.0;
+    }
 
-          const deducted = await deductCreditsRemote(user.id, CREDITS_PER_IMAGE);
-          if (deducted && profile) {
-            remainingCredits = profile.credits_remaining - CREDITS_PER_IMAGE;
+    // ─── Step 0b: Authenticate Caller, Verify Plan Tier & Atomically Deduct Credits ───
+    if (isSupabaseConfigured()) {
+      try {
+        if (!serverSupabase) {
+          try {
+            serverSupabase = createServerClient();
+          } catch {}
+        }
+
+        if (serverSupabase) {
+          const {
+            data: { user },
+          } = await serverSupabase.auth.getUser();
+
+          if (user) {
+            authenticatedUserId = user.id;
+
+            const { data: profile } = await serverSupabase
+              .from('profiles')
+              .select('credits_remaining, is_blocked, block_reason, tier')
+              .eq('id', user.id)
+              .single();
+
+            if (profile?.is_blocked) {
+              return NextResponse.json(
+                { error: profile.block_reason || 'Your account is suspended.' },
+                { status: 403 }
+              );
+            }
+
+            // Check if this model is restricted to specific plans
+            const allowedPlans = modelRecord?.allowedPlans;
+            if (Array.isArray(allowedPlans) && allowedPlans.length > 0) {
+              const userTier = profile?.tier || 'TRIAL';
+              if (!allowedPlans.includes(userTier)) {
+                return NextResponse.json(
+                  {
+                    error: `The "${modelRecord?.name || selectedModelId}" model is exclusive to ${allowedPlans.join(' and ')} plans. Please upgrade your plan to unlock this engine.`,
+                    requiresUpgrade: true,
+                    allowedPlans,
+                  },
+                  { status: 403 }
+                );
+              }
+            }
+
+            if (profile && profile.credits_remaining < creditsPerImage) {
+              return NextResponse.json(
+                {
+                  error: `Insufficient credits. This image generation requires ${creditsPerImage} credits. You currently have ${profile.credits_remaining} credits.`,
+                },
+                { status: 402 }
+              );
+            }
+
+            const deducted = await deductCreditsRemote(user.id, creditsPerImage, serverSupabase);
+            if (deducted && profile) {
+              deductedCreditsCount = creditsPerImage;
+              remainingCredits = profile.credits_remaining - creditsPerImage;
+            }
           }
         }
       } catch (authErr) {
@@ -128,16 +223,17 @@ export async function POST(req: Request) {
     const userApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0 ? apiKey.trim() : undefined;
     const pollinationsKey = userApiKey || process.env.POLLINATIONS_API_KEY;
 
-    // ─── 1. DeepInfra Primary: black-forest-labs/FLUX-1-schnell ───────────────
+    // ─── 1. DeepInfra Primary Engine ───────────────
     if (deepinfraKey && deepinfraKey.trim()) {
       try {
         const result = await generateDeepInfraFluxImage(finalPrompt, {
+          model: selectedModelId,
           aspectRatio,
           width: reqWidth,
           height: reqHeight,
           seed,
-          numInferenceSteps: 4,
-          guidanceScale: 1.0,
+          numInferenceSteps: inferenceSteps,
+          guidanceScale,
           negativePrompt: finalNegative,
           apiKey: deepinfraKey,
         });
@@ -149,16 +245,18 @@ export async function POST(req: Request) {
           url: result.base64Image,
           originalPrompt: prompt,
           optimizedPrompt: finalPrompt,
-          provider: 'deepinfra',
-          model: 'black-forest-labs/FLUX-1-schnell',
+          provider: modelRecord?.provider || 'deepinfra',
+          model: selectedModelId,
           runtimeMs: result.runtimeMs,
           cost: result.cost,
+          creditsDeducted: creditsPerImage,
           remainingCredits,
         });
       } catch (err) {
-        console.warn('DeepInfra FLUX-1-schnell error, checking fallbacks:', err);
+        console.warn(`DeepInfra ${selectedModelId} error, checking fallbacks:`, err);
       }
     }
+
 
     // ─── 2. Together AI / OpenAI Provider Fallback ──────────────────────────
     if (togetherKey && togetherKey.trim()) {
@@ -168,12 +266,18 @@ export async function POST(req: Request) {
           baseURL: process.env.AI_PROVIDER_BASE_URL || 'https://api.together.xyz/v1',
         });
 
+        const togetherModel = selectedModelId.toLowerCase().includes('dev')
+          ? 'black-forest-labs/FLUX.1-dev'
+          : selectedModelId.toLowerCase().includes('schnell')
+          ? 'black-forest-labs/FLUX.1-schnell'
+          : selectedModelId;
+
         const imageResponse = await togetherClient.images.generate({
-          model: 'black-forest-labs/FLUX.1-schnell',
+          model: togetherModel,
           prompt: finalPrompt,
           width: Math.min(width, 1024),
           height: Math.min(height, 1024),
-          steps: 4,
+          steps: inferenceSteps,
           response_format: 'b64_json',
         } as any);
 
@@ -188,19 +292,25 @@ export async function POST(req: Request) {
             originalPrompt: prompt,
             optimizedPrompt: finalPrompt,
             provider: 'together',
-            model: 'black-forest-labs/FLUX.1-schnell',
+            model: togetherModel,
+            creditsDeducted: creditsPerImage,
             remainingCredits,
           });
         }
       } catch (err) {
-        console.warn('Together AI FLUX.1-schnell error, checking fallbacks:', err);
+        console.warn('Together AI error, checking fallbacks:', err);
       }
     }
 
     // ─── 3. fal.ai Fallback (High-Speed) ────────────────────────────────────────
     if (falKey && falKey.trim()) {
       try {
-        const response = await fetch('https://fal.run/fal-ai/flux/schnell', {
+        const isDevFal = selectedModelId.toLowerCase().includes('dev');
+        const falEndpoint = isDevFal
+          ? 'https://fal.run/fal-ai/flux/dev'
+          : 'https://fal.run/fal-ai/flux/schnell';
+
+        const response = await fetch(falEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -209,8 +319,8 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             prompt: finalPrompt,
             image_size: aspectRatio === '9:16' ? 'portrait_hd' : aspectRatio === '1:1' ? 'square_hd' : 'landscape_hd',
-            num_inference_steps: 4,
-            guidance_scale: 1.0,
+            num_inference_steps: inferenceSteps,
+            guidance_scale: guidanceScale,
             seed: seed || Math.floor(Math.random() * 1000000),
             sync_mode: true,
           }),
@@ -231,7 +341,8 @@ export async function POST(req: Request) {
               originalPrompt: prompt,
               optimizedPrompt: finalPrompt,
               provider: 'fal',
-              model: 'fal-ai/flux/schnell',
+              model: isDevFal ? 'fal-ai/flux/dev' : 'fal-ai/flux/schnell',
+              creditsDeducted: creditsPerImage,
               remainingCredits,
             });
           }
@@ -244,11 +355,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // ─── 3. Pollinations AI Fallback ──────────────────────────────────────
+    // ─── 4. Pollinations AI Fallback ──────────────────────────────────────
     const encodedPrompt = encodeURIComponent(finalPrompt);
     const polSeed = seed || Math.floor(Math.random() * 1000000);
     const pollHeaders: Record<string, string> = {};
     const cleanPolKey = pollinationsKey ? pollinationsKey.trim() : '';
+    const encodedModel = encodeURIComponent(selectedModelId);
 
     if (cleanPolKey) {
       pollHeaders['Authorization'] = `Bearer ${cleanPolKey}`;
@@ -256,9 +368,9 @@ export async function POST(req: Request) {
 
     let pollUrl = '';
     if (cleanPolKey) {
-      pollUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${encodeURIComponent(model)}&nologo=true&seed=${polSeed}&quality=hd&key=${encodeURIComponent(cleanPolKey)}`;
+      pollUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${encodedModel}&nologo=true&seed=${polSeed}&quality=hd&key=${encodeURIComponent(cleanPolKey)}`;
     } else {
-      pollUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodeURIComponent(model)}&nologo=true`;
+      pollUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodedModel}&nologo=true`;
     }
 
     let pollRes = await fetch(pollUrl, {
@@ -268,7 +380,7 @@ export async function POST(req: Request) {
 
     // If non-OK, try public image.pollinations.ai with requested model
     if (!pollRes || !pollRes.ok) {
-      const publicUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodeURIComponent(model)}&nologo=true`;
+      const publicUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodedModel}&nologo=true`;
       pollRes = await fetch(publicUrl, {
         headers: pollHeaders,
         signal: AbortSignal.timeout(30000),
@@ -277,7 +389,7 @@ export async function POST(req: Request) {
 
     // If still non-OK, try free 'sana' model
     if (!pollRes || !pollRes.ok) {
-      console.warn(`Pollinations returned error for model '${model}'. Retrying with free 'sana' model...`);
+      console.warn(`Pollinations returned error for model '${selectedModelId}'. Retrying with free 'sana' model...`);
       const sanaUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=sana&nologo=true`;
       pollRes = await fetch(sanaUrl, {
         headers: pollHeaders,
@@ -309,18 +421,19 @@ export async function POST(req: Request) {
       originalPrompt: prompt,
       optimizedPrompt: finalPrompt,
       provider: 'pollinations',
-      model,
+      model: selectedModelId,
+      creditsDeducted: creditsPerImage,
       remainingCredits,
     });
 
   } catch (error: any) {
     console.error('API /api/generate-image error:', error);
 
-    // If an error occurred after credit deduction, refund the 2 credits
-    if (authenticatedUserId && isSupabaseConfigured()) {
+    // If an error occurred after credit deduction, refund the deducted credits
+    if (authenticatedUserId && isSupabaseConfigured() && deductedCreditsCount > 0) {
       try {
-        await grantCreditsRemote(authenticatedUserId, 2);
-        console.log(`[API /api/generate-image] Refunded 2 credits to ${authenticatedUserId} due to generation failure`);
+        await grantCreditsRemote(authenticatedUserId, deductedCreditsCount, serverSupabase);
+        console.log(`[API /api/generate-image] Refunded ${deductedCreditsCount} credits to ${authenticatedUserId} due to generation failure`);
       } catch (refundErr) {
         console.error('[API /api/generate-image] Failed to refund credits:', refundErr);
       }

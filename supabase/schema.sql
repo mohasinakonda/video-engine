@@ -601,3 +601,42 @@ create policy "Admins can manage art styles"
   using (public.is_admin())
   with check (public.is_admin());
 
+-- ==============================================================================
+-- AI IMAGE MODELS (Dynamic DeepInfra Catalog Managed by Admin)
+-- ==============================================================================
+create table if not exists public.ai_models (
+  id text primary key,
+  name text not null,
+  model_id text not null,
+  provider text default 'deepinfra' not null,
+  description text,
+  credit_cost int default 2 not null check (credit_cost >= 0),
+  allowed_plans text[] default array['CREATOR', 'STUDIO']::text[] not null,
+  inference_steps int default 4,
+  guidance_scale numeric default 1.0,
+  is_default boolean default false not null,
+  is_active boolean default true not null,
+  sort_order int default 10 not null,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+create index if not exists idx_ai_models_active on public.ai_models(is_active);
+create index if not exists idx_ai_models_sort on public.ai_models(sort_order);
+
+alter table public.ai_models enable row level security;
+
+-- Public can read all active models
+drop policy if exists "Anyone can read active ai models" on public.ai_models;
+create policy "Anyone can read active ai models" 
+  on public.ai_models for select 
+  using (is_active = true);
+
+-- Admins have full management access
+drop policy if exists "Admins can manage ai models" on public.ai_models;
+create policy "Admins can manage ai models" 
+  on public.ai_models for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+

@@ -7,6 +7,7 @@ import type {
   ThumbnailConcept,
   BaseStylePreset,
 } from '@/types';
+import type { AIImageModel } from '@/types/subscription';
 import {
   saveProject,
   getStylePresets,
@@ -31,6 +32,7 @@ interface LaunchKitContextValue {
   onUpdateProject: (updated: ProjectManifest) => void;
   showToast: (msg: string) => void;
   userCredits: number;
+  selectedAIModel: AIImageModel | null;
 
   // Voice script
   voiceScript: string;
@@ -144,6 +146,8 @@ export function LaunchKitProvider({
   const [standoutMode, setStandoutMode] = useState(false);
   const [mockupViewMode, setMockupViewMode] = useState<'mobile' | 'desktop' | 'shorts'>('mobile');
 
+  const [selectedAIModel, setSelectedAIModel] = useState<AIImageModel | null>(null);
+
   useEffect(() => {
     function updateCredits() {
       setUserCredits(getUserCreditsRemaining());
@@ -151,6 +155,41 @@ export function LaunchKitProvider({
     updateCredits();
     window.addEventListener('credits_updated', updateCredits);
     return () => window.removeEventListener('credits_updated', updateCredits);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadActiveModel() {
+      try {
+        const storedModelId = await getPollinationsImageModel();
+        const res = await fetch('/api/models');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.models)) {
+            const match =
+              data.models.find((m: AIImageModel) => m.modelId === storedModelId || m.id === storedModelId) ||
+              data.models.find((m: AIImageModel) => m.isDefault) ||
+              data.models[0];
+            if (isMounted && match) setSelectedAIModel(match);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load initial model in launch kit:', err);
+      }
+    }
+    loadActiveModel();
+
+    const handleModelUpdate = (e: Event) => {
+      const customEvt = e as CustomEvent<AIImageModel>;
+      if (customEvt.detail) {
+        setSelectedAIModel(customEvt.detail);
+      }
+    };
+    window.addEventListener('ai_model_updated', handleModelUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('ai_model_updated', handleModelUpdate);
+    };
   }, []);
 
   const packaging = project.youtubePackaging;
@@ -515,12 +554,15 @@ export function LaunchKitProvider({
       return;
     }
 
-    if (!hasEnoughCredits(1)) {
-      showToast('⚠️ Insufficient credits. Please upgrade or purchase credits to generate a thumbnail.');
+    const chosenModel = selectedAIModel?.modelId || (await getPollinationsImageModel()) || 'black-forest-labs/FLUX-1-schnell';
+    const unitCost = selectedAIModel?.creditCost ?? 2;
+
+    if (!hasEnoughCredits(unitCost)) {
+      showToast(`⚠️ Insufficient credits (${unitCost} required). Please upgrade or purchase credits to generate a thumbnail.`);
       return;
     }
 
-    const deducted = deductUserCredits(1, 'YouTube Thumbnail generation');
+    const deducted = deductUserCredits(unitCost, `YouTube Thumbnail generation (${selectedAIModel?.name || chosenModel})`);
     if (!deducted) {
       showToast('⚠️ Could not deduct credit. Insufficient balance or account blocked.');
       return;
@@ -528,10 +570,9 @@ export function LaunchKitProvider({
 
     setGeneratingThumbId(concept.id);
     try {
-      showToast(`Generating high-res thumbnail with Pollinations (${project.aspectRatio || '16:9'})...`);
+      showToast(`Generating high-res thumbnail with ${selectedAIModel?.name || 'AI Engine'} (${project.aspectRatio || '16:9'})...`);
 
       const apiKey = (await getPollinationsApiKey()) || '';
-      const chosenModel = await getPollinationsImageModel();
       const isVertical = project.aspectRatio === '9:16';
 
       let imageUrl = '';
@@ -621,7 +662,7 @@ export function LaunchKitProvider({
       showToast('✓ Thumbnail generated successfully!');
     } catch (err: any) {
       console.error('Failed to generate thumbnail:', err);
-      grantUserCredits(1, 'Refund: YouTube Thumbnail generation failed');
+      grantUserCredits(unitCost, 'Refund: YouTube Thumbnail generation failed');
       showToast(`Thumbnail generation failed: ${err.message}`);
     } finally {
       setGeneratingThumbId(null);
@@ -732,6 +773,7 @@ ${hashtagsStr}`;
         onUpdateProject,
         showToast,
         userCredits,
+        selectedAIModel,
         voiceScript,
         setVoiceScript,
         isScriptSaved,

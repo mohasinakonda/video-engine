@@ -13,6 +13,7 @@ import {
 import type { SceneItem } from '@/types';
 import { SHOT_TYPE_CONFIG, getAspectRatioLabel } from './scene-card-constants';
 import PromptModifierChips from './prompt-modifier-chips';
+import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 
 interface SceneStudioModalProps {
   scene: SceneItem;
@@ -195,7 +196,13 @@ export default function SceneStudioModal({
             </div>
 
             {/* Regenerate Action */}
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Engine &amp; Credits
+                </span>
+                <ModelSelectorDropdown size="sm" direction="up" />
+              </div>
               <button
                 type="button"
                 onClick={onRegenerate}

@@ -241,6 +241,13 @@ export default function AdminPlanSettingsPage() {
               >
                 Art Styles Studio
               </Link>
+              <span className="text-zinc-600 text-xs">•</span>
+              <Link
+                href="/admin/models"
+                className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+              >
+                AI Models
+              </Link>
             </div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">

@@ -33,6 +33,9 @@ export interface GenerateImageOptions {
   apiKey?: string;
   negativePrompt?: string;
   aspectRatio?: '16:9' | '9:16' | '1:1';
+  creditCost?: number;
+  inferenceSteps?: number;
+  guidanceScale?: number;
 }
 
 export interface PollinationsImageModelOption {
@@ -657,7 +660,10 @@ export async function generateSceneImage(
           negativePrompt: resolvedNegative,
           aspectRatio: options?.aspectRatio || '16:9',
           seed: resolvedSeed,
-          model: 'black-forest-labs/FLUX-1-schnell',
+          model,
+          creditCost: options?.creditCost,
+          inferenceSteps: options?.inferenceSteps,
+          guidanceScale: options?.guidanceScale,
         }),
       });
 
@@ -681,6 +687,7 @@ export async function generateSceneImage(
     try {
       const { generateDeepInfraFluxImage } = await import('@/lib/deepinfra');
       const diRes = await generateDeepInfraFluxImage(finalPrompt, {
+        model,
         stylePrompt: baseStyle,
         negativePrompt: options?.negativePrompt,
         aspectRatio: options?.aspectRatio || '16:9',

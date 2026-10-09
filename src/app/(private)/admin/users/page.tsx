@@ -235,6 +235,12 @@ export default function AdminUsersPage() {
 
           <div className="flex items-center gap-3 flex-wrap">
             <Link
+              href="/admin/models"
+              className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-cyan-500/30 text-xs font-semibold text-cyan-400 transition-colors"
+            >
+              AI Models
+            </Link>
+            <Link
               href="/admin/plan"
               className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-700/80 text-xs font-semibold text-zinc-200 transition-colors"
             >

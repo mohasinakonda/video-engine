@@ -30,9 +30,13 @@ import {
   Plus,
   Minus,
   Edit3,
+  Cpu,
+  Zap,
 } from 'lucide-react';
 import ScriptInput from '@/components/script-input';
 import StylePresetModal from '@/components/style-preset-modal';
+import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
+import type { AIImageModel } from '@/types/subscription';
 import {
   getPollinationsApiKey,
   getProject,
@@ -40,6 +44,7 @@ import {
   getDefaultStylePreset,
   getStylePresets,
   saveUserPreferredStyleId,
+  savePollinationsImageModel,
 } from '@/lib/store';
 import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
 import {
@@ -96,9 +101,11 @@ function ProjectPageInner() {
   const [showStyleModal, setShowStyleModal] = useState<boolean>(false);
   const [modalInitialTab, setModalInitialTab] = useState<'catalog' | 'architect' | 'library'>('catalog');
 
-  // Pacing Profile (Default: transcript for voice & thought organic sync)
+  // AI Model Selection State
+  const [selectedAIModel, setSelectedAIModel] = useState<AIImageModel | null>(null);
+
+  // Automatic AI Directed Pacing Profile
   const [pacingProfile, setPacingProfile] = useState<PacingProfile>('transcript');
-  // Optional user scene count override (null = auto calculated from pacing profile & audio duration)
   const [customSceneCount, setCustomSceneCount] = useState<number | null>(null);
 
   // Generation status
@@ -305,6 +312,10 @@ function ProjectPageInner() {
       const activeProjectId = projectId || existingProjectRef.current?.projectId || generateId();
       if (projectId !== activeProjectId) setProjectId(activeProjectId);
 
+      if (selectedAIModel) {
+        await savePollinationsImageModel(selectedAIModel.modelId);
+      }
+
       const manifest: ProjectManifest = {
         projectId: activeProjectId,
         title: projectTitle || 'Visual Storyboard',
@@ -312,6 +323,7 @@ function ProjectPageInner() {
         voicePresetId: '',
         pacingProfile,
         aspectRatio,
+        imageModel: selectedAIModel?.modelId,
         audioChunks: [],
         totalDurationMs: Math.round(totalDurationSec * 1000),
         scenes: newScenes,
@@ -429,6 +441,10 @@ function ProjectPageInner() {
         audioUrl,
       };
 
+      if (selectedAIModel) {
+        await savePollinationsImageModel(selectedAIModel.modelId);
+      }
+
       const manifest: ProjectManifest = {
         projectId: activeProjectId,
         title: projectTitle || `Voice: ${customAudioFile.name.replace(/\.[^/.]+$/, '')}`,
@@ -436,6 +452,7 @@ function ProjectPageInner() {
         voicePresetId: '',
         pacingProfile,
         aspectRatio,
+        imageModel: selectedAIModel?.modelId,
         hasCustomVoice: true,
         customAudioFileName: customAudioFile.name,
         audioChunks: [customChunk],
@@ -636,120 +653,42 @@ function ProjectPageInner() {
               </div>
             </div>
 
-            {/* ─── Scene Pacing Profile & Target Cuts ─────────────────────── */}
-            <div className="space-y-2.5">
+            {/* ─── AI Image Generation Engine & Automatic Pacing ─────────────────── */}
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Gauge size={12} className="text-cyan-400" />
-                  Directorial Pacing
+                  Select Image Model
                 </label>
-                <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
-                  {pacingProfile === 'transcript'
-                    ? '🎙️ Transcript Sync (100% Voice Pauses)'
-                    : pacingProfile === 'documentary'
-                      ? '~5.2s Vox Hybrid'
-                      : pacingProfile === 'cinematic'
-                        ? '~12s Ambient Film'
-                        : pacingProfile === 'fast'
-                          ? '~3.8s Snappy Cuts'
-                          : '~6.5s Natural Story'}
-                </span>
-              </div>
-              <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-zinc-900 border border-zinc-800">
-                {(['transcript', 'documentary', 'fast', 'balanced', 'cinematic'] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => {
-                      setPacingProfile(p);
-                      setCustomSceneCount(null);
-                    }}
-                    className={`py-1.5 px-1 rounded-lg text-[11px] font-medium capitalize transition-colors text-center ${pacingProfile === p
-                      ? 'bg-zinc-800 text-emerald-400 border border-emerald-500/30 shadow-sm font-semibold'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    {p === 'transcript' ? '🎙️ Sync' : p === 'documentary' ? 'Vox Doc' : p}
-                  </button>
-                ))}
+
               </div>
 
-              {/* Visual Cuts & Scene Density Stepper */}
-              {hasVoice ? (
-                <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800 flex items-center gap-2">
-                  <Layers size={12} className="text-amber-400 flex-shrink-0" />
-                  <p className="text-[11px] text-zinc-400">
-                    <span className="text-zinc-200 font-medium">AI Director decides scene count</span> from your uploaded voice's real transcript and timing — the manual target below only applies when generating from script text alone (no voice).
-                  </p>
-                </div>
-              ) : (
-                <div className="p-2.5 rounded-xl bg-zinc-900/70 border border-zinc-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Layers size={12} className="text-amber-400" />
-                      <span className="text-[11px] font-medium text-zinc-300">Target Visual Cuts:</span>
-                    </div>
+              <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm hover:border-zinc-700 transition-colors">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400 flex-shrink-0">
+                    <Cpu size={18} />
+                  </div>
+                  <div className="min-w-0 space-y-0.5 flex-1">
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-0.5">
-                        <button
-                          type="button"
-                          onClick={() => setCustomSceneCount(Math.max(5, (customSceneCount || scriptAnalytics.autoScenes) - 2))}
-                          className="w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-                          title="Decrease scenes"
-                        >
-                          <Minus size={11} />
-                        </button>
-                        <span className="text-xs font-bold font-mono text-emerald-400 px-1 text-center">
-                          {customSceneCount !== null ? customSceneCount : 'Auto (AI)'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setCustomSceneCount((customSceneCount || scriptAnalytics.autoScenes) + 2)}
-                          className="w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-                          title="Increase scenes"
-                        >
-                          <Plus size={11} />
-                        </button>
-                      </div>
-                      <span className="text-[10px] font-mono text-zinc-400">
-                        {customSceneCount !== null ? `(~${scriptAnalytics.avgCutSec}s / cut)` : 'AI Narrative Beats'}
+                      <span className="text-xs font-bold text-white truncate">
+                        {selectedAIModel?.name || 'Loading AI Engine...'}
                       </span>
-                    </div>
-                  </div>
 
-                  {/* Quick Presets for Scene Density */}
-                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                    <span className="text-[9px] font-mono text-zinc-500">Preset Cuts:</span>
-                    <button
-                      type="button"
-                      onClick={() => setCustomSceneCount(null)}
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded transition-all border ${customSceneCount === null
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
-                        : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border-zinc-700'
-                        }`}
-                    >
-                      ✨ Auto (AI Decides)
-                    </button>
-                    {[
-                      { label: '52 (Vox Doc)', count: 52 },
-                      { label: '65 (Fast Cuts)', count: 65 },
-                      { label: '40 (Balanced)', count: 40 },
-                    ].map((preset) => (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() => setCustomSceneCount(preset.count)}
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded transition-all border ${customSceneCount === preset.count
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-semibold'
-                          : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 border-zinc-700'
-                          }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 line-clamp-1 leading-snug">
+                      {selectedAIModel?.description || 'DeepInfra high-fidelity image synthesis engine'}
+                    </p>
                   </div>
                 </div>
-              )}
+
+                <div className="flex-shrink-0 flex items-center justify-end">
+                  <ModelSelectorDropdown
+                    onModelSelect={setSelectedAIModel}
+                    size="sm"
+                    direction="down"
+                    align="right"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* ─── Optional Custom Voiceover Drawer ─────────────────────────── */}
@@ -879,10 +818,7 @@ function ProjectPageInner() {
                 <>
                   <Sparkles size={16} className="text-amber-500" />
                   <span>
-                    Generate Visual Storyboard
-                    {scriptAnalytics.isManualOverride
-                      ? ` (${customSceneCount} scenes)`
-                      : ' (AI Decides Scenes)'}
+                    Generate Visual Storyboard (AI Decides Scenes)
                   </span>
                   <ArrowRight size={15} />
                 </>
@@ -981,9 +917,9 @@ function ProjectPageInner() {
                 </p>
               </div>
               <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-center">
-                <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500">Pacing</span>
-                <p className="text-base font-bold text-emerald-400 mt-0.5 capitalize">
-                  {pacingProfile}
+                <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500">AI Model</span>
+                <p className="text-sm font-bold text-cyan-400 mt-0.5 truncate" title={selectedAIModel?.name}>
+                  {selectedAIModel?.name || 'FLUX.1'}
                 </p>
               </div>
             </div>

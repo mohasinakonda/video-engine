@@ -7,6 +7,7 @@
  */
 
 export interface DeepInfraImageOptions {
+  model?: string;
   aspectRatio?: '16:9' | '9:16' | '1:1';
   width?: number;
   height?: number;
@@ -23,12 +24,13 @@ export interface DeepInfraImageResult {
   mimeType: string;
   arrayBuffer: ArrayBuffer;
   provider: 'deepinfra';
+  model?: string;
   runtimeMs?: number;
   cost?: number;
 }
 
 /**
- * Standard optimal resolutions for FLUX-1-schnell
+ * Standard optimal resolutions for FLUX and diffusion models
  */
 export function getFluxDimensions(aspectRatio?: '16:9' | '9:16' | '1:1', customW?: number, customH?: number) {
   if (customW && customH) {
@@ -45,7 +47,7 @@ export function getFluxDimensions(aspectRatio?: '16:9' | '9:16' | '1:1', customW
 }
 
 /**
- * Executes text-to-image inference using DeepInfra FLUX-1-schnell
+ * Executes text-to-image inference using DeepInfra (supports FLUX, SDXL, and custom models)
  */
 export async function generateDeepInfraFluxImage(
   prompt: string,
@@ -60,6 +62,7 @@ export async function generateDeepInfraFluxImage(
     throw new Error('DEEPINFRA_API_KEY is not configured in environment variables.');
   }
 
+  const modelId = (options.model && options.model.trim()) || 'black-forest-labs/FLUX-1-schnell';
   const { width, height } = getFluxDimensions(options.aspectRatio, options.width, options.height);
 
   let fullPrompt = prompt.trim();
@@ -70,9 +73,22 @@ export async function generateDeepInfraFluxImage(
     }
   }
 
-  // Enforce strict FLUX.1-schnell distillation bounds: 4 steps, guidance_scale: 1.0
-  const steps = typeof options.numInferenceSteps === 'number' ? Math.min(options.numInferenceSteps, 4) : 4;
-  const guidance = typeof options.guidanceScale === 'number' ? options.guidanceScale : 1.0;
+  // Model-specific default steps and guidance scale
+  const isDev = modelId.toLowerCase().includes('flux-1-dev') || modelId.toLowerCase().includes('/dev');
+  const isTurbo = modelId.toLowerCase().includes('turbo') || modelId.toLowerCase().includes('lightning');
+
+  let defaultSteps = 4;
+  let defaultGuidance = 1.0;
+  if (isDev) {
+    defaultSteps = 28;
+    defaultGuidance = 3.5;
+  } else if (isTurbo) {
+    defaultSteps = 1;
+    defaultGuidance = 1.0;
+  }
+
+  const steps = typeof options.numInferenceSteps === 'number' ? options.numInferenceSteps : defaultSteps;
+  const guidance = typeof options.guidanceScale === 'number' ? options.guidanceScale : defaultGuidance;
 
   const payload: Record<string, unknown> = {
     prompt: fullPrompt,
@@ -90,7 +106,8 @@ export async function generateDeepInfraFluxImage(
     payload.negative_prompt = options.negativePrompt.trim();
   }
 
-  const response = await fetch('https://api.deepinfra.com/v1/inference/black-forest-labs/FLUX-1-schnell', {
+  const endpointUrl = `https://api.deepinfra.com/v1/inference/${modelId}`;
+  const response = await fetch(endpointUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -101,7 +118,7 @@ export async function generateDeepInfraFluxImage(
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '');
-    throw new Error(`DeepInfra FLUX-1-schnell HTTP ${response.status}: ${errorBody.slice(0, 250)}`);
+    throw new Error(`DeepInfra ${modelId} HTTP ${response.status}: ${errorBody.slice(0, 250)}`);
   }
 
   const data = await response.json();
@@ -133,7 +150,12 @@ export async function generateDeepInfraFluxImage(
     mimeType,
     arrayBuffer: bytes.buffer,
     provider: 'deepinfra',
+    model: modelId,
     runtimeMs: data.inference_status?.runtime_ms,
     cost: data.inference_status?.cost,
   };
 }
+
+/** General alias for generateDeepInfraFluxImage */
+export const generateDeepInfraImage = generateDeepInfraFluxImage;
+

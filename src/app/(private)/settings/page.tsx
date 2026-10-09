@@ -16,11 +16,14 @@ import {
   saveYouTubeApiKey,
 } from '@/lib/store';
 import {
-  POPULAR_POLLINATIONS_MODELS,
   enhanceScenePrompt,
   type EnhancedScenePromptResult,
 } from '@/lib/pollinations';
 import type { ShotType } from '@/types';
+import type { AIImageModel, PlanTier } from '@/types/subscription';
+import { getCurrentUserProfile } from '@/lib/subscription-store';
+import Link from 'next/link';
+import { Lock, Zap } from 'lucide-react';
 
 const LIGHTING_MODIFIERS = [
   { name: 'Golden Hour', value: 'warm golden hour sunbeams, soft volumetric rim light, rich amber horizon' },
@@ -41,7 +44,9 @@ const CAMERA_MODIFIERS = [
 ];
 
 export default function SettingsPage() {
-  const [imageModel, setImageModel] = useState('flux');
+  const [imageModel, setImageModel] = useState('black-forest-labs/FLUX-1-schnell');
+  const [dbModels, setDbModels] = useState<AIImageModel[]>([]);
+  const [userTier, setUserTier] = useState<PlanTier>('TRIAL');
   const [savedModelToast, setSavedModelToast] = useState(false);
 
   // Playground / Enhancer Tester State
@@ -59,6 +64,18 @@ export default function SettingsPage() {
   const [savingYoutubeKey, setSavingYoutubeKey] = useState(false);
 
   useEffect(() => {
+    const profile = getCurrentUserProfile();
+    if (profile?.tier) setUserTier(profile.tier);
+
+    fetch('/api/models')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.models) {
+          setDbModels(data.models);
+        }
+      })
+      .catch(console.error);
+
     getPollinationsImageModel().then((m) => {
       setImageModel(m);
     });
@@ -126,51 +143,7 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         <div className="max-w-4xl space-y-6 mx-auto animate-slide-up">
 
-          {/* 1. Retained AI Image Model Selector Card */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center">
-                  <Sparkles size={16} className="text-cyan-400" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-semibold text-white">AI Image Generation Model</h2>
-                  <p className="text-xs text-slate-500">
-                    Active diffusion engine powering scene frame rendering
-                  </p>
-                </div>
-              </div>
 
-              {savedModelToast && (
-                <span className="text-xs text-emerald-400 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/40 border border-emerald-800/40 animate-fade-in font-mono">
-                  <CheckCircle size={13} /> Model saved!
-                </span>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="pollinations-image-model-select" className="text-xs font-semibold text-slate-300">
-                  Select Preferred Image Engine
-                </label>
-                <span className="text-[11px] text-zinc-400 font-mono">
-                  Active: <strong className="text-zinc-200">{imageModel}</strong>
-                </span>
-              </div>
-              <select
-                id="pollinations-image-model-select"
-                value={imageModel}
-                onChange={(e) => handleImageModelChange(e.target.value)}
-                className="input text-xs font-medium cursor-pointer"
-              >
-                {POPULAR_POLLINATIONS_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} — {m.description}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
 
           {/* YouTube Data API & Market Research Card */}
           <div className="card border-red-500/20 bg-gradient-to-b from-red-950/10 to-transparent">

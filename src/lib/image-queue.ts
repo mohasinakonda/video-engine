@@ -43,6 +43,9 @@ export interface ImageQueueOptions {
   negativePrompt?: string;
   aspectRatio?: '16:9' | '9:16' | '1:1';
   model?: string;
+  creditCost?: number;
+  inferenceSteps?: number;
+  guidanceScale?: number;
   concurrency?: number;
   forceRegenerate?: boolean;
   callbacks: ImageQueueCallbacks;
@@ -107,6 +110,9 @@ async function processScene(
       model: options.model,
       baseStyle: options.stylePrompt,
       aspectRatio: options.aspectRatio,
+      creditCost: options.creditCost,
+      inferenceSteps: options.inferenceSteps,
+      guidanceScale: options.guidanceScale,
     });
 
     // Decode + save to disk
