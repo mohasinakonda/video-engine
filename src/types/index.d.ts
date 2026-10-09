@@ -91,6 +91,8 @@ export interface VisualWorldBible {
   characters: CharacterVisualAnchor[];
   colorPaletteAndLighting: string;
   strictAnachronismBans: string;
+  videoTopicAndMotive?: string;
+  coreSubjectOrProtagonist?: string;
 }
 
 // ─── Phase 2: Pacing Profile ──────────────────────────────────────────────────

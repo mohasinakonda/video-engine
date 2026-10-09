@@ -35,13 +35,13 @@ export function getFluxDimensions(aspectRatio?: '16:9' | '9:16' | '1:1', customW
     return { width: customW, height: customH };
   }
   if (aspectRatio === '9:16') {
-    return { width: 576, height: 1024 };
+    return { width: 1080, height: 1920 };
   }
   if (aspectRatio === '1:1') {
-    return { width: 768, height: 768 };
+    return { width: 1080, height: 1080 };
   }
-  // Default: 16:9 widescreen
-  return { width: 1024, height: 576 };
+  // Default: 16:9 widescreen Full HD
+  return { width: 1920, height: 1080 };
 }
 
 /**
@@ -70,12 +70,16 @@ export async function generateDeepInfraFluxImage(
     }
   }
 
+  // Enforce strict FLUX.1-schnell distillation bounds: 4 steps, guidance_scale: 1.0
+  const steps = typeof options.numInferenceSteps === 'number' ? Math.min(options.numInferenceSteps, 4) : 4;
+  const guidance = typeof options.guidanceScale === 'number' ? options.guidanceScale : 1.0;
+
   const payload: Record<string, unknown> = {
     prompt: fullPrompt,
     width,
     height,
-    num_inference_steps: options.numInferenceSteps ?? 4,
-    guidance_scale: options.guidanceScale ?? 3.5,
+    num_inference_steps: steps,
+    guidance_scale: guidance,
   };
 
   if (typeof options.seed === 'number' && !isNaN(options.seed)) {

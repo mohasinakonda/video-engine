@@ -275,17 +275,28 @@ CRITICAL PACING & VARIABLE DURATION RULES:
 - Rule: Estimate durationSec based on the spoken length of narration (approx 2.3 - 2.8 words per second) plus pause weight.
 - Never repeat the same shot_type twice in a row. Maintain an engaging, rhythmic visual montage.
 
-VISUAL PROMPT MASTERY RULES:
-The visual_prompt field is the most critical output. It must be long (60-120 words), specific, and follow this structure:
-1. ARTISTIC MEDIUM/TECHNIQUE: Start with the rendering medium and technique (e.g., "Intricate masterwork linocut relief print", "Dramatic oil painting", "Cinematic 35mm photography"). Match the project's base style.
-2. SUBJECT & ACTION: Precisely describe what is happening and what is shown — specific subjects, poses, interactions, and scene composition.
-3. TEXTURE & MATERIAL: Enumerate tactile details — surface grain, material quality, ink/paint/light characteristics (e.g., "chiseled relief grooves, rough fibrous paper, heavy contrasting ink").
-4. QUALITY MODIFIERS: End with craft and quality anchors (e.g., "award-winning artisan printmaking", "museum-quality", "masterwork").
-5. NEGATIVE CONSTRAINTS: Always end with what to exclude: "zero text, no watermarks, no modern UI, no flat vectors."
+VISUAL PROMPT MASTERY RULES (FLUX.1 OPTIMIZED):
+The visual_prompt field must be concise (30-50 words max), sharp, and directly visual:
+1. ARTISTIC MEDIUM FIRST: Start with rendering medium (e.g. "A 35mm cinematic film still of...", "A clean vector illustration of...", "A dramatic oil painting of..."). Match project base style.
+2. STRICT STILL PHOTOGRAPHY MANDATE:
+   - ZERO video or camera motion terms: NO "drone footage", "footage", "camera pans", "zooms out", "zooming", "animation", "video clip".
+   - Describe a static frozen moment, clear subject, and framing.
+3. SINGLE COHERENT LIGHTING SCHEME (NO CONTRADICTIONS):
+   - Specify exactly ONE dominant lighting setup (e.g., "dramatic low-key chiaroscuro lighting with subtle warm rim light" OR "soft diffused morning daylight").
+   - NEVER combine contradictory lights like "natural balanced lighting" with "near-total pitch blackness".
+4. STATIC VISUAL STATE (NO TIME-STEP CONFUSION):
+   - Describe the scene's frozen physical state. NEVER write "just after the switch is flipped", "a second ago", or "in the moment before".
+5. ABSTRACT & QUANTUM PHYSICS TRANSLATOR:
+   - Translate invisible concepts into tangible cinematic visuals (e.g., coherent razor-sharp laser beam piercing deep space void, volumetric Tyndall dust motes, chalkboard tensor equations).
+6. STRICT BUZZWORD & ZERO-NEGATIVE BAN:
+   - STRICTLY REMOVE all buzzwords: "photorealistic", "hyperrealistic", "8k", "4k", "masterpiece", "ultra-detailed", "unreal engine".
+   - NEVER output "(avoid: ...)", "avoid:", or negative exclusion lists in visual_prompt. Output 100% PURE positive visual descriptions.
+7. SPATIAL & OPTICAL ANCHORS:
+   - Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. End with shallow optical depth of field.
 
 For every scene, output:
 - narration: The exact segment of script words read aloud during this scene.
-- visual_prompt: Studio-grade, 60-120 word prompt following the VISUAL PROMPT MASTERY RULES above.
+- visual_prompt: Studio-grade, 30-50 word clean positive prompt following rules above.
 - durationSec: Estimated duration in seconds (between ${paceConfig.minSec} and ${paceConfig.maxSec}).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
 - b_roll_focus: A concise 3-7 word description of the specific visual motif featured.
@@ -523,39 +534,74 @@ export async function generateVoiceChunk(
 }
 
 /**
+ * Strips legacy `(avoid: ...)`, `avoid: ...`, and `(negative prompt: ...)`
+ * from a prompt string so diffusion models receive only pure positive tokens.
+ */
+export function stripInlineNegatives(prompt: string): { cleanPrompt: string; extractedNegative: string } {
+  let cleanPrompt = (prompt || "").trim();
+  let extractedNegative = "";
+
+  // 1. Extract from `(avoid: ...)` or `(negative prompt: ...)`
+  const avoidMatch = cleanPrompt.match(/[,.\s]*\((?:avoid:?|negative(?:\s+prompt)?:?)\s*([^)]+)\)/i);
+  if (avoidMatch) {
+    extractedNegative = avoidMatch[1].trim();
+    cleanPrompt = cleanPrompt.replace(avoidMatch[0], "").trim();
+  }
+
+  // 2. Extract trailing `avoid: ...` or `, avoid ...`
+  const trailingAvoidMatch = cleanPrompt.match(/[,.\s]+avoid:\s*(.+)$/i);
+  if (trailingAvoidMatch) {
+    if (!extractedNegative) {
+      extractedNegative = trailingAvoidMatch[1].trim();
+    }
+    cleanPrompt = cleanPrompt.replace(trailingAvoidMatch[0], "").trim();
+  }
+
+  // 3. Extract trailing negative phrase blocks like "zero text, no watermarks...", "no modern UI..."
+  const zeroTextMatch = cleanPrompt.match(/[,.\s]+(?:zero text|no watermarks|no modern ui|no sci-fi)[,.\s]+([\s\S]+)$/i);
+  if (zeroTextMatch) {
+    const rawNegBlock = zeroTextMatch[0].replace(/^[,.\s]+/, "").trim();
+    if (!extractedNegative) {
+      extractedNegative = rawNegBlock;
+    } else {
+      extractedNegative = `${extractedNegative}, ${rawNegBlock}`;
+    }
+    cleanPrompt = cleanPrompt.slice(0, zeroTextMatch.index).trim();
+  }
+
+  // Clean trailing punctuation
+  cleanPrompt = cleanPrompt.replace(/[,;.\s]+$/, "").trim();
+
+  return { cleanPrompt, extractedNegative };
+}
+
+/**
  * Helper to assemble a clean final prompt without duplicating base style
  * or adding conflicting tokens.
+ * NEVER appends negative prompts to the positive prompt string!
  */
 export function assembleFinalImagePrompt(
   prompt: string,
   baseStyle?: string,
   negativePrompt?: string
 ): string {
-  const trimmedPrompt = (prompt || "").trim().replace(/\.+$/, "");
+  const { cleanPrompt } = stripInlineNegatives(prompt || "");
   const resolvedBaseStyle = (baseStyle && baseStyle.trim().length > 0)
     ? baseStyle.trim().replace(/\.+$/, "")
-    : (getStoredGlobalBaseStyle() || "photorealistic, 8k resolution, cinematic lighting, masterpiece, hyper-detailed, sharp focus, 35mm lens");
+    : (getStoredGlobalBaseStyle() || "A 35mm cinematic film still, atmospheric volumetric lighting, shallow depth of field, natural film texture");
 
-  const resolvedNegative = (negativePrompt && negativePrompt.trim().length > 0)
-    ? negativePrompt.trim()
-    : (getStoredGlobalNegativePrompt() || "blurry, low resolution, distorted faces, bad anatomy, deformed limbs, pixelated, noisy, artifacts, amateur, watermark, low quality, cartoon, anime");
-
-  let finalPrompt = trimmedPrompt;
+  let finalPrompt = cleanPrompt;
 
   // Only append base style if it is not already present in the prompt
   if (resolvedBaseStyle) {
-    const styleSnippet = resolvedBaseStyle.toLowerCase().slice(0, 35);
-    if (!trimmedPrompt.toLowerCase().includes(styleSnippet)) {
-      finalPrompt = `${trimmedPrompt}. ${resolvedBaseStyle}`;
+    const styleSnippet = resolvedBaseStyle.toLowerCase().slice(0, 30);
+    if (!cleanPrompt.toLowerCase().includes(styleSnippet)) {
+      finalPrompt = `${cleanPrompt}. ${resolvedBaseStyle}`;
     }
   }
 
-  // Append negative prompt if avoid constraint isn't already included
-  if (resolvedNegative && !finalPrompt.toLowerCase().includes("avoid:")) {
-    finalPrompt += `, avoid: ${resolvedNegative}`;
-  }
-
-  return finalPrompt;
+  // NEVER append "avoid:" or negative tokens to finalPrompt!
+  return finalPrompt.replace(/\.+$/, "");
 }
 
 /**
@@ -574,8 +620,14 @@ export async function generateSceneImage(
     throw new Error("Image prompt cannot be empty.");
   }
 
-  // Assemble clean final prompt with guaranteed base style and negative constraints
-  const finalPrompt = assembleFinalImagePrompt(prompt, baseStyle, options?.negativePrompt);
+  // Extract pure positive prompt and isolate negative tokens
+  const { cleanPrompt, extractedNegative } = stripInlineNegatives(prompt);
+  const finalPrompt = assembleFinalImagePrompt(cleanPrompt, baseStyle);
+  const resolvedNegative = (options?.negativePrompt && options.negativePrompt.trim())
+    || (extractedNegative && extractedNegative.trim())
+    || getStoredGlobalNegativePrompt()
+    || "blurry, low resolution, distorted faces, bad anatomy, deformed limbs, pixelated, noisy, artifacts, amateur, watermark, low quality, cartoon, anime";
+
   const encodedPrompt = encodeURIComponent(finalPrompt);
 
   const resolvedSeed = typeof seed === "number" && !isNaN(seed)
@@ -602,7 +654,7 @@ export async function generateSceneImage(
         body: JSON.stringify({
           prompt: finalPrompt,
           stylePrompt: baseStyle,
-          negativePrompt: options?.negativePrompt,
+          negativePrompt: resolvedNegative,
           aspectRatio: options?.aspectRatio || '16:9',
           seed: resolvedSeed,
           model: 'black-forest-labs/FLUX-1-schnell',
@@ -770,41 +822,90 @@ export async function generateStoryWorldBible(
     onProgress?: (msg: string) => void;
   }
 ): Promise<VisualWorldBible> {
-  const aiClient = getPollinationsClient(options?.apiKey);
   const cleanScript = script.trim();
+  options?.onProgress?.("Stage 1: AI Concept Director analyzing script motive, characters & world setting…");
 
-  options?.onProgress?.("Stage 1: AI Concept Director establishing Story World Bible (Era, Costumes, Characters)…");
-
-  const systemPrompt = `You are an elite Hollywood Production Designer, Historical Scholar, and World-Building Visual Director.
+  const systemPrompt = `You are an elite Hollywood Production Designer, Story Architect, and Visual World Director.
 Your task is to analyze a video script (in Bengali, English, or any language) and construct the definitive, immutable VISUAL STORY WORLD BIBLE.
 
-This World Bible serves as the master creative directive for the scene storyboard director to ensure:
-1. 100% Historical Accuracy: Strictly adhere to the genuine epoch (e.g. Ancient Egypt ~1300 BCE, Mesopotamia, Medieval Bengal, 19th Century, Cyberpunk future, etc.).
-2. Cultural & Costume Fidelity: Exact period-authentic clothing, hairstyles, fabrics, ornaments, and weaponry.
-3. Character Visual Continuity: Fixed physical and stylistic visual anchors for all primary figures (e.g. Pharaoh, Prophet Moses/Musa, Sorcerers, Soldiers).
-4. Zero Anachronisms: Ground abstract philosophical opening lines in the story's actual historical environment (e.g. an ancient throne room or desert dunes, NEVER a modern corporate office).
+You must handle ANY genre dynamically:
+- Science, Physics & Cosmology (e.g. Speed of light, quantum physics, space exploration)
+- History & Ancient Civilizations (e.g. Rome, Egypt, Medieval, World Wars)
+- Modern Technology, AI & Business (e.g. Silicon Valley, future tech, corporate drama)
+- Philosophy, Motivation, Storytelling, Fiction, or Thriller.
 
 OUTPUT SPECIFICATION:
 You must return ONLY a JSON object matching this schema:
 {
   "summary": "Concise 2-sentence synopsis of the narrative arc and core theme",
-  "eraAndSetting": "Exact historical period, civilization, and geographic region (e.g. 'Ancient Egypt, New Kingdom (~13th Century BCE), Bronze Age Nile Valley')",
-  "geographyAndEnvironment": "Topography, architectural monuments, building materials, vegetation, and natural elements (e.g. 'Sun-drenched golden limestone cliffs, sweeping Sahara dunes, muddy reed banks of the Nile, colossal stone pylon temples with carved hieroglyphs, lotus-column courtyards, mudbrick workers quarters')",
-  "culturalContextAndCostumes": "Detailed period-authentic attire, textiles, accessories, and weapons (e.g. 'Pleated sheer white linen shendyt kilts, striped Nemes headdresses, heavy usekh collar necklaces with turquoise and carnelian beads, kohl eyeliner, bronze khopesh swords, reed baskets, wooden war chariots. ZERO modern clothing, ZERO medieval European armor')",
+  "videoTopicAndMotive": "Exact video topic, core motive, and central hook (e.g. 'Cosmology & Physics: Exploring the speed, journey, and cosmic redshift of light')",
+  "coreSubjectOrProtagonist": "The central visual subject, hero, or recurring visual motif (e.g. 'A coherent beam of laser light traveling through deep space void, with Albert Einstein in 1915 study')",
+  "eraAndSetting": "Exact setting, epoch, or universe (e.g. 'Deep Space & Earth', 'Ancient Egypt ~1300 BCE', 'Modern Tech Lab')",
+  "geographyAndEnvironment": "Topography, architectural style, natural elements, or spatial setting (e.g. 'Interstellar deep void, planetary orbits, dim study room with toggle switch')",
+  "culturalContextAndCostumes": "Specific clothing, props, and materials authentic to this setting (e.g. 'Vintage brass switches, glass vacuum bulbs, chalkboards, telescopes')",
   "characters": [
     {
-      "name": "Character or Group Name (e.g. Pharaoh / ফেরাউন)",
-      "role": "Narrative role (e.g. Tyrannical Ruler)",
-      "visualAnchor": "Detailed prompt fragment describing face, skin tone, attire, crown, and props for consistent rendering"
+      "name": "Character or Subject Name (e.g. Albert Einstein / Light Beam / Explorer)",
+      "role": "Narrative role (e.g. Theoretical Physicist / Central Motive)",
+      "visualAnchor": "Detailed prompt fragment describing appearance, clothing, and props for consistent rendering"
     }
   ],
-  "colorPaletteAndLighting": "Curated color tones and lighting style (e.g. 'Golden ochre sandstone, deep Egyptian lapis blue, Nile turquoise, terracotta red, rich gold leaf highlights; harsh blinding desert daylight with deep volumetric dust shadows, warm flickering torchlight at night')",
-  "strictAnachronismBans": "Explicit comma-separated negative list of forbidden contemporary or misplaced items (e.g. 'modern business suits, modern shirts, neckties, eyeglasses, wristwatches, concrete or glass skyscrapers, modern boats, asphalt roads, medieval European armor, Renaissance castles, paper books, electricity')"
+  "colorPaletteAndLighting": "Curated color tones and lighting style (e.g. 'Deep cosmic blacks with warm golden tungsten rim lighting, chiaroscuro contrast')",
+  "strictAnachronismBans": "Forbidden visual elements for this topic (e.g. 'no cartoon, no modern UI, no flat vectors')"
 }`;
 
   const userPrompt = `Analyze this video script and output the complete VISUAL STORY WORLD BIBLE in strict JSON format:\n\n"""\n${cleanScript.slice(0, 4500)}\n"""`;
 
+  // 1. Try DeepInfra Primary LLM (Meta-Llama-3.1-70B-Instruct)
+  const deepinfraKey = process.env.DEEPINFRA_API_KEY;
+  if (deepinfraKey && deepinfraKey.trim()) {
+    try {
+      const response = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${deepinfraKey.trim()}`,
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.2,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          const startIdx = content.indexOf('{');
+          const endIdx = content.lastIndexOf('}');
+          if (startIdx !== -1 && endIdx !== -1) {
+            const parsed = JSON.parse(content.slice(startIdx, endIdx + 1));
+            return {
+              summary: parsed.summary || cleanScript.slice(0, 120),
+              videoTopicAndMotive: parsed.videoTopicAndMotive || "Cinematic video narrative",
+              coreSubjectOrProtagonist: parsed.coreSubjectOrProtagonist || "Central narrative subject",
+              eraAndSetting: parsed.eraAndSetting || "Contemporary / Documentary setting",
+              geographyAndEnvironment: parsed.geographyAndEnvironment || "Cinematic landscapes",
+              culturalContextAndCostumes: parsed.culturalContextAndCostumes || "Authentic materials and props",
+              characters: Array.isArray(parsed.characters) ? parsed.characters : [],
+              colorPaletteAndLighting: parsed.colorPaletteAndLighting || "Cinematic chiaroscuro lighting",
+              strictAnachronismBans: parsed.strictAnachronismBans || "no cartoon, no flat vectors",
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("DeepInfra World Bible error, checking fallbacks:", err);
+    }
+  }
+
+  // 2. Fallback: Pollinations OpenAI client
   try {
+    const aiClient = getPollinationsClient(options?.apiKey);
     const response = await aiClient.chat.completions.create({
       model: "openai",
       messages: [
@@ -816,32 +917,35 @@ You must return ONLY a JSON object matching this schema:
     });
 
     const content = response.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error("Empty response from AI Concept Director.");
+    if (content) {
+      const parsed = JSON.parse(content);
+      return {
+        summary: parsed.summary || cleanScript.slice(0, 120),
+        videoTopicAndMotive: parsed.videoTopicAndMotive || "Cinematic video narrative",
+        coreSubjectOrProtagonist: parsed.coreSubjectOrProtagonist || "Central narrative subject",
+        eraAndSetting: parsed.eraAndSetting || "Documentary setting",
+        geographyAndEnvironment: parsed.geographyAndEnvironment || "Cinematic landscapes",
+        culturalContextAndCostumes: parsed.culturalContextAndCostumes || "Authentic materials and props",
+        characters: Array.isArray(parsed.characters) ? parsed.characters : [],
+        colorPaletteAndLighting: parsed.colorPaletteAndLighting || "Cinematic lighting",
+        strictAnachronismBans: parsed.strictAnachronismBans || "no cartoon, no flat vectors",
+      };
     }
-
-    const parsed = JSON.parse(content);
-    return {
-      summary: parsed.summary || cleanScript.slice(0, 120),
-      eraAndSetting: parsed.eraAndSetting || "Historical period documentary",
-      geographyAndEnvironment: parsed.geographyAndEnvironment || "Atmospheric cinematic landscapes",
-      culturalContextAndCostumes: parsed.culturalContextAndCostumes || "Authentic period clothing and garments",
-      characters: Array.isArray(parsed.characters) ? parsed.characters : [],
-      colorPaletteAndLighting: parsed.colorPaletteAndLighting || "Cinematic volumetric lighting",
-      strictAnachronismBans: parsed.strictAnachronismBans || "modern clothing, suits, skyscrapers, digital elements",
-    };
   } catch (err) {
     console.warn("generateStoryWorldBible error, using fallback world baseline:", err);
-    return {
-      summary: cleanScript.slice(0, 120),
-      eraAndSetting: "Historical narrative setting",
-      geographyAndEnvironment: "Cinematic landscapes matching the story environment",
-      culturalContextAndCostumes: "Authentic period clothing matching the narrative epoch",
-      characters: [],
-      colorPaletteAndLighting: "Cinematic atmospheric lighting",
-      strictAnachronismBans: "modern clothing, suits, skyscrapers, digital elements",
-    };
   }
+
+  return {
+    summary: cleanScript.slice(0, 120),
+    videoTopicAndMotive: "Cinematic story narrative",
+    coreSubjectOrProtagonist: "Primary subject",
+    eraAndSetting: "Documentary setting",
+    geographyAndEnvironment: "Cinematic landscapes matching narrative",
+    culturalContextAndCostumes: "Authentic props and materials",
+    characters: [],
+    colorPaletteAndLighting: "Cinematic atmospheric lighting",
+    strictAnachronismBans: "no cartoon, no flat vectors",
+  };
 }
 
 /**
@@ -861,6 +965,7 @@ export async function breakdownRequirementToImageScenes(
     pacingProfile?: PacingProfile;
     onProgress?: (msg: string) => void;
     worldBible?: VisualWorldBible;
+    onWorldBibleReady?: (bible: VisualWorldBible) => void;
   }
 ): Promise<ScriptSceneBreakdown[]> {
   if (!requirement || !requirement.trim()) {
@@ -876,9 +981,14 @@ export async function breakdownRequirementToImageScenes(
         stylePrompt: options?.stylePrompt,
         onProgress: options?.onProgress,
       });
+      if (worldBible && options?.onWorldBibleReady) {
+        options.onWorldBibleReady(worldBible);
+      }
     } catch (err) {
       console.warn("Failed to generate Story World Bible, proceeding without:", err);
     }
+  } else if (options?.onWorldBibleReady) {
+    options.onWorldBibleReady(worldBible);
   }
 
   const words = requirement.trim().split(/\s+/).filter(Boolean).length;
@@ -940,6 +1050,36 @@ export function extractCoreMedium(stylePrompt?: string): string {
   const clean = stylePrompt.trim();
   const firstSentence = clean.split(/(?<=[.!?])\s+/)[0] || clean;
   return firstSentence.replace(/[.]+$/, '').trim();
+}
+
+/**
+ * Safely extracts and cleans a JSON array string from raw LLM output.
+ * Handles markdown code blocks, bracket boundaries, and trimming.
+ */
+export function extractJsonArray(rawText: string): string {
+  if (!rawText || !rawText.trim()) {
+    throw new Error("Empty LLM response received.");
+  }
+
+  // 1. Check markdown fenced code block
+  const match = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const candidate = match ? match[1].trim() : rawText.trim();
+
+  // 2. Locate outermost array brackets
+  const start = candidate.indexOf('[');
+  const end = candidate.lastIndexOf(']');
+  if (start !== -1 && end !== -1 && end > start) {
+    return candidate.slice(start, end + 1).trim();
+  }
+
+  // 3. Fallback scan on rawText directly
+  const rawStart = rawText.indexOf('[');
+  const rawEnd = rawText.lastIndexOf(']');
+  if (rawStart !== -1 && rawEnd !== -1 && rawEnd > rawStart) {
+    return rawText.slice(rawStart, rawEnd + 1).trim();
+  }
+
+  throw new Error("No JSON array bounds found in response.");
 }
 
 /** Single-batch scene breakdown */
@@ -1008,26 +1148,17 @@ Instead, decide the total number of scenes based on the story's natural visual r
   const worldBibleSection = bible
     ? `
 ================================================================================
-MANDATORY VISUAL STORY WORLD BIBLE (HISTORICAL ERA, COSTUMES & CHARACTERS):
-Historical Epoch & Setting: ${bible.eraAndSetting}
-Geography, Environment & Architecture: ${bible.geographyAndEnvironment}
-Authentic Cultural Costumes & Materials: ${bible.culturalContextAndCostumes}
-Character Visual Anchors:
-${bible.characters && bible.characters.length > 0 ? bible.characters.map((c) => `- ${c.name} (${c.role}): ${c.visualAnchor}`).join('\n') : 'Historical period figures authentic to the epoch'}
-Color Palette & Atmosphere: ${bible.colorPaletteAndLighting}
-STRICT FORBIDDEN ANACHRONISMS: ${bible.strictAnachronismBans}
+AI CONCEPT DIRECTOR'S MASTER CREATIVE BRIEF (MANDATORY GUIDELINE):
+1. VIDEO TOPIC & CORE MOTIVE: ${bible.videoTopicAndMotive || bible.summary}
+2. CENTRAL VISUAL SUBJECT: ${bible.coreSubjectOrProtagonist || 'Primary narrative subject'}
+3. VISUAL WORLD & ENVIRONMENT: ${bible.geographyAndEnvironment} (${bible.eraAndSetting})
+${bible.characters && bible.characters.length > 0 ? `4. CHARACTERS & VISUAL ANCHORS:\n${bible.characters.map((c) => `- ${c.name} (${c.role}): ${c.visualAnchor}`).join('\n')}` : ''}
+5. COLOR PALETTE & LIGHTING MOOD: ${bible.colorPaletteAndLighting}
 
-IRONCLAD HISTORICAL & CULTURAL FIDELITY MANDATES:
-1. ERA INTEGRITY FOR ABSTRACT NARRATION:
-   If narration opens or speaks in abstract philosophical or psychological terms (e.g. "Power traps the human soul...", "Death is inevitable..."):
-   NEVER depict contemporary scenes, modern offices, suits, neckties, or modern glass skyscrapers.
-   ALWAYS ground the imagery firmly inside this historical epoch (e.g., an ancient throne room with towering stone pillars, the ruler gazing down coldly, or a solitary silhouette against the ancient desert riverbanks).
-2. CHARACTER VISUAL CONTINUITY:
-   Whenever a character appears or is referenced (e.g., Pharaoh, Moses/Musa, Astrologers, Egyptian Soldiers), incorporate their exact visual anchor description into the visual prompt to maintain visual likeness.
-3. PERIOD-AUTHENTIC ATTIRE ONLY:
-   All humans depicted MUST wear garments, accessories, and hairstyles authentic to ${bible.eraAndSetting}. Strictly NO modern clothing, NO medieval European plate armor, NO European crowns.
-4. FORBIDDEN ANACHRONISM EXCLUSIONS:
-   Every visual prompt MUST end with: "zero text, no watermarks, ${bible.strictAnachronismBans}."
+DIRECTOR'S COMMAND:
+- TOPIC FIDELITY: Every single visual scene MUST directly serve and visually illustrate the above video topic.
+- CHARACTER / SUBJECT CONTINUITY: Whenever the central subject or character appears, reuse their visual anchor description above for 100% visual consistency.
+- PRESET CONSISTENCY: Render all scenes strictly adhering to the chosen artistic medium (${coreMedium}).
 ================================================================================`
     : '';
 
@@ -1057,18 +1188,33 @@ Then, as an elite visual director, interleave 6 universal B-roll lenses tailored
 5. "ATMOSPHERIC_MOOD": Dramatic elemental weather and lighting transitions.
 6. "WIDE_ESTABLISHING": Majestic panoramic establishing shots that orient the viewer to the broader landscape.
 
-VISUAL PROMPT MASTERY RULES — MANDATORY:
-The visual_prompt is the single most important output. Each must be 60-120 words, richly detailed, following this structure:
+VISUAL PROMPT MASTERY RULES (FLUX.1 OPTIMIZED):
+The visual_prompt field must be focused, sharp, and descriptive (around 40-75 words):
 1. ARTISTIC MEDIUM FIRST: Open EVERY visual_prompt with the project style's medium: "${coreMedium}".
-2. ERA & SETTING CONTEXT: Clearly specify the historical period and setting from the World Bible.
-3. SUBJECT & COMPOSITION: Describe precisely what is depicted — subjects (using Character Visual Anchors when characters appear), spatial relationships, foreground/background, action.
-4. TEXTURE & MATERIAL DETAILS: Enumerate specific period-authentic textiles, stone/wood textures, and lighting from the World Bible.
-5. CRAFT QUALITY ANCHORS: Include mastery indicators — "award-winning", "museum-quality", "masterwork", "artisan-crafted".
-6. NEGATIVE EXCLUSIONS: Always end with: "zero text, no watermarks, no modern UI elements, ${bible?.strictAnachronismBans || 'no modern clothing, no suits'}."
+2. STRICT STILL PHOTOGRAPHY MANDATE (ZERO VIDEO JARGON):
+   - NEVER use motion or video terms: NO "drone footage", "footage", "camera pans", "camera zooms out", "zooming in", "animation", "video clip", "timelapse".
+   - Describe a single frozen decisive moment, optical framing, and lighting for diffusion models.
+3. SINGLE COHERENT LIGHTING SCHEME (NO CONTRADICTIONS):
+   - Specify exactly ONE dominant lighting setup suited to the scene (e.g. "dramatic low-key chiaroscuro with subtle warm rim light" or "deep space stellar luminescence").
+   - NEVER mix contradictory lighting directives like "natural balanced lighting" with "near-total pitch blackness".
+4. STATIC VISUAL STATE (NO TIME-STEP CONFUSION):
+   - Describe the scene's frozen physical state. NEVER write "at the moment it fails", "right after the switch is flipped", "starts to fade", or "a second ago". Describe what IS visible in this precise millisecond.
+5. DYNAMIC SCALE & CINEMATIC CUTAWAYS (NO "SINGLE ROOM / CHARACTER" TRAP):
+   - Follow the narrative's conceptual expansion! DO NOT trap every scene inside an opening room or on a single character with a sweater!
+   - When the narration mentions the sky, CUT AWAY to an open landscape, mountain ridge, or astronomer under the vast cosmos.
+   - When the narration mentions the atmosphere and dust particles, CUT AWAY to high-altitude atmospheric stratospheric glow or extreme macro aerosol particle physics.
+   - When the narration mentions space, photons, or relativity, CUT AWAY to orbital vistas, stellar trajectories, or cosmic deep void.
+   - A human subject should only appear when the narrative explicitly focuses on human action, NEVER in every scene.
+6. ABSTRACT & QUANTUM PHYSICS TRANSLATOR:
+   - When narration covers quantum or invisible concepts (photons, gas molecules, redshift, spacetime):
+   - Translate into tangible cinematic visuals: coherent razor-sharp laser beams, volumetric Tyndall dust motes, chalkboard tensor equations, prismatic spectral dispersion.
+7. STRICT ZERO-NEGATIVE BAN (CRITICAL):
+   - NEVER output "(avoid: ...)", "avoid:", "no ...", "zero text", or negative exclusion lists in visual_prompt. Output 100% PURE positive visual tokens.
+8. SPATIAL & OPTICAL ANCHORS: Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. Strictly avoid buzzwords like "8k", "photorealistic", "masterpiece".
 
 For every scene, output:
 - narration: The EXACT verbatim spoken line(s) from the user script corresponding to this scene. STRICT MANDATE: Keep ONLY the verbatim spoken script words. NEVER summarize, and NEVER append visual descriptions, editorial comments, or dashes (—).
-- visual_prompt: Studio-grade 60-120 word prompt following VISUAL PROMPT MASTERY RULES above.
+- visual_prompt: Studio-grade, focused and descriptive (around 40-75 words) pure positive prompt following VISUAL PROMPT MASTERY RULES above.
 - durationSec: Estimated duration in seconds (${paceConfig.minSec}s - ${paceConfig.maxSec}s).
 - shot_type: One of "AERIAL_GEOMETRY", "MACRO_TEXTURE", "CULTURAL_HUMAN", "HISTORICAL_HERITAGE", "ATMOSPHERIC_MOOD", "WIDE_ESTABLISHING".
 - b_roll_focus: A concise 3-7 word description of the specific B-roll focal motif.
@@ -1079,23 +1225,58 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
   const userPrompt = `Break down this requirement into sequential visual scenes matching the project art style with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
 
   try {
-    const response = await aiClient.chat.completions.create({
-      model: "openai",
-      messages: [
-        { role: "system", content: systemInstruction },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.4,
-    });
+    let rawContent = '';
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No response returned from Pollinations text model.");
+    // 1. Try DeepInfra Primary LLM (Meta-Llama-3.1-70B-Instruct) first
+    const deepinfraKey = process.env.DEEPINFRA_API_KEY;
+    if (deepinfraKey && deepinfraKey.trim()) {
+      try {
+        const diRes = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${deepinfraKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
+            messages: [
+              { role: 'system', content: systemInstruction },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.3,
+          }),
+        });
+
+        if (diRes.ok) {
+          const diData = await diRes.json();
+          rawContent = diData.choices?.[0]?.message?.content || '';
+        } else {
+          const errData = await diRes.text().catch(() => '');
+          console.warn(`DeepInfra returned HTTP ${diRes.status}, falling back to Pollinations:`, errData);
+        }
+      } catch (err) {
+        console.warn('DeepInfra scene breakdown network error, falling back to Pollinations:', err);
+      }
     }
 
-    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    const cleanedJson = jsonMatch ? jsonMatch[1].trim() : content.trim();
+    // 2. Fallback to Pollinations OpenAI client if DeepInfra was not configured or failed
+    if (!rawContent) {
+      const response = await aiClient.chat.completions.create({
+        model: "openai",
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.35,
+      });
 
+      rawContent = response.choices[0]?.message?.content || '';
+      if (!rawContent) {
+        throw new Error("No response returned from Pollinations text model.");
+      }
+    }
+
+    const cleanedJson = extractJsonArray(rawContent);
     const parsed = JSON.parse(cleanedJson);
     if (!Array.isArray(parsed) || parsed.length === 0) {
       throw new Error("LLM output is not a non-empty JSON array of scenes.");
@@ -1117,10 +1298,9 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
         visualPrompt = `${coreMedium}. ${visualPrompt}`;
       }
 
-      // Guarantee era and anachronism exclusions are clearly demarcated in negative exclusions
-      const cleanPrompt = visualPrompt.replace(/\s*(?:\(negative prompt:|zero text|no text|no watermarks)[\s\S]*$/i, '').trim();
-      const anachronismExclusion = bible?.strictAnachronismBans ? `, ${bible.strictAnachronismBans}` : ', modern clothing, modern buildings';
-      visualPrompt = `${cleanPrompt}. (avoid: text, watermarks, modern UI elements, flat digital vectors, ${anachronismExclusion}).`;
+      // Strip any accidental inline avoid tags so visualPrompt contains 100% pure positive tokens
+      const { cleanPrompt } = stripInlineNegatives(visualPrompt);
+      visualPrompt = cleanPrompt;
 
       const rawShotType = (typeof item.shot_type === "string" ? item.shot_type : typeof item.shotType === "string" ? item.shotType : "") as ShotType;
       const shot_type: ShotType = VALID_SHOT_TYPES.includes(rawShotType)
@@ -1198,8 +1378,8 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
       const camera_motion: CameraMotionEffect = (['ZOOM_IN', 'ZOOM_OUT', 'PAN_LEFT', 'PAN_RIGHT'] as const)[idx % 4];
 
       const fallbackPrompt = rawStyle
-        ? `${rawStyle}. Depicting ${shot_type.replace('_', ' ').toLowerCase()}: ${chunkText}. Masterwork, museum-quality finish. zero text, no watermarks, no modern UI elements, no flat digital vectors.`
-        : `Cinematic ${shot_type.replace('_', ' ').toLowerCase()} scene, dramatic lighting: ${chunkText}. Masterwork composition. zero text, no watermarks, no modern UI elements, no flat digital vectors.`;
+        ? `${rawStyle}. A 35mm cinematic film still capturing ${chunkText}, tangible volumetric light and shallow depth of field.`
+        : `A 35mm cinematic film photograph of ${chunkText}. Centered in frame, natural lighting with soft shadows, shallow depth of field.`;
 
       return {
         narration: chunkText,

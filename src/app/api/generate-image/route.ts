@@ -5,40 +5,52 @@ import {
   grantCreditsRemote,
 } from '@/lib/supabase-service';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import OpenAI from 'openai';
 import { generateDeepInfraFluxImage, getFluxDimensions } from '@/lib/deepinfra';
+import { optimizeFluxPrompt, sanitizeFluxPrompt } from '@/lib/flux-prompt-optimizer';
 
 /**
- * Enhances an image prompt with quality boosters for better FLUX output.
- * Merges the scene visual_prompt with the project base style, adds negative hint
- * suffix, and ensures the final prompt is well-structured.
+ * Prepares image prompt for FLUX.1 T5-XXL language model.
+ * Extracts embedded negative hints and strips any residual legacy tags.
  */
 function buildFinalPrompt(
   prompt: string,
   stylePrompt?: string,
   negativePrompt?: string
 ): { positive: string; negative: string } {
-  // Strip any existing negative prompt instructions buried in the prompt
-  let positive = prompt.trim();
+  // Strip any existing (avoid: ...), avoid: ..., or (negative prompt: ...) embedded in the prompt
+  let positive = sanitizeFluxPrompt(prompt || '');
+  let extractedNegative = '';
+
+  const avoidMatch = positive.match(/[,.\s]*\((?:avoid:?|negative(?:\s+prompt)?:?)\s*([^)]+)\)/i);
+  if (avoidMatch) {
+    extractedNegative = avoidMatch[1].trim();
+    positive = positive.replace(avoidMatch[0], '').trim();
+  }
+
+  const trailingAvoidMatch = positive.match(/[,.\s]+avoid:\s*(.+)$/i);
+  if (trailingAvoidMatch) {
+    if (!extractedNegative) {
+      extractedNegative = trailingAvoidMatch[1].trim();
+    }
+    positive = positive.replace(trailingAvoidMatch[0], '').trim();
+  }
+
+  positive = positive.replace(/[,;.\s]+$/, '').trim();
 
   // Append base style if provided and not already present
   if (stylePrompt && stylePrompt.trim()) {
-    const style = stylePrompt.trim();
-    // Only append if the style isn't substantially already in the prompt
-    if (!positive.toLowerCase().includes(style.slice(0, 30).toLowerCase())) {
+    const style = sanitizeFluxPrompt(stylePrompt);
+    if (!positive.toLowerCase().includes(style.toLowerCase().slice(0, 25))) {
       positive = `${positive}. ${style}`;
     }
   }
 
-  // Universal quality boosters for FLUX / DeepInfra
-  const qualityBoost = 'highly detailed, sharp focus, masterwork, award-winning composition';
-  if (!positive.toLowerCase().includes('masterwork') && !positive.toLowerCase().includes('highly detailed')) {
-    positive = `${positive}, ${qualityBoost}`;
-  }
-
   const negative = negativePrompt?.trim() ||
+    extractedNegative ||
     'blurry, noisy, out of focus, low quality, watermark, text overlay, signature, bad anatomy, distorted, oversaturated, modern UI elements, boring composition';
 
-  return { positive, negative };
+  return { positive: sanitizeFluxPrompt(positive), negative };
 }
 
 export async function POST(req: Request) {
@@ -105,10 +117,13 @@ export async function POST(req: Request) {
       }
     }
 
-    const { positive: finalPrompt, negative: finalNegative } = buildFinalPrompt(prompt, stylePrompt, negativePrompt);
+    // ─── Step 1: AI Prompt Editor Layer (T5-XXL Optimization) ───────────
+    const optimizedPrompt = await optimizeFluxPrompt(prompt, { stylePrompt });
+    const { positive: finalPrompt, negative: finalNegative } = buildFinalPrompt(optimizedPrompt, undefined, negativePrompt);
     const { width, height } = getFluxDimensions(aspectRatio, reqWidth, reqHeight);
 
     const deepinfraKey = process.env.DEEPINFRA_API_KEY;
+    const togetherKey = process.env.TOGETHER_API_KEY || (process.env.AI_PROVIDER_API_KEY && !process.env.AI_PROVIDER_API_KEY.startsWith('di_') ? process.env.AI_PROVIDER_API_KEY : undefined);
     const falKey = process.env.FAL_KEY;
     const userApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0 ? apiKey.trim() : undefined;
     const pollinationsKey = userApiKey || process.env.POLLINATIONS_API_KEY;
@@ -121,16 +136,19 @@ export async function POST(req: Request) {
           width: reqWidth,
           height: reqHeight,
           seed,
-          numInferenceSteps: 12,
-          guidanceScale: 3.5,
+          numInferenceSteps: 4,
+          guidanceScale: 1.0,
           negativePrompt: finalNegative,
           apiKey: deepinfraKey,
         });
 
         return NextResponse.json({
+          success: true,
           base64Image: result.base64Image,
           imageUrl: result.base64Image,
           url: result.base64Image,
+          originalPrompt: prompt,
+          optimizedPrompt: finalPrompt,
           provider: 'deepinfra',
           model: 'black-forest-labs/FLUX-1-schnell',
           runtimeMs: result.runtimeMs,
@@ -142,7 +160,44 @@ export async function POST(req: Request) {
       }
     }
 
-    // ─── 2. fal.ai Fallback (High-Speed) ────────────────────────────────────────
+    // ─── 2. Together AI / OpenAI Provider Fallback ──────────────────────────
+    if (togetherKey && togetherKey.trim()) {
+      try {
+        const togetherClient = new OpenAI({
+          apiKey: togetherKey.trim(),
+          baseURL: process.env.AI_PROVIDER_BASE_URL || 'https://api.together.xyz/v1',
+        });
+
+        const imageResponse = await togetherClient.images.generate({
+          model: 'black-forest-labs/FLUX.1-schnell',
+          prompt: finalPrompt,
+          width: Math.min(width, 1024),
+          height: Math.min(height, 1024),
+          steps: 4,
+          response_format: 'b64_json',
+        } as any);
+
+        const b64Data = imageResponse.data?.[0]?.b64_json;
+        if (b64Data) {
+          const base64Image = b64Data.startsWith('data:') ? b64Data : `data:image/jpeg;base64,${b64Data}`;
+          return NextResponse.json({
+            success: true,
+            base64Image,
+            imageUrl: base64Image,
+            url: base64Image,
+            originalPrompt: prompt,
+            optimizedPrompt: finalPrompt,
+            provider: 'together',
+            model: 'black-forest-labs/FLUX.1-schnell',
+            remainingCredits,
+          });
+        }
+      } catch (err) {
+        console.warn('Together AI FLUX.1-schnell error, checking fallbacks:', err);
+      }
+    }
+
+    // ─── 3. fal.ai Fallback (High-Speed) ────────────────────────────────────────
     if (falKey && falKey.trim()) {
       try {
         const response = await fetch('https://fal.run/fal-ai/flux/schnell', {
@@ -154,8 +209,8 @@ export async function POST(req: Request) {
           body: JSON.stringify({
             prompt: finalPrompt,
             image_size: aspectRatio === '9:16' ? 'portrait_hd' : aspectRatio === '1:1' ? 'square_hd' : 'landscape_hd',
-            num_inference_steps: 8,
-            guidance_scale: 3.5,
+            num_inference_steps: 4,
+            guidance_scale: 1.0,
             seed: seed || Math.floor(Math.random() * 1000000),
             sync_mode: true,
           }),
@@ -168,7 +223,17 @@ export async function POST(req: Request) {
             const imgRes = await fetch(imageUrl);
             const arrayBuffer = await imgRes.arrayBuffer();
             const base64Image = `data:image/jpeg;base64,${Buffer.from(arrayBuffer).toString('base64')}`;
-            return NextResponse.json({ base64Image, provider: 'fal', remainingCredits });
+            return NextResponse.json({
+              success: true,
+              base64Image,
+              imageUrl: base64Image,
+              url: base64Image,
+              originalPrompt: prompt,
+              optimizedPrompt: finalPrompt,
+              provider: 'fal',
+              model: 'fal-ai/flux/schnell',
+              remainingCredits,
+            });
           }
         } else {
           const errText = await response.text().catch(() => '');
@@ -237,10 +302,14 @@ export async function POST(req: Request) {
     const arrayBuffer = await pollRes.arrayBuffer();
     const base64Image = `data:image/jpeg;base64,${Buffer.from(arrayBuffer).toString('base64')}`;
     return NextResponse.json({
+      success: true,
       base64Image,
       imageUrl: base64Image,
       url: base64Image,
+      originalPrompt: prompt,
+      optimizedPrompt: finalPrompt,
       provider: 'pollinations',
+      model,
       remainingCredits,
     });
 
