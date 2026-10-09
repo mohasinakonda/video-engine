@@ -90,15 +90,15 @@ export async function POST(req: Request) {
     let inferenceSteps: number | null = typeof numInferenceSteps === 'number' && numInferenceSteps > 0
       ? numInferenceSteps
       : typeof reqInferenceSteps === 'number' && reqInferenceSteps > 0
-      ? reqInferenceSteps
-      : null;
+        ? reqInferenceSteps
+        : null;
     let guidanceScale: number | null = typeof reqGuidanceScale === 'number' ? reqGuidanceScale : null;
 
     if (isSupabaseConfigured()) {
       try {
         try {
           serverSupabase = createServerClient();
-        } catch {}
+        } catch { }
 
         const allModels = await fetchAIModelsRemote(serverSupabase, true);
 
@@ -106,11 +106,11 @@ export async function POST(req: Request) {
           // Find matching model dynamically by modelId, UUID id, or name (case-insensitive)
           const matched = selectedModelId
             ? allModels.find(
-                (m) =>
-                  m.modelId.toLowerCase() === selectedModelId.toLowerCase() ||
-                  m.id === selectedModelId ||
-                  m.name.toLowerCase() === selectedModelId.toLowerCase()
-              )
+              (m) =>
+                m.modelId.toLowerCase() === selectedModelId.toLowerCase() ||
+                m.id === selectedModelId ||
+                m.name.toLowerCase() === selectedModelId.toLowerCase()
+            )
             : null;
 
           const chosen = matched || allModels.find((m) => m.isDefault) || allModels[0];
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
         if (!serverSupabase) {
           try {
             serverSupabase = createServerClient();
-          } catch {}
+          } catch { }
         }
 
         if (serverSupabase) {
@@ -269,8 +269,8 @@ export async function POST(req: Request) {
         const togetherModel = selectedModelId.toLowerCase().includes('dev')
           ? 'black-forest-labs/FLUX.1-dev'
           : selectedModelId.toLowerCase().includes('schnell')
-          ? 'black-forest-labs/FLUX.1-schnell'
-          : selectedModelId;
+            ? 'black-forest-labs/FLUX.1-schnell'
+            : selectedModelId;
 
         const imageResponse = await togetherClient.images.generate({
           model: togetherModel,

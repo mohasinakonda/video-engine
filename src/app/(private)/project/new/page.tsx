@@ -280,6 +280,7 @@ function ProjectPageInner() {
         stylePrompt: effectiveStylePrompt,
         apiKey,
         pacingProfile,
+        targetDurationSec: scriptAnalytics.estSec > 0 ? scriptAnalytics.estSec : undefined,
         onProgress: (msg) => setGeneratingMsg(msg),
       });
       console.log('breakdown', breakdown)

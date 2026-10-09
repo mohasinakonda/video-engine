@@ -1037,14 +1037,190 @@ export async function breakdownRequirementToImageScenes(
       }
     }
 
-    options?.onProgress?.(`Successfully generated ${allScenes.length} diverse scenes across ${batches.length} chapters.`);
-    return allScenes;
+    const balanced = deduplicateAndBalanceScenes(allScenes, requirement, options?.sceneCount);
+    options?.onProgress?.(`Successfully generated ${balanced.length} diverse scenes across ${batches.length} chapters.`);
+    return balanced;
   }
 
-  return breakdownRequirementToImageScenesSingle(requirement, {
+  const rawScenes = await breakdownRequirementToImageScenesSingle(requirement, {
     ...options,
     worldBible,
   });
+  return deduplicateAndBalanceScenes(rawScenes, requirement, options?.sceneCount);
+}
+
+/**
+ * Splits script into natural organic thought units based on punctuation and cadence.
+ */
+export function extractOrganicThoughtUnitsLocal(script: string, targetCount?: number): string[] {
+  const rawSentences = script
+    .split(/(?<=[.!?\n।])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  if (rawSentences.length === 0) return [script.trim()];
+
+  const groups: string[] = [];
+  let cur: string[] = [];
+  let curWordCount = 0;
+
+  for (const s of rawSentences) {
+    cur.push(s);
+    curWordCount += s.split(/\s+/).filter(Boolean).length;
+    if (curWordCount >= 7 || /[?!]$/.test(s) || /—$/.test(s)) {
+      groups.push(cur.join(' '));
+      cur = [];
+      curWordCount = 0;
+    }
+  }
+  if (cur.length > 0) {
+    if (groups.length > 0 && curWordCount < 4) {
+      groups[groups.length - 1] += ' ' + cur.join(' ');
+    } else {
+      groups.push(cur.join(' '));
+    }
+  }
+
+  if (typeof targetCount === 'number' && targetCount > 0 && targetCount !== groups.length) {
+    const finalScenes: string[] = [];
+    for (let i = 0; i < targetCount; i++) {
+      const startIdx = Math.floor((i * rawSentences.length) / targetCount);
+      const endIdx = Math.floor(((i + 1) * rawSentences.length) / targetCount);
+      const slice = rawSentences.slice(startIdx, Math.max(startIdx + 1, endIdx));
+      finalScenes.push(slice.join(' '));
+    }
+    return finalScenes;
+  }
+
+  return groups;
+}
+
+/**
+ * Deduplicates and clusters scenes to ensure:
+ * 1. Zero duplicate narrations across scenes.
+ * 2. Scene count strictly aligns with natural script length (e.g. 44 words / 3 sentences -> max 3-4 scenes).
+ * 3. Smooth duration distribution across the video timeline.
+ */
+export function deduplicateAndBalanceScenes(
+  scenes: ScriptSceneBreakdown[],
+  originalScript: string,
+  maxScenes?: number,
+  minDurationSec = 3.0,
+  maxDurationSec = 8.5
+): ScriptSceneBreakdown[] {
+  if (!scenes || scenes.length <= 1) return scenes;
+
+  const words = originalScript.trim().split(/\s+/).filter(Boolean).length;
+  const rawSentences = originalScript.split(/(?<=[.!?\n।])\s+/).filter((s) => s.trim().length > 0);
+
+  // Reasonable ceiling for script size:
+  // For small scripts (<= 50 words), each scene is at least 10-15 words -> max 3-4 scenes.
+  const calculatedMax = typeof maxScenes === 'number' && maxScenes > 0
+    ? maxScenes
+    : Math.max(
+        1,
+        Math.min(
+          rawSentences.length <= 4 ? rawSentences.length + 1 : Math.max(rawSentences.length, Math.ceil(words / 12)),
+          Math.ceil(words / 9)
+        )
+      );
+
+  // Pass 1: Clean narrations and merge adjacent exact or high-overlap duplicates
+  const pass1: ScriptSceneBreakdown[] = [];
+
+  for (let i = 0; i < scenes.length; i++) {
+    const s = scenes[i];
+    const currNarr = (s.narration || '').trim();
+    const currNorm = currNarr.toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]/g, '');
+
+    if (pass1.length === 0) {
+      pass1.push({ ...s, narration: currNarr });
+      continue;
+    }
+
+    const prev = pass1[pass1.length - 1];
+    const prevNarr = prev.narration.trim();
+    const prevNorm = prevNarr.toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]/g, '');
+
+    const isExactDup = currNorm === prevNorm;
+    const isSubsetDup = (prevNorm.length > 8 && currNorm.includes(prevNorm)) || (currNorm.length > 8 && prevNorm.includes(currNorm));
+
+    const prevWords = new Set(prevNarr.toLowerCase().split(/\s+/).filter(Boolean));
+    const currWords = new Set(currNarr.toLowerCase().split(/\s+/).filter(Boolean));
+    const commonWords = Array.from(currWords).filter((w) => prevWords.has(w));
+    const isHighOverlap = prevWords.size > 2 && currWords.size > 2 && (commonWords.length / Math.min(prevWords.size, currWords.size)) >= 0.70;
+
+    if (isExactDup || isSubsetDup || isHighOverlap) {
+      const mergedNarr = currNarr.length > prevNarr.length ? currNarr : prevNarr;
+      const mergedDur = Math.min(maxDurationSec, (prev.durationSec || 5.0) + (s.durationSec || 5.0) * 0.5);
+      const chosenPrompt = s.visual_prompt.length > prev.visual_prompt.length ? s.visual_prompt : prev.visual_prompt;
+
+      pass1[pass1.length - 1] = {
+        ...prev,
+        narration: mergedNarr,
+        visual_prompt: chosenPrompt,
+        durationSec: parseFloat(mergedDur.toFixed(1)),
+      };
+    } else {
+      pass1.push({ ...s, narration: currNarr });
+    }
+  }
+
+  // Pass 2: Detect and eliminate any non-adjacent duplicate narrations
+  const seenNorms = new Map<string, number>();
+  const pass2: ScriptSceneBreakdown[] = [];
+
+  for (const s of pass1) {
+    const norm = s.narration.toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]/g, '');
+    if (norm.length > 8 && seenNorms.has(norm)) {
+      const idx = seenNorms.get(norm)!;
+      if (pass2[idx]) {
+        pass2[idx].durationSec = Math.min(maxDurationSec, (pass2[idx].durationSec || 5.0) + 1.5);
+      }
+    } else {
+      seenNorms.set(norm, pass2.length);
+      pass2.push(s);
+    }
+  }
+
+  // Pass 3: If still exceeding calculatedMax (e.g. LLM produced 7 scenes for 3 sentences), merge smallest adjacent pairs
+  while (pass2.length > calculatedMax) {
+    let minCombined = Infinity;
+    let mergeIdx = 0;
+
+    for (let i = 0; i < pass2.length - 1; i++) {
+      const combined = (pass2[i].durationSec || 5.0) + (pass2[i + 1].durationSec || 5.0);
+      if (combined < minCombined) {
+        minCombined = combined;
+        mergeIdx = i;
+      }
+    }
+
+    const first = pass2[mergeIdx];
+    const second = pass2[mergeIdx + 1];
+
+    let mergedNarr = first.narration;
+    if (!first.narration.toLowerCase().includes(second.narration.toLowerCase().slice(0, 15))) {
+      mergedNarr = `${first.narration} ${second.narration}`;
+    }
+
+    const chosenPrompt = first.visual_prompt.length >= second.visual_prompt.length
+      ? first.visual_prompt
+      : second.visual_prompt;
+
+    const mergedDur = Math.max(minDurationSec, Math.min(maxDurationSec, (first.durationSec || 5.0) + (second.durationSec || 5.0)));
+
+    const mergedScene: ScriptSceneBreakdown = {
+      ...first,
+      narration: mergedNarr.trim(),
+      visual_prompt: chosenPrompt,
+      durationSec: parseFloat(mergedDur.toFixed(1)),
+    };
+
+    pass2.splice(mergeIdx, 2, mergedScene);
+  }
+
+  return pass2;
 }
 
 /**
@@ -1133,14 +1309,35 @@ STRICT DIRECTORIAL MANDATES (NON-NEGOTIABLE):
     transcript: { avgSec: 5.0, minSec: 3.0, maxSec: 7.5, desc: 'Voice-synchronized organic transcript pacing (min 3.0s)' },
   }[pacing] || { avgSec: 5.0, minSec: 3.0, maxSec: 7.5, desc: 'Voice-synchronized organic transcript pacing (min 3.0s)' };
 
+  const words = requirement.trim().split(/\s+/).filter(Boolean).length;
+  const rawSentences = requirement
+    .split(/(?<=[.!?\n।])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const naturalUnits = extractOrganicThoughtUnitsLocal(requirement);
+  const naturalSceneCount = Math.max(1, naturalUnits.length);
+
+  // Maximum allowed scenes to prevent duplicate repetition
+  const maxNaturalScenes = Math.max(
+    1,
+    Math.min(
+      rawSentences.length <= 4 ? rawSentences.length + 1 : rawSentences.length * 2,
+      Math.ceil(words / 9)
+    )
+  );
+
   const requestedCount = typeof options?.sceneCount === "number" && options.sceneCount > 0 ? options.sceneCount : undefined;
+  const targetCount = requestedCount || naturalSceneCount;
+
   const countInstruction = requestedCount
     ? `Target approximately ${requestedCount} distinct, sequential cinematic visual scenes (between ${Math.max(1, requestedCount - 2)} and ${requestedCount + 2} scenes) as requested by the user.`
-    : `YOU ARE THE DIRECTOR: Read and analyze the entire narrative carefully. DO NOT use any rigid mathematical formula.
-Instead, decide the total number of scenes based on the story's natural visual rhythm:
-- Every major thought unit, philosophical contrast, metaphor, subject change, or emotional beat should be a visual scene.
-- GROUP 1 TO 3 RELATED SHORT SENTENCES into each scene so every scene naturally lasts between ${paceConfig.minSec}s and ${paceConfig.maxSec}s.
-- CRITICAL: NEVER isolate tiny phrases (< 5 words) into standalone scenes. Group consecutive rapid lines (e.g. "Save some money. Build a house. Pay off the loan.") into a single cohesive scene.`;
+    : `YOU ARE THE DIRECTOR: Read and analyze the entire narrative carefully.
+Based on the narrative length (${words} words, ${rawSentences.length} sentences):
+- TARGET SCENE COUNT: Exactly ${targetCount} to ${maxNaturalScenes} scenes (DO NOT exceed ${maxNaturalScenes} scenes for this script).
+- ZERO DUPLICATION MANDATE: Every sentence from the script must appear in EXACTLY ONE scene in sequential chronological order.
+- NEVER repeat or duplicate the same sentence or phrase in multiple scenes.
+- Every major thought unit or philosophical contrast should be a visual scene lasting between ${paceConfig.minSec}s and ${paceConfig.maxSec}s.`;
 
   const VALID_SHOT_TYPES: ShotType[] = [
     'AERIAL_GEOMETRY',
@@ -1177,6 +1374,12 @@ ${requestedCount && targetDurationSec && targetDurationSec > 0 ? `Target total v
 ${styleSection}
 
 ${worldBibleSection}
+
+CRITICAL ZERO-DUPLICATION & SEQUENTIAL COVERAGE MANDATE (NON-NEGOTIABLE):
+1. UNDER NO CIRCUMSTANCES should you repeat or reuse any sentence, clause, or phrase across multiple scenes.
+2. The sequence of scenes MUST partition the original script from beginning to end without gaps and WITHOUT DUPLICATES.
+3. If the script is short (e.g. 1-4 sentences), produce ONLY ${targetCount} to ${maxNaturalScenes} scenes matching the natural thought units. NEVER artificially manufacture 6 or 7 scenes by repeating sentences.
+4. Each scene's "narration" must be a distinct, unique excerpt that advances the story chronologically.
 
 CRITICAL DURATION & PACING MANDATE (MINIMUM 3.0 SECONDS):
 - Visual cuts under 3.0 seconds are UNACCEPTABLE because images vanish during transitions before viewers can register them.
@@ -1289,7 +1492,7 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
       throw new Error("LLM output is not a non-empty JSON array of scenes.");
     }
 
-    return parsed.map((item: Record<string, unknown>, index: number) => {
+    const parsedScenes: ScriptSceneBreakdown[] = parsed.map((item: Record<string, unknown>, index: number) => {
       const narration = typeof item.narration === "string" ? item.narration.trim() : `Scene ${index + 1}`;
       let visualPrompt =
         typeof item.visual_prompt === "string"
@@ -1360,6 +1563,14 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
         camera_motion,
       };
     });
+
+    return deduplicateAndBalanceScenes(
+      parsedScenes,
+      requirement,
+      requestedCount || maxNaturalScenes,
+      paceConfig.minSec,
+      paceConfig.maxSec
+    );
   } catch {
     const lines = requirement.split(/(?<=[.!?\n।])\s+/).map((l) => l.trim()).filter((l) => l.length > 2);
     const count = typeof options?.sceneCount === "number" && options.sceneCount > 0
@@ -1370,7 +1581,7 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
 
     const finalCount = Math.max(1, Math.min(lines.length, count));
 
-    return Array.from({ length: finalCount }, (_, idx) => {
+    const finalScenes: ScriptSceneBreakdown[] = Array.from({ length: finalCount }, (_, idx) => {
       const startIdx = Math.floor((idx * lines.length) / finalCount);
       const endIdx = Math.floor(((idx + 1) * lines.length) / finalCount);
       const chunkText = lines.slice(startIdx, Math.max(startIdx + 1, endIdx)).join(' ') || `Visual Scene ${idx + 1}`;
@@ -1398,6 +1609,14 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
         camera_motion,
       };
     });
+
+    return deduplicateAndBalanceScenes(
+      finalScenes,
+      requirement,
+      requestedCount || maxNaturalScenes,
+      paceConfig.minSec,
+      paceConfig.maxSec
+    );
   }
 }
 
