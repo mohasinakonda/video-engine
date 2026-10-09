@@ -16,6 +16,7 @@ import {
   Users,
   TrendingUp,
   LogOut,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { signOutUser } from '@/lib/supabase-service';
@@ -151,13 +152,23 @@ export default function Sidebar() {
             </Link>
             <Link
               href="/admin/styles"
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/users'
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/styles'
                 ? 'bg-zinc-850 text-white border border-zinc-800'
                 : 'text-zinc-400 hover:text-white'
                 }`}
             >
-              <Users size={13} className="text-blue-400" />
+              <Sparkles size={13} className="text-blue-400" />
               Presets Styles
+            </Link>
+            <Link
+              href="/admin/models"
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/models'
+                ? 'bg-zinc-850 text-white border border-zinc-800'
+                : 'text-zinc-400 hover:text-white'
+                }`}
+            >
+              <Zap size={13} className="text-blue-400" />
+              Models
             </Link>
           </div>
         )}
