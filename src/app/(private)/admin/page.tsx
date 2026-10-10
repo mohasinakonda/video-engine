@@ -7,7 +7,6 @@ import {
   DollarSign,
   Users,
   Clock,
-  CheckCircle2,
   XCircle,
   Tag,
   Zap,
@@ -25,6 +24,7 @@ import {
   Loader2,
   Palette,
 } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 import {
   getAllPaymentSubmissions,
   approvePaymentRequest,
@@ -66,7 +66,6 @@ export default function AdminHubPage() {
 
   // Quick Credit Adjustment State
   const [creditAdjustmentAmount, setCreditAdjustmentAmount] = useState(100);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLiveSupabase, setIsLiveSupabase] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -116,11 +115,6 @@ export default function AdminHubPage() {
   useEffect(() => {
     refreshData();
   }, []);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -309,14 +303,6 @@ export default function AdminHubPage() {
             </button>
           </div>
         </div>
-
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl bg-emerald-500 text-zinc-950 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
-            <CheckCircle2 size={16} />
-            <span>{toastMessage}</span>
-          </div>
-        )}
 
         {/* Analytics KPIs */}
         {analytics && (
