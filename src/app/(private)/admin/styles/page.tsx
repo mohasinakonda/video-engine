@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Palette, CheckCircle2, Loader2 } from 'lucide-react';
+import { Palette, Loader2 } from 'lucide-react';
 import type { BaseStylePreset } from '@/types';
 import { useAdminStyles } from './hooks/use-admin-styles';
 import { StyleHeader } from './components/style-header';
@@ -19,7 +19,6 @@ export default function AdminStylesPage() {
     setActiveFamily,
     searchQuery,
     setSearchQuery,
-    toastMessage,
     showToast,
     copiedId,
 
@@ -52,14 +51,6 @@ export default function AdminStylesPage() {
 
   return (
     <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-900 border border-emerald-500/40 text-emerald-400 shadow-2xl animate-in slide-in-from-bottom-5">
-          <CheckCircle2 size={18} />
-          <span className="text-xs font-semibold">{toastMessage}</span>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Top Header */}
         <StyleHeader
