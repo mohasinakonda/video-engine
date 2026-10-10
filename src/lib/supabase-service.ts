@@ -1278,13 +1278,22 @@ export async function fetchAIModelsRemote(
 }
 
 /** Upsert an AI model in Supabase */
-export async function upsertAIModelRemote(model: AIImageModel, client?: any): Promise<boolean> {
+export async function upsertAIModelRemote(
+  model: AIImageModel,
+  client?: any,
+  defaultScope?: 'voice' | 'image'
+): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
     const supabase = client || createClient();
 
     if (model.isDefault) {
-      await supabase.from('ai_models').update({ is_default: false }).neq('id', model.id);
+      // Scope the default-unset so a voice default doesn't clear image
+      // defaults (and vice versa). Voice models use the "voice-" id prefix.
+      let q = supabase.from('ai_models').update({ is_default: false }).neq('id', model.id);
+      const scope = defaultScope || (model.id.startsWith('voice-') ? 'voice' : 'image');
+      q = scope === 'voice' ? q.like('id', 'voice-%') : q.not('id', 'like', 'voice-%');
+      await q;
     }
 
     const payload = {
