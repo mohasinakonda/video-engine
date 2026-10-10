@@ -103,9 +103,9 @@ export function getStoredPollinationsKey(): string {
   if (typeof process !== "undefined" && process.env?.POLLINATIONS_API_KEY) {
     return process.env.POLLINATIONS_API_KEY.trim();
   }
-  if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_POLLINATIONS_API_KEY) {
-    return process.env.NEXT_PUBLIC_POLLINATIONS_API_KEY.trim();
-  }
+  // Security: never fall back to NEXT_PUBLIC_POLLINATIONS_API_KEY here.
+  // NEXT_PUBLIC_ values are inlined into the client JS bundle and this
+  // function runs in the browser (BYOK via localStorage instead).
   if (typeof window === "undefined") return "";
   try {
     const raw = localStorage.getItem("pollinations-api-key");
