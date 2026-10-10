@@ -284,6 +284,8 @@ export interface ThumbnailConcept {
   compositionType?: 'split_contrast' | 'focal_close_up' | 'cinematic_scale' | 'custom';
   imageUrl?: string;
   isGenerating?: boolean;
+  canvaDesignId?: string;
+  canvaEditUrl?: string;
 }
 
 export interface ShortsRepurposeIdea {
