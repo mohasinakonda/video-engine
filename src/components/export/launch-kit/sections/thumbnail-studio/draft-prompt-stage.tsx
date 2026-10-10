@@ -21,20 +21,13 @@ interface DraftPromptStageProps {
   activeIndex: number;
 }
 
-const CINEMATIC_MODIFIERS = [
-  { label: '+ High Rim Light', text: ', razor-sharp cyan & amber rim lighting, chiaroscuro contrast' },
-  { label: '+ Split Contrast (L vs R)', text: ', dual split-screen visual contrast, opposing emotional tones' },
-  { label: '+ 85mm Prime Bokeh', text: ', shot on 85mm anamorphic cine prime, f/1.4 shallow depth of field, creamy background bokeh' },
-  { label: '+ Clean Negative Space', text: ', clean unobstructed dark negative space in the upper-left quadrant for bold badge text' },
-  { label: '+ Volumetric Particles', text: ', volumetric light shafts, subtle cinematic fog, floating glowing golden dust motes' },
-];
+
 
 export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps) {
   const {
     project,
     packaging,
     stylePreset,
-    userCredits,
     selectedAIModel,
     generatingThumbId,
     enhancingThumbId,
@@ -44,17 +37,12 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
     handleUpdateConceptPrompt,
     handleEnhanceConceptPrompt,
     handleGenerateThumbnail,
-    handleUpdateBadge,
   } = useLaunchKit();
 
   const hasImage = Boolean(concept.imageUrl);
   const isGeneratingThis = generatingThumbId === concept.id;
   const isEnhancingThis = enhancingThumbId === concept.id;
 
-  const handleAppendModifier = (text: string) => {
-    if (concept.visualPrompt.includes(text.trim())) return;
-    handleUpdateConceptPrompt(concept.id, `${concept.visualPrompt.trim()}${text}`);
-  };
 
   return (
     <div className="p-5 sm:p-6 space-y-4">
@@ -161,30 +149,12 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
           className="w-full text-xs font-mono leading-relaxed bg-zinc-950 border border-zinc-700/80 focus:border-purple-500 rounded-xl text-zinc-100 p-3.5 focus:outline-none resize-y min-h-[110px]"
         />
 
-        {/* 1-Click Prompt Modifiers */}
-        <div className="space-y-1.5 pt-1 border-t border-zinc-800/80">
-          <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-            Quick Cinematic Boosters (Click to inject):
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {CINEMATIC_MODIFIERS.map((mod, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleAppendModifier(mod.text)}
-                className="text-[10px] font-medium px-2 py-0.5 rounded bg-zinc-800 hover:bg-purple-950/60 hover:text-purple-300 text-zinc-300 border border-zinc-700 hover:border-purple-700/50 transition-colors"
-              >
-                {mod.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
 
       </div>
 
       {/* Action Bar: Generate Button */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+      <div className=" pt-2">
         <div className="text-[11px] text-zinc-400 flex items-center gap-2">
           <span>
             Renders in <strong className="text-white">{project.aspectRatio || '16:9'}</strong> matching{' '}
@@ -192,7 +162,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
           </span>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap pt-4">
           <ModelSelectorDropdown size="sm" direction="up" />
           <button
             type="button"

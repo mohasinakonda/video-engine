@@ -97,6 +97,13 @@ interface LaunchKitContextValue {
   ) => Promise<void>;
   handleDownloadThumbnail: (concept: ThumbnailConcept) => void;
 
+  // Canva Integration
+  isCanvaLoading: boolean;
+  canvaSyncingId: string | null;
+  handleEditInCanva: (concept: ThumbnailConcept) => Promise<void>;
+  handleSyncFromCanva: (concept: ThumbnailConcept) => Promise<void>;
+  handleReplaceConceptImage: (conceptId: string, newImageUrl: string) => Promise<void>;
+
   // Format helpers
   isVertical: boolean;
   durationStr: string;
@@ -119,6 +126,45 @@ interface LaunchKitProviderProps {
   children: ReactNode;
 }
 
+async function copyImageToClipboard(imageUrl: string): Promise<boolean> {
+  if (typeof window === 'undefined' || !navigator.clipboard) return false;
+  try {
+    let blob: Blob;
+    if (imageUrl.startsWith('data:')) {
+      const res = await fetch(imageUrl);
+      blob = await res.blob();
+    } else {
+      const res = await fetch(imageUrl);
+      blob = await res.blob();
+    }
+    if (blob.type !== 'image/png') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      const pngBlob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/png')
+      );
+      if (pngBlob) blob = pngBlob;
+    }
+    await navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': blob }),
+    ]);
+    return true;
+  } catch (err) {
+    console.warn('[LaunchKit] Clipboard image write warning:', err);
+    return false;
+  }
+}
+
 export function LaunchKitProvider({
   project,
   onUpdateProject,
@@ -132,6 +178,10 @@ export function LaunchKitProvider({
   const [enhancingThumbId, setEnhancingThumbId] = useState<string | null>(null);
   const [activeConceptId, setActiveConceptId] = useState<string | null>(null);
   const [conceptEditMode, setConceptEditMode] = useState<Record<string, boolean>>({});
+
+  // Canva integration states
+  const [isCanvaLoading, setIsCanvaLoading] = useState(false);
+  const [canvaSyncingId, setCanvaSyncingId] = useState<string | null>(null);
 
   // Editable Voice Script State (initialized from project.rawScript)
   const [voiceScript, setVoiceScript] = useState(project.rawScript || '');
@@ -715,6 +765,131 @@ export function LaunchKitProvider({
     showToast('Downloaded High-Res Thumbnail (1280x720)');
   };
 
+  const handleEditInCanva = async (concept: ThumbnailConcept) => {
+    if (!concept.imageUrl) {
+      showToast('⚠️ No generated thumbnail found to edit in Canva.');
+      return;
+    }
+
+    setIsCanvaLoading(true);
+    try {
+      showToast('Connecting with Canva Studio...');
+
+      // 1. Try Canva Connect API create-design route
+      const res = await fetch('/api/integrations/canva/create-design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: concept.imageUrl,
+          title: concept.conceptName || project.title,
+          textOverlayHint: concept.textOverlayHint || '',
+          aspectRatio: project.aspectRatio === '9:16' ? '9:16' : '16:9',
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (data.success && data.editUrl) {
+        // Update concept with canva info
+        const updatedConcepts = (packaging?.thumbnailConcepts || []).map((c) =>
+          c.id === concept.id
+            ? { ...c, canvaDesignId: data.designId, canvaEditUrl: data.editUrl }
+            : c
+        );
+        const updatedPackaging = { ...packaging!, thumbnailConcepts: updatedConcepts };
+        const updated = { ...project, youtubePackaging: updatedPackaging };
+        await saveProject(updated);
+        onUpdateProject(updated);
+
+        window.open(data.editUrl, '_blank', 'noopener,noreferrer');
+        showToast('✨ Opened multi-layer design in Canva! Edit and click "Sync from Canva" when done.');
+        return;
+      }
+
+      // If Canva API is configured but needs one-time user authorization
+      if (!data.isConnected && data.isConfigured) {
+        showToast('🔗 Connecting Canva account... Please approve on Canva tab.');
+        window.open('/api/integrations/canva/auth', '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      // 2. Smart Bridge fallback: Copy to clipboard and launch Canva YouTube Thumbnail Editor
+      const copied = await copyImageToClipboard(concept.imageUrl);
+      const canvaUrl = project.aspectRatio === '9:16'
+        ? 'https://www.canva.com/create/instagram-stories/'
+        : 'https://www.canva.com/create/youtube-thumbnails/';
+
+      window.open(canvaUrl, '_blank', 'noopener,noreferrer');
+
+      if (copied) {
+        showToast('📋 Image copied to clipboard! Opening Canva (Press Ctrl+V / Cmd+V in Canva to paste).');
+      } else {
+        showToast('Opening Canva YouTube Thumbnail editor...');
+      }
+    } catch (err: any) {
+      console.error('Canva launch error:', err);
+      // Fallback open Canva
+      window.open('https://www.canva.com/create/youtube-thumbnails/', '_blank');
+      showToast('Opening Canva editor...');
+    } finally {
+      setIsCanvaLoading(false);
+    }
+  };
+
+  const handleSyncFromCanva = async (concept: ThumbnailConcept) => {
+    if (!concept.canvaDesignId) {
+      showToast('⚠️ No active Canva design session linked for this thumbnail.');
+      return;
+    }
+
+    setCanvaSyncingId(concept.id);
+    try {
+      showToast('Syncing finalized thumbnail from Canva...');
+      const res = await fetch('/api/integrations/canva/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ designId: concept.canvaDesignId }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to export Canva design');
+      }
+
+      const data = await res.json();
+      if (!data.imageUrl) {
+        throw new Error('No image returned from Canva export');
+      }
+
+      await handleReplaceConceptImage(concept.id, data.imageUrl);
+      showToast('✓ Polished thumbnail successfully synced from Canva!');
+    } catch (err: any) {
+      console.error('Canva sync failed:', err);
+      showToast(`Canva sync failed: ${err.message}`);
+    } finally {
+      setCanvaSyncingId(null);
+    }
+  };
+
+  const handleReplaceConceptImage = async (conceptId: string, newImageUrl: string) => {
+    if (!packaging?.thumbnailConcepts) return;
+    const updatedConcepts = packaging.thumbnailConcepts.map((c) =>
+      c.id === conceptId ? { ...c, imageUrl: newImageUrl } : c
+    );
+    const isCurrentActive = packaging.selectedThumbnailUrl === packaging.thumbnailConcepts.find(c => c.id === conceptId)?.imageUrl;
+    const updatedPackaging: YouTubePackagingData = {
+      ...packaging,
+      thumbnailConcepts: updatedConcepts,
+      selectedThumbnailUrl: isCurrentActive ? newImageUrl : packaging.selectedThumbnailUrl,
+    };
+    const updated: ProjectManifest = {
+      ...project,
+      youtubePackaging: updatedPackaging,
+    };
+    await saveProject(updated);
+    onUpdateProject(updated);
+  };
+
   const handleCopyMasterLaunchPack = () => {
     if (!packaging) return;
     const activeTitle = selectedTitle;
@@ -816,6 +991,11 @@ ${hashtagsStr}`;
         handleGenerateThumbnail,
         handleUpdateBadge,
         handleDownloadThumbnail,
+        isCanvaLoading,
+        canvaSyncingId,
+        handleEditInCanva,
+        handleSyncFromCanva,
+        handleReplaceConceptImage,
         isVertical,
         durationStr,
       }}

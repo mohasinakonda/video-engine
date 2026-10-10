@@ -1,21 +1,18 @@
 'use client';
 
 import React from 'react';
-import { Image as ImageIcon, Palette, Zap } from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
 import { useLaunchKit } from '../launch-kit-context';
 import { ConceptGalleryStrip } from './thumbnail-studio/concept-gallery-strip';
 import { GeneratedThumbnailStage } from './thumbnail-studio/generated-thumbnail-stage';
 import { DraftPromptStage } from './thumbnail-studio/draft-prompt-stage';
-import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 
 export function ThumbnailStudioCard() {
   const {
     project,
     packaging,
-    stylePreset,
     activeConcept,
     conceptEditMode,
-    userCredits,
   } = useLaunchKit();
 
   if (!packaging?.thumbnailConcepts || packaging.thumbnailConcepts.length === 0) {
@@ -52,13 +49,7 @@ export function ThumbnailStudioCard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <ModelSelectorDropdown size="sm" />
-          <span className="text-[11px] text-zinc-300 flex items-center gap-1.5 font-mono bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800">
-            <Palette size={12} className="text-purple-400" />
-            <span>{stylePreset?.name || 'Cinematic'}</span>
-          </span>
-        </div>
+
       </div>
 
       {/* Concept Gallery Switcher Strip */}
