@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { BaseStylePreset } from '@/types';
 import { getAdminArtStyles, saveAdminArtStyle, deleteAdminArtStyle } from '@/lib/store';
+import { showToast } from '@/lib/toast';
 
 export function useAdminStyles() {
   const [styles, setStyles] = useState<BaseStylePreset[]>([]);
@@ -10,13 +11,7 @@ export function useAdminStyles() {
   const [isLiveSupabase, setIsLiveSupabase] = useState(false);
   const [activeFamily, setActiveFamily] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  }, []);
 
   const loadStyles = useCallback(async () => {
     setLoading(true);
@@ -192,7 +187,6 @@ export function useAdminStyles() {
     setActiveFamily,
     searchQuery,
     setSearchQuery,
-    toastMessage,
     showToast,
     copiedId,
 
