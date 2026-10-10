@@ -49,7 +49,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/api/generate-packaging') ||
     pathname.startsWith('/api/breakdown-script') ||
     pathname.startsWith('/api/enhance-thumbnail-prompt') ||
-    pathname.startsWith('/api/search-competitors');
+    pathname.startsWith('/api/search-competitors') ||
+    pathname.startsWith('/api/transcribe-audio');
   const isUserPrivateRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/project') ||
