@@ -63,21 +63,31 @@ export async function fetchVoiceModelsRemote(client?: any): Promise<VoiceModelRe
 /** Built-in fallback engines when Supabase has no voice models configured. */
 export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
   {
-    id: 'voice-inworld-max',
-    name: 'Inworld Max',
-    modelId: 'inworld-ai/inworld-tts-1.5-max',
-    description: 'Flagship expressive voice engine. Best quality.',
+    id: 'voice-chatterbox-multilingual',
+    name: 'Chatterbox Multilingual',
+    modelId: 'ResembleAI/chatterbox-multilingual',
+    description: 'Flagship expressive engine. 23 languages, emotion control.',
     charsPerCredit: 2000,
     allowedPlans: [],
     isDefault: true,
     isActive: true,
   },
   {
-    id: 'voice-inworld-mini',
-    name: 'Inworld Mini',
-    modelId: 'inworld-ai/inworld-tts-1.5-mini',
-    description: 'Faster, lighter engine for drafts.',
+    id: 'voice-chatterbox-turbo',
+    name: 'Chatterbox Turbo',
+    modelId: 'ResembleAI/chatterbox-turbo',
+    description: 'Faster low-latency engine, English-focused.',
     charsPerCredit: 4000,
+    allowedPlans: [],
+    isDefault: false,
+    isActive: true,
+  },
+  {
+    id: 'voice-mimo-v25-tts',
+    name: 'MiMo V2.5 (Free)',
+    modelId: 'XiaomiMiMo/MiMo-V2.5-tts',
+    description: 'Free experimental engine. Quality may vary.',
+    charsPerCredit: 10000,
     allowedPlans: [],
     isDefault: false,
     isActive: true,
@@ -151,19 +161,54 @@ function deepinfraKey(): string | null {
 }
 
 /**
+ * Display language name → Chatterbox language_id code.
+ * Falls back to 'en' for unknown names.
+ */
+const LANGUAGE_ID_MAP: Record<string, string> = {
+  english: 'en', spanish: 'es', french: 'fr', german: 'de', italian: 'it',
+  portuguese: 'pt', dutch: 'nl', polish: 'pl', russian: 'ru', turkish: 'tr',
+  hindi: 'hi', arabic: 'ar', japanese: 'ja', korean: 'ko', chinese: 'zh',
+  danish: 'da', greek: 'el', finnish: 'fi', hebrew: 'he', malay: 'ms',
+  norwegian: 'no', swedish: 'sv', swahili: 'sw',
+};
+
+export function toLanguageId(language: string | undefined): string {
+  if (!language) return 'en';
+  const code = LANGUAGE_ID_MAP[language.trim().toLowerCase()];
+  return code || 'en';
+}
+
+/** Tones that call for more emotional delivery → exaggeration boost. */
+const HIGH_ENERGY_TONES = new Set([
+  'excited', 'dramatic', 'angry', 'cheerful', 'laugh', 'thrilled', 'passionate',
+]);
+/** Tones that call for restraint → exaggeration reduction. */
+const LOW_ENERGY_TONES = new Set([
+  'calm', 'solemn', 'serious', 'sad', 'whisper', 'whispers', 'subtle', 'gentle',
+]);
+
+/**
  * Synthesize one chunk via DeepInfra's TTS inference endpoint.
  * Docs: POST https://api.deepinfra.com/v1/inference/{model} with { text, ... },
- * returns raw audio bytes. Extra params (voice, language, speed) are
- * model-specific — see the model's API page on deepinfra.com.
+ * returns raw audio bytes.
+ *
+ * Chatterbox-native params:
+ *  - exaggeration (0-1): emotion/expression intensity. Mapped from the
+ *    UI expressiveness slider (0-100), nudged by per-section tone.
+ *  - cfg_weight: default 0.5; lowered to ~0.3 for highly exaggerated
+ *    (dramatic) delivery per Resemble AI's tuning guidance.
+ *  - language_id: e.g. "en", "es", "hi".
+ * Emotion tags ([whisper], [laugh], …) stay inline in the text — Chatterbox
+ * performs them natively.
  */
 export async function synthesizeVoiceChunk(params: {
   modelId: string;
   text: string;
-  voiceId: string;
+  voiceId?: string;
   language?: string;
-  speed?: number;
+  languageId?: string;
   tone?: string;
-  /** 0-100, maps to delivery intensity in the style direction. */
+  /** 0-100, maps to Chatterbox exaggeration (0-1). */
   expressiveness?: number;
 }): Promise<{ audio: ArrayBuffer; mimeType: string }> {
   const apiKey = deepinfraKey();
@@ -175,20 +220,26 @@ export async function synthesizeVoiceChunk(params: {
     throw new Error(`Chunk too long (${text.length} chars).`);
   }
 
+  const expr = typeof params.expressiveness === 'number'
+    ? Math.min(100, Math.max(0, params.expressiveness))
+    : 50;
+  let exaggeration = expr / 100;
+
+  // Per-section tone nudges delivery intensity (tags themselves stay inline).
+  const tone = (params.tone || '').toLowerCase();
+  if (HIGH_ENERGY_TONES.has(tone)) exaggeration = Math.min(1, exaggeration + 0.15);
+  else if (LOW_ENERGY_TONES.has(tone)) exaggeration = Math.max(0, exaggeration - 0.15);
+
+  // Resemble AI guidance: dramatic delivery → lower cfg for better pacing.
+  const cfgWeight = exaggeration >= 0.65 ? 0.3 : 0.5;
+
   const body: Record<string, unknown> = {
     text,
-    voice: params.voiceId,
+    language_id: params.languageId || toLanguageId(params.language),
+    exaggeration: Math.round(exaggeration * 100) / 100,
+    cfg_weight: cfgWeight,
   };
-  if (params.language) body.language = params.language;
-  if (params.speed && params.speed !== 1) body.speed = params.speed;
-  // Per-section tone becomes natural-language style direction for the request.
-  // Expressiveness (0-100, default 50) tunes delivery intensity.
-  const styleParts: string[] = [];
-  if (params.tone) styleParts.push(`Speak in a ${params.tone} tone.`);
-  const expr = typeof params.expressiveness === 'number' ? params.expressiveness : 50;
-  if (expr >= 70) styleParts.push('Deliver with high expressiveness and emotional range.');
-  else if (expr <= 30) styleParts.push('Keep the delivery subtle and restrained.');
-  if (styleParts.length > 0) body.style_prompt = styleParts.join(' ');
+  // voiceId reserved for reference-audio cloning (future); not sent for now.
 
   const res = await fetch(
     `https://api.deepinfra.com/v1/inference/${params.modelId}`,
