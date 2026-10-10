@@ -11,7 +11,6 @@ import {
   Tag,
   ArrowLeft,
   DollarSign,
-  CheckCircle2,
   XCircle,
   AlertTriangle,
   Gift,
@@ -19,6 +18,7 @@ import {
   RefreshCw,
   Percent,
 } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 import {
   getAllUsers,
   saveAllUsers,
@@ -34,7 +34,6 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [payouts, setPayouts] = useState<AffiliatePayoutRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLiveSupabase, setIsLiveSupabase] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -84,11 +83,6 @@ export default function AdminUsersPage() {
   useEffect(() => {
     refreshData();
   }, []);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
 
   const handleToggleBlock = async (user: UserProfile) => {
     if (user.isBlocked) {
@@ -256,14 +250,6 @@ export default function AdminUsersPage() {
             </button>
           </div>
         </div>
-
-        {/* Toast */}
-        {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl bg-emerald-500 text-zinc-950 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom">
-            <CheckCircle2 size={16} />
-            <span>{toastMessage}</span>
-          </div>
-        )}
 
         {/* Search Bar & User Table */}
         <div className="space-y-4">
