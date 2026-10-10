@@ -3,13 +3,16 @@ import { cookies } from 'next/headers';
 import {
   uploadAssetToCanva,
   createCanvaThumbnailDesign,
+  createEditableDesignFromImage,
   refreshCanvaToken,
+  CanvaCapabilityError,
+  CanvaCreditQuotaError,
 } from '@/lib/canva/client';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { imageUrl, title, textOverlayHint, aspectRatio } = body;
+    const { imageUrl, title, textOverlayHint, aspectRatio, editableLayers } = body;
 
     if (!imageUrl) {
       return NextResponse.json({ error: 'Image URL or base64 is required' }, { status: 400 });
@@ -55,10 +58,47 @@ export async function POST(req: NextRequest) {
     // 1. Upload the generated background image to Canva assets
     const cleanTitle = (title || 'YouTube Thumbnail Background').replace(/[^a-zA-Z0-9 _-]/g, '');
     const assetId = await uploadAssetToCanva(accessToken, imageUrl, cleanTitle);
+    const designTitle = title ? `${title} (Thumbnail)` : 'YouTube Thumbnail';
 
-    // 2. Create the YouTube thumbnail design in Canva with the uploaded asset
+    // 2. Prefer the Magic Layers image-to-design import so every element of
+    // the thumbnail becomes a separate editable layer in Canva. Falls back
+    // to the flat single-image design when the capability/credits are missing.
+    let fallbackNotice: string | null = null;
+    if (editableLayers !== false) {
+      try {
+        const editable = await createEditableDesignFromImage(accessToken, {
+          assetId,
+          title: designTitle,
+        });
+        return NextResponse.json({
+          success: true,
+          isConnected: true,
+          method: 'editable-layers',
+          designId: editable.designId,
+          editUrl: editable.editUrl,
+          assetId,
+          textOverlayHint: textOverlayHint || '',
+        });
+      } catch (layerErr) {
+        if (
+          layerErr instanceof CanvaCapabilityError ||
+          layerErr instanceof CanvaCreditQuotaError
+        ) {
+          console.warn('[Canva] Editable-layers import unavailable, falling back to flat design:', layerErr.message);
+          fallbackNotice =
+            'Editable layers are unavailable for this Canva account (Magic Layers permission or AI credits). ' +
+            'Enable Magic Layers on the Canva team to edit every element as its own layer.';
+        } else {
+          throw layerErr;
+        }
+      }
+    }
+
+    // 3. Fallback: create the YouTube thumbnail design with the uploaded
+    // asset as a single flat image (movable/resizable/replaceable, but not
+    // separable into editable layers).
     const designResult = await createCanvaThumbnailDesign(accessToken, {
-      title: title ? `${title} (Thumbnail)` : 'YouTube Thumbnail',
+      title: designTitle,
       assetId,
       aspectRatio: aspectRatio || '16:9',
     });
@@ -66,6 +106,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       isConnected: true,
+      method: 'flat-image',
+      notice: fallbackNotice,
       designId: designResult.designId,
       editUrl: designResult.editUrl,
       assetId,

@@ -802,7 +802,13 @@ export function LaunchKitProvider({
         onUpdateProject(updated);
 
         window.open(data.editUrl, '_blank', 'noopener,noreferrer');
-        showToast('✨ Opened multi-layer design in Canva! Edit and click "Sync from Canva" when done.');
+        if (data.method === 'editable-layers') {
+          showToast('✨ Opened fully-editable design in Canva — every element is its own layer. Edit, then "Sync from Canva".');
+        } else if (data.notice) {
+          showToast(`✨ Opened design in Canva as a single flat image. ${data.notice}`);
+        } else {
+          showToast('✨ Opened multi-layer design in Canva! Edit and click "Sync from Canva" when done.');
+        }
         return;
       }
 
