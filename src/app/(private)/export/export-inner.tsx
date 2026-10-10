@@ -8,7 +8,6 @@ import {
   FolderOpen,
   Sparkles,
   Loader2,
-  CheckCircle2,
   ChevronLeft,
   Cpu,
   Volume2,
@@ -18,6 +17,7 @@ import {
   Smartphone,
   Square,
 } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 import { getProject, saveProject } from '@/lib/store';
 import { ExportEngine } from '@/lib/export-engine';
 import { getMediaBlobUrl } from '@/lib/media-storage';
@@ -40,12 +40,6 @@ export default function ExportInner() {
 
   // ─── Studio Tabs ───────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'render' | 'youtube'>('render');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ProjectManifest | null>(null);
@@ -669,13 +663,6 @@ export default function ExportInner() {
         )}
       </div>
 
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 animate-slide-up flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900/95 border border-zinc-700 text-white text-xs shadow-2xl backdrop-blur-md">
-          <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
     </div>
   );
 }
