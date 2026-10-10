@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { DM_Sans } from 'next/font/google';
+import { Toaster } from 'react-hot-toast';
 import JsonLd from '@/components/seo/json-ld';
 
 const dm_sans = DM_Sans({
@@ -75,6 +76,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-bg-base text-slate-100 antialiased font-sans">
 
         {children}
+
+        <Toaster
+          position="top-center"
+          gutter={8}
+          toastOptions={{
+            style: {
+              background: '#18181b',
+              color: '#fafafa',
+              border: '1px solid #3f3f46',
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: 600,
+              padding: '10px 14px',
+              maxWidth: 'min(480px, 90vw)',
+            },
+            success: {
+              iconTheme: { primary: '#10b981', secondary: '#09090b' },
+            },
+            error: {
+              iconTheme: { primary: '#ef4444', secondary: '#09090b' },
+              duration: 5000,
+            },
+          }}
+        />
 
       </body>
     </html>

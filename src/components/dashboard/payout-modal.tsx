@@ -2,6 +2,7 @@
 
 import React, { Dispatch, SetStateAction, useState } from 'react';
 import { DollarSign, AlertCircle } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 import { UserProfile } from '@/types/subscription';
 import { submitPayoutRemote } from '@/lib/supabase-service';
 import { submitPayoutRequest } from '@/lib/subscription-store';
@@ -39,15 +40,10 @@ export default function PayoutModal({
   isLiveSupabase,
   isLoggedIn
 }: PayoutModalProps) {
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState('');
   if (!isOpen) return null;
 
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
   const handleRequestPayout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;

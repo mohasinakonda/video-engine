@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 import {
   validateAndApplyPromoCode,
   cacheValidatedPromo,
@@ -56,7 +56,6 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [lastSubmittedReq, setLastSubmittedReq] = useState<PaymentSubmission | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Synchronize promo code from URL and sessionStorage
@@ -185,10 +184,10 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
       if (plansElement) {
         plansElement.scrollIntoView({ behavior: 'smooth' });
       }
-      setToastMessage(
-        '🔒 Top-up packs are available exclusively for active plan subscribers. Please choose a subscription plan below to unlock top-ups!'
+      showToast(
+        'Top-up packs are available exclusively for active plan subscribers. Please choose a subscription plan below to unlock top-ups!',
+        'warning'
       );
-      setTimeout(() => setToastMessage(null), 5000);
       return;
     }
     setSelectedTopup(pack);
@@ -375,12 +374,7 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
       />
 
       {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-amber-400 text-zinc-950 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom border border-amber-300">
-          <AlertCircle size={16} className="text-zinc-950 shrink-0" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+
     </div>
   );
 }

@@ -24,6 +24,7 @@ import {
   Lock,
 } from 'lucide-react';
 import type { AIImageModel, PlanTier } from '@/types/subscription';
+import { showToast } from '@/lib/toast';
 
 const ALL_PLAN_TIERS: { id: PlanTier; label: string; desc: string }[] = [
   { id: 'TRIAL', label: 'Trial', desc: 'Free trial users' },
@@ -38,8 +39,6 @@ export default function AdminModelsPage() {
   const [isLiveSupabase, setIsLiveSupabase] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('ALL');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -56,11 +55,6 @@ export default function AdminModelsPage() {
   const [formGuidanceScale, setFormGuidanceScale] = useState(1.0);
   const [formIsDefault, setFormIsDefault] = useState(false);
   const [formIsActive, setFormIsActive] = useState(true);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
 
   const loadModels = async () => {
     setLoading(true);
@@ -260,14 +254,6 @@ export default function AdminModelsPage() {
 
   return (
     <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-zinc-900 border border-emerald-500/40 text-emerald-400 shadow-2xl animate-in slide-in-from-bottom-5">
-          <CheckCircle2 size={18} />
-          <span className="text-xs font-semibold">{toastMessage}</span>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header Navigation Bar */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
