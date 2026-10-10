@@ -48,9 +48,6 @@ export async function POST(req: Request) {
     const planId = typeof body.planId === 'string' ? body.planId : '';
     const index = Number(body.index) || 0;
     let text = typeof body.text === 'string' ? body.text : '';
-    const voiceId = typeof body.voiceId === 'string' && body.voiceId.trim()
-      ? body.voiceId.trim()
-      : 'Sarah';
 
     // Preview path: fixed sample text, rate-limited, no plan/credits needed.
     if (isPreview) {
@@ -80,16 +77,12 @@ export async function POST(req: Request) {
       auth.serverSupabase
     );
 
-    const speed = typeof body.speed === 'number'
-      ? Math.min(2, Math.max(0.5, body.speed))
-      : 1;
-
     const { audio, mimeType } = await synthesizeVoiceChunk({
       modelId: model.modelId,
       text,
-      voiceId,
+      voiceId: typeof body.voiceId === 'string' ? body.voiceId : undefined,
       language: typeof body.language === 'string' ? body.language : undefined,
-      speed,
+      languageId: typeof body.languageId === 'string' ? body.languageId : undefined,
       tone: typeof body.tone === 'string' && body.tone ? body.tone : undefined,
       expressiveness: typeof body.expressiveness === 'number' ? body.expressiveness : 50,
     });
