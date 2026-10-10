@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { Search, Play, Pause, Check } from 'lucide-react';
-import type { InworldVoice, VoiceFilter } from '@/lib/inworld-voices';
-import { VOICE_FILTERS } from '@/lib/inworld-voices';
+import type { VoicePreset, VoiceFilter } from '@/lib/voice-catalog';
+import { VOICE_FILTERS } from '@/lib/voice-catalog';
 
 interface VoiceBrowserProps {
-  voices: InworldVoice[];
+  voices: VoicePreset[];
   selectedId: string;
-  onSelect: (voice: InworldVoice) => void;
-  onPreview: (voice: InworldVoice) => void;
+  onSelect: (voice: VoicePreset) => void;
+  onPreview: (voice: VoicePreset) => void;
   previewingId: string | null;
 }
 
