@@ -16,6 +16,7 @@ import VoiceHistory, { type VoiceHistoryEntry } from '@/components/voice/voice-h
 import { showToast } from '@/lib/toast';
 import { saveMediaBlob, getMediaBlob, getMediaBlobUrl, deleteMediaBlob, getAudioDuration } from '@/lib/media-storage';
 import type { VoicePreset } from '@/lib/voice-catalog';
+import { concatenateAudioParts } from '@/lib/audio-concat';
 
 interface VoiceEngine {
   id: string;
@@ -267,8 +268,9 @@ export default function VoicePage() {
 
       // 2. Synthesize chunk by chunk.
       setPhase('generating');
-      const parts: BlobPart[] = [];
+      const parts: Uint8Array[] = [];
       let charsDone = 0;
+      let resultMimeType = 'audio/wav';
 
       for (let i = 0; i < chunks.length; i++) {
         if (cancelRef.current) throw new Error('cancelled');
@@ -305,6 +307,7 @@ export default function VoicePage() {
         }
 
         parts.push(base64ToBytes(audioB64 as string));
+        if (mimeType) resultMimeType = mimeType;
         charsDone += chunk.text.length;
         planRef.current = { planId: planData.planId, charsDone };
         setProgress(Math.round(((i + 1) / chunks.length) * 100));
@@ -313,7 +316,8 @@ export default function VoicePage() {
       if (cancelRef.current) throw new Error('cancelled');
 
       // 3. Assemble, persist, and present.
-      const blob = new Blob(parts, { type: 'audio/mpeg' });
+      // WAV chunks get a rebuilt RIFF header; MP3-style frames concatenate raw.
+      const blob = concatenateAudioParts(parts, resultMimeType);
       const url = URL.createObjectURL(blob);
       const durationSec = await getAudioDuration(blob).catch(() => 0);
 
@@ -391,12 +395,19 @@ export default function VoicePage() {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }, []);
 
+  /** File extension matching the blob's actual audio format. */
+  const extFor = useCallback((blob: Blob) => {
+    if (blob.type.includes('wav')) return 'wav';
+    if (blob.type.includes('ogg')) return 'ogg';
+    return 'mp3';
+  }, []);
+
   const handleDownloadResult = useCallback(async () => {
     if (!resultEntry) return;
     const blob = await getMediaBlob(`voice_${resultEntry.id}`);
-    if (blob) downloadBlob(blob, `narration-${resultEntry.voiceName.toLowerCase()}-${resultEntry.id}.mp3`);
+    if (blob) downloadBlob(blob, `narration-${resultEntry.voiceName.toLowerCase()}-${resultEntry.id}.${extFor(blob)}`);
     else showToast('Audio not found locally.', 'error');
-  }, [resultEntry, downloadBlob]);
+  }, [resultEntry, downloadBlob, extFor]);
 
   const handleHistoryPlay = useCallback(
     async (entry: VoiceHistoryEntry) => {
@@ -583,7 +594,7 @@ export default function VoicePage() {
               onPlay={handleHistoryPlay}
               onDownload={async (entry) => {
                 const blob = await getMediaBlob(`voice_${entry.id}`);
-                if (blob) downloadBlob(blob, `narration-${entry.id}.mp3`);
+                if (blob) downloadBlob(blob, `narration-${entry.id}.${extFor(blob)}`);
                 else showToast('Audio not found locally.', 'error');
               }}
               onDelete={handleHistoryDelete}
