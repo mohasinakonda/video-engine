@@ -55,9 +55,8 @@ export async function getPollinationsApiKey(): Promise<string> {
   if (typeof process !== 'undefined' && process.env?.POLLINATIONS_API_KEY) {
     return process.env.POLLINATIONS_API_KEY.trim();
   }
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_POLLINATIONS_API_KEY) {
-    return process.env.NEXT_PUBLIC_POLLINATIONS_API_KEY.trim();
-  }
+  // Security: never fall back to NEXT_PUBLIC_POLLINATIONS_API_KEY here.
+  // NEXT_PUBLIC_ values are inlined into the client JS bundle.
   if (cachedEnvPollinationsKey !== null) {
     return cachedEnvPollinationsKey;
   }
@@ -94,9 +93,9 @@ export async function getYouTubeApiKey(): Promise<string> {
   if (typeof process !== 'undefined' && process.env?.YOUTUBE_API_KEY) {
     return process.env.YOUTUBE_API_KEY.trim();
   }
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_YOUTUBE_API_KEY) {
-    return process.env.NEXT_PUBLIC_YOUTUBE_API_KEY.trim();
-  }
+  // Security: never fall back to NEXT_PUBLIC_YOUTUBE_API_KEY here.
+  // NEXT_PUBLIC_ values are inlined into the client JS bundle and this
+  // function runs in the browser (BYOK via localStorage instead).
   return storeGet<string>('youtube-api-key') || '';
 }
 
