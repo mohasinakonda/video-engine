@@ -17,6 +17,7 @@ import {
   TrendingUp,
   LogOut,
   Sparkles,
+  AudioLines,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { signOutUser } from '@/lib/supabase-service';
@@ -24,6 +25,7 @@ import { signOutUser } from '@/lib/supabase-service';
 const navItems = [
   { href: '/projects', label: 'Projects', icon: Video },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/voice', label: 'Voice', icon: AudioLines },
   // { href: '/voice-studio', label: 'Voice Studio', icon: Mic2 },
   { href: '/plan', label: 'Plans & Credits', icon: CreditCard },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
