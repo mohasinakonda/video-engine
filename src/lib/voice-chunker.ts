@@ -39,7 +39,7 @@ export interface VoiceChunk {
   tone?: string;
 }
 
-/** Stay safely under provider per-request limits (Inworld ≈ 2000 chars). */
+/** Stay safely under provider per-request limits (≈2000 chars). */
 export const MAX_CHUNK_CHARS = 1800;
 
 /** Chars that open/close quotations we protect. */
@@ -86,14 +86,16 @@ export function splitDirectedSections(script: string): VoiceSection[] {
     const line = rawLine.trim();
 
     // Emotion tag on its own line (or leading a line) → new section with that tone.
+    // The tag is KEPT inline in the section text: modern TTS engines natively
+    // interpret [whisper]/[laugh] style tags, so stripping them would throw
+    // away the model's built-in direction.
     const tagMatch = line.match(EMOTION_TAG_RE);
     const tagIsStructural =
       tagMatch && (line === tagMatch[0] || line.startsWith(tagMatch[0] + ' '));
     if (tagIsStructural && tagMatch) {
       flush();
       currentTone = tagMatch[1].trim().toLowerCase();
-      const rest = line.slice(tagMatch[0].length).trim();
-      if (rest) current.push(rest);
+      current.push(rawLine);
       continue;
     }
 
