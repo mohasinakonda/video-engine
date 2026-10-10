@@ -22,6 +22,7 @@ import {
   Star,
   Check,
   Lock,
+  Mic,
 } from 'lucide-react';
 import type { AIImageModel, PlanTier } from '@/types/subscription';
 import { showToast } from '@/lib/toast';
@@ -39,6 +40,10 @@ export default function AdminModelsPage() {
   const [isLiveSupabase, setIsLiveSupabase] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('ALL');
+  // Model kind tab: image models vs voice (TTS) models.
+  // Voice models are ai_models rows whose id starts with "voice-"; for them,
+  // creditCost means CHARACTERS PER 1 CREDIT (charge = max(1, ceil(chars / creditCost))).
+  const [modelKind, setModelKind] = useState<'image' | 'voice'>('image');
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -84,7 +89,8 @@ export default function AdminModelsPage() {
     setFormName('');
     setFormModelId('');
     setFormDescription('');
-    setFormCreditCost(2);
+    // Voice tab: creditCost = characters per 1 credit (default 2000).
+    setFormCreditCost(modelKind === 'voice' ? 2000 : 2);
     setFormAllowedPlans(['CREATOR', 'STUDIO']);
     setFormInferenceSteps(4);
     setFormGuidanceScale(1.0);
@@ -129,13 +135,17 @@ export default function AdminModelsPage() {
 
     setModalLoading(true);
     try {
+      // Voice models get a "voice-" id prefix (zero-migration kind marker).
+      const rawId = formId || formModelId.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase();
+      const isVoice = modelKind === 'voice' || rawId.startsWith('voice-');
+      const finalId = isVoice && !rawId.startsWith('voice-') ? `voice-${rawId}` : rawId;
       const payloadModel: AIImageModel = {
-        id: formId || formModelId.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase(),
+        id: finalId,
         name: formName.trim(),
         modelId: formModelId.trim(),
         provider: 'deepinfra',
         description: formDescription.trim(),
-        creditCost: Math.max(0, formCreditCost),
+        creditCost: Math.max(isVoice ? 1 : 0, formCreditCost),
         allowedPlans: formAllowedPlans,
         inferenceSteps: formInferenceSteps,
         guidanceScale: formGuidanceScale,
@@ -231,8 +241,35 @@ export default function AdminModelsPage() {
     }
   };
 
+  const handleSeedVoiceModels = async () => {
+    if (!confirm('Seed standard voice engines (Inworld Max, Inworld Mini) into Supabase?')) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'seed-voice' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || 'Voice models seeded successfully!');
+        loadModels();
+      } else {
+        showToast(data.error || 'Failed to seed voice models.');
+      }
+    } catch (err) {
+      showToast('Error syncing voice models.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter models
-  const filteredModels = models.filter((m) => {
+  const isVoiceModel = (m: AIImageModel) => m.id.startsWith('voice-');
+  const kindModels = models.filter((m) =>
+    modelKind === 'voice' ? isVoiceModel(m) : !isVoiceModel(m)
+  );
+  const filteredModels = kindModels.filter((m) => {
     const matchesSearch =
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.modelId.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -248,9 +285,9 @@ export default function AdminModelsPage() {
     return matchesSearch && matchesTier;
   });
 
-  const totalActive = models.filter((m) => m.isActive !== false).length;
-  const totalRestricted = models.filter((m) => m.allowedPlans && !m.allowedPlans.includes('TRIAL')).length;
-  const defaultModel = models.find((m) => m.isDefault);
+  const totalActive = kindModels.filter((m) => m.isActive !== false).length;
+  const totalRestricted = kindModels.filter((m) => m.allowedPlans && !m.allowedPlans.includes('TRIAL')).length;
+  const defaultModel = kindModels.find((m) => m.isDefault);
 
   return (
     <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
@@ -303,16 +340,17 @@ export default function AdminModelsPage() {
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
             </button>
             <button
-              onClick={handleSeedDefaults}
+              onClick={modelKind === 'voice' ? handleSeedVoiceModels : handleSeedDefaults}
               className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-cyan-500/20"
             >
-              <Zap size={14} /> Sync Standard Models
+              <Zap size={14} />
+              {modelKind === 'voice' ? 'Sync Voice Models' : 'Sync Standard Models'}
             </button>
             <button
               onClick={openCreateModal}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-xs font-semibold text-white shadow-lg shadow-cyan-950/40 transition-all"
             >
-              <Plus size={15} /> Add DeepInfra Model
+              <Plus size={15} /> {modelKind === 'voice' ? 'Add Voice Engine' : 'Add DeepInfra Model'}
             </button>
           </div>
         </div>
@@ -324,7 +362,7 @@ export default function AdminModelsPage() {
               <span className="text-xs font-medium uppercase tracking-wider">Total Models</span>
               <Cpu size={16} className="text-cyan-400" />
             </div>
-            <div className="text-2xl font-bold text-white">{models.length}</div>
+            <div className="text-2xl font-bold text-white">{kindModels.length}</div>
             <p className="text-[11px] text-zinc-500 mt-1">Configured in database</p>
           </div>
 
@@ -354,8 +392,40 @@ export default function AdminModelsPage() {
             <div className="text-sm font-bold text-white truncate mt-1">
               {defaultModel?.name || 'None Set'}
             </div>
-            <p className="text-[11px] text-zinc-500 mt-0.5">{defaultModel?.creditCost ?? 2} credits / image</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              {modelKind === 'voice'
+                ? `${(defaultModel?.creditCost ?? 2000).toLocaleString()} chars / 1 credit`
+                : `${defaultModel?.creditCost ?? 2} credits / image`}
+            </p>
           </div>
+        </div>
+
+        {/* Model kind tabs: image vs voice engines */}
+        <div className="flex items-center gap-2">
+          {(
+            [
+              { id: 'image', label: 'Image Models', icon: Cpu },
+              { id: 'voice', label: 'Voice Models', icon: Mic },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setModelKind(t.id)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${
+                modelKind === t.id
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                  : 'bg-zinc-900/50 text-zinc-400 border border-zinc-800 hover:text-white'
+              }`}
+            >
+              <t.icon size={14} />
+              {t.label}
+            </button>
+          ))}
+          {modelKind === 'voice' && (
+            <span className="text-[11px] text-zinc-500 ml-1">
+              Credit cost = characters per 1 credit · charge = max(1, ceil(chars ÷ rate))
+            </span>
+          )}
         </div>
 
         {/* Filter and Search Bar */}
@@ -403,9 +473,13 @@ export default function AdminModelsPage() {
         ) : filteredModels.length === 0 ? (
           <div className="text-center py-16 rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800">
             <Cpu size={36} className="mx-auto text-zinc-600 mb-2" />
-            <p className="text-sm font-semibold text-zinc-300">No AI Models Found</p>
+            <p className="text-sm font-semibold text-zinc-300">
+              {modelKind === 'voice' ? 'No Voice Engines Found' : 'No AI Models Found'}
+            </p>
             <p className="text-xs text-zinc-500 mt-1">
-              Add a new DeepInfra model or click &quot;Sync Standard Models&quot; to seed defaults.
+              {modelKind === 'voice'
+                ? 'Add a voice engine or click "Sync Voice Models" to seed Inworld defaults.'
+                : 'Add a new DeepInfra model or click "Sync Standard Models" to seed defaults.'}
             </p>
           </div>
         ) : (
@@ -483,12 +557,20 @@ export default function AdminModelsPage() {
 
                     {/* Hyperparameters */}
                     <div className="flex items-center gap-3 text-[11px] text-zinc-400 pt-1">
-                      <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
-                        {model.inferenceSteps ?? 4} Steps
-                      </span>
-                      <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
-                        Guidance: {model.guidanceScale ?? 1.0}x
-                      </span>
+                      {modelKind === 'voice' ? (
+                        <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                          {model.creditCost.toLocaleString()} chars / 1 credit
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                            {model.inferenceSteps ?? 4} Steps
+                          </span>
+                          <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                            Guidance: {model.guidanceScale ?? 1.0}x
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     {/* Allowed Plans Badges */}
@@ -576,7 +658,34 @@ export default function AdminModelsPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                   />
                   <div className="flex gap-2 pt-1 flex-wrap">
-                    {[
+                    {modelKind === 'voice'
+                      ? [
+                          {
+                            path: 'inworld-ai/inworld-tts-1.5-max',
+                            name: 'Inworld Max',
+                            charsPerCredit: 2000,
+                          },
+                          {
+                            path: 'inworld-ai/inworld-tts-1.5-mini',
+                            name: 'Inworld Mini',
+                            charsPerCredit: 4000,
+                          },
+                        ].map((preset) => (
+                          <button
+                            type="button"
+                            key={preset.path}
+                            onClick={() => {
+                              setFormModelId(preset.path);
+                              if (!formName) setFormName(preset.name);
+                              setFormCreditCost(preset.charsPerCredit);
+                              setFormAllowedPlans(['CREATOR', 'STUDIO']);
+                            }}
+                            className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono"
+                          >
+                            {preset.path.split('/')[1] || preset.path}
+                          </button>
+                        ))
+                      : [
                       'black-forest-labs/FLUX-1-schnell',
                       'black-forest-labs/FLUX-1-dev',
                       'stabilityai/sdxl-turbo',
@@ -614,21 +723,30 @@ export default function AdminModelsPage() {
                   </div>
                 </div>
 
-                {/* Credit Cost */}
+                {/* Credit Cost — voice models use characters-per-credit */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-300">Credit Cost / Image</label>
+                    <label className="text-xs font-semibold text-zinc-300">
+                      {modelKind === 'voice' ? 'Characters per 1 Credit' : 'Credit Cost / Image'}
+                    </label>
                     <input
                       type="number"
-                      min={0}
-                      max={100}
+                      min={modelKind === 'voice' ? 1 : 0}
+                      max={modelKind === 'voice' ? 1000000 : 100}
                       required
                       value={formCreditCost}
                       onChange={(e) => setFormCreditCost(parseInt(e.target.value) || 0)}
                       className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-cyan-500"
                     />
+                    {modelKind === 'voice' && (
+                      <p className="text-[10px] text-zinc-500">
+                        Charge = max(1, ceil(characters ÷ this rate))
+                      </p>
+                    )}
                   </div>
 
+                  {modelKind === 'image' && (
+                    <>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-zinc-300">Inference Steps</label>
                     <input
@@ -653,6 +771,8 @@ export default function AdminModelsPage() {
                       className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-cyan-500"
                     />
                   </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Plan Access Control */}
