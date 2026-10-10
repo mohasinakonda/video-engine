@@ -194,17 +194,15 @@ export async function uploadAssetToCanva(
     imageBuffer = Buffer.from(imageData, 'base64');
   }
 
-  // Canva Connect API binary upload with metadata header
-  const metadata = JSON.stringify({
-    name_base64: Buffer.from(assetName.slice(0, 50)).toString('base64'),
-  });
+  // Canva Connect API binary upload with Asset-Upload-Metadata header
+  const nameBase64 = Buffer.from((assetName || 'Thumbnail').slice(0, 50)).toString('base64');
 
   const uploadRes = await fetch(`${CANVA_API_BASE}/asset-uploads`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/octet-stream',
-      'Upload-Metadata': Buffer.from(metadata).toString('base64'),
+      'Asset-Upload-Metadata': JSON.stringify({ name_base64: nameBase64 }),
     },
     body: new Uint8Array(imageBuffer),
   });
@@ -279,7 +277,7 @@ export async function createCanvaThumbnailDesign(
     payload.asset_id = options.assetId;
   }
 
-  const res = await fetch(`${CANVA_API_BASE}/designs`, {
+  let res = await fetch(`${CANVA_API_BASE}/designs`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -289,8 +287,29 @@ export async function createCanvaThumbnailDesign(
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Canva create design failed (${res.status}): ${errText}`);
+    const fallbackPayload: Record<string, any> = {
+      title: options.title || 'YouTube Thumbnail',
+      type: 'custom',
+      width,
+      height,
+    };
+    if (options.assetId) {
+      fallbackPayload.asset_id = options.assetId;
+    }
+    const fallbackRes = await fetch(`${CANVA_API_BASE}/designs`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(fallbackPayload),
+    });
+    if (fallbackRes.ok) {
+      res = fallbackRes;
+    } else {
+      const errText = await res.text();
+      throw new Error(`Canva create design failed (${res.status}): ${errText}`);
+    }
   }
 
   const data: CanvaDesignResponse = await res.json();

@@ -813,6 +813,12 @@ export function LaunchKitProvider({
         return;
       }
 
+      if (data.error || !res.ok) {
+        showToast(`⚠️ Canva Error: ${data.error || 'Server error ' + res.status}`);
+        console.error('[Canva Create Design Error]:', data.error);
+        return;
+      }
+
       // 2. Smart Bridge fallback: Copy to clipboard and launch Canva YouTube Thumbnail Editor
       const copied = await copyImageToClipboard(concept.imageUrl);
       const canvaUrl = project.aspectRatio === '9:16'
