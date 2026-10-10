@@ -5,8 +5,8 @@ import {
   FolderKanban,
   Share2,
   CreditCard,
-  CheckCircle2,
 } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 
 // Modular Dashboard Components
@@ -24,7 +24,6 @@ export default function UserDashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('projects');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Payout request modal states
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
@@ -48,11 +47,6 @@ export default function UserDashboardPage() {
     refreshData,
     deleteProjectItem,
   } = useDashboardData();
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
 
   const handleCopyCode = () => {
     if (!profile) return;
@@ -98,14 +92,6 @@ export default function UserDashboardPage() {
   return (
     <div className="min-h-screen bg-bg-base text-zinc-100 py-8 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto space-y-8">
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-50 p-4 rounded-xl bg-emerald-500 text-zinc-950 font-bold text-xs shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom">
-            <CheckCircle2 size={16} />
-            <span>{toastMessage}</span>
-          </div>
-        )}
-
         {/* Modular Header */}
         <DashboardHeader
           profile={profile}
