@@ -15,7 +15,7 @@ import VoiceBrowser from '@/components/voice/voice-browser';
 import VoiceHistory, { type VoiceHistoryEntry } from '@/components/voice/voice-history';
 import { showToast } from '@/lib/toast';
 import { saveMediaBlob, getMediaBlob, getMediaBlobUrl, deleteMediaBlob, getAudioDuration } from '@/lib/media-storage';
-import type { InworldVoice } from '@/lib/inworld-voices';
+import type { VoicePreset } from '@/lib/voice-catalog';
 
 interface VoiceEngine {
   id: string;
@@ -66,14 +66,15 @@ export default function VoicePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Voices & engines
-  const [voices, setVoices] = useState<InworldVoice[]>([]);
-  const [languages, setLanguages] = useState<string[]>(['English']);
+  const [voices, setVoices] = useState<VoicePreset[]>([]);
+  const [languages, setLanguages] = useState<{ code: string; name: string }[]>([
+    { code: 'en', name: 'English' },
+  ]);
   const [emotionTags, setEmotionTags] = useState<string[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<InworldVoice | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState<VoicePreset | null>(null);
   const [engines, setEngines] = useState<VoiceEngine[]>([]);
   const [engineId, setEngineId] = useState('');
-  const [language, setLanguage] = useState('English');
-  const [speed, setSpeed] = useState(1);
+  const [languageId, setLanguageId] = useState('en');
   const [expressiveness, setExpressiveness] = useState(50);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -112,9 +113,14 @@ export default function VoicePage() {
       .then((d) => {
         if (d.success) {
           setVoices(d.voices || []);
-          setLanguages(d.languages || ['English']);
+          setLanguages(d.languages || [{ code: 'en', name: 'English' }]);
           setEmotionTags(d.emotionTags || []);
-          setSelectedVoice((d.voices || [])[0] || null);
+          const first = (d.voices || [])[0] || null;
+          setSelectedVoice(first);
+          if (first) {
+            setLanguageId(first.languageId || 'en');
+            setExpressiveness(Math.round((first.exaggeration ?? 0.5) * 100));
+          }
         }
       })
       .catch(() => {});
@@ -146,8 +152,15 @@ export default function VoicePage() {
     setPreviewingId(null);
   }, []);
 
+  /** Selecting a preset also adopts its language + delivery style (tweakable after). */
+  const handleSelectVoice = useCallback((voice: VoicePreset) => {
+    setSelectedVoice(voice);
+    setLanguageId(voice.languageId || 'en');
+    setExpressiveness(Math.round((voice.exaggeration ?? 0.5) * 100));
+  }, []);
+
   const handlePreview = useCallback(
-    async (voice: InworldVoice) => {
+    async (voice: VoicePreset) => {
       if (previewingId === voice.id) {
         stopPreview();
         return;
@@ -162,7 +175,7 @@ export default function VoicePage() {
             preview: true,
             voiceId: voice.id,
             modelId: engine?.id,
-            language,
+            languageId,
           }),
         });
         const data = await res.json();
@@ -183,7 +196,7 @@ export default function VoicePage() {
         showToast(err instanceof Error ? err.message : 'Preview failed.', 'error');
       }
     },
-    [previewingId, stopPreview, engine, language]
+    [previewingId, stopPreview, engine, languageId]
   );
 
   // ─── Tag inserter ──────────────────────────────────────────────────────────
@@ -276,8 +289,7 @@ export default function VoicePage() {
                 tone: chunk.tone,
                 voiceId: selectedVoice.id,
                 modelId: engine.id,
-                language,
-                speed,
+                languageId,
                 expressiveness,
               }),
             });
@@ -337,7 +349,7 @@ export default function VoicePage() {
         showToast(message, 'error');
       }
     }
-  }, [text, selectedVoice, engine, mode, charLimit, language, speed, expressiveness, stopPreview, persistHistory, cancelGeneration]);
+  }, [text, selectedVoice, engine, mode, charLimit, languageId, expressiveness, stopPreview, persistHistory, cancelGeneration]);
 
   // Keyboard: Cmd/Ctrl+Enter to generate.
   const handleKeyDown = useCallback(
@@ -628,7 +640,7 @@ export default function VoicePage() {
                 <VoiceBrowser
                   voices={voices}
                   selectedId={selectedVoice.id}
-                  onSelect={setSelectedVoice}
+                  onSelect={handleSelectVoice}
                   onPreview={handlePreview}
                   previewingId={previewingId}
                 />
@@ -657,25 +669,7 @@ export default function VoicePage() {
               </select>
             </div>
 
-            {/* Speed */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-slate-400">Speed</label>
-                <span className="text-xs text-slate-300 tabular-nums">{speed.toFixed(2)}×</span>
-              </div>
-              <input
-                type="range"
-                min={0.5}
-                max={2}
-                step={0.05}
-                value={speed}
-                onChange={(e) => setSpeed(Number(e.target.value))}
-                disabled={busy}
-                className="w-full accent-indigo-500"
-              />
-            </div>
-
-            {/* Expressiveness */}
+            {/* Expressiveness → Chatterbox exaggeration */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-slate-400">Expressiveness</label>
@@ -714,19 +708,19 @@ export default function VoicePage() {
                     Language
                   </label>
                   <select
-                    value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
+                    value={languageId}
+                    onChange={(e) => setLanguageId(e.target.value)}
                     disabled={busy}
                     className="w-full bg-bg-surface border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60 disabled:opacity-60"
                   >
                     {languages.map((l) => (
-                      <option key={l} value={l}>
-                        {l}
+                      <option key={l.code} value={l.code}>
+                        {l.name}
                       </option>
                     ))}
                   </select>
                   <p className="text-[11px] text-slate-600 mt-2">
-                    The selected voice keeps its identity across languages.
+                    The narration language. Some engines vary in quality by language.
                   </p>
                 </div>
               )}
