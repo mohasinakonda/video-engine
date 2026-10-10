@@ -1,8 +1,33 @@
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { isSupabaseConfigured } from '@/lib/supabase-service';
 
 export const maxDuration = 60; // 60 seconds max timeout for audio transcription
 
 export async function POST(req: Request) {
+  // Security: transcription burns paid third-party API quota (Groq/OpenAI),
+  // so it must never be callable anonymously. Defense in depth alongside
+  // the middleware's protected-route check.
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = createServerClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Unauthorized. Please sign in to use transcription.' },
+          { status: 401 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please sign in to use transcription.' },
+        { status: 401 }
+      );
+    }
+  }
+
   try {
     const formData = await req.formData().catch(() => null);
     if (!formData) {

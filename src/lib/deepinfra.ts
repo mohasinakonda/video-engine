@@ -53,10 +53,13 @@ export async function generateDeepInfraFluxImage(
   prompt: string,
   options: DeepInfraImageOptions = {}
 ): Promise<DeepInfraImageResult> {
+  // Security: the DeepInfra key must NEVER be exposed via a NEXT_PUBLIC_ variable.
+  // NEXT_PUBLIC_ values are inlined into the client JS bundle, and this module
+  // is reachable from client components through lib/pollinations.ts.
   const apiKey =
     options.apiKey?.trim() ||
     process.env.DEEPINFRA_API_KEY?.trim() ||
-    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_DEEPINFRA_API_KEY?.trim() : '');
+    '';
 
   if (!apiKey) {
     throw new Error('DEEPINFRA_API_KEY is not configured in environment variables.');
