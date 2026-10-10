@@ -96,11 +96,11 @@ export async function POST(req: Request) {
     if (action === 'seed-voice') {
       const voiceModels: AIImageModel[] = [
         {
-          id: 'voice-inworld-max',
-          name: 'Inworld Max',
-          modelId: 'inworld-ai/inworld-tts-1.5-max',
+          id: 'voice-chatterbox-multilingual',
+          name: 'Chatterbox Multilingual',
+          modelId: 'ResembleAI/chatterbox-multilingual',
           provider: 'deepinfra',
-          description: 'Flagship expressive voice engine. Best quality for narration.',
+          description: 'Flagship expressive engine. 23 languages, emotion control. ~$0.05/hr.',
           creditCost: 2000,
           allowedPlans: ['CREATOR', 'STUDIO'],
           isDefault: true,
@@ -108,16 +108,28 @@ export async function POST(req: Request) {
           sortOrder: 5,
         },
         {
-          id: 'voice-inworld-mini',
-          name: 'Inworld Mini',
-          modelId: 'inworld-ai/inworld-tts-1.5-mini',
+          id: 'voice-chatterbox-turbo',
+          name: 'Chatterbox Turbo',
+          modelId: 'ResembleAI/chatterbox-turbo',
           provider: 'deepinfra',
-          description: 'Faster, lighter voice engine. Good for drafts.',
+          description: 'Faster low-latency engine, English-focused.',
           creditCost: 4000,
           allowedPlans: ['CREATOR', 'STUDIO'],
           isDefault: false,
           isActive: true,
           sortOrder: 10,
+        },
+        {
+          id: 'voice-mimo-v25-tts',
+          name: 'MiMo V2.5 (Free)',
+          modelId: 'XiaomiMiMo/MiMo-V2.5-tts',
+          provider: 'deepinfra',
+          description: 'Free experimental engine. Quality may vary.',
+          creditCost: 10000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: false,
+          isActive: true,
+          sortOrder: 15,
         },
       ];
       let count = 0;
