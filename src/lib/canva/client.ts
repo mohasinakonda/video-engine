@@ -319,6 +319,152 @@ export async function createCanvaThumbnailDesign(
   };
 }
 
+export interface CanvaImageToDesignImportJobResponse {
+  job: {
+    id: string;
+    status: 'in_progress' | 'success' | 'failed';
+    result?: {
+      design: {
+        id: string;
+        title?: string;
+        urls: {
+          edit_url: string;
+          view_url?: string;
+        };
+      };
+    };
+    error?: {
+      code: string;
+      message: string;
+    };
+  };
+}
+
+/**
+ * Thrown when the user's Canva team does not have the Magic Layers
+ * (`image_to_design_imports`) capability, so the image cannot be converted
+ * into separate editable layers.
+ */
+export class CanvaCapabilityError extends Error {
+  code = 'missing_capability';
+  constructor(message: string) {
+    super(message);
+    this.name = 'CanvaCapabilityError';
+  }
+}
+
+/**
+ * Thrown when the user's Canva AI credit allowance is exhausted, so the
+ * image-to-design conversion cannot run right now.
+ */
+export class CanvaCreditQuotaError extends Error {
+  code = 'credit_quota_exceeded';
+  constructor(message: string) {
+    super(message);
+    this.name = 'CanvaCreditQuotaError';
+  }
+}
+
+const IMAGE_TO_DESIGN_IMPORTS_BASE = `${CANVA_API_BASE}/image-to-design-imports`;
+
+/**
+ * Convert an image asset already in the user's Canva account into a fully
+ * editable Canva design using Magic Layers. Every element detected in the
+ * image (text, shapes, graphics, background pieces) becomes a separate
+ * editable layer in the resulting design.
+ *
+ * NOTE: This is a Canva preview API (subject to unannounced breaking
+ * changes, and public integrations using it won't pass Canva's review).
+ * It requires the `image_to_design_imports` capability on the user's Canva
+ * team (Magic Layers permission) and consumes the user's AI credit
+ * allowance per conversion. Callers should catch CanvaCapabilityError and
+ * CanvaCreditQuotaError and fall back to the flat single-image design flow.
+ */
+export async function createEditableDesignFromImage(
+  accessToken: string,
+  options: {
+    assetId: string;
+    title?: string;
+  }
+): Promise<{ designId: string; editUrl: string }> {
+  const createRes = await fetch(IMAGE_TO_DESIGN_IMPORTS_BASE, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      image: { asset_id: options.assetId },
+      title: options.title || 'YouTube Thumbnail',
+    }),
+  });
+
+  if (!createRes.ok) {
+    const errText = await createRes.text();
+    let errCode = '';
+    let errMessage = errText;
+    try {
+      const errJson = JSON.parse(errText);
+      errCode = errJson?.code || '';
+      errMessage = errJson?.message || errText;
+    } catch {
+      // keep raw text
+    }
+    if (createRes.status === 403) {
+      throw new CanvaCapabilityError(
+        `Canva rejected the editable-layers import (403): ${errMessage}. ` +
+          `The Canva team needs the Magic Layers (image_to_design_imports) capability enabled.`
+      );
+    }
+    if (createRes.status === 429 && errCode === 'credit_quota_exceeded') {
+      throw new CanvaCreditQuotaError(
+        'Canva AI credit allowance exhausted — cannot convert the image into editable layers right now.'
+      );
+    }
+    throw new Error(`Canva image-to-design import failed (${createRes.status}): ${errText}`);
+  }
+
+  const created: CanvaImageToDesignImportJobResponse = await createRes.json();
+  const doneNow = extractImportDesign(created);
+  if (doneNow) return doneNow;
+  const jobId = created.job.id;
+
+  // Poll until Magic Layers finishes. AI conversion can take a while.
+  const maxAttempts = 40; // ~2 minutes at 3s intervals
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const pollRes = await fetch(`${IMAGE_TO_DESIGN_IMPORTS_BASE}/${jobId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!pollRes.ok) continue;
+
+    const pollData: CanvaImageToDesignImportJobResponse = await pollRes.json();
+    const done = extractImportDesign(pollData);
+    if (done) return done;
+    if (pollData.job.status === 'failed') {
+      throw new Error(
+        `Canva image-to-design import failed: ${pollData.job.error?.message || pollData.job.error?.code || 'Unknown error'}`
+      );
+    }
+  }
+
+  throw new Error('Timed out waiting for Canva to convert the image into editable layers.');
+}
+
+function extractImportDesign(
+  data: CanvaImageToDesignImportJobResponse
+): { designId: string; editUrl: string } | null {
+  if (data.job.status === 'success' && data.job.result?.design) {
+    const design = data.job.result.design;
+    return { designId: design.id, editUrl: design.urls.edit_url };
+  }
+  return null;
+}
+
 /**
  * Trigger export of completed Canva design to high-resolution PNG
  */
