@@ -93,6 +93,47 @@ export async function POST(req: Request) {
       });
     }
 
+    if (action === 'seed-voice') {
+      const voiceModels: AIImageModel[] = [
+        {
+          id: 'voice-inworld-max',
+          name: 'Inworld Max',
+          modelId: 'inworld-ai/inworld-tts-1.5-max',
+          provider: 'deepinfra',
+          description: 'Flagship expressive voice engine. Best quality for narration.',
+          creditCost: 2000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: true,
+          isActive: true,
+          sortOrder: 5,
+        },
+        {
+          id: 'voice-inworld-mini',
+          name: 'Inworld Mini',
+          modelId: 'inworld-ai/inworld-tts-1.5-mini',
+          provider: 'deepinfra',
+          description: 'Faster, lighter voice engine. Good for drafts.',
+          creditCost: 4000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: false,
+          isActive: true,
+          sortOrder: 10,
+        },
+      ];
+      let count = 0;
+      for (const m of voiceModels) {
+        if (await upsertAIModelRemote(m, serverClient, 'voice')) count += 1;
+      }
+      return NextResponse.json({
+        success: count === voiceModels.length,
+        count,
+        message:
+          count === voiceModels.length
+            ? `Successfully seeded ${count} voice models in Supabase!`
+            : 'Failed to seed voice models.',
+      });
+    }
+
     if (action === 'toggle') {
       const { id, isActive }: { id: string; isActive: boolean } = body;
       if (!id) {
