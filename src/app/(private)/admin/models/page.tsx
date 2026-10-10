@@ -242,7 +242,7 @@ export default function AdminModelsPage() {
   };
 
   const handleSeedVoiceModels = async () => {
-    if (!confirm('Seed standard voice engines (Inworld Max, Inworld Mini) into Supabase?')) return;
+    if (!confirm('Seed standard voice engines (Chatterbox Multilingual, Chatterbox Turbo, MiMo V2.5) into Supabase?')) return;
     setLoading(true);
     try {
       const res = await fetch('/api/admin/models', {
@@ -478,7 +478,7 @@ export default function AdminModelsPage() {
             </p>
             <p className="text-xs text-zinc-500 mt-1">
               {modelKind === 'voice'
-                ? 'Add a voice engine or click "Sync Voice Models" to seed Inworld defaults.'
+                ? 'Add a voice engine or click "Sync Voice Models" to seed Chatterbox defaults.'
                 : 'Add a new DeepInfra model or click "Sync Standard Models" to seed defaults.'}
             </p>
           </div>
@@ -661,14 +661,19 @@ export default function AdminModelsPage() {
                     {modelKind === 'voice'
                       ? [
                           {
-                            path: 'inworld-ai/inworld-tts-1.5-max',
-                            name: 'Inworld Max',
+                            path: 'ResembleAI/chatterbox-multilingual',
+                            name: 'Chatterbox Multilingual',
                             charsPerCredit: 2000,
                           },
                           {
-                            path: 'inworld-ai/inworld-tts-1.5-mini',
-                            name: 'Inworld Mini',
+                            path: 'ResembleAI/chatterbox-turbo',
+                            name: 'Chatterbox Turbo',
                             charsPerCredit: 4000,
+                          },
+                          {
+                            path: 'XiaomiMiMo/MiMo-V2.5-tts',
+                            name: 'MiMo V2.5 (Free)',
+                            charsPerCredit: 10000,
                           },
                         ].map((preset) => (
                           <button
