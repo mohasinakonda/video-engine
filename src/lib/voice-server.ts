@@ -258,8 +258,37 @@ export async function synthesizeVoiceChunk(params: {
     throw new Error(`TTS failed (${res.status}): ${detail.slice(0, 200)}`);
   }
 
-  const mimeType = res.headers.get('content-type') || 'audio/mpeg';
-  return { audio: await res.arrayBuffer(), mimeType };
+  const contentType = res.headers.get('content-type') || '';
+
+  // Guard: some providers return a JSON error payload with HTTP 200.
+  // Encoding that as "audio" produces a silent file — surface it instead.
+  if (contentType.includes('application/json')) {
+    const text = await res.text().catch(() => '');
+    let msg = text.slice(0, 200);
+    try {
+      const parsed = JSON.parse(text);
+      msg = parsed?.error || parsed?.message || parsed?.detail || msg;
+    } catch {
+      /* keep raw text */
+    }
+    throw new Error(`TTS error: ${typeof msg === 'string' ? msg : 'unexpected response'}`);
+  }
+
+  const audio = await res.arrayBuffer();
+
+  // Guard: a few hundred bytes cannot be real speech audio — fail loudly
+  // instead of producing a silent download.
+  if (audio.byteLength < 1024) {
+    throw new Error(
+      `TTS returned invalid audio (${audio.byteLength} bytes, ${contentType || 'unknown type'}).`
+    );
+  }
+
+  const mimeType = contentType.startsWith('audio/') ? contentType : 'audio/wav';
+  console.log(
+    `[voice] chunk synthesized: ${audio.byteLength} bytes, ${mimeType} (${params.modelId})`
+  );
+  return { audio, mimeType };
 }
 
 /**
