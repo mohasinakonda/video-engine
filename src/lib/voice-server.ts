@@ -7,7 +7,6 @@
  *   charge is Math.max(1, Math.ceil(chars / charsPerCredit)).
  */
 
-import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
@@ -16,6 +15,14 @@ import {
   isSupabaseConfigured,
 } from '@/lib/supabase-service';
 import { calculateVoiceCredits, MAX_CHUNK_CHARS } from '@/lib/voice-chunker';
+import {
+  MIMO_BUILT_IN_VOICES,
+  isMimoEngineModel,
+  isMimoVoiceDesignModel,
+} from '@/lib/voice-catalog';
+
+/** Re-export for API routes that list MiMo voices. */
+export { MIMO_BUILT_IN_VOICES };
 
 export interface VoiceModelRecord {
   id: string;
@@ -70,7 +77,7 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     description: 'Flagship expressive engine. 23 languages, emotion control.',
     charsPerCredit: 2000,
     allowedPlans: [],
-    isDefault: false,
+    isDefault: true,
     isActive: true,
   },
   {
@@ -87,23 +94,31 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     id: 'voice-mimo-v25-tts',
     name: 'MiMo V2.5 (Free)',
     modelId: 'XiaomiMiMo/MiMo-V2.5-tts',
-    description: 'Free experimental engine. Quality may vary.',
+    description: 'Free engine with 9 built-in voices, style tags, singing mode.',
     charsPerCredit: 10000,
     allowedPlans: [],
     isDefault: false,
     isActive: true,
   },
   {
-    id: 'voice-mimo-v25-voicedesign',
-    name: 'MiMo V2.5 VoiceDesign (Free)',
+    id: 'voice-mimo-voicedesign',
+    name: 'MiMo V2.5 Voice Design (Free)',
     modelId: 'XiaomiMiMo/MiMo-V2.5-tts-voicedesign',
-    description: 'Design any voice via text description. Supports multi-emotion mixing and director mode.',
-    charsPerCredit: 1000,
+    description: 'Free. Design any custom voice from a text description.',
+    charsPerCredit: 10000,
     allowedPlans: [],
-    isDefault: true,
+    isDefault: false,
     isActive: true,
   },
 ];
+
+/** MiMo engine detection (client-safe helpers, see voice-catalog.ts). */
+export const isMimoModel = isMimoEngineModel;
+export const isMimoVoiceDesign = isMimoVoiceDesignModel;
+
+/** Fallback voice description for VoiceDesign previews (fixed preview text). */
+const DEFAULT_VOICE_DESCRIPTION =
+  'A warm, friendly narrator in their 30s with a clear, natural voice, speaking at a comfortable pace.';
 
 export async function resolveVoiceModel(
   modelId: string | undefined,
@@ -198,31 +213,91 @@ const LOW_ENERGY_TONES = new Set([
   'calm', 'solemn', 'serious', 'sad', 'whisper', 'whispers', 'subtle', 'gentle',
 ]);
 
+export interface SynthesizeVoiceChunkParams {
+  modelId: string;
+  text: string;
+  voiceId?: string;
+  language?: string;
+  languageId?: string;
+  tone?: string;
+  /** 0-100, maps to Chatterbox exaggeration (0-1). Ignored by MiMo engines. */
+  expressiveness?: number;
+  /** MiMo VoiceDesign: text description of the custom voice (user message). */
+  voiceDescription?: string;
+  /** MiMo base model: natural-language style instruction (user message). */
+  styleInstruction?: string;
+  /** MiMo base model: built-in voice id (see MIMO_BUILT_IN_VOICES). */
+  mimoVoice?: string;
+}
+
+/**
+ * Build the provider request body for one chunk.
+ *
+ * - Chatterbox engines: flat params — language_id, exaggeration, cfg_weight.
+ *   Emotion tags ([whisper], [laugh], …) stay inline in the text.
+ * - MiMo engines: chat-style request per DeepInfra's MiMo-V2.5-TTS docs.
+ *   Natural-language style / voice design goes in the user message; the text
+ *   (with (style) / [audio] tags) goes in the assistant message; a top-level
+ *   `audio` object selects format + built-in voice. VoiceDesign never sends
+ *   `audio.voice` (it doesn't support built-in voices).
+ */
+function buildTtsBody(params: SynthesizeVoiceChunkParams, text: string): Record<string, unknown> {
+  if (isMimoModel(params.modelId)) {
+    const voiceDesign = isMimoVoiceDesign(params.modelId);
+    const messages: { role: string; content: string }[] = [];
+    const tone = (params.tone || '').toLowerCase();
+
+    if (voiceDesign) {
+      messages.push({
+        role: 'user',
+        content: params.voiceDescription?.trim() || DEFAULT_VOICE_DESCRIPTION,
+      });
+    } else {
+      // Per-section tone becomes a natural-language style instruction so the
+      // chunker's tone detection still shapes MiMo delivery.
+      const instruction =
+        params.styleInstruction?.trim() || (tone ? `Narrate in a ${tone} tone.` : '');
+      if (instruction) messages.push({ role: 'user', content: instruction });
+    }
+    messages.push({ role: 'assistant', content: text });
+
+    const audio: Record<string, unknown> = { format: 'wav' };
+    if (!voiceDesign) {
+      audio.voice = params.mimoVoice?.trim() || 'mimo_default';
+    }
+    return { messages, audio };
+  }
+
+  const expr =
+    typeof params.expressiveness === 'number'
+      ? Math.min(100, Math.max(0, params.expressiveness))
+      : 50;
+  let exaggeration = expr / 100;
+
+  // Per-section tone nudges delivery intensity (tags themselves stay inline).
+  const tone = (params.tone || '').toLowerCase();
+  if (HIGH_ENERGY_TONES.has(tone)) exaggeration = Math.min(1, exaggeration + 0.15);
+  else if (LOW_ENERGY_TONES.has(tone)) exaggeration = Math.max(0, exaggeration - 0.15);
+
+  // Resemble AI guidance: dramatic delivery → lower cfg for better pacing.
+  const cfgWeight = exaggeration >= 0.65 ? 0.3 : 0.5;
+
+  return {
+    text,
+    language_id: params.languageId || toLanguageId(params.language),
+    exaggeration: Math.round(exaggeration * 100) / 100,
+    cfg_weight: cfgWeight,
+  };
+}
+
 /**
  * Synthesize one chunk via DeepInfra's TTS inference endpoint.
  * Docs: POST https://api.deepinfra.com/v1/inference/{model} with { text, ... },
  * returns raw audio bytes.
- *
- * Chatterbox-native params:
- *  - exaggeration (0-1): emotion/expression intensity. Mapped from the
- *    UI expressiveness slider (0-100), nudged by per-section tone.
- *  - cfg_weight: default 0.5; lowered to ~0.3 for highly exaggerated
- *    (dramatic) delivery per Resemble AI's tuning guidance.
- *  - language_id: e.g. "en", "es", "hi".
- * Emotion tags ([whisper], [laugh], …) stay inline in the text — Chatterbox
- * performs them natively.
  */
-export async function synthesizeVoiceChunk(params: {
-  modelId: string;
-  text: string;
-  voiceId?: string;
-  voicePrompt?: string;
-  language?: string;
-  languageId?: string;
-  tone?: string;
-  /** 0-100, maps to Chatterbox exaggeration (0-1). */
-  expressiveness?: number;
-}): Promise<{ audio: ArrayBuffer; mimeType: string }> {
+export async function synthesizeVoiceChunk(
+  params: SynthesizeVoiceChunkParams
+): Promise<{ audio: ArrayBuffer; mimeType: string }> {
   const apiKey = deepinfraKey();
   if (!apiKey) throw new Error('DEEPINFRA_API_KEY is not configured.');
 
@@ -232,35 +307,8 @@ export async function synthesizeVoiceChunk(params: {
     throw new Error(`Chunk too long (${text.length} chars).`);
   }
 
-  const isVoiceDesign = params.modelId.toLowerCase().includes('voicedesign');
-  let body: Record<string, unknown>;
-
-  if (isVoiceDesign) {
-    body = {
-      text,
-      voice: params.voicePrompt?.trim() || 'A natural, clear, and engaging voice.',
-    };
-  } else {
-    const expr = typeof params.expressiveness === 'number'
-      ? Math.min(100, Math.max(0, params.expressiveness))
-      : 50;
-    let exaggeration = expr / 100;
-
-    // Per-section tone nudges delivery intensity (tags themselves stay inline).
-    const tone = (params.tone || '').toLowerCase();
-    if (HIGH_ENERGY_TONES.has(tone)) exaggeration = Math.min(1, exaggeration + 0.15);
-    else if (LOW_ENERGY_TONES.has(tone)) exaggeration = Math.max(0, exaggeration - 0.15);
-
-    // Resemble AI guidance: dramatic delivery → lower cfg for better pacing.
-    const cfgWeight = exaggeration >= 0.65 ? 0.3 : 0.5;
-
-    body = {
-      text,
-      language_id: params.languageId || toLanguageId(params.language),
-      exaggeration: Math.round(exaggeration * 100) / 100,
-      cfg_weight: cfgWeight,
-    };
-  }
+  const body = buildTtsBody(params, text);
+  // voiceId reserved for reference-audio cloning (future); not sent for now.
 
   const res = await fetch(
     `https://api.deepinfra.com/v1/inference/${params.modelId}`,
@@ -281,52 +329,31 @@ export async function synthesizeVoiceChunk(params: {
 
   const contentType = res.headers.get('content-type') || '';
 
-  let audio: ArrayBuffer;
-  let mimeType = 'audio/wav';
-
+  // Guard: some providers return a JSON error payload with HTTP 200.
+  // Encoding that as "audio" produces a silent file — surface it instead.
   if (contentType.includes('application/json')) {
-    const rawText = await res.text().catch(() => '');
-    let data: any = {};
+    const text = await res.text().catch(() => '');
+    let msg = text.slice(0, 200);
     try {
-      data = JSON.parse(rawText);
+      const parsed = JSON.parse(text);
+      msg = parsed?.error || parsed?.message || parsed?.detail || msg;
     } catch {
-      throw new Error(`TTS parse error: ${rawText.slice(0, 200)}`);
+      /* keep raw text */
     }
-
-    if (data?.error || data?.detail || data?.message) {
-      const msg = data.error || data.detail || data.message;
-      throw new Error(`TTS error: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`);
-    }
-
-    if (typeof data?.audio === 'string' && data.audio.length > 0) {
-      const match = data.audio.match(/^data:([^;]+);base64,/);
-      if (match) {
-        mimeType = match[1];
-      } else if (data.output_format) {
-        mimeType = `audio/${data.output_format}`;
-      }
-
-      const cleanBase64 = data.audio.replace(/^data:[^;]+;base64,/, '').trim();
-      const buf = Buffer.from(cleanBase64, 'base64');
-      if (buf.byteLength < 1024) {
-        throw new Error(`TTS returned invalid audio payload (${buf.byteLength} bytes).`);
-      }
-      audio = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-    } else {
-      throw new Error(`TTS response missing audio data: ${rawText.slice(0, 200)}`);
-    }
-  } else {
-    audio = await res.arrayBuffer();
-    if (audio.byteLength < 1024) {
-      throw new Error(
-        `TTS returned invalid audio (${audio.byteLength} bytes, ${contentType || 'unknown type'}).`
-      );
-    }
-    if (contentType.startsWith('audio/')) {
-      mimeType = contentType;
-    }
+    throw new Error(`TTS error: ${typeof msg === 'string' ? msg : 'unexpected response'}`);
   }
 
+  const audio = await res.arrayBuffer();
+
+  // Guard: a few hundred bytes cannot be real speech audio — fail loudly
+  // instead of producing a silent download.
+  if (audio.byteLength < 1024) {
+    throw new Error(
+      `TTS returned invalid audio (${audio.byteLength} bytes, ${contentType || 'unknown type'}).`
+    );
+  }
+
+  const mimeType = contentType.startsWith('audio/') ? contentType : 'audio/wav';
   console.log(
     `[voice] chunk synthesized: ${audio.byteLength} bytes, ${mimeType} (${params.modelId})`
   );
@@ -377,138 +404,34 @@ export interface VoicePlanRecord {
   createdAt: number;
 }
 
+const plans = new Map<string, VoicePlanRecord>();
 const PLAN_TTL_MS = 2 * 60 * 60 * 1000;
 
-interface GlobalVoiceStore {
-  plans: Map<string, VoicePlanRecord>;
-  cancelled: Set<string>;
-}
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __voiceStore: GlobalVoiceStore | undefined;
-}
-
-function getVoiceStore(): GlobalVoiceStore {
-  if (!globalThis.__voiceStore) {
-    globalThis.__voiceStore = {
-      plans: new Map(),
-      cancelled: new Set(),
-    };
-  }
-  return globalThis.__voiceStore;
-}
-
-function getSecret(): string {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.DEEPINFRA_API_KEY ||
-    'video-engine-voice-secret-key-32b'
-  );
-}
-
-function signPayload(dataStr: string): string {
-  return crypto.createHmac('sha256', getSecret()).update(dataStr).digest('hex').slice(0, 32);
-}
-
 function sweepPlans() {
-  const store = getVoiceStore();
   const now = Date.now();
-  store.plans.forEach((p, id) => {
-    if (now - p.createdAt > PLAN_TTL_MS) store.plans.delete(id);
+  plans.forEach((p, id) => {
+    if (now - p.createdAt > PLAN_TTL_MS) plans.delete(id);
   });
 }
 
 export function createVoicePlan(rec: Omit<VoicePlanRecord, 'planId' | 'createdAt'>): string {
   sweepPlans();
-  const createdAt = Date.now();
-  const payload = {
-    userId: rec.userId,
-    totalChars: rec.totalChars,
-    charsPerCredit: rec.charsPerCredit,
-    charged: rec.charged,
-    createdAt,
-    nonce: Math.random().toString(36).slice(2, 8),
-  };
-  const b64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const sig = signPayload(b64);
-  const planId = `vp_${b64}.${sig}`;
-
-  const store = getVoiceStore();
-  store.plans.set(planId, { ...rec, planId, createdAt });
+  const planId = `vp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  plans.set(planId, { ...rec, planId, createdAt: Date.now() });
   return planId;
 }
 
 export function getVoicePlan(planId: string): VoicePlanRecord | undefined {
-  if (!planId || typeof planId !== 'string') return undefined;
-
-  const store = getVoiceStore();
-  if (store.cancelled.has(planId)) return undefined;
-
-  // 1. Check in-memory global store
-  const p = store.plans.get(planId);
-  if (p) {
-    if (Date.now() - p.createdAt > PLAN_TTL_MS) {
-      store.plans.delete(planId);
-      return undefined;
-    }
-    return p;
+  const p = plans.get(planId);
+  if (p && Date.now() - p.createdAt > PLAN_TTL_MS) {
+    plans.delete(planId);
+    return undefined;
   }
-
-  // 2. Fallback: verify and decode signed token (resilient across Next.js webpack isolated bundles and serverless instances)
-  if (planId.startsWith('vp_') && planId.includes('.')) {
-    try {
-      const withoutPrefix = planId.slice(3);
-      const dotIndex = withoutPrefix.indexOf('.');
-      if (dotIndex === -1) return undefined;
-
-      const b64 = withoutPrefix.slice(0, dotIndex);
-      const sig = withoutPrefix.slice(dotIndex + 1);
-
-      const expectedSig = signPayload(b64);
-      if (sig !== expectedSig) return undefined;
-
-      const jsonStr = Buffer.from(b64, 'base64url').toString('utf8');
-      const payload = JSON.parse(jsonStr);
-
-      if (
-        !payload ||
-        typeof payload.userId !== 'string' ||
-        typeof payload.totalChars !== 'number' ||
-        typeof payload.charsPerCredit !== 'number' ||
-        typeof payload.charged !== 'number' ||
-        typeof payload.createdAt !== 'number'
-      ) {
-        return undefined;
-      }
-
-      if (Date.now() - payload.createdAt > PLAN_TTL_MS) {
-        return undefined;
-      }
-
-      const recovered: VoicePlanRecord = {
-        planId,
-        userId: payload.userId,
-        totalChars: payload.totalChars,
-        charsPerCredit: payload.charsPerCredit,
-        charged: payload.charged,
-        createdAt: payload.createdAt,
-      };
-
-      store.plans.set(planId, recovered);
-      return recovered;
-    } catch {
-      return undefined;
-    }
-  }
-
-  return undefined;
+  return p;
 }
 
 export function deleteVoicePlan(planId: string): void {
-  const store = getVoiceStore();
-  store.plans.delete(planId);
-  store.cancelled.add(planId);
+  plans.delete(planId);
 }
 
 // ─── Credits ─────────────────────────────────────────────────────────────────

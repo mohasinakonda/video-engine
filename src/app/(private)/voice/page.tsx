@@ -4,137 +4,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Sparkles,
   Download,
+  X,
   Loader2,
   Play,
   Pause,
-  Wand2,
-  Film,
-  Zap,
-  Check,
-  RotateCcw,
   ChevronDown,
-  SlidersHorizontal,
+  Wand2,
 } from 'lucide-react';
+import VoiceBrowser from '@/components/voice/voice-browser';
+import VoiceHistory, { type VoiceHistoryEntry } from '@/components/voice/voice-history';
 import { showToast } from '@/lib/toast';
-import { getAudioDuration } from '@/lib/media-storage';
+import { saveMediaBlob, getMediaBlob, getMediaBlobUrl, deleteMediaBlob, getAudioDuration } from '@/lib/media-storage';
+import type { VoicePreset } from '@/lib/voice-catalog';
 import {
-  MIMO_STYLE_TAGS,
-  MIMO_INLINE_TAGS,
+  MIMO_BUILT_IN_VOICES,
+  isMimoEngineModel,
+  isMimoVoiceDesignModel,
 } from '@/lib/voice-catalog';
 import { concatenateAudioParts } from '@/lib/audio-concat';
-
-interface VoiceConfig {
-  language: string;
-  gender: string;
-  pitch: string;
-  style: string;
-  useCase: string;
-}
-
-const LANGUAGE_OPTIONS = [
-  'All languages',
-  'English (US)',
-  'English (UK)',
-  'French',
-  'German',
-  'Italian',
-  'Korean',
-  'Spanish',
-  'Japanese',
-  'Hindi',
-  'Portuguese',
-  'Chinese',
-  'Bengali',
-  'Russian',
-  'Arabic',
-];
-
-const GENDER_OPTIONS = [
-  'All genders',
-  'Male',
-  'Female',
-];
-
-const PITCH_OPTIONS = [
-  'All pitches',
-  'Low',
-  'Medium',
-  'High',
-];
-
-const STYLE_OPTIONS = [
-  'All styles',
-  'Approachable',
-  'Articulate',
-  'Authoritative',
-  'Calm',
-  'Casual',
-  'Clear',
-  'Confident',
-  'Crisp',
-  'Direct',
-  'Empathetic',
-  'Dramatic',
-  'Energetic',
-  'Whispery',
-  'Storyteller',
-];
-
-const USE_CASE_OPTIONS = [
-  'All use cases',
-  'Narration',
-  'Documentary',
-  'Commercial',
-  'Storytelling',
-  'Audiobook',
-  'Video Essay',
-  'Podcast',
-  'Movie Trailer',
-  'Conversational',
-];
-
-const DEFAULT_VOICE_CONFIG: VoiceConfig = {
-  language: 'English (US)',
-  gender: 'Masculine',
-  pitch: 'Low',
-  style: 'Authoritative',
-  useCase: 'Documentary',
-};
-
-function generateVoicePrompt(cfg: VoiceConfig): string {
-  const parts: string[] = [];
-
-  const hasStyle = cfg.style && cfg.style !== 'All styles';
-  const hasGender = cfg.gender && cfg.gender !== 'All genders';
-
-  if (hasStyle && hasGender) {
-    parts.push(`${cfg.style} ${cfg.gender.toLowerCase()} voice`);
-  } else if (hasStyle) {
-    parts.push(`${cfg.style} voice`);
-  } else if (hasGender) {
-    parts.push(`${cfg.gender} voice`);
-  } else {
-    parts.push('Natural clear voice');
-  }
-
-  if (cfg.pitch && cfg.pitch !== 'All pitches') {
-    parts.push(`with ${cfg.pitch.toLowerCase()} pitch`);
-  }
-
-  if (cfg.language && cfg.language !== 'All languages') {
-    parts.push(`speaking in fluent ${cfg.language}`);
-  }
-
-  if (cfg.useCase && cfg.useCase !== 'All use cases') {
-    parts.push(`crafted for ${cfg.useCase.toLowerCase()} delivery`);
-  }
-
-  let result = parts.join(', ');
-  if (result) {
-    result = result.charAt(0).toUpperCase() + result.slice(1) + '.';
-  }
-  return result;
-}
 
 interface VoiceEngine {
   id: string;
@@ -153,123 +40,191 @@ interface PlanChunk {
 
 type Phase = 'idle' | 'planning' | 'generating' | 'done' | 'error';
 
+const HISTORY_KEY = 'voice-history-v1';
+const MAX_HISTORY = 20;
+
 function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
-  const clean = b64.replace(/^data:audio\/[^;]+;base64,/, '').trim();
-  const bin = atob(clean);
+  const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
 }
 
-function formatDuration(sec: number): string {
-  if (!sec || sec <= 0) return '—';
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
-  return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `0:${s.toString().padStart(2, '0')}`;
+function estimateCredits(chars: number, charsPerCredit: number): number {
+  const per = Math.max(1, Math.floor(charsPerCredit));
+  return Math.max(1, Math.ceil(Math.max(0, chars) / per));
+}
+
+function loadHistory(): VoiceHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.slice(0, MAX_HISTORY) : [];
+  } catch {
+    return [];
+  }
 }
 
 export default function VoicePage() {
-  // Engine State (dynamic from Supabase database)
-  const [engine, setEngine] = useState<VoiceEngine | null>(null);
-
-  // Playground Prompts
-  const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>(DEFAULT_VOICE_CONFIG);
-  const [text, setText] = useState('Yes, I had a sandwich.');
-  const [voiceDescription, setVoiceDescription] = useState(
-    generateVoicePrompt(DEFAULT_VOICE_CONFIG)
-  );
-  const [mode, setMode] = useState<'clip' | 'longform'>('longform');
+  // Script
+  const [text, setText] = useState('');
+  const [mode, setMode] = useState<'clip' | 'longform'>('clip');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const voiceDescRef = useRef<HTMLTextAreaElement>(null);
 
-  // Sidebar Controls & Dropdowns
-  const [sidebarTab, setSidebarTab] = useState<'controls' | 'settings'>('controls');
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  // Voices & engines
+  const [voices, setVoices] = useState<VoicePreset[]>([]);
+  const [languages, setLanguages] = useState<{ code: string; name: string }[]>([
+    { code: 'en', name: 'English' },
+  ]);
+  const [emotionTags, setEmotionTags] = useState<string[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<VoicePreset | null>(null);
+  const [engines, setEngines] = useState<VoiceEngine[]>([]);
+  const [engineId, setEngineId] = useState('');
+  const [languageId, setLanguageId] = useState('en');
+  const [expressiveness, setExpressiveness] = useState(50);
+  // MiMo controls: VoiceDesign takes a text voice description; the base MiMo
+  // model takes a built-in voice id + an optional natural-language style note.
+  const [voiceDescription, setVoiceDescription] = useState(
+    'A warm, confident narrator in their 30s with a clear, natural voice.'
+  );
+  const [mimoVoice, setMimoVoice] = useState('mimo_default');
+  const [styleInstruction, setStyleInstruction] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // AI Assistant States
-  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
-  const [isMatchingScript, setIsMatchingScript] = useState(false);
-  const [isMatchingVoice, setIsMatchingVoice] = useState(false);
-
-  // Generation States
+  // Generation
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const [resultBlob, setResultBlob] = useState<Blob | null>(null);
-  const [resultDurationSec, setResultDurationSec] = useState<number>(0);
-  const [resultChars, setResultChars] = useState<number>(0);
+  const [resultEntry, setResultEntry] = useState<VoiceHistoryEntry | null>(null);
   const [resultPlaying, setResultPlaying] = useState(false);
   const cancelRef = useRef(false);
   const planRef = useRef<{ planId: string; charsDone: number } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Dynamic Credits
-  const charsPerCredit = engine?.charsPerCredit ?? 1000;
+  // Preview
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // History
+  const [history, setHistory] = useState<VoiceHistoryEntry[]>([]);
+  const [historyPlayingId, setHistoryPlayingId] = useState<string | null>(null);
+  const historyAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const engine = useMemo(
+    () => engines.find((e) => e.id === engineId) || engines.find((e) => e.isDefault) || engines[0],
+    [engines, engineId]
+  );
+
+  // MiMo engines speak a different control language: no exaggeration slider,
+  // voice design or style instructions instead (DeepInfra MiMo-V2.5-TTS docs).
+  const isMimo = isMimoEngineModel(engine?.modelId);
+  const isVoiceDesign = isMimoVoiceDesignModel(engine?.modelId);
+
   const charLimit = mode === 'longform' ? 500_000 : 5_000;
-  const creditEstimate = useMemo(() => {
-    const chars = text.trim().length;
-    if (chars <= 0) return 0;
-    const per = Math.max(1, Math.floor(charsPerCredit));
-    return Math.max(1, Math.ceil(chars / per));
-  }, [text, charsPerCredit]);
+  const creditEstimate = engine ? estimateCredits(text.trim().length, engine.charsPerCredit) : 1;
 
   useEffect(() => {
+    setHistory(loadHistory());
+    fetch('/api/voice/voices')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) {
+          setVoices(d.voices || []);
+          setLanguages(d.languages || [{ code: 'en', name: 'English' }]);
+          setEmotionTags(d.emotionTags || []);
+          const first = (d.voices || [])[0] || null;
+          setSelectedVoice(first);
+          if (first) {
+            setLanguageId(first.languageId || 'en');
+            setExpressiveness(Math.round((first.exaggeration ?? 0.5) * 100));
+          }
+        }
+      })
+      .catch(() => {});
     fetch('/api/voice/models')
       .then((r) => r.json())
       .then((d) => {
         if (d.success && Array.isArray(d.models) && d.models.length > 0) {
-          const found =
-            d.models.find(
-              (m: VoiceEngine) =>
-                m.id.includes('voicedesign') || m.modelId.includes('voicedesign')
-            ) ||
-            d.models.find((m: VoiceEngine) => m.isDefault) ||
-            d.models[0];
-          if (found) setEngine(found);
+          setEngines(d.models);
+          const def = d.models.find((m: VoiceEngine) => m.isDefault) || d.models[0];
+          setEngineId(def.id);
         }
       })
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpenDropdown(null);
+  const persistHistory = useCallback((entries: VoiceHistoryEntry[]) => {
+    setHistory(entries);
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
+    } catch {
+      /* storage full — keep in memory */
+    }
+  }, []);
+
+  // ─── Voice preview ─────────────────────────────────────────────────────────
+  const stopPreview = useCallback(() => {
+    previewAudioRef.current?.pause();
+    previewAudioRef.current = null;
+    setPreviewingId(null);
+  }, []);
+
+  /** Selecting a preset also adopts its language + delivery style (tweakable after). */
+  const handleSelectVoice = useCallback((voice: VoicePreset) => {
+    setSelectedVoice(voice);
+    setLanguageId(voice.languageId || 'en');
+    setExpressiveness(Math.round((voice.exaggeration ?? 0.5) * 100));
+  }, []);
+
+  const handlePreview = useCallback(
+    async (voice: VoicePreset) => {
+      if (previewingId === voice.id) {
+        stopPreview();
+        return;
       }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
+      stopPreview();
+      setPreviewingId(voice.id);
+      try {
+        const res = await fetch('/api/voice/chunk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            preview: true,
+            voiceId: voice.id,
+            modelId: engine?.id,
+            languageId,
+            // VoiceDesign previews use the current voice description.
+            voiceDescription: isVoiceDesign ? voiceDescription : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.audioBase64) throw new Error(data.error || 'Preview failed.');
+        const blob = new Blob([base64ToBytes(data.audioBase64)], {
+          type: data.mimeType || 'audio/mpeg',
+        });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        previewAudioRef.current = audio;
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          setPreviewingId(null);
+        };
+        await audio.play();
+      } catch (err) {
+        stopPreview();
+        showToast(err instanceof Error ? err.message : 'Preview failed.', 'error');
+      }
+    },
+    [previewingId, stopPreview, engine, languageId, isVoiceDesign, voiceDescription]
+  );
 
-  // Update System Instructions whenever settings change
-  const handleConfigChange = useCallback((key: keyof VoiceConfig, value: string) => {
-    setVoiceConfig((prev) => {
-      const next = { ...prev, [key]: value };
-      const generated = generateVoicePrompt(next);
-      setVoiceDescription(generated);
-      return next;
-    });
-    setOpenDropdown(null);
-  }, []);
-
-  const handleResetConfig = useCallback(() => {
-    setVoiceConfig(DEFAULT_VOICE_CONFIG);
-    setVoiceDescription(generateVoicePrompt(DEFAULT_VOICE_CONFIG));
-    setOpenDropdown(null);
-    showToast('Reset voice settings to default.', 'info');
-  }, []);
-
-
-
-  // Tag Inserters
-  const insertTagIntoText = useCallback((tag: string) => {
+  // ─── Tag inserter ──────────────────────────────────────────────────────────
+  const insertTag = useCallback((tag: string) => {
     const el = textareaRef.current;
-    const token = `${tag} `;
+    const token = `[${tag}] `;
     if (!el) {
-      setText((t) => (t ? t + ' ' + token : token));
+      setText((t) => (t ? t + '\n' + token : token));
       return;
     }
     const start = el.selectionStart ?? text.length;
@@ -282,102 +237,7 @@ export default function VoicePage() {
     });
   }, [text]);
 
-  const insertTagIntoVoice = useCallback((tag: string) => {
-    const el = voiceDescRef.current;
-    const token = `${tag}, `;
-    if (!el) {
-      setVoiceDescription((v) => (v ? v + ', ' + tag : tag));
-      return;
-    }
-    const start = el.selectionStart ?? voiceDescription.length;
-    const end = el.selectionEnd ?? voiceDescription.length;
-    const next = voiceDescription.slice(0, start) + token + voiceDescription.slice(end);
-    setVoiceDescription(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(start + token.length, start + token.length);
-    });
-  }, [voiceDescription]);
-
-  // AI Prompt Helpers
-  const handleEnhanceVoicePrompt = useCallback(async (directorMode = false) => {
-    if (isEnhancingPrompt) return;
-    setIsEnhancingPrompt(true);
-    try {
-      const res = await fetch('/api/voice/design-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'enhance-prompt',
-          prompt: voiceDescription,
-          mode: directorMode ? 'director' : 'standard',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Enhancement failed.');
-      if (data.enhancedPrompt) {
-        setVoiceDescription(data.enhancedPrompt);
-        showToast(directorMode ? 'Director Mode prompt calibrated.' : 'Voice description refined.', 'success');
-      }
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to enhance prompt', 'error');
-    } finally {
-      setIsEnhancingPrompt(false);
-    }
-  }, [voiceDescription, isEnhancingPrompt]);
-
-  const handleMatchScriptToVoice = useCallback(async () => {
-    if (isMatchingScript || !voiceDescription.trim()) return;
-    setIsMatchingScript(true);
-    try {
-      const res = await fetch('/api/voice/design-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'match-script',
-          voicePrompt: voiceDescription,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to generate script.');
-      if (Array.isArray(data.samples) && data.samples.length > 0) {
-        setText(data.samples[0].text);
-        showToast('Generated matching speech lines.', 'success');
-      }
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to generate matching script', 'error');
-    } finally {
-      setIsMatchingScript(false);
-    }
-  }, [voiceDescription, isMatchingScript]);
-
-  const handleMatchVoiceToScript = useCallback(async () => {
-    if (isMatchingVoice || !text.trim()) return;
-    setIsMatchingVoice(true);
-    try {
-      const res = await fetch('/api/voice/design-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'match-voice',
-          script: text,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to cast voice.');
-      if (data.voicePrompt) {
-        setVoiceDescription(data.voicePrompt);
-        showToast('Voice persona matched to script tone.', 'success');
-      }
-    } catch (err: any) {
-      showToast(err?.message || 'Failed to cast voice', 'error');
-    } finally {
-      setIsMatchingVoice(false);
-    }
-  }, [text, isMatchingVoice]);
-
-
-  // Synthesis Loop
+  // ─── Generation loop (client-driven chunking; UI shows % only) ─────────────
   const cancelGeneration = useCallback(async () => {
     cancelRef.current = true;
     const plan = planRef.current;
@@ -397,35 +257,26 @@ export default function VoicePage() {
 
   const handleGenerate = useCallback(async () => {
     const script = text.trim();
-    if (!script) {
-      showToast('Please enter speech text to synthesize.', 'error');
-      return;
-    }
+    if (!script || !selectedVoice || !engine) return;
     if (script.length > charLimit) {
-      showToast(`Script exceeds ${charLimit.toLocaleString()} character limit.`, 'error');
+      showToast(`Script exceeds the ${charLimit.toLocaleString()}-character limit.`, 'error');
       return;
     }
 
+    stopPreview();
     setError('');
     setResultUrl(null);
-    setResultBlob(null);
-    setResultDurationSec(0);
-    setResultChars(0);
+    setResultEntry(null);
     setProgress(0);
     setPhase('planning');
     cancelRef.current = false;
 
     try {
-      const targetModelId = engine?.id || 'voice-mimo-v25-voicedesign';
-
+      // 1. Plan: chunking + credit deduction happen server-side.
       const planRes = await fetch('/api/voice/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: script,
-          modelId: targetModelId,
-          mode,
-        }),
+        body: JSON.stringify({ text: script, modelId: engine.id, mode }),
       });
       const planData = await planRes.json();
       if (!planRes.ok) throw new Error(planData.error || 'Planning failed.');
@@ -434,6 +285,7 @@ export default function VoicePage() {
       const chunks: PlanChunk[] = planData.chunks;
       planRef.current = { planId: planData.planId, charsDone: 0 };
 
+      // 2. Synthesize chunk by chunk.
       setPhase('generating');
       const parts: Uint8Array[] = [];
       let charsDone = 0;
@@ -445,10 +297,10 @@ export default function VoicePage() {
 
         let attempt = 0;
         let audioB64: string | null = null;
-        let mimeType = 'audio/wav';
+        let mimeType = 'audio/mpeg';
         while (attempt < 3 && !audioB64) {
           try {
-            const response = await fetch('/api/voice/chunk', {
+            const r = await fetch('/api/voice/chunk', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -456,14 +308,20 @@ export default function VoicePage() {
                 index: chunk.index,
                 text: chunk.text,
                 tone: chunk.tone,
-                modelId: targetModelId,
-                voicePrompt: voiceDescription.trim(),
+                voiceId: selectedVoice.id,
+                modelId: engine.id,
+                languageId,
+                expressiveness,
+                // MiMo engines (ignored by Chatterbox engines).
+                voiceDescription: isVoiceDesign ? voiceDescription : undefined,
+                styleInstruction: isMimo && !isVoiceDesign && styleInstruction ? styleInstruction : undefined,
+                mimoVoice: isMimo && !isVoiceDesign ? mimoVoice : undefined,
               }),
             });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || `Chunk ${chunk.index + 1} failed.`);
-            audioB64 = data.audioBase64;
-            mimeType = data.mimeType || mimeType;
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || `Chunk ${chunk.index + 1} failed.`);
+            audioB64 = d.audioBase64;
+            mimeType = d.mimeType || mimeType;
           } catch (err) {
             attempt += 1;
             if (attempt >= 3) throw err;
@@ -480,56 +338,60 @@ export default function VoicePage() {
 
       if (cancelRef.current) throw new Error('cancelled');
 
+      // 3. Assemble, persist, and present.
+      // WAV chunks get a rebuilt RIFF header; MP3-style frames concatenate raw.
       const blob = concatenateAudioParts(parts, resultMimeType);
       const url = URL.createObjectURL(blob);
       const durationSec = await getAudioDuration(blob).catch(() => 0);
 
+      const entry: VoiceHistoryEntry = {
+        id: `v_${Date.now().toString(36)}`,
+        text: script.slice(0, 90) + (script.length > 90 ? '…' : ''),
+        voiceName: selectedVoice.name,
+        engineName: engine.name,
+        createdAt: Date.now(),
+        durationSec,
+        chars: script.length,
+      };
+      await saveMediaBlob(`voice_${entry.id}`, blob).catch(() => {});
+      persistHistory([entry, ...loadHistory()].slice(0, MAX_HISTORY));
+
       planRef.current = null;
-      setResultBlob(blob);
       setResultUrl(url);
-      setResultDurationSec(durationSec);
-      setResultChars(script.length);
+      setResultEntry(entry);
       setPhase('done');
       setProgress(100);
-      showToast('Speech synthesis complete.', 'success');
+      showToast('Narration ready.', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Generation failed.';
       if (message === 'cancelled') {
         setPhase('idle');
         setProgress(0);
-        showToast('Generation cancelled.', 'info');
+        showToast('Generation cancelled. Unused credits refunded.', 'info');
       } else {
+        // Refund the undone portion on failure too.
         await cancelGeneration();
         setPhase('error');
         setError(message);
         showToast(message, 'error');
       }
     }
-  }, [
-    text,
-    voiceDescription,
-    mode,
-    charLimit,
-    engine,
-    cancelGeneration,
-  ]);
+  }, [text, selectedVoice, engine, mode, charLimit, languageId, expressiveness, stopPreview, persistHistory, cancelGeneration, isMimo, isVoiceDesign, voiceDescription, styleInstruction, mimoVoice]);
 
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+  // Keyboard: Cmd/Ctrl+Enter to generate.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
-        if (phase === 'idle' || phase === 'done' || phase === 'error') {
-          handleGenerate();
-        }
+        if (phase === 'idle' || phase === 'done' || phase === 'error') handleGenerate();
       }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [phase, handleGenerate]);
+    },
+    [phase, handleGenerate]
+  );
 
   const busy = phase === 'planning' || phase === 'generating';
 
-  // Audio Playback Helpers
+  // ─── Result + history playback ─────────────────────────────────────────────
   const toggleResultPlay = useCallback(() => {
     if (!resultUrl) return;
     if (!audioRef.current) {
@@ -556,679 +418,407 @@ export default function VoicePage() {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }, []);
 
-  const handleDownloadResult = useCallback(() => {
-    if (!resultBlob) return;
-    downloadBlob(resultBlob, `mimo-voice-${Date.now()}.wav`);
-  }, [resultBlob, downloadBlob]);
+  /** File extension matching the blob's actual audio format. */
+  const extFor = useCallback((blob: Blob) => {
+    if (blob.type.includes('wav')) return 'wav';
+    if (blob.type.includes('ogg')) return 'ogg';
+    return 'mp3';
+  }, []);
 
+  const handleDownloadResult = useCallback(async () => {
+    if (!resultEntry) return;
+    const blob = await getMediaBlob(`voice_${resultEntry.id}`);
+    if (blob) downloadBlob(blob, `narration-${resultEntry.voiceName.toLowerCase()}-${resultEntry.id}.${extFor(blob)}`);
+    else showToast('Audio not found locally.', 'error');
+  }, [resultEntry, downloadBlob, extFor]);
 
-  const canGenerate = text.trim().length > 0 && !busy;
+  const handleHistoryPlay = useCallback(
+    async (entry: VoiceHistoryEntry) => {
+      if (historyPlayingId === entry.id) {
+        historyAudioRef.current?.pause();
+        setHistoryPlayingId(null);
+        return;
+      }
+      historyAudioRef.current?.pause();
+      const url = await getMediaBlobUrl(`voice_${entry.id}`);
+      if (!url) {
+        showToast('Audio not found locally.', 'error');
+        return;
+      }
+      const audio = new Audio(url);
+      historyAudioRef.current = audio;
+      audio.onended = () => setHistoryPlayingId(null);
+      setHistoryPlayingId(entry.id);
+      await audio.play().catch(() => setHistoryPlayingId(null));
+    },
+    [historyPlayingId]
+  );
+
+  const handleHistoryDelete = useCallback(
+    async (id: string) => {
+      await deleteMediaBlob(`voice_${id}`).catch(() => {});
+      if (historyPlayingId === id) {
+        historyAudioRef.current?.pause();
+        setHistoryPlayingId(null);
+      }
+      persistHistory(history.filter((e) => e.id !== id));
+    },
+    [history, historyPlayingId, persistHistory]
+  );
+
+  const canGenerate = text.trim().length > 0 && selectedVoice && engine && !busy;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0b0e] text-slate-100 font-sans selection:bg-blue-600/30 selection:text-white">
-      {/* ─── Google AI Studio Header ─── */}
-      <header className="h-14 flex-shrink-0 px-6 border-b border-[#1b1e26] bg-[#0e1015]/90 backdrop-blur-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold tracking-tight text-white">Voice Studio</span>
-            <span className="text-[#3b4252]">/</span>
-            <span className="text-xs text-slate-400 font-medium">Playground</span>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header */}
+      <header className="px-6 lg:px-8 py-5 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-white">Voice</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Turn scripts into natural narration — clips or full hour-long voiceovers.
+            </p>
           </div>
-
+          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+            <Sparkles size={13} className="text-indigo-400" />
+            {engine ? engine.name : 'Loading engine…'}
+          </div>
         </div>
       </header>
 
-      {/* ─── Main 2-Pane Workspace ─── */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* ─── Center: Studio Prompt & Speech Canvas ─── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#0a0b0e] overflow-hidden relative">
-          <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 space-y-5 pb-28">
-
-            {/* Frame 1: System Instructions / Voice Persona (Google AI Studio Style) */}
-            <div className="rounded-xl border border-[#1e222d] bg-[#0e1017] transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20">
-              <div className="px-4 py-2.5 border-b border-[#181c26] flex items-center justify-between bg-[#11141d]/60 rounded-t-xl">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    System Instructions
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
-                    · Voice description & acoustic persona
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleEnhanceVoicePrompt(false)}
-                    disabled={isEnhancingPrompt}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-950/40 border border-blue-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
-                    title="Calibrate voice description with AI"
-                  >
-                    {isEnhancingPrompt ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                    Enhance
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleEnhanceVoicePrompt(true)}
-                    disabled={isEnhancingPrompt}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 border border-purple-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
-                    title="Expand into Director Mode script directions"
-                  >
-                    <Film size={11} /> Director Mode
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleMatchVoiceToScript}
-                    disabled={isMatchingVoice || !text.trim()}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-[#1a1f2b] transition-colors flex items-center gap-1 disabled:opacity-50"
-                    title="Design voice to match script content"
-                  >
-                    {isMatchingVoice ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />}
-                    Match to Script
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-4">
-                <textarea
-                  ref={voiceDescRef}
-                  value={voiceDescription}
-                  onChange={(e) => setVoiceDescription(e.target.value)}
-                  disabled={busy}
-                  rows={3}
-                  placeholder="e.g. Heavy Russian accent, gruff middle-aged male, blunt and matter-of-fact."
-                  className="w-full bg-transparent text-[14px] leading-relaxed text-slate-100 placeholder:text-slate-600 focus:outline-none resize-none font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Frame 2: Content / Spoken Dialogue Input (Google AI Studio Style) */}
-            <div className="rounded-xl border border-[#1e222d] bg-[#0e1017] transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20">
-              <div className="px-4 py-2.5 border-b border-[#181c26] flex items-center justify-between bg-[#11141d]/60 rounded-t-xl">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Input Text
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
-                    · Dialogue to convert to speech
-                  </span>
-                </div>
-
+      {/* Two-panel layout */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* ─── Left: script panel ─── */}
+        <div className="flex-1 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-bg-border">
+          <div className="flex-1 flex flex-col min-h-0 p-6 lg:p-8 overflow-y-auto">
+            {/* Mode toggle */}
+            <div className="flex items-center gap-1 mb-4 bg-bg-surface border border-bg-border rounded-lg p-1 w-fit">
+              {(['clip', 'longform'] as const).map((m) => (
                 <button
-                  type="button"
-                  onClick={handleMatchScriptToVoice}
-                  disabled={isMatchingScript || !voiceDescription.trim()}
-                  className="px-2.5 py-1 rounded-md text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-950/40 border border-indigo-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
-                >
-                  {isMatchingScript ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />}
-                  Auto-generate script for voice
-                </button>
-              </div>
-
-              <div className="p-4">
-                <textarea
-                  ref={textareaRef}
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  key={m}
+                  onClick={() => setMode(m)}
                   disabled={busy}
-                  rows={5}
-                  placeholder="Type or paste text to synthesize into natural speech…"
-                  className="w-full bg-transparent text-[15px] leading-relaxed text-slate-100 placeholder:text-slate-600 focus:outline-none resize-none"
-                />
-              </div>
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    mode === m
+                      ? 'bg-indigo-500/20 text-indigo-200'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {m === 'clip' ? 'Clip' : 'Long-form'}
+                </button>
+              ))}
+              {mode === 'longform' && (
+                <span className="text-[11px] text-slate-500 pr-2">up to 1 hour</span>
+              )}
+            </div>
 
-              {/* Expression Tags Bar (Compact, Google-style pills) */}
-              <div className="px-4 py-2.5 border-t border-[#161922] bg-[#0b0c10]/40 flex items-center gap-2 flex-wrap rounded-b-xl">
-                <span className="text-[11px] text-slate-500 font-medium">Insert tags:</span>
-                <div className="flex items-center gap-1 flex-wrap">
-                  {MIMO_STYLE_TAGS.slice(0, 6).map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => insertTagIntoText(tag)}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-blue-300 hover:bg-blue-950/30 border border-[#202533] transition-colors"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                  {MIMO_INLINE_TAGS.slice(0, 5).map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => insertTagIntoText(tag)}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-purple-300 hover:bg-purple-950/30 border border-[#202533] transition-colors"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
+            {/* Script box */}
+            <div className="relative flex-1 flex flex-col min-h-[240px]">
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={busy}
+                placeholder={
+                  mode === 'longform'
+                    ? 'Paste your full script here — chapters, dialogue, everything. Section breaks and [emotion tags] keep each part sounding right…'
+                    : 'Type or paste what you want narrated…'
+                }
+                className="flex-1 w-full min-h-[240px] bg-bg-surface/60 border border-bg-border rounded-2xl p-5 text-[15px] leading-relaxed text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/60 resize-none disabled:opacity-60"
+              />
+              <div className="absolute bottom-3 right-4 text-xs text-slate-500 pointer-events-none">
+                {text.length.toLocaleString()} / {charLimit.toLocaleString()}
               </div>
             </div>
 
-            {/* Synthesis Progress Bar (Google AI Studio pulse line) */}
+            {/* Emotion tag inserter */}
+            {emotionTags.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+                <span className="text-xs text-slate-500 mr-1 flex items-center gap-1">
+                  <Wand2 size={12} /> Direct:
+                </span>
+                {emotionTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => insertTag(tag)}
+                    disabled={busy}
+                    className="px-2 py-0.5 rounded-full text-xs bg-bg-surface border border-bg-border text-slate-400 hover:text-indigo-300 hover:border-indigo-500/40 transition-colors disabled:opacity-50"
+                  >
+                    [{tag}]
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Progress (percentage only) */}
             {busy && (
-              <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 space-y-2.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-blue-300 flex items-center gap-2">
-                    <Loader2 size={13} className="animate-spin text-blue-400" />
-                    {phase === 'planning' ? 'Preparing acoustic plan…' : 'Synthesizing voice audio…'}
+              <div className="mt-4 p-4 rounded-2xl bg-bg-surface/60 border border-bg-border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-300 flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin text-indigo-400" />
+                    {phase === 'planning' ? 'Preparing your script…' : 'Generating narration…'}
                   </span>
-                  <span className="text-blue-200 font-mono font-medium">{progress}%</span>
+                  <span className="text-sm font-semibold text-white tabular-nums">{progress}%</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-[#161a26] overflow-hidden">
+                <div className="h-2 rounded-full bg-bg-border/50 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300"
+                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
                 <button
                   onClick={cancelGeneration}
-                  className="text-[11px] text-slate-400 hover:text-red-400 transition-colors"
+                  className="mt-3 text-xs text-slate-400 hover:text-red-400 flex items-center gap-1 transition-colors"
                 >
-                  Cancel synthesis
+                  <X size={12} /> Cancel (unused credits refunded)
                 </button>
               </div>
             )}
 
-            {/* Error Message */}
+            {/* Error */}
             {phase === 'error' && error && (
-              <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-4 text-xs text-red-300">
+              <div className="mt-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-sm text-red-300">
                 {error}
               </div>
             )}
 
-            {/* Output Stage: Sleek Waveform Player Card */}
-            {phase === 'done' && resultUrl && (
-              <div className="rounded-xl border border-emerald-500/30 bg-[#0d1419] p-4 flex items-center gap-4 shadow-xl">
-                <button
-                  onClick={toggleResultPlay}
-                  aria-label={resultPlaying ? 'Pause' : 'Play'}
-                  className="w-11 h-11 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center transition-all flex-shrink-0 shadow-md"
-                >
-                  {resultPlaying ? <Pause size={17} /> : <Play size={17} className="ml-0.5" />}
-                </button>
-
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white truncate">
-                      Synthesized Voice Output
-                    </span>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      {formatDuration(resultDurationSec)}
-                    </span>
+            {/* Result player */}
+            {phase === 'done' && resultUrl && resultEntry && (
+              <div className="mt-4 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/40">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={toggleResultPlay}
+                    aria-label={resultPlaying ? 'Pause' : 'Play'}
+                    className="flex-shrink-0 w-11 h-11 rounded-full bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-400 transition-colors"
+                  >
+                    {resultPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">Narration ready</p>
+                    <p className="text-xs text-slate-400">
+                      {resultEntry.voiceName} · {resultEntry.chars.toLocaleString()} characters
+                    </p>
                   </div>
-
-                  {/* Waveform graphic placeholder bar */}
-                  <div className="h-2 rounded-full bg-[#1b252f] overflow-hidden flex items-center px-1 gap-1">
-                    <div className="h-1 w-full rounded-full bg-emerald-400/80" />
-                  </div>
-
-                  <p className="text-[11px] text-slate-400 truncate">
-                    {resultChars.toLocaleString()} characters · WAV Audio Output
-                  </p>
+                  <button
+                    onClick={handleDownloadResult}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-bg-surface border border-bg-border text-sm text-slate-200 hover:border-indigo-500/50 transition-colors"
+                  >
+                    <Download size={14} /> MP3
+                  </button>
                 </div>
-
-                <button
-                  onClick={handleDownloadResult}
-                  className="px-3 py-2 rounded-lg bg-[#18232c] hover:bg-[#202e3a] border border-[#243442] text-xs font-medium text-emerald-300 flex items-center gap-1.5 transition-colors flex-shrink-0"
-                >
-                  <Download size={13} /> Download WAV
-                </button>
               </div>
             )}
+
+            {/* History */}
+            <VoiceHistory
+              entries={history}
+              playingId={historyPlayingId}
+              onPlay={handleHistoryPlay}
+              onDownload={async (entry) => {
+                const blob = await getMediaBlob(`voice_${entry.id}`);
+                if (blob) downloadBlob(blob, `narration-${entry.id}.${extFor(blob)}`);
+                else showToast('Audio not found locally.', 'error');
+              }}
+              onDelete={handleHistoryDelete}
+            />
           </div>
 
-          {/* ─── Google AI Studio Docked Action Bar ─── */}
-          <div className="absolute bottom-0 left-0 right-0 h-16 px-6 lg:px-8 border-t border-[#1c202b] bg-[#0c0d12]/95 backdrop-blur-md flex items-center justify-between z-10">
-            <div className="flex items-center gap-3 text-xs text-slate-400">
+          {/* Sticky generate bar */}
+          <div className="border-t border-bg-border bg-bg-surface/70 backdrop-blur-sm px-6 lg:px-8 py-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-300 truncate">
+                  {selectedVoice ? (
+                    <>Voice: <span className="font-medium text-white">{selectedVoice.name}</span></>
+                  ) : (
+                    'Select a voice'
+                  )}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {engine
+                    ? `${creditEstimate} credit${creditEstimate === 1 ? '' : 's'} · ${engine.charsPerCredit.toLocaleString()} chars per credit`
+                    : 'Loading…'}
+                </p>
+              </div>
               <button
-                type="button"
-                onClick={() => {
-                  setText('');
-                  setVoiceDescription('');
-                }}
-                disabled={busy}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-[#161a24] transition-colors"
-                title="Clear inputs"
-              >
-                <RotateCcw size={14} />
-              </button>
-
-              <span className="text-slate-500">|</span>
-
-              <span className="text-slate-400 font-mono">
-                {text.length.toLocaleString()} / {charLimit.toLocaleString()} chars
-              </span>
-
-              <span className="text-slate-500">·</span>
-
-
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-850 disabled:text-slate-600 text-white font-semibold text-xs tracking-wide transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 disabled:shadow-none"
+                className="flex-shrink-0 px-8 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold text-sm transition-colors flex items-center gap-2"
               >
-                {busy ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <Play size={12} className="fill-current" />
-                )}
-                <span>
-                  {busy
-                    ? 'Synthesizing…'
-                    : creditEstimate > 0
-                      ? `Run (${creditEstimate} credit)`
-                      : 'Run'}
-                </span>
-                <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-black/30 rounded border border-white/10 font-mono text-slate-300 font-normal">
-                  ⌘↵
-                </kbd>
+                {busy ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                {busy ? 'Generating…' : `Generate · ${creditEstimate} credit${creditEstimate === 1 ? '' : 's'}`}
               </button>
             </div>
+            <p className="text-[11px] text-slate-600 mt-1.5 hidden sm:block">
+              Tip: press ⌘/Ctrl + Enter to generate
+            </p>
           </div>
         </div>
 
-        {/* ─── Right: Studio Parameters & Presets Sidebar (Google AI Studio Style) ─── */}
-        {/* ─── Right: Studio Parameters & Voice Controls Sidebar (Google AI Studio Style) ─── */}
-        <div
-          ref={dropdownRef}
-          className="w-80 lg:w-96 flex-shrink-0 border-l border-[#1b1e26] bg-[#0c0e14] flex flex-col min-h-0"
-        >
-          {/* Sidebar Nav Tabs */}
-          <div className="h-11 border-b border-[#1b1e26] flex items-center px-4 gap-4 text-xs font-medium">
-            <button
-              onClick={() => {
-                setSidebarTab('controls');
-                setOpenDropdown(null);
-              }}
-              className={`pb-2.5 pt-3 transition-colors relative ${sidebarTab === 'controls' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                }`}
-            >
-              Voice Controls
-              {sidebarTab === 'controls' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full" />
+        {/* ─── Right: voices + controls ─── */}
+        <div className="w-full lg:w-[380px] flex-shrink-0 flex flex-col min-h-0 bg-bg-surface/20">
+          <div className="flex-1 flex flex-col min-h-0 p-5 overflow-hidden">
+            {/* Now using */}
+            <div className="mb-4 p-3 rounded-xl bg-bg-surface/60 border border-bg-border">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Now using</p>
+              <p className="text-sm font-medium text-white">
+                {selectedVoice?.name || '—'}
+                <span className="text-slate-500 font-normal"> · {engine?.name || '—'}</span>
+              </p>
+            </div>
+
+            {/* Voice browser */}
+            <div className="flex-1 flex flex-col min-h-[200px]">
+              {selectedVoice ? (
+                <VoiceBrowser
+                  voices={voices}
+                  selectedId={selectedVoice.id}
+                  onSelect={handleSelectVoice}
+                  onPreview={handlePreview}
+                  previewingId={previewingId}
+                />
+              ) : (
+                <p className="text-sm text-slate-500 text-center py-8">Loading voices…</p>
               )}
-            </button>
-            <button
-              onClick={() => {
-                setSidebarTab('settings');
-                setOpenDropdown(null);
-              }}
-              className={`pb-2.5 pt-3 transition-colors relative ${sidebarTab === 'settings' ? 'text-white' : 'text-slate-400 hover:text-slate-200'
-                }`}
-            >
-              Parameters & Guide
-              {sidebarTab === 'settings' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full" />
-              )}
-            </button>
+            </div>
           </div>
 
-          {/* Sidebar Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {sidebarTab === 'controls' && (
-              <div className="space-y-4">
-                {/* Header & Reset */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <SlidersHorizontal size={13} className="text-blue-400" />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-300">
-                      Voice Persona Filters
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleResetConfig}
-                    className="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 transition-colors px-2 py-0.5 rounded hover:bg-[#1a1e2b]"
-                    title="Reset to default persona"
+          {/* Controls */}
+          <div className="border-t border-bg-border p-5 space-y-4 bg-bg-surface/40">
+            {/* Engine */}
+            <div>
+              <label className="text-xs font-medium text-slate-400 block mb-1.5">Engine</label>
+              <select
+                value={engine?.id || ''}
+                onChange={(e) => setEngineId(e.target.value)}
+                disabled={busy}
+                className="w-full bg-bg-surface border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60 disabled:opacity-60"
+              >
+                {engines.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} — {e.charsPerCredit.toLocaleString()} chars/credit
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* VoiceDesign: describe the custom voice (text → user message) */}
+            {isVoiceDesign ? (
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                  Voice description
+                </label>
+                <textarea
+                  value={voiceDescription}
+                  onChange={(e) => setVoiceDescription(e.target.value)}
+                  disabled={busy}
+                  rows={3}
+                  placeholder="e.g. A young woman in her mid-20s, warm and confident, speaking at a relaxed pace like a podcast host."
+                  className="w-full bg-bg-surface border border-bg-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/60 disabled:opacity-60 resize-none"
+                />
+                <p className="text-[11px] text-slate-600 mt-1">
+                  Describe gender, age, texture and mood in 1–4 sentences. Every
+                  generation with this engine uses this voice.
+                </p>
+              </div>
+            ) : isMimo ? (
+              <>
+                {/* Base MiMo: built-in voice + natural-language style instruction */}
+                <div>
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    Voice
+                  </label>
+                  <select
+                    value={mimoVoice}
+                    onChange={(e) => setMimoVoice(e.target.value)}
+                    disabled={busy}
+                    className="w-full bg-bg-surface border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60 disabled:opacity-60"
                   >
-                    <RotateCcw size={11} /> Reset
-                  </button>
+                    {MIMO_BUILT_IN_VOICES.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} — {v.language} · {v.gender}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-
-                {/* Filter Dropdowns Bar (Matches screenshot layout) */}
-                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl bg-[#11131a] border border-[#1e2330]">
-                  {/* Language Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenDropdown(openDropdown === 'language' ? null : 'language')}
-                      className={`h-8 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition-colors ${openDropdown === 'language'
-                        ? 'bg-[#222736] border-blue-500 text-white'
-                        : voiceConfig.language !== 'All languages'
-                          ? 'bg-[#181d28] border-blue-500/40 text-blue-200'
-                          : 'bg-[#161822] hover:bg-[#1f2230] border-[#262c3e] text-slate-300'
-                        }`}
-                    >
-                      <span className="truncate max-w-[100px]">
-                        {voiceConfig.language !== 'All languages' ? voiceConfig.language : 'Language'}
-                      </span>
-                      <ChevronDown size={11} className="text-slate-400 flex-shrink-0" />
-                    </button>
-                    {openDropdown === 'language' && (
-                      <div className="absolute top-full left-0 mt-1 w-44 max-h-56 overflow-y-auto rounded-xl bg-[#13151f] border border-[#272e40] shadow-2xl p-1 z-30 space-y-0.5">
-                        {LANGUAGE_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => handleConfigChange('language', opt)}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${voiceConfig.language === opt
-                              ? 'bg-[#1f273b] text-white font-medium'
-                              : 'text-slate-300 hover:text-white hover:bg-[#191d2a]'
-                              }`}
-                          >
-                            <span>{opt}</span>
-                            {voiceConfig.language === opt && <Check size={11} className="text-blue-400" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Gender Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenDropdown(openDropdown === 'gender' ? null : 'gender')}
-                      className={`h-8 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition-colors ${openDropdown === 'gender'
-                        ? 'bg-[#222736] border-blue-500 text-white'
-                        : voiceConfig.gender !== 'All genders'
-                          ? 'bg-[#181d28] border-blue-500/40 text-blue-200'
-                          : 'bg-[#161822] hover:bg-[#1f2230] border-[#262c3e] text-slate-300'
-                        }`}
-                    >
-                      <span className="truncate max-w-[90px]">
-                        {voiceConfig.gender !== 'All genders' ? voiceConfig.gender : 'Gender'}
-                      </span>
-                      <ChevronDown size={11} className="text-slate-400 flex-shrink-0" />
-                    </button>
-                    {openDropdown === 'gender' && (
-                      <div className="absolute top-full left-0 mt-1 w-36 max-h-56 overflow-y-auto rounded-xl bg-[#13151f] border border-[#272e40] shadow-2xl p-1 z-30 space-y-0.5">
-                        {GENDER_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => handleConfigChange('gender', opt)}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${voiceConfig.gender === opt
-                              ? 'bg-[#1f273b] text-white font-medium'
-                              : 'text-slate-300 hover:text-white hover:bg-[#191d2a]'
-                              }`}
-                          >
-                            <span>{opt}</span>
-                            {voiceConfig.gender === opt && <Check size={11} className="text-blue-400" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Pitch Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenDropdown(openDropdown === 'pitch' ? null : 'pitch')}
-                      className={`h-8 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition-colors ${openDropdown === 'pitch'
-                        ? 'bg-[#222736] border-blue-500 text-white'
-                        : voiceConfig.pitch !== 'All pitches'
-                          ? 'bg-[#181d28] border-blue-500/40 text-blue-200'
-                          : 'bg-[#161822] hover:bg-[#1f2230] border-[#262c3e] text-slate-300'
-                        }`}
-                    >
-                      <span className="truncate max-w-[80px]">
-                        {voiceConfig.pitch !== 'All pitches' ? voiceConfig.pitch : 'Pitch'}
-                      </span>
-                      <ChevronDown size={11} className="text-slate-400 flex-shrink-0" />
-                    </button>
-                    {openDropdown === 'pitch' && (
-                      <div className="absolute top-full left-0 mt-1 w-36 max-h-56 overflow-y-auto rounded-xl bg-[#13151f] border border-[#272e40] shadow-2xl p-1 z-30 space-y-0.5">
-                        {PITCH_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => handleConfigChange('pitch', opt)}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${voiceConfig.pitch === opt
-                              ? 'bg-[#1f273b] text-white font-medium'
-                              : 'text-slate-300 hover:text-white hover:bg-[#191d2a]'
-                              }`}
-                          >
-                            <span>{opt}</span>
-                            {voiceConfig.pitch === opt && <Check size={11} className="text-blue-400" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Style Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenDropdown(openDropdown === 'style' ? null : 'style')}
-                      className={`h-8 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition-colors ${openDropdown === 'style'
-                        ? 'bg-[#222736] border-blue-500 text-white'
-                        : voiceConfig.style !== 'All styles'
-                          ? 'bg-[#181d28] border-blue-500/40 text-blue-200'
-                          : 'bg-[#161822] hover:bg-[#1f2230] border-[#262c3e] text-slate-300'
-                        }`}
-                    >
-                      <span className="truncate max-w-[85px]">
-                        {voiceConfig.style !== 'All styles' ? voiceConfig.style : 'Style'}
-                      </span>
-                      <ChevronDown size={11} className="text-slate-400 flex-shrink-0" />
-                    </button>
-                    {openDropdown === 'style' && (
-                      <div className="absolute top-full right-0 sm:left-0 mt-1 w-40 max-h-56 overflow-y-auto rounded-xl bg-[#13151f] border border-[#272e40] shadow-2xl p-1 z-30 space-y-0.5">
-                        {STYLE_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => handleConfigChange('style', opt)}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${voiceConfig.style === opt
-                              ? 'bg-[#1f273b] text-white font-medium'
-                              : 'text-slate-300 hover:text-white hover:bg-[#191d2a]'
-                              }`}
-                          >
-                            <span>{opt}</span>
-                            {voiceConfig.style === opt && <Check size={11} className="text-blue-400" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Use case Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setOpenDropdown(openDropdown === 'useCase' ? null : 'useCase')}
-                      className={`h-8 px-2.5 rounded-lg border text-xs flex items-center gap-1.5 transition-colors ${openDropdown === 'useCase'
-                        ? 'bg-[#222736] border-blue-500 text-white'
-                        : voiceConfig.useCase !== 'All use cases'
-                          ? 'bg-[#181d28] border-blue-500/40 text-blue-200'
-                          : 'bg-[#161822] hover:bg-[#1f2230] border-[#262c3e] text-slate-300'
-                        }`}
-                    >
-                      <span className="truncate max-w-[95px]">
-                        {voiceConfig.useCase !== 'All use cases' ? voiceConfig.useCase : 'Use case'}
-                      </span>
-                      <ChevronDown size={11} className="text-slate-400 flex-shrink-0" />
-                    </button>
-                    {openDropdown === 'useCase' && (
-                      <div className="absolute top-full right-0 mt-1 w-44 max-h-56 overflow-y-auto rounded-xl bg-[#13151f] border border-[#272e40] shadow-2xl p-1 z-30 space-y-0.5">
-                        {USE_CASE_OPTIONS.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => handleConfigChange('useCase', opt)}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${voiceConfig.useCase === opt
-                              ? 'bg-[#1f273b] text-white font-medium'
-                              : 'text-slate-300 hover:text-white hover:bg-[#191d2a]'
-                              }`}
-                          >
-                            <span>{opt}</span>
-                            {voiceConfig.useCase === opt && <Check size={11} className="text-blue-400" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-
-
-                {/* Quick Acoustic Nuance Chips */}
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
-                      Acoustic Modifiers
-                    </span>
-                    <span className="text-[10px] text-slate-500">Tap to append</span>
-                  </div>
-
-                  <div className="space-y-2 text-xs">
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Age & Demographics</span>
-                      <div className="flex flex-wrap gap-1">
-                        {['young woman in 20s', 'middle-aged in 50s', 'elderly storyteller', 'commanding host'].map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => insertTagIntoVoice(chip)}
-                            className="text-[11px] px-2 py-0.5 rounded-md bg-[#141722] text-slate-300 hover:text-white hover:bg-blue-900/40 border border-[#222838] transition-colors"
-                          >
-                            + {chip}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Texture & Timbre</span>
-                      <div className="flex flex-wrap gap-1">
-                        {['deep and gravelly', 'silky and magnetic', 'breathy and soft', 'resonant and crisp'].map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => insertTagIntoVoice(chip)}
-                            className="text-[11px] px-2 py-0.5 rounded-md bg-[#141722] text-slate-300 hover:text-white hover:bg-blue-900/40 border border-[#222838] transition-colors"
-                          >
-                            + {chip}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Pacing & Mood</span>
-                      <div className="flex flex-wrap gap-1">
-                        {['blunt and matter-of-fact', 'warm and confident', 'slow and deliberate', 'urgent and breathless'].map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => insertTagIntoVoice(chip)}
-                            className="text-[11px] px-2 py-0.5 rounded-md bg-[#141722] text-slate-300 hover:text-white hover:bg-blue-900/40 border border-[#222838] transition-colors"
-                          >
-                            + {chip}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {sidebarTab === 'settings' && (
-              <div className="space-y-5">
-                {/* Model Info Card */}
-                <div className="p-3.5 rounded-xl border border-[#1c212d] bg-[#10131b] space-y-2">
-                  <div className="text-xs font-semibold text-white flex items-center justify-between">
-                    <span>Model Specs</span>
-                    <span className="text-[10px] text-emerald-400 font-mono">Active</span>
-                  </div>
-                  <p className="text-xs text-slate-400 font-mono truncate">{engine?.modelId || 'XiaomiMiMo/MiMo-V2.5-tts-voicedesign'}</p>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Zero-shot prompt-guided speech synthesis via DeepInfra cloud inference.
+                <div>
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    Style instruction <span className="text-slate-600 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={styleInstruction}
+                    onChange={(e) => setStyleInstruction(e.target.value)}
+                    disabled={busy}
+                    placeholder="e.g. Speak briskly and upbeat, like breaking good news."
+                    className="w-full bg-bg-surface border border-bg-border rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/60 disabled:opacity-60"
+                  />
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    One natural-language direction per script. Inline (style) and [audio] tags in the script still work.
                   </p>
-                  <div className="pt-2 border-t border-[#181c26] flex items-center justify-between text-xs text-slate-400">
-                    <span>Billing Rate</span>
-                    <span className="font-mono text-slate-200">1 credit / {charsPerCredit.toLocaleString()} chars</span>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Expressiveness → Chatterbox exaggeration */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-medium text-slate-400">Expressiveness</label>
+                    <span className="text-xs text-slate-300 tabular-nums">{expressiveness}%</span>
                   </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={expressiveness}
+                    onChange={(e) => setExpressiveness(Number(e.target.value))}
+                    disabled={busy}
+                    className="w-full accent-indigo-500"
+                  />
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    Low = calm and restrained, high = dramatic and emotional.
+                  </p>
                 </div>
-
-                {/* Quick Acoustic Dimension Chips */}
-                <div className="space-y-3">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-                    Acoustic Dimension Chips
-                  </span>
-                  <p className="text-[11px] text-slate-500">Click to append to your voice description:</p>
-
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Age & Gender</span>
-                      <div className="flex flex-wrap gap-1">
-                        {['young woman in 20s', 'middle-aged man in 50s', 'elderly gentleman'].map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => insertTagIntoVoice(chip)}
-                            className="text-[11px] px-2 py-0.5 rounded-md bg-[#161a24] text-slate-300 hover:text-white hover:bg-blue-900/40 border border-[#222838] transition-colors"
-                          >
-                            + {chip}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Texture</span>
-                      <div className="flex flex-wrap gap-1">
-                        {['deep and gravelly', 'silky, mellow, and magnetic', 'breathy and soft'].map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => insertTagIntoVoice(chip)}
-                            className="text-[11px] px-2 py-0.5 rounded-md bg-[#161a24] text-slate-300 hover:text-white hover:bg-blue-900/40 border border-[#222838] transition-colors"
-                          >
-                            + {chip}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-slate-400 font-medium block mb-1">Mood</span>
-                      <div className="flex flex-wrap gap-1">
-                        {['blunt and matter-of-fact', 'warm and confident', 'gentle with weariness', 'slow and deliberate'].map((chip) => (
-                          <button
-                            key={chip}
-                            type="button"
-                            onClick={() => insertTagIntoVoice(chip)}
-                            className="text-[11px] px-2 py-0.5 rounded-md bg-[#161a24] text-slate-300 hover:text-white hover:bg-blue-900/40 border border-[#222838] transition-colors"
-                          >
-                            + {chip}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Best Outcome Tips */}
-                <div className="p-3.5 rounded-xl border border-[#1e2330] bg-[#0f1118] space-y-2 text-xs text-slate-400">
-                  <span className="font-semibold text-slate-200 block">MiMo Acoustic Guidelines:</span>
-                  <ul className="space-y-1 list-disc list-inside text-[11px] text-slate-400">
-                    <li>Include [Gender] + [Texture] + [Mood] + [Pace].</li>
-                    <li>Avoid audio terms like "reverb" or "EQ".</li>
-                    <li>Use parentheses tags e.g. <code className="text-blue-300 font-mono">(whispers)</code> for emotion.</li>
-                  </ul>
-                </div>
-              </div>
+              </>
             )}
+
+            {/* Advanced */}
+            <div>
+              <button
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Advanced
+                <ChevronDown
+                  size={13}
+                  className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {showAdvanced && (
+                <div className="mt-3">
+                  <label className="text-xs font-medium text-slate-400 block mb-1.5">
+                    Language
+                  </label>
+                  <select
+                    value={languageId}
+                    onChange={(e) => setLanguageId(e.target.value)}
+                    disabled={busy}
+                    className="w-full bg-bg-surface border border-bg-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60 disabled:opacity-60"
+                  >
+                    {languages.map((l) => (
+                      <option key={l.code} value={l.code}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-600 mt-2">
+                    The narration language. Some engines vary in quality by language.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
