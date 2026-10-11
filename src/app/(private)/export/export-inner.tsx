@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Film,
   Music,
@@ -12,7 +13,6 @@ import {
   Cpu,
   Volume2,
   Sliders,
-  Flame,
   Monitor,
   Smartphone,
   Square,
@@ -22,7 +22,6 @@ import { getProject, saveProject } from '@/lib/store';
 import { ExportEngine } from '@/lib/export-engine';
 import { getMediaBlobUrl } from '@/lib/media-storage';
 import { exportUniversalTimelineZip, TimelineExportProgress } from '@/lib/timeline-exporter';
-import { YouTubeLaunchKit } from '@/components/export/youtube-launch-kit';
 import { CinemaPreviewPanel } from '@/components/export/cinema-preview-panel';
 import type {
   ProjectManifest,
@@ -37,9 +36,6 @@ export default function ExportInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectId = searchParams.get('id') || searchParams.get('projectId') || '';
-
-  // ─── Studio Tabs ───────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'render' | 'youtube'>('render');
 
   // ─── State ─────────────────────────────────────────────────────────────────
   const [project, setProject] = useState<ProjectManifest | null>(null);
@@ -328,41 +324,22 @@ export default function ExportInner() {
           </div>
         </div>
 
-        {/* Studio Tab Switcher */}
-        <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 p-1 rounded-xl shadow-inner">
-          <button
-            type="button"
-            onClick={() => setActiveTab('render')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${activeTab === 'render'
-              ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
-              : 'text-zinc-400 hover:text-white'
-              }`}
+        {/* YouTube Kit Studio Link */}
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/youtube-kit-studio?id=${project.projectId}`}
+            className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-sm"
+            title="Open YouTube Kit Studio for this video"
           >
-            <Sliders size={14} className={activeTab === 'render' ? 'text-blue-400' : 'text-zinc-400'} />
-            <span>Master Render</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('youtube')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${activeTab === 'youtube'
-              ? 'bg-red-500/20 text-red-300 shadow-sm border border-red-500/30'
-              : 'text-zinc-400 hover:text-white'
-              }`}
-          >
-            <Flame size={14} className="text-red-400" />
-            <span>YouTube Launch Kit</span>
-            <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-red-500/30 text-red-300 uppercase font-mono">
-              AI
-            </span>
-          </button>
+            <Sparkles size={14} className="text-red-400" />
+            <span>YouTube Kit Studio</span>
+          </Link>
         </div>
       </header>
 
       {/* ─── Main Two-Column Studio Layout ─────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
-        {activeTab === 'render' ? (
-          <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
             {/* Left Column (7 cols): Active Tab Workspace */}
             <div className="lg:col-span-7 space-y-6">
@@ -651,16 +628,6 @@ export default function ExportInner() {
               />
             </div>
           </div>
-        ) : (
-          /* TAB 2: YouTube & Social Launch Studio (Full Width Dedicated Creator Suite) */
-          <div className="max-w-7xl mx-auto animate-fade-in">
-            <YouTubeLaunchKit
-              project={project}
-              onUpdateProject={setProject}
-              showToast={showToast}
-            />
-          </div>
-        )}
       </div>
 
     </div>

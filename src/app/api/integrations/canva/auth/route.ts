@@ -37,6 +37,15 @@ export async function GET(req: NextRequest) {
     path: '/',
   });
 
+  const returnTo = req.nextUrl.searchParams.get('return_to') || '/youtube-kit-studio';
+  cookieStore.set('canva_return_to', returnTo, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 15,
+    path: '/',
+  });
+
   const authUrl = getCanvaAuthUrl(clientId, redirectUri, codeChallenge, state);
 
   // If requested via JSON API query, return JSON; otherwise redirect directly

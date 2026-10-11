@@ -100,7 +100,8 @@ export async function POST(req: Request) {
           serverSupabase = createServerClient();
         } catch { }
 
-        const allModels = await fetchAIModelsRemote(serverSupabase, true);
+        const rawModels = await fetchAIModelsRemote(serverSupabase, true);
+        const allModels = (rawModels || []).filter((m) => !m.id.startsWith('voice-'));
 
         if (allModels && allModels.length > 0) {
           // Find matching model dynamically by modelId, UUID id, or name (case-insensitive)

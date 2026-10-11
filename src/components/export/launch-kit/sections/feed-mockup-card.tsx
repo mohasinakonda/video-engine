@@ -175,6 +175,7 @@ export function FeedMockupCard() {
               </p>
               <p className="text-[10px] text-zinc-400 line-clamp-2 pt-0.5 leading-relaxed">
                 {project.youtubePackaging?.scriptIntelligence?.narrativeSummary ||
+                  project.youtubePackaging?.description?.slice(0, 150) ||
                   'Deep dive analysis into this fascinating phenomenon with evidence and takeaways.'}
               </p>
             </div>

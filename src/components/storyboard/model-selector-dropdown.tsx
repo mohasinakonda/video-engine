@@ -70,13 +70,14 @@ export default function ModelSelectorDropdown({
           const data = await res.json();
           if (data.success && Array.isArray(data.models) && data.models.length > 0) {
             if (!isMounted) return;
-            setModels(data.models);
+            const imageModels = data.models.filter((m: AIImageModel) => !m.id.startsWith('voice-'));
+            setModels(imageModels);
 
             // Find matching model or default
             const match =
-              data.models.find((m: AIImageModel) => m.modelId === storedModelId || m.id === storedModelId) ||
-              data.models.find((m: AIImageModel) => m.isDefault) ||
-              data.models[0];
+              imageModels.find((m: AIImageModel) => m.modelId === storedModelId || m.id === storedModelId) ||
+              imageModels.find((m: AIImageModel) => m.isDefault) ||
+              imageModels[0];
 
             setSelectedModel(match);
             if (onModelSelect && match) {
