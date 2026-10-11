@@ -53,9 +53,9 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
             <h4 className="text-sm font-bold text-white">
               Idea #{activeIndex + 1}: {concept.conceptName}
             </h4>
-            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+            {/* <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
               Draft Prompt Stage
-            </span>
+            </span> */}
           </div>
 
         </div>

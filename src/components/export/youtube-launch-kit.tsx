@@ -8,7 +8,6 @@ import {
   ScriptInputCard,
   ErrorBanner,
   EmptyState,
-  ScriptIntelligenceCard,
   CompetitorResearchCard,
   FeedMockupCard,
   TitleLabCard,
@@ -43,13 +42,10 @@ function YouTubeLaunchKitContent() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column (7 cols): Strategic Intelligence & Packaging Controls */}
           <div className="lg:col-span-7 space-y-6 min-w-0">
-            {/* A. Script Intelligence & Hook Retention Diagnostic */}
-            <ScriptIntelligenceCard />
-
-            {/* B. Viral Titles Laboratory */}
+            {/* A. Viral Titles Laboratory */}
             <TitleLabCard />
 
-            {/* C. Style-Consistent Thumbnail Studio */}
+            {/* B. Style-Consistent Thumbnail Studio */}
             <ThumbnailStudioCard />
 
             {/* D. Live Market Competitor Research */}

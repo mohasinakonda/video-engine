@@ -24,11 +24,10 @@ export function ConceptGalleryStrip() {
             <div
               key={concept.id || idx}
               onClick={() => setActiveConceptId(concept.id)}
-              className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
-                isCurrent
+              className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${isCurrent
                   ? 'bg-zinc-800/90 border-purple-500 shadow-md ring-1 ring-purple-500/30'
                   : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-700'
-              }`}
+                }`}
             >
               <div className="w-20 aspect-video rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden flex-shrink-0 relative flex items-center justify-center">
                 {concept.imageUrl ? (
@@ -54,19 +53,14 @@ export function ConceptGalleryStrip() {
                 </p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold uppercase ${
-                      hasImg
+                    className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold uppercase ${hasImg
                         ? 'bg-emerald-500/15 text-emerald-300'
                         : 'bg-amber-500/15 text-amber-300'
-                    }`}
+                      }`}
                   >
                     {hasImg ? 'Ready' : 'Draft'}
                   </span>
-                  {isCurrent && (
-                    <span className="text-[9px] text-purple-400 font-semibold">
-                      Active on Stage
-                    </span>
-                  )}
+
                 </div>
               </div>
             </div>

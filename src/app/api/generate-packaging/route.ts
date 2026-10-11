@@ -148,29 +148,13 @@ Provide exactly 3 distinct, proven high-CTR YouTube thumbnail archetypes:
 
 Return strictly valid JSON:
 {
-  "coreTopic": "1 crisp sentence capturing the exact central scientific/psychological thesis or entity of the script",
-  "hookRetentionScore": 88,
-  "hookAnalysis": "1-2 sentences diagnosing viewer retention risk in the first 30 seconds of this script",
-  "suggestedPowerHook": "High-retention 1-2 sentence rewritten opening line guaranteed to hook viewers immediately",
-  "emotionalTriggers": ["Curiosity", "Urgency", "Existential Awe"],
-  "viralAngles": ["Niche 1 (e.g. Psychology Enthusiasts)", "Niche 2 (e.g. High-Performers & Overthinkers)"],
-  "shortsIdeas": [
-    {"timestamp": "00:15 - 00:45", "hook": "Did you know your brain travels through time?", "reason": "High-energy paradox that hooks TikTok & Shorts viewers in 2 seconds"}
-  ],
-  "competitorGap": "What top competitor videos on YouTube completely fail to explain that this video capitalizes on",
-  "marketSearchQuery": "3 to 5 words specifically crafted to find top-performing YouTube competitor videos on this exact psychological/scientific/historical phenomenon",
+  "coreTopic": "1 crisp sentence capturing the exact central factual/scientific/historical thesis of the script",
+  "marketSearchQuery": "3 to 5 words specifically crafted to find top-performing YouTube competitor videos on this exact subject",
   "alternativeSearchQueries": [
     "Alternative search query 1 (3-5 words)",
     "Alternative search query 2 (3-5 words)",
     "Alternative search query 3 (3-5 words)"
   ],
-  "narrativeSummary": "2 concise sentences summarizing the script premise, revelation, and takeaway",
-  "keyTalkingPoints": [
-    "Point 1: The Intriguing Hook / Setup",
-    "Point 2: Core Evidence / The Revelation",
-    "Point 3: Climax & Final Verdict"
-  ],
-  "targetAudience": "Specific target audience description for this topic",
   "packagingStrategy": "1-2 sentences on why this psychological/scientific insight goes viral on YouTube and how these titles outperform competitors",
   "titles": [
     {"title": "Viral headline 1", "hookStyle": "Curiosity Gap", "ctrScore": 98, "whyItWorks": "Creates an irresistible curiosity gap without sounding cheap.", "pairedConceptId": "thumb_1"},
@@ -373,17 +357,10 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
     const packagingData: YouTubePackagingData = {
       scriptIntelligence: {
         coreTopic: parsedResult.coreTopic || 'Analysis of the provided voice script.',
-        narrativeSummary: parsedResult.narrativeSummary || 'Summary of the script narrative and findings.',
-        keyTalkingPoints: Array.isArray(parsedResult.keyTalkingPoints) ? parsedResult.keyTalkingPoints : [],
-        targetAudience: parsedResult.targetAudience || 'Curious minds, documentary & video essay enthusiasts',
+        narrativeSummary: parsedResult.coreTopic || 'Summary of the script narrative.',
+        keyTalkingPoints: [],
+        targetAudience: 'Curious minds, documentary & video essay enthusiasts',
         searchKeywords: Array.isArray(parsedResult.tags) ? parsedResult.tags.slice(0, 5) : [cleanSearchQuery],
-        hookRetentionScore: typeof parsedResult.hookRetentionScore === 'number' ? parsedResult.hookRetentionScore : 88,
-        hookAnalysis: parsedResult.hookAnalysis || 'Strong opening narrative hook with clear emotional stakes.',
-        suggestedPowerHook: parsedResult.suggestedPowerHook || '',
-        emotionalTriggers: Array.isArray(parsedResult.emotionalTriggers) ? parsedResult.emotionalTriggers : ['Curiosity', 'Urgency', 'Awe'],
-        viralAngles: Array.isArray(parsedResult.viralAngles) ? parsedResult.viralAngles : ['Deep Thinkers', 'Self-Optimization'],
-        shortsIdeas: Array.isArray(parsedResult.shortsIdeas) ? parsedResult.shortsIdeas : [],
-        competitorGap: parsedResult.competitorGap || 'Most competitors only cover surface-level tips without explaining the underlying mechanism.',
       },
       marketInsights: {
         competitorVideos,

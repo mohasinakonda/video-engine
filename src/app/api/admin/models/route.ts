@@ -93,6 +93,71 @@ export async function POST(req: Request) {
       });
     }
 
+    if (action === 'seed-voice') {
+      const voiceModels: AIImageModel[] = [
+        {
+          id: 'voice-chatterbox-multilingual',
+          name: 'Chatterbox Multilingual',
+          modelId: 'ResembleAI/chatterbox-multilingual',
+          provider: 'deepinfra',
+          description: 'Flagship expressive engine. 23 languages, emotion control. ~$0.05/hr.',
+          creditCost: 2000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: false,
+          isActive: true,
+          sortOrder: 5,
+        },
+        {
+          id: 'voice-chatterbox-turbo',
+          name: 'Chatterbox Turbo',
+          modelId: 'ResembleAI/chatterbox-turbo',
+          provider: 'deepinfra',
+          description: 'Faster low-latency engine, English-focused.',
+          creditCost: 4000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: false,
+          isActive: true,
+          sortOrder: 10,
+        },
+        {
+          id: 'voice-mimo-v25-tts',
+          name: 'MiMo V2.5 (Free)',
+          modelId: 'XiaomiMiMo/MiMo-V2.5-tts',
+          provider: 'deepinfra',
+          description: 'Free experimental engine. Quality may vary.',
+          creditCost: 10000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: false,
+          isActive: true,
+          sortOrder: 15,
+        },
+        {
+          id: 'voice-mimo-v25-voicedesign',
+          name: 'MiMo V2.5 VoiceDesign (Free)',
+          modelId: 'XiaomiMiMo/MiMo-V2.5-tts-voicedesign',
+          provider: 'deepinfra',
+          description: 'Design any voice via text description. Supports multi-emotion mixing and director mode.',
+          creditCost: 10000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: true,
+          isActive: true,
+          sortOrder: 16,
+        },
+      ];
+      let count = 0;
+      for (const m of voiceModels) {
+        if (await upsertAIModelRemote(m, serverClient, 'voice')) count += 1;
+      }
+      return NextResponse.json({
+        success: count === voiceModels.length,
+        count,
+        message:
+          count === voiceModels.length
+            ? `Successfully seeded ${count} voice models in Supabase!`
+            : 'Failed to seed voice models.',
+      });
+    }
+
     if (action === 'toggle') {
       const { id, isActive }: { id: string; isActive: boolean } = body;
       if (!id) {

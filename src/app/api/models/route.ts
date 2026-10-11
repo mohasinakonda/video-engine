@@ -14,10 +14,12 @@ export async function GET() {
     }
 
     const models = await fetchAIModelsRemote(serverClient, false);
+    // Exclude voice models (stored with 'voice-' prefix in ai_models table)
+    const imageModels = (models || []).filter((m) => !m.id.startsWith('voice-'));
 
     return NextResponse.json({
       success: true,
-      models: models || [],
+      models: imageModels,
     });
   } catch (err: any) {
     console.error('[API /api/models] Error fetching models:', err);

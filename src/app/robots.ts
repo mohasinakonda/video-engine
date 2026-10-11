@@ -17,6 +17,7 @@ export default function robots(): MetadataRoute.Robots {
           '/export/',
           '/storyboard/',
           '/voice-studio/',
+          '/youtube-kit-studio/',
           '/auth/',
         ],
       },

@@ -11,6 +11,7 @@ import {
   Sparkles,
   Zap,
   Download,
+  Flame,
 } from 'lucide-react';
 import type { ProjectManifest } from '@/types';
 
@@ -242,6 +243,13 @@ export default function ProjectsTab({
                         >
                           <Download size={13} />
                           <span>Export MP4</span>
+                        </Link>
+                        <Link
+                          href={`/youtube-kit-studio?id=${p.projectId}`}
+                          className="py-2 px-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold text-xs flex items-center justify-center gap-1 transition-colors"
+                          title="Open YouTube Kit Studio"
+                        >
+                          <Flame size={13} />
                         </Link>
                       </>
                     ) : (

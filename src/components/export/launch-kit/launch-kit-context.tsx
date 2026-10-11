@@ -216,10 +216,11 @@ export function LaunchKitProvider({
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.models)) {
+            const imageModels = data.models.filter((m: AIImageModel) => !m.id.startsWith('voice-'));
             const match =
-              data.models.find((m: AIImageModel) => m.modelId === storedModelId || m.id === storedModelId) ||
-              data.models.find((m: AIImageModel) => m.isDefault) ||
-              data.models[0];
+              imageModels.find((m: AIImageModel) => m.modelId === storedModelId || m.id === storedModelId) ||
+              imageModels.find((m: AIImageModel) => m.isDefault) ||
+              imageModels[0];
             if (isMounted && match) setSelectedAIModel(match);
           }
         }
@@ -815,7 +816,8 @@ export function LaunchKitProvider({
       // If Canva API is configured but needs one-time user authorization
       if (!data.isConnected && data.isConfigured) {
         showToast('🔗 Connecting Canva account... Please approve on Canva tab.');
-        window.open('/api/integrations/canva/auth', '_blank', 'noopener,noreferrer');
+        const returnTo = typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '/youtube-kit-studio';
+        window.open(`/api/integrations/canva/auth?return_to=${encodeURIComponent(returnTo)}`, '_blank', 'noopener,noreferrer');
         return;
       }
 

@@ -45,7 +45,7 @@ export function ScriptInputCard() {
 
             </h2>
             <p className="text-xs text-zinc-400">
-              Analyzes your full voice script to extract hook diagnostics, viral titles, and FLUX thumbnails
+              Analyzes your full voice script to extract hook diagnostics, viral titles, and thumbnails
             </p>
           </div>
         </div>
@@ -89,7 +89,7 @@ export function ScriptInputCard() {
             <button
               type="button"
               onClick={handleSaveScriptOnly}
-              className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
+              className="text-[11px] font-bold text-white flex items-center gap-1 transition-colors"
               title="Save script edits to project manifest"
             >
               {isScriptSaved ? (

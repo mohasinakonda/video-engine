@@ -117,9 +117,8 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
 
       {/* 16:9 or 9:16 Replaced Image Canvas with Live Text Badge Overlay */}
       <div
-        className={`relative rounded-xl overflow-hidden border border-zinc-800 bg-black flex items-center justify-center mx-auto shadow-2xl group ${
-          isVertical ? 'aspect-[9/16] max-h-[480px]' : 'aspect-video w-full'
-        }`}
+        className={`relative rounded-xl overflow-hidden border border-zinc-800 bg-black flex items-center justify-center mx-auto shadow-2xl group ${isVertical ? 'aspect-[9/16] max-h-[480px]' : 'aspect-video w-full'
+          }`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -128,17 +127,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.01]"
         />
 
-        {/* Live Text Overlay Badge Hint */}
-        {concept.textOverlayHint && (
-          <div className="absolute bottom-3 left-3 px-3 py-1.5 rounded-lg bg-black/85 backdrop-blur-md border border-white/15 flex items-center gap-2 shadow-xl pointer-events-none">
-            <span className="text-[10px] uppercase font-mono tracking-wider text-amber-400 font-bold">
-              Hook Text:
-            </span>
-            <span className="text-xs font-black text-white tracking-wide">
-              {concept.textOverlayHint}
-            </span>
-          </div>
-        )}
+
 
         {/* Top-right watermark badge */}
         <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/80 backdrop-blur-md text-[10px] font-mono text-zinc-300 border border-white/10 pointer-events-none">
@@ -216,11 +205,10 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
           <button
             type="button"
             onClick={handleSetAsMockup}
-            className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${
-              isCurrentActiveMockup
-                ? 'bg-white text-zinc-950 font-bold border-white shadow-md'
-                : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
-            }`}
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${isCurrentActiveMockup
+              ? 'bg-white text-zinc-950 font-bold border-white shadow-md'
+              : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+              }`}
           >
             <Eye size={13} />
             <span>{isCurrentActiveMockup ? '✓ Active Mockup' : 'Use in Feed Mockup'}</span>
