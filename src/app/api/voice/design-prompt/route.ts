@@ -3,6 +3,22 @@ import { authenticateVoiceRequest } from '@/lib/voice-server';
 
 export const dynamic = 'force-dynamic';
 
+/** Simple in-memory per-user rate limit: 30 design assists/hour (each is a paid LLM call). */
+const assistCounts = new Map<string, { count: number; resetAt: number }>();
+const ASSIST_LIMIT_PER_HOUR = 30;
+
+function assistAllowed(userId: string): boolean {
+  const now = Date.now();
+  const rec = assistCounts.get(userId);
+  if (!rec || now > rec.resetAt) {
+    assistCounts.set(userId, { count: 1, resetAt: now + 60 * 60 * 1000 });
+    return true;
+  }
+  if (rec.count >= ASSIST_LIMIT_PER_HOUR) return false;
+  rec.count += 1;
+  return true;
+}
+
 function getDeepInfraKey(): string | null {
   return process.env.DEEPINFRA_API_KEY || null;
 }
@@ -41,6 +57,14 @@ export async function POST(req: Request) {
   try {
     const gate = await authenticateVoiceRequest();
     if ('error' in gate) return gate.error;
+    const auth = gate.auth;
+
+    if (!assistAllowed(auth.userId)) {
+      return NextResponse.json(
+        { error: 'Design assistant limit reached. Try again later.' },
+        { status: 429 }
+      );
+    }
 
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'enhance-prompt';

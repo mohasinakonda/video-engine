@@ -98,7 +98,7 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     name: 'MiMo V2.5 VoiceDesign (Free)',
     modelId: 'XiaomiMiMo/MiMo-V2.5-tts-voicedesign',
     description: 'Design any voice via text description. Supports multi-emotion mixing and director mode.',
-    charsPerCredit: 1000,
+    charsPerCredit: 10000,
     allowedPlans: [],
     isDefault: true,
     isActive: true,
@@ -233,12 +233,34 @@ export async function synthesizeVoiceChunk(params: {
   }
 
   const isVoiceDesign = params.modelId.toLowerCase().includes('voicedesign');
+  const isMimo = params.modelId.toLowerCase().includes('mimo');
   let body: Record<string, unknown>;
 
   if (isVoiceDesign) {
+    // DeepInfra MiMo-V2.5-TTS docs: voice design goes in the user message,
+    // the text (with (style)/[audio] tags) in the assistant message.
+    // VoiceDesign does not support built-in voices — no audio.voice.
     body = {
-      text,
-      voice: params.voicePrompt?.trim() || 'A natural, clear, and engaging voice.',
+      messages: [
+        {
+          role: 'user',
+          content:
+            params.voicePrompt?.trim() || 'A natural, clear, and engaging voice.',
+        },
+        { role: 'assistant', content: text },
+      ],
+      audio: { format: 'wav' },
+    };
+  } else if (isMimo) {
+    // Base MiMo-V2.5-TTS: same messages format; built-in voice via audio.voice.
+    // Per-section tone becomes a natural-language style cue (user message).
+    const tone = (params.tone || '').toLowerCase();
+    const messages: { role: string; content: string }[] = [];
+    if (tone) messages.push({ role: 'user', content: `Narrate in a ${tone} tone.` });
+    messages.push({ role: 'assistant', content: text });
+    body = {
+      messages,
+      audio: { format: 'wav', voice: 'mimo_default' },
     };
   } else {
     const expr = typeof params.expressiveness === 'number'
