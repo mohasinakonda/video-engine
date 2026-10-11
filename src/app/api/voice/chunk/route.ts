@@ -10,9 +10,20 @@ import {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
-/** Fixed preview line — server-side, so previews can't be abused as free TTS. */
-const PREVIEW_TEXT =
-  'Hello! This is a preview of my voice. I can narrate your stories, explain your ideas, and bring your scripts to life.';
+/** Fixed preview lines per language — server-side, so previews can't be abused as free TTS. */
+const PREVIEW_TEXT_BY_LANG: Record<string, string> = {
+  en: 'Hello! This is a preview of my voice. I can narrate your stories, explain your ideas, and bring your scripts to life.',
+  hi: 'नमस्ते! यह मेरी आवाज़ का एक नमूना है। मैं आपकी कहानियों और विचारों को जीवंत बना सकता हूँ।',
+  es: '¡Hola! Esta es una vista previa de mi voz. Puedo narrar tus historias y dar vida a tus proyectos.',
+  fr: 'Bonjour ! Ceci est un aperçu de ma voix. Je peux raconter vos histoires et donner vie à vos projets.',
+  de: 'Hallo! Dies ist eine Vorschau meiner Stimme. Ich kann deine Geschichten erzählen und zum Leben erwecken.',
+  it: 'Ciao! Questa è un anteprima della mia voce. Posso raccontare le tue storie e dare vita alle tue idee.',
+  pt: 'Olá! Esta é uma prévia da minha voz. Posso narrar suas histórias e dar vida aos seus roteiros.',
+  ja: 'こんにちは！これは私の声のプレビューです。あなたのストーリーを生き生きと語ることができます。',
+  zh: '你好！这是我的声音预览。我可以为你生动地讲述故事和脚本。',
+  ar: 'مرحباً! هذه معاينة لصوتي. يمكنني رواية قصصك وإحياء نصوصك.',
+  ru: 'Привет! Это пример моего голоса. Я могу озвучивать ваши истории и оживлять ваши тексты.',
+};
 
 /** Simple in-memory per-user preview rate limit: 20 previews/hour. */
 const previewCounts = new Map<string, { count: number; resetAt: number }>();
@@ -57,7 +68,16 @@ export async function POST(req: Request) {
           { status: 429 }
         );
       }
-      text = PREVIEW_TEXT;
+      const langKey = (
+        typeof body.languageId === 'string'
+          ? body.languageId
+          : typeof body.language === 'string'
+          ? body.language
+          : 'en'
+      )
+        .toLowerCase()
+        .trim();
+      text = PREVIEW_TEXT_BY_LANG[langKey] || PREVIEW_TEXT_BY_LANG.en;
     } else {
       const plan = planId ? getVoicePlan(planId) : undefined;
       if (!plan || plan.userId !== auth.userId) {
@@ -77,10 +97,18 @@ export async function POST(req: Request) {
       auth.serverSupabase
     );
 
+    const voicePrompt =
+      typeof body.voicePrompt === 'string' && body.voicePrompt.trim()
+        ? body.voicePrompt.trim()
+        : typeof body.voiceDescription === 'string' && body.voiceDescription.trim()
+        ? body.voiceDescription.trim()
+        : undefined;
+
     const { audio, mimeType } = await synthesizeVoiceChunk({
       modelId: model.modelId,
       text,
       voiceId: typeof body.voiceId === 'string' ? body.voiceId : undefined,
+      voicePrompt,
       language: typeof body.language === 'string' ? body.language : undefined,
       languageId: typeof body.languageId === 'string' ? body.languageId : undefined,
       tone: typeof body.tone === 'string' && body.tone ? body.tone : undefined,

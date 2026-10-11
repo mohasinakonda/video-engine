@@ -15,6 +15,8 @@ import type {
 } from '@/types/subscription';
 import type { BaseStylePreset } from '@/types';
 import { SUB_STYLES_CATALOG } from '@/lib/style-taxonomy';
+import type { VoicePreset } from '@/lib/voice-catalog';
+import { VOICE_PRESETS } from '@/lib/voice-catalog';
 
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1424,6 +1426,167 @@ export async function seedDefaultAIModelsRemote(client?: any): Promise<{ success
     return { success: true, count: defaults.length };
   } catch (err: any) {
     console.error('[Supabase] Error seeding default AI models:', err);
+    return { success: false, count: 0, error: err?.message || 'Unknown error' };
+  }
+}
+
+/** Fetch Voice Presets from Supabase (defaults to active-only) */
+export async function fetchVoicePresetsRemote(
+  clientOverride?: any,
+  includeInactive: boolean = false
+): Promise<VoicePreset[] | null> {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const supabase = clientOverride || createClient();
+    let query = supabase
+      .from('voice_presets')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) return null;
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description || '',
+      language: row.language || 'English',
+      languageId: row.language_id || 'en',
+      gender: row.gender || 'neutral',
+      tags: Array.isArray(row.tags) ? row.tags : ['narration'],
+      exaggeration: typeof row.exaggeration === 'number' ? Number(row.exaggeration) : 0.5,
+      sampleAudioUrl: row.sample_audio_url || null,
+      isDefault: Boolean(row.is_default),
+      isActive: Boolean(row.is_active),
+      sortOrder: row.sort_order ?? 10,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+      updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
+    }));
+  } catch (err) {
+    console.error('[Supabase] Failed to fetch voice presets:', err);
+    return null;
+  }
+}
+
+/** Upsert a Voice Preset in Supabase */
+export async function upsertVoicePresetRemote(
+  preset: VoicePreset,
+  client?: any
+): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = client || createClient();
+
+    if (preset.isDefault) {
+      await supabase.from('voice_presets').update({ is_default: false }).neq('id', preset.id);
+    }
+
+    const payload = {
+      id: preset.id,
+      name: preset.name,
+      description: preset.description || null,
+      language: preset.language || 'English',
+      language_id: preset.languageId || 'en',
+      gender: preset.gender || 'neutral',
+      tags: Array.isArray(preset.tags) && preset.tags.length > 0 ? preset.tags : ['narration'],
+      exaggeration: Math.max(0, Math.min(1, preset.exaggeration ?? 0.5)),
+      sample_audio_url: preset.sampleAudioUrl || null,
+      is_default: Boolean(preset.isDefault),
+      is_active: preset.isActive !== false,
+      sort_order: preset.sortOrder ?? 10,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from('voice_presets').upsert(payload);
+    if (error) {
+      console.error('[Supabase] Failed to upsert voice preset:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error upserting voice preset:', err);
+    return false;
+  }
+}
+
+/** Toggle Voice Preset active status */
+export async function toggleVoicePresetActiveRemote(
+  id: string,
+  isActive: boolean,
+  client?: any
+): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = client || createClient();
+    const { error } = await supabase
+      .from('voice_presets')
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
+      console.error('[Supabase] Failed to toggle voice preset active:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error toggling voice preset active:', err);
+    return false;
+  }
+}
+
+/** Delete a Voice Preset */
+export async function deleteVoicePresetRemote(id: string, client?: any): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = client || createClient();
+    const { error } = await supabase.from('voice_presets').delete().eq('id', id);
+    if (error) {
+      console.error('[Supabase] Failed to delete voice preset:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Error deleting voice preset:', err);
+    return false;
+  }
+}
+
+/** Seed Default Voice Presets into Supabase */
+export async function seedDefaultVoicePresetsRemote(
+  client?: any
+): Promise<{ success: boolean; count: number; error?: string }> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, count: 0, error: 'Supabase is not configured' };
+  }
+  try {
+    const supabase = client || createClient();
+    const rows = VOICE_PRESETS.map((p, idx) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      language: p.language,
+      language_id: p.languageId,
+      gender: p.gender || 'neutral',
+      tags: p.tags,
+      exaggeration: p.exaggeration,
+      is_default: idx === 0,
+      is_active: true,
+      sort_order: (idx + 1) * 5,
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase.from('voice_presets').upsert(rows);
+    if (error) {
+      console.error('[Supabase] Failed to seed default voice presets:', error);
+      return { success: false, count: 0, error: error.message };
+    }
+    return { success: true, count: rows.length };
+  } catch (err: any) {
+    console.error('[Supabase] Error seeding default voice presets:', err);
     return { success: false, count: 0, error: err?.message || 'Unknown error' };
   }
 }

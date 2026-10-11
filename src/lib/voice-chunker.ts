@@ -39,8 +39,8 @@ export interface VoiceChunk {
   tone?: string;
 }
 
-/** Stay safely under provider per-request limits (≈2000 chars). */
-export const MAX_CHUNK_CHARS = 1800;
+/** Stay safely under MiMo TTS provider per-request limit (DeepInfra max 1000 chars, safe target 800). */
+export const MAX_CHUNK_CHARS = 800;
 
 /** Chars that open/close quotations we protect. */
 const QUOTE_CHARS = new Set(['"', '\u201C', '\u201D', "'", '\u2018', '\u2019']);
@@ -62,7 +62,7 @@ const TOPIC_SHIFT_OPENERS = new Set([
 
 // ─── Layer 1: directed sections ──────────────────────────────────────────────
 
-const EMOTION_TAG_RE = /\[([^\]\n]{1,60})\]/;
+const EMOTION_TAG_RE = /^(?:\[([^\]\n]{1,60})\]|\(([^)\n]{1,60})\))/;
 const HEADING_RE = /^(#{1,4}\s+.+|chapter\s+\d+.*|scene\s+\d+.*|part\s+\d+.*)$/i;
 const HR_RE = /^(-{3,}|\*{3,}|_{3,})$/;
 
@@ -94,7 +94,7 @@ export function splitDirectedSections(script: string): VoiceSection[] {
       tagMatch && (line === tagMatch[0] || line.startsWith(tagMatch[0] + ' '));
     if (tagIsStructural && tagMatch) {
       flush();
-      currentTone = tagMatch[1].trim().toLowerCase();
+      currentTone = (tagMatch[1] || tagMatch[2]).trim().toLowerCase();
       current.push(rawLine);
       continue;
     }
@@ -278,10 +278,9 @@ function packSection(
 
     if (wouldOverflow && current.length > 0) {
       // Don't strand an open quote: keep pulling sentences until it closes,
-      // unless we'd blow far past the limit (2x) — then split at the safest
-      // sentence boundary seen so far.
+      // but strictly never exceed 950 chars so we stay well below the 1000-char provider ceiling.
       const openQuote = hasOpenQuote(current.map((u) => u.text).join(' '));
-      if (openQuote && currentLen + unitLen <= maxChars * 2) {
+      if (openQuote && currentLen + unitLen <= Math.min(950, Math.floor(maxChars * 1.2))) {
         current.push(unit);
         currentLen += unitLen;
         continue;

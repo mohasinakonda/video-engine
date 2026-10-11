@@ -131,6 +131,18 @@ export async function POST(req: Request) {
           isActive: true,
           sortOrder: 15,
         },
+        {
+          id: 'voice-mimo-v25-voicedesign',
+          name: 'MiMo V2.5 VoiceDesign (Free)',
+          modelId: 'XiaomiMiMo/MiMo-V2.5-tts-voicedesign',
+          provider: 'deepinfra',
+          description: 'Design any voice via text description. Supports multi-emotion mixing and director mode.',
+          creditCost: 10000,
+          allowedPlans: ['CREATOR', 'STUDIO'],
+          isDefault: false,
+          isActive: true,
+          sortOrder: 16,
+        },
       ];
       let count = 0;
       for (const m of voiceModels) {
