@@ -58,13 +58,14 @@ export async function POST(req: Request) {
     const isPreview = body.preview === true;
     const planId = typeof body.planId === 'string' ? body.planId : '';
     const index = Number(body.index) || 0;
+    const totalChunks = Number(body.totalChunks) || 1;
     let text = typeof body.text === 'string' ? body.text : '';
 
-    // Preview path: fixed sample text, rate-limited, no plan/credits needed.
+    // Preview path: rate-limited, no plan/credits needed (sample preview)
     if (isPreview) {
       if (!previewAllowed(auth.userId)) {
         return NextResponse.json(
-          { error: 'Preview limit reached. Try again later.' },
+          { error: 'Preview limit reached (20 previews/hr). Try again later.' },
           { status: 429 }
         );
       }
@@ -77,7 +78,13 @@ export async function POST(req: Request) {
       )
         .toLowerCase()
         .trim();
-      text = PREVIEW_TEXT_BY_LANG[langKey] || PREVIEW_TEXT_BY_LANG.en;
+
+      const userSample = typeof body.text === 'string' ? body.text.trim() : '';
+      if (userSample.length > 0 && userSample.length <= 250) {
+        text = userSample;
+      } else {
+        text = PREVIEW_TEXT_BY_LANG[langKey] || PREVIEW_TEXT_BY_LANG.en;
+      }
     } else {
       const plan = planId ? getVoicePlan(planId) : undefined;
       if (!plan || plan.userId !== auth.userId) {
@@ -113,6 +120,9 @@ export async function POST(req: Request) {
       languageId: typeof body.languageId === 'string' ? body.languageId : undefined,
       tone: typeof body.tone === 'string' && body.tone ? body.tone : undefined,
       expressiveness: typeof body.expressiveness === 'number' ? body.expressiveness : 50,
+      planId: isPreview ? undefined : planId,
+      index,
+      totalChunks,
     });
 
     const base64 = Buffer.from(audio).toString('base64');

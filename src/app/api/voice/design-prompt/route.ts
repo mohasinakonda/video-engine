@@ -69,14 +69,19 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const action = body.action || 'enhance-prompt';
 
-    if (action === 'enhance-prompt') {
-      const userPrompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (action === 'enhance-prompt' || action === 'calibrate') {
+      const userPrompt =
+        typeof body.prompt === 'string'
+          ? body.prompt.trim()
+          : typeof body.description === 'string'
+          ? body.description.trim()
+          : '';
       const mode = body.mode === 'director' ? 'director' : 'standard';
       const attributes = body.attributes || {};
 
       const attrSummary = [
         attributes.gender && `Gender: ${attributes.gender}`,
-        attributes.age && `Age: ${attributes.age}`,
+        (attributes.ageGroup || attributes.age) && `Age Bracket: ${attributes.ageGroup || attributes.age}`,
         attributes.accent && `Accent/Dialect: ${attributes.accent}`,
         attributes.tone && `Emotion/Tone: ${attributes.tone}`,
         attributes.pace && `Speech Pace: ${attributes.pace}`,
@@ -92,22 +97,28 @@ Your task is to take a creator's rough voice concept and engineer the OPTIMAL vo
 MiMo VoiceDesign Official Prompt Rules:
 1. Length: 1 to 3 clear, vivid sentences (maximum 4). No unnecessary fluff.
 2. Dimensions to cover:
-   - Gender & Age (e.g. young woman in her mid-20s, middle-aged man in his 50s, elderly gentleman)
+   - Gender & Age (e.g. young woman in her mid-20s, middle-aged man in his 50s, elderly gentleman, cute 5-year-old child)
    - Timbre & Vocal Texture (e.g. deep chest resonance, gravelly, silky mellow, breathy, bright and crisp)
    - Mood & Tone (e.g. blunt and matter-of-fact, warm and confident, cynical, gentle with weariness)
    - Speech Speed & Rhythm (e.g. deliberate and slow, brisk pace, slight pauses between thoughts)
    - Persona / Scene Context (optional, e.g. late-night radio DJ, documentary narrator, film noir detective)
-3. STRICT NEGATIVE RULES:
+3. BIOLOGICAL AGE INTEGRITY RULES:
+   - For children under 12 yrs (e.g. 3-6 yrs, 7-12 yrs): STRICTLY use "high-pitched childlike voice", "light and thin vocal cords", "innocent", "sweet", "playful". NEVER use "deep pitch", "baritone", "booming", or mature adult cadence.
+   - For teenagers (13-19 yrs): Use "youthful", "casual modern conversational inflection", "dynamic pacing".
+   - For young adults (20-35 yrs): Use "crisp vocal resonance", "clear projection", "dynamic and articulate".
+   - For middle-aged (36-55 yrs): Use "grounded chest resonance", "calm authoritative weight", "mature professional timbre".
+   - For seniors (56+ yrs): Use "warm seasoned timbre", "subtle weathered texture", "gentle nostalgic warmth", "deliberate storytelling pacing".
+4. STRICT NEGATIVE RULES:
    - DO NOT include audio post-processing jargon (NEVER use words like reverb, compression, EQ, 100Hz, stereo).
    - DO NOT combine contradictory descriptors (e.g. "childish voice + deep booming corporate boss").
    - DO NOT use vague words like "normal", "ordinary", "good voice".
 ${
   mode === 'director'
-    ? `4. Output in DIRECTOR MODE format:
+    ? `5. Output in DIRECTOR MODE format:
 [Character] ...
 [Scene] ...
 [Guidance] ...`
-    : `4. Output in STANDARD DESCRIPTIVE format: 1 to 3 vivid sentences.`
+    : `5. Output in STANDARD DESCRIPTIVE format: 1 to 3 vivid sentences.`
 }
 
 Return ONLY the refined voice description prompt. Do not wrap in markdown quotes or preamble.`;
@@ -117,7 +128,13 @@ Return ONLY the refined voice description prompt. Do not wrap in markdown quotes
       }`;
 
       const enhanced = await callLlm(systemPrompt, inputDetails, 0.6);
-      return NextResponse.json({ success: true, enhancedPrompt: enhanced, mode });
+
+      return NextResponse.json({
+        success: true,
+        enhancedPrompt: enhanced,
+        voicePrompt: enhanced,
+        mode,
+      });
     }
 
     if (action === 'match-script') {

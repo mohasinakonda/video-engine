@@ -16,6 +16,7 @@ import {
   isSupabaseConfigured,
 } from '@/lib/supabase-service';
 import { calculateVoiceCredits, MAX_CHUNK_CHARS } from '@/lib/voice-chunker';
+import { humanizeSpeechPayload } from '@/lib/human-speech-engine';
 
 export interface VoiceModelRecord {
   id: string;
@@ -199,6 +200,64 @@ const LOW_ENERGY_TONES = new Set([
 ]);
 
 /**
+ * Upload audio to DeepInfra to create a temporary voice clone anchor.
+ */
+export async function createDeepinfraVoice(
+  name: string,
+  audioBuffer: ArrayBuffer,
+  apiKey: string
+): Promise<string> {
+  const form = new FormData();
+  form.append('name', name);
+  form.append('description', 'Temporary session voice for multi-chunk consistency');
+  form.append('files', new Blob([audioBuffer], { type: 'audio/wav' }), 'anchor.wav');
+
+  const res = await fetch('https://api.deepinfra.com/v1/voices/add', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`Failed to create voice clone (${res.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  if (!data?.voice_id) {
+    throw new Error('DeepInfra voice creation did not return voice_id.');
+  }
+
+  return data.voice_id;
+}
+
+/**
+ * Delete a temporary voice clone from DeepInfra.
+ */
+export async function deleteDeepinfraVoice(
+  voiceId: string,
+  apiKey: string
+): Promise<void> {
+  try {
+    const res = await fetch(`https://api.deepinfra.com/v1/voices/${voiceId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+    if (!res.ok) {
+      console.warn(`[voice] deleteDeepinfraVoice status ${res.status} for ${voiceId}`);
+    } else {
+      console.log(`[voice] Cleaned up temporary session voice: ${voiceId}`);
+    }
+  } catch (err) {
+    console.warn(`[voice] deleteDeepinfraVoice error for ${voiceId}:`, err);
+  }
+}
+
+/**
  * Synthesize one chunk via DeepInfra's TTS inference endpoint.
  * Docs: POST https://api.deepinfra.com/v1/inference/{model} with { text, ... },
  * returns raw audio bytes.
@@ -222,45 +281,69 @@ export async function synthesizeVoiceChunk(params: {
   tone?: string;
   /** 0-100, maps to Chatterbox exaggeration (0-1). */
   expressiveness?: number;
+  planId?: string;
+  index?: number;
+  totalChunks?: number;
 }): Promise<{ audio: ArrayBuffer; mimeType: string }> {
   const apiKey = deepinfraKey();
   if (!apiKey) throw new Error('DEEPINFRA_API_KEY is not configured.');
 
-  const text = params.text.trim();
-  if (!text) throw new Error('Chunk text is empty.');
-  if (text.length > MAX_CHUNK_CHARS + 200) {
-    throw new Error(`Chunk too long (${text.length} chars).`);
+  const rawText = params.text.trim();
+  if (!rawText) throw new Error('Chunk text is empty.');
+  if (rawText.length > MAX_CHUNK_CHARS + 200) {
+    throw new Error(`Chunk too long (${rawText.length} chars).`);
   }
+
+  // Server-side Human Speech Engine: Seamlessly adds respiratory breathing & biological acoustics
+  const { text, voicePrompt } = humanizeSpeechPayload({
+    text: rawText,
+    voicePrompt: params.voicePrompt,
+    modelId: params.modelId,
+  });
 
   const isVoiceDesign = params.modelId.toLowerCase().includes('voicedesign');
   const isMimo = params.modelId.toLowerCase().includes('mimo');
+  let targetModelId = params.modelId;
   let body: Record<string, unknown>;
 
-  if (isVoiceDesign) {
-    // DeepInfra MiMo-V2.5-TTS docs: voice design goes in the user message,
-    // the text (with (style)/[audio] tags) in the assistant message.
-    // VoiceDesign does not support built-in voices — no audio.voice.
+  const plan = params.planId ? getVoicePlan(params.planId) : undefined;
+  const isMultiChunk = (params.totalChunks ?? 1) > 1 && !!plan;
+  const chunkIndex = params.index ?? 0;
+  const totalChunks = params.totalChunks ?? 1;
+
+  const isSavedVoice = Boolean(params.voiceId && params.voiceId.trim());
+
+  if (isSavedVoice) {
+    // User selected a persistent custom voice: route directly to voiceclone for ALL chunks!
+    targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
     body = {
-      messages: [
-        {
-          role: 'user',
-          content:
-            params.voicePrompt?.trim() || 'A natural, clear, and engaging voice.',
-        },
-        { role: 'assistant', content: text },
-      ],
-      audio: { format: 'wav' },
+      text,
+      voice: params.voiceId!.trim(),
+      instruct: voicePrompt || 'A natural, clear, and engaging voice.',
     };
+    console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via persistent saved voiceclone (${params.voiceId})`);
+  } else if (isVoiceDesign) {
+    if (isMultiChunk && chunkIndex > 0 && plan?.sessionVoiceId) {
+      // Continuation chunk in multi-chunk job: use voiceclone with session anchor voice
+      targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
+      body = {
+        text,
+        voice: plan.sessionVoiceId,
+        instruct: voicePrompt || 'A natural, clear, and engaging voice.',
+      };
+      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voiceclone (${plan.sessionVoiceId})`);
+    } else {
+      // Chunk 0 or standalone single chunk: use voicedesign
+      body = {
+        text,
+        voice: voicePrompt || 'A natural, clear, and engaging voice.',
+      };
+      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voicedesign`);
+    }
   } else if (isMimo) {
-    // Base MiMo-V2.5-TTS: same messages format; built-in voice via audio.voice.
-    // Per-section tone becomes a natural-language style cue (user message).
-    const tone = (params.tone || '').toLowerCase();
-    const messages: { role: string; content: string }[] = [];
-    if (tone) messages.push({ role: 'user', content: `Narrate in a ${tone} tone.` });
-    messages.push({ role: 'assistant', content: text });
     body = {
-      messages,
-      audio: { format: 'wav', voice: 'mimo_default' },
+      text,
+      voice: voicePrompt || 'mimo_default',
     };
   } else {
     const expr = typeof params.expressiveness === 'number'
@@ -285,7 +368,7 @@ export async function synthesizeVoiceChunk(params: {
   }
 
   const res = await fetch(
-    `https://api.deepinfra.com/v1/inference/${params.modelId}`,
+    `https://api.deepinfra.com/v1/inference/${targetModelId}`,
     {
       method: 'POST',
       headers: {
@@ -350,8 +433,33 @@ export async function synthesizeVoiceChunk(params: {
   }
 
   console.log(
-    `[voice] chunk synthesized: ${audio.byteLength} bytes, ${mimeType} (${params.modelId})`
+    `[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized: ${audio.byteLength} bytes, ${mimeType} (${targetModelId})`
   );
+
+  // If this was Chunk 0 of a multi-chunk dynamic VoiceDesign session (not a persistent saved voice), register anchor audio clone
+  if (!isSavedVoice && isVoiceDesign && isMultiChunk && chunkIndex === 0 && params.planId) {
+    try {
+      const sessionVoiceId = await createDeepinfraVoice(
+        `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        audio,
+        apiKey
+      );
+      updateVoicePlanSessionVoice(params.planId, sessionVoiceId);
+      console.log(`[voice] Anchor voice clone registered: ${sessionVoiceId} for plan ${params.planId}`);
+    } catch (cloneErr) {
+      console.warn('[voice] Failed to register session voice clone (will fallback to voicedesign):', cloneErr);
+    }
+  }
+
+  // If this was the last chunk of a temporary session, clean up the temporary session voice
+  if (!isSavedVoice && isMultiChunk && chunkIndex === totalChunks - 1 && plan?.sessionVoiceId) {
+    const toDelete = plan.sessionVoiceId;
+    plan.sessionVoiceId = undefined;
+    deleteDeepinfraVoice(toDelete, apiKey).catch((err) => {
+      console.warn('[voice] Failed to delete session voice clone on completion:', err);
+    });
+  }
+
   return { audio, mimeType };
 }
 
@@ -397,6 +505,7 @@ export interface VoicePlanRecord {
   charsPerCredit: number;
   charged: number;
   createdAt: number;
+  sessionVoiceId?: string;
 }
 
 const PLAN_TTL_MS = 2 * 60 * 60 * 1000;
@@ -436,9 +545,23 @@ function signPayload(dataStr: string): string {
 function sweepPlans() {
   const store = getVoiceStore();
   const now = Date.now();
+  const apiKey = deepinfraKey();
   store.plans.forEach((p, id) => {
-    if (now - p.createdAt > PLAN_TTL_MS) store.plans.delete(id);
+    if (now - p.createdAt > PLAN_TTL_MS) {
+      if (p.sessionVoiceId && apiKey) {
+        deleteDeepinfraVoice(p.sessionVoiceId, apiKey).catch(() => {});
+      }
+      store.plans.delete(id);
+    }
   });
+}
+
+export function updateVoicePlanSessionVoice(planId: string, voiceId: string): void {
+  const store = getVoiceStore();
+  const p = store.plans.get(planId);
+  if (p) {
+    p.sessionVoiceId = voiceId;
+  }
 }
 
 export function createVoicePlan(rec: Omit<VoicePlanRecord, 'planId' | 'createdAt'>): string {
@@ -529,6 +652,13 @@ export function getVoicePlan(planId: string): VoicePlanRecord | undefined {
 
 export function deleteVoicePlan(planId: string): void {
   const store = getVoiceStore();
+  const plan = store.plans.get(planId);
+  if (plan?.sessionVoiceId) {
+    const apiKey = deepinfraKey();
+    if (apiKey) {
+      deleteDeepinfraVoice(plan.sessionVoiceId, apiKey).catch(() => {});
+    }
+  }
   store.plans.delete(planId);
   store.cancelled.add(planId);
 }

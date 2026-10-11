@@ -675,4 +675,29 @@ create policy "Admins can manage voice presets"
   using (public.is_admin())
   with check (public.is_admin());
 
+-- ==============================================================================
+-- USER CUSTOM VOICES (Personal Voice Designs & Clones per User)
+-- ==============================================================================
+create table if not exists public.user_custom_voices (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users on delete cascade not null,
+  name text not null,
+  deepinfra_voice_id text not null,
+  voice_prompt text,
+  sample_audio_url text,
+  gender text default 'neutral',
+  language text default 'English',
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+create index if not exists idx_user_custom_voices_user on public.user_custom_voices(user_id);
+alter table public.user_custom_voices enable row level security;
+
+drop policy if exists "Users can manage their own custom voices" on public.user_custom_voices;
+create policy "Users can manage their own custom voices"
+  on public.user_custom_voices for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 
