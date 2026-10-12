@@ -284,7 +284,15 @@ export async function synthesizeVoiceChunk(params: {
   planId?: string;
   index?: number;
   totalChunks?: number;
-}): Promise<{ audio: ArrayBuffer; mimeType: string }> {
+  /**
+   * Session anchor voice ID echoed back by the client (from chunk 0's
+   * response). The plan store is in-memory per server instance; on serverless
+   * hosting chunk N+1 can land on a different instance than chunk 0 and lose
+   * the anchor — so it must travel with the request. Without it, every chunk
+   * after the first gets a freshly generated (different) voice.
+   */
+  sessionVoiceId?: string;
+}): Promise<{ audio: ArrayBuffer; mimeType: string; sessionVoiceId?: string }> {
   const apiKey = deepinfraKey();
   if (!apiKey) throw new Error('DEEPINFRA_API_KEY is not configured.');
 
@@ -312,6 +320,10 @@ export async function synthesizeVoiceChunk(params: {
   const chunkIndex = params.index ?? 0;
   const totalChunks = params.totalChunks ?? 1;
 
+  // Anchor voice for this session: prefer the client-echoed ID (survives
+  // serverless instance hops), fall back to the in-memory plan record.
+  const anchorVoiceId = params.sessionVoiceId || plan?.sessionVoiceId;
+
   const isSavedVoice = Boolean(params.voiceId && params.voiceId.trim());
 
   if (isSavedVoice) {
@@ -324,15 +336,15 @@ export async function synthesizeVoiceChunk(params: {
     };
     console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via persistent saved voiceclone (${params.voiceId})`);
   } else if (isVoiceDesign) {
-    if (isMultiChunk && chunkIndex > 0 && plan?.sessionVoiceId) {
+    if (isMultiChunk && chunkIndex > 0 && anchorVoiceId) {
       // Continuation chunk in multi-chunk job: use voiceclone with session anchor voice
       targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
       body = {
         text,
-        voice: plan.sessionVoiceId,
+        voice: anchorVoiceId,
         instruct: voicePrompt || 'A natural, clear, and engaging voice.',
       };
-      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voiceclone (${plan.sessionVoiceId})`);
+      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voiceclone (${anchorVoiceId})`);
     } else {
       // Chunk 0 or standalone single chunk: use voicedesign
       body = {
@@ -437,31 +449,35 @@ export async function synthesizeVoiceChunk(params: {
     `[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized: ${audio.byteLength} bytes, ${mimeType} (${targetModelId})`
   );
 
-  // If this was Chunk 0 of a multi-chunk dynamic VoiceDesign session (not a persistent saved voice), register anchor audio clone
+  // If this was Chunk 0 of a multi-chunk dynamic VoiceDesign session (not a persistent saved voice), register anchor audio clone.
+  // The new anchor ID is returned to the client, which echoes it back on
+  // later chunks — the in-memory plan record alone is not reliable on
+  // serverless hosting (chunk N+1 may hit a different instance than chunk 0).
+  let newSessionVoiceId: string | undefined;
   if (!isSavedVoice && isVoiceDesign && isMultiChunk && chunkIndex === 0 && params.planId) {
     try {
-      const sessionVoiceId = await createDeepinfraVoice(
+      newSessionVoiceId = await createDeepinfraVoice(
         `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         audio,
         apiKey
       );
-      updateVoicePlanSessionVoice(params.planId, sessionVoiceId);
-      console.log(`[voice] Anchor voice clone registered: ${sessionVoiceId} for plan ${params.planId}`);
+      updateVoicePlanSessionVoice(params.planId, newSessionVoiceId);
+      console.log(`[voice] Anchor voice clone registered: ${newSessionVoiceId} for plan ${params.planId}`);
     } catch (cloneErr) {
       console.warn('[voice] Failed to register session voice clone (will fallback to voicedesign):', cloneErr);
     }
   }
 
   // If this was the last chunk of a temporary session, clean up the temporary session voice
-  if (!isSavedVoice && isMultiChunk && chunkIndex === totalChunks - 1 && plan?.sessionVoiceId) {
-    const toDelete = plan.sessionVoiceId;
-    plan.sessionVoiceId = undefined;
+  if (!isSavedVoice && isMultiChunk && chunkIndex === totalChunks - 1 && anchorVoiceId) {
+    const toDelete = anchorVoiceId;
+    if (plan?.sessionVoiceId) plan.sessionVoiceId = undefined;
     deleteDeepinfraVoice(toDelete, apiKey).catch((err) => {
       console.warn('[voice] Failed to delete session voice clone on completion:', err);
     });
   }
 
-  return { audio, mimeType };
+  return { audio, mimeType, sessionVoiceId: newSessionVoiceId };
 }
 
 /**
