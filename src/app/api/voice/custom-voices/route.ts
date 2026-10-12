@@ -83,11 +83,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Audio sample is too short or invalid.' }, { status: 400 });
     }
 
-    // Cost & storage optimization: Trim to max ~5-6 seconds of 24kHz 16-bit WAV (~280KB)
-    // 1 sec @ 24kHz 16-bit mono = ~48,000 bytes. 6 seconds = ~288,000 bytes.
+    // Cost & storage optimization: Trim to max ~10 seconds of 24kHz 16-bit mono WAV (~512KB)
     let anchorBuf = fullAudioBuf;
-    const MAX_ANCHOR_BYTES = 320 * 1024; // ~6.5 seconds max
-    if (fullAudioBuf.byteLength > MAX_ANCHOR_BYTES) {
+    const MAX_ANCHOR_BYTES = 512 * 1024;
+    const isRiffWav =
+      fullAudioBuf.length >= 44 &&
+      fullAudioBuf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      fullAudioBuf.subarray(8, 12).toString('ascii') === 'WAVE';
+
+    if (isRiffWav && fullAudioBuf.byteLength > MAX_ANCHOR_BYTES) {
       // Preserve WAV 44-byte header and slice data chunk
       const header = fullAudioBuf.subarray(0, 44);
       const dataSlice = fullAudioBuf.subarray(44, MAX_ANCHOR_BYTES);

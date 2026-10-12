@@ -71,9 +71,91 @@ function parseWav(bytes: Uint8Array): ParsedWav | null {
 }
 
 /**
+ * Computes root-mean-square (RMS) energy of 16-bit PCM audio samples.
+ */
+function computePcmRms(pcm: Uint8Array): number {
+  const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  const totalSamples = Math.floor(pcm.byteLength / 2);
+  if (totalSamples === 0) return 0;
+
+  let sumSquares = 0;
+  for (let i = 0; i < totalSamples; i++) {
+    const s = view.getInt16(i * 2, true);
+    sumSquares += s * s;
+  }
+  return Math.sqrt(sumSquares / totalSamples);
+}
+
+/**
+ * Gently levels the volume of a chunk towards target RMS to eliminate sudden loudness surges.
+ * Clamps gain adjustment between 0.75x and 1.25x for transparent, distortion-free scaling.
+ */
+function matchPcmLevel(pcm: Uint8Array, targetRms: number): Uint8Array {
+  if (targetRms <= 0 || pcm.byteLength < 4) return pcm;
+  const currentRms = computePcmRms(pcm);
+  if (currentRms <= 0) return pcm;
+
+  const ratio = targetRms / currentRms;
+  // If volume is already within ~10%, leave untouched
+  if (ratio >= 0.90 && ratio <= 1.10) return pcm;
+
+  const gain = Math.max(0.75, Math.min(1.25, ratio));
+  const copy = new Uint8Array(pcm);
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+  const totalSamples = Math.floor(pcm.byteLength / 2);
+
+  for (let i = 0; i < totalSamples; i++) {
+    const sample = view.getInt16(i * 2, true);
+    const scaled = Math.round(sample * gain);
+    view.setInt16(i * 2, Math.max(-32768, Math.min(32767, scaled)), true);
+  }
+
+  return copy;
+}
+
+/**
+ * 3ms micro fade-in and fade-out to prevent waveform clicks at boundaries without creating gaps.
+ */
+function smoothJunctions(
+  pcm: Uint8Array,
+  isFirst: boolean,
+  isLast: boolean,
+  sampleRate = 24000
+): Uint8Array {
+  const fadeDurationSec = 0.003; // 3ms
+  const fadeSamples = Math.max(8, Math.floor(sampleRate * fadeDurationSec));
+  const totalSamples = Math.floor(pcm.byteLength / 2);
+
+  if (totalSamples < fadeSamples * 2) return pcm;
+
+  const copy = new Uint8Array(pcm);
+  const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
+
+  // Fade-in at start of continuation chunks
+  if (!isFirst) {
+    for (let i = 0; i < fadeSamples; i++) {
+      const factor = i / fadeSamples;
+      const s = view.getInt16(i * 2, true);
+      view.setInt16(i * 2, Math.round(s * factor), true);
+    }
+  }
+
+  // Fade-out at end of leading chunks
+  if (!isLast) {
+    for (let i = 0; i < fadeSamples; i++) {
+      const factor = (fadeSamples - i) / fadeSamples;
+      const offset = (totalSamples - fadeSamples + i) * 2;
+      const s = view.getInt16(offset, true);
+      view.setInt16(offset, Math.round(s * factor), true);
+    }
+  }
+
+  return copy;
+}
+
+/**
  * Combine chunk audio parts into a single playable Blob.
- * WAV inputs get a rebuilt RIFF header; anything else is concatenated
- * as raw frames (correct for MP3/Opus).
+ * Performs RMS level matching and micro-smoothed seamless stitching.
  */
 export function concatenateAudioParts(parts: Uint8Array[], mimeType: string): Blob {
   if (parts.length === 0) return new Blob([], { type: mimeType });
@@ -88,12 +170,27 @@ export function concatenateAudioParts(parts: Uint8Array[], mimeType: string): Bl
   }
   const wavs = parsed as ParsedWav[];
   const fmtChunk = wavs[0].fmtChunk;
-  const totalPcm = wavs.reduce((n, w) => n + w.pcm.length, 0);
+
+  let sampleRate = 24000;
+  if (fmtChunk.length >= 16) {
+    sampleRate = readU32LE(fmtChunk, 12) || 24000;
+  }
+
+  // Master anchor RMS from Chunk 0
+  const anchorRms = computePcmRms(wavs[0].pcm);
+
+  // Level volume across chunks and smooth junctions seamlessly
+  const processedParts = wavs.map((w, idx) => {
+    const leveled = idx === 0 ? w.pcm : matchPcmLevel(w.pcm, anchorRms);
+    return smoothJunctions(leveled, idx === 0, idx === wavs.length - 1, sampleRate);
+  });
+
+  const totalPcm = processedParts.reduce((n, p) => n + p.length, 0);
   const pcm = new Uint8Array(totalPcm);
   let at = 0;
-  for (const w of wavs) {
-    pcm.set(w.pcm, at);
-    at += w.pcm.length;
+  for (const p of processedParts) {
+    pcm.set(p, at);
+    at += p.length;
   }
 
   // Layout: RIFF header (12) + fmt chunk + data header (8) + PCM.

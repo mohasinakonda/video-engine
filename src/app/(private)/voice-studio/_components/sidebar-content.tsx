@@ -1,5 +1,5 @@
 import { showToast } from "@/lib/toast";
-import { Bookmark, Loader2, Lock, Pause, Trash2, Play } from "lucide-react";
+import { Bookmark, Loader2, Lock, Pause, Trash2, Play, Upload } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 
 interface CustomVoice {
@@ -23,11 +23,9 @@ type Props = {
   setCustomVoices: React.Dispatch<React.SetStateAction<CustomVoice[]>>;
   charsPerCredit: number;
   insertTagIntoVoice: (voiceId: string) => void;
-
-
-
+  onOpenCloneModal?: () => void;
 }
-export const SidebarContent = ({ customVoices, loadingCustomVoices, selectedCustomVoice, setSelectedCustomVoice, handleToggleAudition, auditionPlayingId, setCustomVoices, charsPerCredit, insertTagIntoVoice }: Props) => {
+export const SidebarContent = ({ customVoices, loadingCustomVoices, selectedCustomVoice, setSelectedCustomVoice, handleToggleAudition, auditionPlayingId, setCustomVoices, charsPerCredit, insertTagIntoVoice, onOpenCloneModal }: Props) => {
 
   const [sidebarTab, setSidebarTab] = useState<'saved' | 'settings'>('saved');
   const dropdownRef = useRef<HTMLDivElement | null>(null)
@@ -107,7 +105,17 @@ export const SidebarContent = ({ customVoices, loadingCustomVoices, selectedCust
                   Saved Voice Profiles ({customVoices.length})
                 </span>
               </div>
-
+              {onOpenCloneModal && (
+                <button
+                  type="button"
+                  onClick={onOpenCloneModal}
+                  className="px-2 py-1 rounded-md text-2xs font-medium text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/80 border border-emerald-800/50 flex items-center gap-1 transition-colors"
+                  title="Upload audio sample to clone"
+                >
+                  <Upload size={11} />
+                  <span>Clone</span>
+                </button>
+              )}
             </div>
 
             {loadingCustomVoices ? (
@@ -123,10 +131,21 @@ export const SidebarContent = ({ customVoices, loadingCustomVoices, selectedCust
                 <div>
                   <h5 className="text-xs font-semibold text-white">No Saved Voices Yet</h5>
                   <p className="text-xxs text-zinc-400 mt-1 leading-relaxed">
-                    Design a voice in Voice Designer, generate a preview, and click &quot;Save Voice&quot; to lock its speaker timbre forever.
+                    Upload an audio sample to clone any voice, or design a synthetic voice with AI.
                   </p>
                 </div>
-
+                {onOpenCloneModal && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={onOpenCloneModal}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-2xs text-white font-medium transition-colors"
+                    >
+                      <Upload size={12} className="text-emerald-400" />
+                      <span>Upload Sample to Clone</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-2.5">

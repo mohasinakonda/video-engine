@@ -14,6 +14,7 @@ import {
   FastForward,
   Bookmark,
   Lock,
+  Upload,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { getAudioDuration } from '@/lib/media-storage';
@@ -23,6 +24,7 @@ import {
 } from '@/lib/voice-catalog';
 import { concatenateAudioParts } from '@/lib/audio-concat';
 import { VoiceDesignModal } from './_components/voice-design-modal';
+import { VoiceCloneModal } from './_components/voice-clone-modal';
 import { SidebarContent } from './_components/sidebar-content';
 
 interface VoiceConfig {
@@ -170,12 +172,15 @@ export default function VoicePage() {
   // Custom Voices Library
   const [customVoices, setCustomVoices] = useState<CustomVoice[]>([]);
   const [selectedCustomVoice, setSelectedCustomVoice] = useState<CustomVoice | null>(null);
+  const selectedCustomVoiceRef = useRef<CustomVoice | null>(null);
+  selectedCustomVoiceRef.current = selectedCustomVoice;
   const [loadingCustomVoices, setLoadingCustomVoices] = useState(false);
   const [auditionPlayingId, setAuditionPlayingId] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [modalAudioUrl, setModalAudioUrl] = useState<string | null>(null);
-  // Dedicated Voice Design Studio Modal States
+  // Dedicated Voice Design & Clone Modal States
   const [designModalOpen, setDesignModalOpen] = useState(false);
+  const [cloneModalOpen, setCloneModalOpen] = useState(false);
 
   // AI Assistant States
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
@@ -431,7 +436,10 @@ export default function VoicePage() {
     cancelRef.current = false;
 
     try {
-      const targetModelId = engine?.id || 'voice-mimo-v25-voicedesign';
+      const activeCustomVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
+      const targetModelId = activeCustomVoice
+        ? 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone'
+        : (engine?.id || 'voice-mimo-v25-voicedesign');
 
       const planRes = await fetch('/api/voice/plan', {
         method: 'POST',
@@ -463,6 +471,7 @@ export default function VoicePage() {
         let mimeType = 'audio/wav';
         while (attempt < 3 && !audioB64) {
           try {
+            const currentVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
             const response = await fetch('/api/voice/chunk', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -473,10 +482,10 @@ export default function VoicePage() {
                 text: chunk.text,
                 tone: chunk.tone,
                 modelId: targetModelId,
-                voicePrompt: selectedCustomVoice
-                  ? (selectedCustomVoice.voice_prompt || voiceDescription.trim())
+                voicePrompt: currentVoice
+                  ? (currentVoice.voice_prompt || voiceDescription.trim())
                   : voiceDescription.trim(),
-                voiceId: selectedCustomVoice ? selectedCustomVoice.deepinfra_voice_id : undefined,
+                voiceId: currentVoice ? currentVoice.deepinfra_voice_id : undefined,
               }),
             });
             const data = await response.json();
@@ -531,6 +540,7 @@ export default function VoicePage() {
     charLimit,
     engine,
     cancelGeneration,
+    selectedCustomVoice,
   ]);
 
   useEffect(() => {
@@ -621,8 +631,17 @@ export default function VoicePage() {
           </div>
         </div>
 
-        {/* Top Right Header: My Voices counter + Flagship Design Voice Button */}
+        {/* Top Right Header: Clone Voice + Flagship Design Voice Button */}
         <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setCloneModalOpen(true)}
+            className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 text-xs text-white font-medium flex items-center gap-1.5 transition-colors shadow-sm"
+            title="Upload audio sample to clone a voice"
+          >
+            <Upload size={13} className="text-emerald-400" />
+            <span>Clone Voice</span>
+          </button>
           <button
             type="button"
             onClick={() => handleOpenDesignModal()}
@@ -921,6 +940,7 @@ export default function VoicePage() {
           setCustomVoices={setCustomVoices}
           charsPerCredit={charsPerCredit}
           insertTagIntoVoice={insertTagIntoVoice}
+          onOpenCloneModal={() => setCloneModalOpen(true)}
         />
       </div>
       {/* ─── Voice Design Studio Modal ─── */}
@@ -931,6 +951,15 @@ export default function VoicePage() {
           setDesignModalOpen={setDesignModalOpen}
         />
       )}
+      {/* ─── Voice Clone Modal ─── */}
+      <VoiceCloneModal
+        isOpen={cloneModalOpen}
+        onClose={() => setCloneModalOpen(false)}
+        onVoiceCreated={(newVoice) => {
+          setCustomVoices((prev) => [newVoice, ...prev]);
+          setSelectedCustomVoice(newVoice);
+        }}
+      />
     </div>
   );
 }

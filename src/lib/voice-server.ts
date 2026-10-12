@@ -299,6 +299,7 @@ export async function synthesizeVoiceChunk(params: {
     text: rawText,
     voicePrompt: params.voicePrompt,
     modelId: params.modelId,
+    chunkIndex: params.index ?? 0,
   });
 
   const isVoiceDesign = params.modelId.toLowerCase().includes('voicedesign');
