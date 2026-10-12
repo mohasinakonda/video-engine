@@ -326,38 +326,44 @@ export async function synthesizeVoiceChunk(params: {
 
   const isSavedVoice = Boolean(params.voiceId && params.voiceId.trim());
 
+  // DeepInfra MiMo-V2.5-TTS docs: the style/voice instruction goes in the
+  // user message, the text (with (style)/[audio] tags) in the assistant
+  // message, and the voice is selected via audio.voice.
+  // NOTE: { text, voice, instruct } is not a documented shape — the voice ID
+  // was silently ignored, so every chunk got a different voice. This
+  // restores the documented format (see 331aeab).
+  const mimoBody = (userContent: string, voice?: string): Record<string, unknown> => ({
+    messages: [
+      { role: 'user', content: userContent },
+      { role: 'assistant', content: text },
+    ],
+    audio: voice ? { format: 'wav', voice } : { format: 'wav' },
+  });
+  const defaultInstruct = voicePrompt || 'A natural, clear, and engaging voice.';
+
   if (isSavedVoice) {
     // User selected a persistent custom voice: route directly to voiceclone for ALL chunks!
     targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
-    body = {
-      text,
-      voice: params.voiceId!.trim(),
-      instruct: voicePrompt || 'A natural, clear, and engaging voice.',
-    };
+    body = mimoBody(defaultInstruct, params.voiceId!.trim());
     console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via persistent saved voiceclone (${params.voiceId})`);
   } else if (isVoiceDesign) {
     if (isMultiChunk && chunkIndex > 0 && anchorVoiceId) {
       // Continuation chunk in multi-chunk job: use voiceclone with session anchor voice
       targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
-      body = {
-        text,
-        voice: anchorVoiceId,
-        instruct: voicePrompt || 'A natural, clear, and engaging voice.',
-      };
+      body = mimoBody(defaultInstruct, anchorVoiceId);
       console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voiceclone (${anchorVoiceId})`);
     } else {
-      // Chunk 0 or standalone single chunk: use voicedesign
-      body = {
-        text,
-        voice: voicePrompt || 'A natural, clear, and engaging voice.',
-      };
+      // Chunk 0 or standalone single chunk: use voicedesign.
+      // VoiceDesign generates from the text description — no audio.voice.
+      body = mimoBody(defaultInstruct);
       console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voicedesign`);
     }
   } else if (isMimo) {
-    body = {
-      text,
-      voice: voicePrompt || 'mimo_default',
-    };
+    // Base MiMo-V2.5-TTS: same messages format; built-in voice via audio.voice.
+    // Per-section tone becomes a natural-language style cue (user message).
+    const tone = (params.tone || '').toLowerCase();
+    const styleCue = tone ? `Narrate in a ${tone} tone. ` : '';
+    body = mimoBody(`${styleCue}${defaultInstruct}`, 'mimo_default');
   } else {
     const expr = typeof params.expressiveness === 'number'
       ? Math.min(100, Math.max(0, params.expressiveness))
