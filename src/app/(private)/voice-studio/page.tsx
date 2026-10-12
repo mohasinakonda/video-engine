@@ -199,6 +199,8 @@ export default function VoicePage() {
   const [isLooping, setIsLooping] = useState<boolean>(false);
   const cancelRef = useRef(false);
   const planRef = useRef<{ planId: string; charsDone: number } | null>(null);
+  /** Session anchor voice ID (chunk 0's clone) — echoed to the server on later chunks for voice consistency. */
+  const sessionVoiceIdRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Dynamic Credits
@@ -434,6 +436,7 @@ export default function VoicePage() {
     setProgress(0);
     setPhase('planning');
     cancelRef.current = false;
+    sessionVoiceIdRef.current = null;
 
     try {
       const activeCustomVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
@@ -472,7 +475,7 @@ export default function VoicePage() {
         while (attempt < 3 && !audioB64) {
           try {
             const currentVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
-            const response = await fetch('/api/voice/chunk', {
+            const response: Response = await fetch('/api/voice/chunk', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -486,10 +489,16 @@ export default function VoicePage() {
                   ? (currentVoice.voice_prompt || voiceDescription.trim())
                   : voiceDescription.trim(),
                 voiceId: currentVoice ? currentVoice.deepinfra_voice_id : undefined,
+                // Echo the session anchor voice so all chunks share chunk 0's voice,
+                // even if requests land on different serverless instances.
+                sessionVoiceId: sessionVoiceIdRef.current || undefined,
               }),
             });
-            const data = await response.json();
+            const data: any = await response.json();
             if (!response.ok) throw new Error(data.error || `Chunk ${chunk.index + 1} failed.`);
+            if (typeof data.sessionVoiceId === 'string' && data.sessionVoiceId) {
+              sessionVoiceIdRef.current = data.sessionVoiceId;
+            }
             audioB64 = data.audioBase64;
             mimeType = data.mimeType || mimeType;
           } catch (err) {
