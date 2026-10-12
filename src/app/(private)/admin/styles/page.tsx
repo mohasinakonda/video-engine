@@ -76,15 +76,14 @@ export default function AdminStylesPage() {
         {/* Styles Cards Grid */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-            <Loader2 size={28} className="animate-spin text-purple-400" />
+            <Loader2 size={28} className="animate-spin text-zinc-400" />
             <p className="text-xs">Loading Art Styles catalog...</p>
           </div>
         ) : filteredStyles.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl bg-zinc-900/30 border border-dashed border-zinc-800">
+          <div className="text-center py-16 rounded-2xl bg-bg-surface/30 border border-dashed border-bg-border">
             <Palette size={32} className="mx-auto text-zinc-600 mb-2" />
             <p className="text-sm font-semibold text-zinc-300">No art styles found</p>
             <p className="text-xs text-zinc-500 mt-1">Try changing filters or sync default catalog</p>
-
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

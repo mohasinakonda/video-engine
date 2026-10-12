@@ -966,7 +966,7 @@ export default function StoryboardInner() {
           <button
             onClick={handleAddScene}
             disabled={isWorking}
-            className="flex items-center gap-1.5 text-xs text-slate-300 px-3 py-1.5 rounded-lg bg-bg-elevated border border-bg-border hover:border-slate-600 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 text-xs text-zinc-300 px-3 py-1.5 rounded-lg bg-bg-elevated border border-bg-border hover:border-bg-border-strong transition-colors disabled:opacity-50"
             title="Add a custom visual scene"
           >
             <Plus size={12} />
@@ -985,17 +985,17 @@ export default function StoryboardInner() {
             {/* Audio summary & Player */}
             <div className="card space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Audio / Timeline</p>
+                <p className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">Audio / Timeline</p>
                 {project?.hasCustomVoice ? (
-                  <span className="text-[10px] font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">
+                  <span className="text-2xs font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-1.5 py-0.5 rounded">
                     Custom Voice
                   </span>
                 ) : hasAudio ? (
-                  <span className="text-[10px] font-medium text-zinc-300 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded">
+                  <span className="text-2xs font-medium text-zinc-300 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded">
                     AI TTS Voice
                   </span>
                 ) : (
-                  <span className="text-[10px] text-slate-400 bg-slate-800/60 border border-slate-700/50 px-1.5 py-0.5 rounded">
+                  <span className="text-2xs text-zinc-400 bg-zinc-800/60 border border-zinc-700/50 px-1.5 py-0.5 rounded">
                     No Audio
                   </span>
                 )}
@@ -1006,7 +1006,7 @@ export default function StoryboardInner() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <FileAudio size={14} className="text-emerald-400 flex-shrink-0" />
-                      <span className="text-xs font-medium text-slate-200 truncate">
+                      <span className="text-xs font-medium text-zinc-200 truncate">
                         {project?.customAudioFileName || 'Master Voiceover'}
                       </span>
                     </div>
@@ -1032,23 +1032,23 @@ export default function StoryboardInner() {
                         setVoiceCurrentTime(t);
                         if (audioPlayerRef.current) audioPlayerRef.current.currentTime = t;
                       }}
-                      className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                      className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                     />
-                    <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                    <div className="flex justify-between text-2xs text-zinc-400 font-mono">
                       <span>{formatDuration(voiceCurrentTime * 1000)}</span>
                       <span>{formatDuration((voiceDuration || totalDurationSec) * 1000)}</span>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-center space-y-2">
+                <div className="p-3 rounded-lg bg-bg-surface border border-bg-border text-center space-y-2">
                   <p className="text-xs text-zinc-300 leading-snug">
                     No voice file uploaded yet. You can upload an audio recording to auto-fit scene timings!
                   </p>
                   <button
                     onClick={() => voiceInputRef.current?.click()}
                     disabled={uploadingVoice}
-                    className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/40 hover:border-emerald-600/60 hover:text-emerald-200"
+                    className="btn-secondary w-full justify-center text-xs text-zinc-200"
                   >
                     <Upload size={12} />
                     <span>Upload Voiceover (MP3/WAV)</span>
@@ -1073,14 +1073,14 @@ export default function StoryboardInner() {
               />
 
               <div className="flex items-center justify-between text-xs pt-1">
-                <span className="text-slate-400">Total Duration</span>
+                <span className="text-zinc-400">Total Duration</span>
                 <span className="text-white font-mono">
                   {Math.floor(totalDurationSec / 60)}m {Math.round(totalDurationSec % 60)}s
                 </span>
               </div>
 
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Scenes Pacing</span>
+                <span className="text-zinc-400">Scenes Pacing</span>
                 <span className="text-white font-mono">
                   {scenes.length > 0 ? (totalDurationSec / scenes.length).toFixed(1) : 3.5}s avg
                 </span>
@@ -1091,7 +1091,7 @@ export default function StoryboardInner() {
                 <button
                   onClick={() => voiceInputRef.current?.click()}
                   disabled={uploadingVoice || isWorking}
-                  className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/30 hover:border-emerald-700 hover:text-emerald-200"
+                  className="btn-secondary w-full justify-center text-xs text-zinc-200"
                 >
                   <Upload size={11} />
                   <span>{project?.hasCustomVoice ? 'Replace Voiceover File' : 'Upload Voiceover File'}</span>
@@ -1101,7 +1101,7 @@ export default function StoryboardInner() {
                   <button
                     onClick={() => handleSyncTimelineToAudio()}
                     disabled={isWorking}
-                    className="btn-secondary w-full justify-center text-xs text-zinc-200 border-zinc-700 hover:bg-zinc-800 hover:text-white"
+                    className="btn-secondary w-full justify-center text-xs text-zinc-200"
                     title="Proportionally scale all scene cuts to match voice length"
                   >
                     <Zap size={11} className="text-zinc-400" />
@@ -1114,8 +1114,8 @@ export default function StoryboardInner() {
             {/* Base Style Preset */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Palette size={13} className="text-slate-500" />
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <Palette size={13} className="text-zinc-400" />
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">
                   Base Style
                 </label>
               </div>
@@ -1128,14 +1128,14 @@ export default function StoryboardInner() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-white truncate">{stylePreset.name}</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">{project?.aspectRatio || stylePreset.aspectRatio}</p>
+                      <p className="text-2xs text-zinc-400 mt-0.5">{project?.aspectRatio || stylePreset.aspectRatio}</p>
                     </div>
                     <Palette size={12} className="text-zinc-400 group-hover:text-white transition-colors flex-shrink-0 mt-0.5" />
                   </div>
-                  <p className="text-[10px] text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
+                  <p className="text-2xs text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
                     {stylePreset.stylePrompt}
                   </p>
-                  <p className="text-[10px] text-zinc-300 hover:text-white mt-2 transition-colors">
+                  <p className="text-2xs text-zinc-300 hover:text-white mt-2 transition-colors">
                     Change style →
                   </p>
                 </div>
@@ -1153,20 +1153,20 @@ export default function StoryboardInner() {
             {/* Scene count info */}
             {scenes.length > 0 && (
               <div className="card space-y-1.5">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Scenes</p>
+                <p className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">Scenes</p>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Total Scenes</span>
+                  <span className="text-zinc-400">Total Scenes</span>
                   <span className="text-white font-mono">{scenes.length}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Images Ready</span>
+                  <span className="text-zinc-400">Images Ready</span>
                   <span className="text-emerald-400 font-mono">
                     {scenes.filter((s) => ['IMAGE_READY', 'GENERATING_MOTION', 'MOTION_READY'].includes(s.status)).length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Motion Clips</span>
-                  <span className="text-cyan-400 font-mono">
+                  <span className="text-zinc-400">Motion Clips</span>
+                  <span className="text-zinc-300 font-mono">
                     {scenes.filter((s) => s.status === 'MOTION_READY').length}
                   </span>
                 </div>
@@ -1183,19 +1183,19 @@ export default function StoryboardInner() {
 
             {/* Extract message */}
             {(extracting || extractMsg) && !extractError && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-950/30 border border-blue-800/30 animate-fade-in">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-zinc-800/40 border border-bg-border animate-fade-in">
                 {extracting
-                  ? <Loader2 size={12} className="text-blue-400 animate-spin flex-shrink-0" />
+                  ? <Loader2 size={12} className="text-zinc-400 animate-spin flex-shrink-0" />
                   : <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />}
-                <p className="text-xs text-blue-400">{extractMsg}</p>
+                <p className="text-xs text-zinc-300">{extractMsg}</p>
               </div>
             )}
 
             {/* Extract error */}
             {extractError && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-950/30 border border-red-800/30 animate-fade-in">
-                <AlertTriangle size={12} className="text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-red-400">{extractError}</p>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-950/30 border border-rose-800/30 animate-fade-in">
+                <AlertTriangle size={12} className="text-rose-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-rose-400">{extractError}</p>
               </div>
             )}
           </div>
@@ -1242,9 +1242,9 @@ export default function StoryboardInner() {
                     ? `Resume Images (${pendingImages} left)`
                     : `Generate ${scenes.length} Images (${scenes.length * (selectedAIModel?.creditCost ?? 2)} cr)`}
                 </button>
-                <div className="flex items-center justify-between px-1 text-[11px] text-zinc-400">
+                <div className="flex items-center justify-between px-1 text-xxs text-zinc-400">
                   <span className="truncate max-w-[150px]">{selectedAIModel?.name || 'AI Engine'}</span>
-                  <span className="font-mono text-cyan-400 font-bold">{selectedAIModel?.creditCost ?? 2} cr/img</span>
+                  <span className="font-mono text-zinc-300 font-bold">{selectedAIModel?.creditCost ?? 2} cr/img</span>
                 </div>
               </div>
             )}
@@ -1278,9 +1278,7 @@ export default function StoryboardInner() {
               <button
                 id="proceed-export-btn"
                 onClick={() => router.push(`/export?id=${projectId}`)}
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-zinc-950
-                             bg-white hover:bg-zinc-200 transition-colors shadow-sm
-                             flex items-center justify-center gap-2"
+                className="btn-primary w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2 shadow-sm"
               >
                 <Zap size={15} />
                 Proceed to Final Export →
@@ -1367,8 +1365,8 @@ export default function StoryboardInner() {
 
       {/* Insufficient Credits Modal */}
       {creditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-zinc-900 border border-zinc-700/80 rounded-3xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-md text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto">
               <Zap size={28} className="fill-amber-400" />
             </div>
@@ -1379,14 +1377,14 @@ export default function StoryboardInner() {
               </p>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-400 leading-relaxed">
+            <div className="p-3.5 rounded-xl bg-bg-base border border-bg-border text-xs text-zinc-400 leading-relaxed">
               Top up credits for as low as ৳50 or subscribe to Creator/Studio plans with instant bKash or Nagad payment!
             </div>
 
             <div className="flex items-center gap-3 pt-2">
               <button
                 onClick={() => setCreditModalOpen(false)}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold transition-colors"
+                className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
               >
                 Cancel
               </button>
@@ -1395,7 +1393,7 @@ export default function StoryboardInner() {
                   setCreditModalOpen(false);
                   router.push('/plan');
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold transition-colors shadow-md shadow-emerald-500/20"
+                className="btn-accent flex-1 py-2.5 text-xs font-bold"
               >
                 Top-up Credits
               </button>

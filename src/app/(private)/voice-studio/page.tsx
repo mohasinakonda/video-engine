@@ -610,14 +610,14 @@ export default function VoicePage() {
   const canGenerate = text.trim().length > 0 && !busy;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0b0e] text-slate-100 font-sans selection:bg-blue-600/30 selection:text-white">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-bg-base text-zinc-100 font-sans selection:bg-white/20 selection:text-white">
       {/* ─── Google AI Studio Header ─── */}
-      <header className="h-14 flex-shrink-0 px-6 border-b border-[#1b1e26] bg-[#0e1015]/90 backdrop-blur-md flex items-center justify-between">
+      <header className="h-14 flex-shrink-0 px-6 border-b border-bg-border bg-bg-surface/90 backdrop-blur-md flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold tracking-tight text-white">Voice Studio</span>
-            <span className="text-[#3b4252]">/</span>
-            <span className="text-xs text-slate-400 font-medium">Playground</span>
+            <span className="text-zinc-600">/</span>
+            <span className="text-xs text-zinc-400 font-medium">Playground</span>
           </div>
         </div>
 
@@ -626,10 +626,10 @@ export default function VoicePage() {
           <button
             type="button"
             onClick={() => handleOpenDesignModal()}
-            className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/25 border border-blue-400/30 flex items-center gap-2 transition-all active:scale-95"
+            className="btn-primary text-xs py-1.5 px-3.5 flex items-center gap-2"
             title="Design a custom voice, preview it, and lock its timbre"
           >
-            <Sparkles size={14} className="text-amber-300 animate-pulse" />
+            <Sparkles size={14} />
             <span>Design Voice</span>
           </button>
         </div>
@@ -638,34 +638,34 @@ export default function VoicePage() {
       {/* ─── Main 2-Pane Workspace ─── */}
       <div className="flex-1 flex overflow-hidden">
         {/* ─── Center: Studio Prompt & Speech Canvas ─── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#0a0b0e] overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-bg-base overflow-hidden relative">
           <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 space-y-5 pb-28">
 
             {/* Active Saved Custom Voice Banner */}
             {selectedCustomVoice && (
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-blue-950/40 border border-blue-500/40 text-xs shadow-md">
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs shadow-sm">
                 <div className="flex items-center gap-2.5">
-                  <span className="p-1 rounded-md bg-blue-500/20 text-blue-400">
+                  <span className="p-1 rounded-md bg-zinc-800 text-zinc-300">
                     <Lock size={13} />
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-200">
+                    <span className="text-zinc-200">
                       Active Voice: <strong className="text-white font-semibold">{selectedCustomVoice.name}</strong>
                     </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                    <span className="px-1.5 py-0.5 rounded text-2xs font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
                       Locked Timbre
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-slate-400 hidden sm:inline">
+                  <span className="text-xxs text-zinc-400 hidden sm:inline">
                     Deterministic speaker consistency enabled
                   </span>
                   <button
                     type="button"
                     onClick={() => setSelectedCustomVoice(null)}
-                    className="px-2.5 py-1 rounded-lg bg-[#141b29] hover:bg-[#1d273b] border border-blue-500/30 text-blue-300 hover:text-white transition-colors text-[11px] font-medium"
+                    className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white transition-colors text-xxs font-medium"
                   >
                     Switch to Designer
                   </button>
@@ -674,13 +674,13 @@ export default function VoicePage() {
             )}
 
             {/* Frame 1: System Instructions / Voice Persona (Google AI Studio Style) */}
-            <div className="rounded-xl border border-[#1e222d] bg-[#0e1017] transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20">
-              <div className="px-4 py-2.5 border-b border-[#181c26] flex items-center justify-between bg-[#11141d]/60 rounded-t-xl">
+            <div className="rounded-xl border border-bg-border bg-bg-surface transition-all focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-white/10">
+              <div className="px-4 py-2.5 border-b border-bg-border flex items-center justify-between bg-bg-elevated/60 rounded-t-xl">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
                     System Instructions
                   </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
+                  <span className="text-xxs text-zinc-500 font-normal">
                     · Voice description & acoustic persona
                   </span>
                 </div>
@@ -690,7 +690,7 @@ export default function VoicePage() {
                     type="button"
                     onClick={() => handleEnhanceVoicePrompt(false)}
                     disabled={isEnhancingPrompt}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-950/40 border border-blue-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                     title="Calibrate voice description with AI"
                   >
                     {isEnhancingPrompt ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
@@ -700,7 +700,7 @@ export default function VoicePage() {
                     type="button"
                     onClick={() => handleEnhanceVoicePrompt(true)}
                     disabled={isEnhancingPrompt}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 border border-purple-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                     title="Expand into Director Mode script directions"
                   >
                     <Film size={11} /> Director Mode
@@ -709,7 +709,7 @@ export default function VoicePage() {
                     type="button"
                     onClick={handleMatchVoiceToScript}
                     disabled={isMatchingVoice || !text.trim()}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-[#1a1f2b] transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors flex items-center gap-1 disabled:opacity-50"
                     title="Design voice to match script content"
                   >
                     {isMatchingVoice ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />}
@@ -726,24 +726,22 @@ export default function VoicePage() {
                   disabled={busy}
                   rows={3}
                   placeholder="e.g. Heavy Russian accent, gruff middle-aged male, blunt and matter-of-fact."
-                  className="w-full bg-transparent text-[14px] leading-relaxed text-slate-100 placeholder:text-slate-600 focus:outline-none resize-none font-mono"
+                  className="w-full bg-transparent text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none font-mono"
                 />
               </div>
             </div>
 
             {/* Frame 2: Content / Spoken Dialogue Input (Google AI Studio Style) */}
-            <div className="rounded-xl border border-[#1e222d] bg-[#0e1017] transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20">
-              <div className="px-4 py-2.5 border-b border-[#181c26] flex items-center justify-between bg-[#11141d]/60 rounded-t-xl">
+            <div className="rounded-xl border border-bg-border bg-bg-surface transition-all focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-white/10">
+              <div className="px-4 py-2.5 border-b border-bg-border flex items-center justify-between bg-bg-elevated/60 rounded-t-xl">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
                     Input Text
                   </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
+                  <span className="text-xxs text-zinc-500 font-normal">
                     · Dialogue to convert to speech
                   </span>
                 </div>
-
-
               </div>
 
               <div className="p-4">
@@ -754,20 +752,20 @@ export default function VoicePage() {
                   disabled={busy}
                   rows={5}
                   placeholder="Type or paste text to synthesize into natural speech…"
-                  className="w-full bg-transparent text-[15px] leading-relaxed text-slate-100 placeholder:text-slate-600 focus:outline-none resize-none"
+                  className="w-full bg-transparent text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none"
                 />
               </div>
 
-              {/* Expression Tags Bar (Compact, Google-style pills) */}
-              <div className="px-4 py-2.5 border-t border-[#161922] bg-[#0b0c10]/40 flex items-center gap-2 flex-wrap rounded-b-xl">
-                <span className="text-[11px] text-slate-500 font-medium">Insert tags:</span>
+              {/* Expression Tags Bar (Compact pills) */}
+              <div className="px-4 py-2.5 border-t border-bg-border bg-bg-base/40 flex items-center gap-2 flex-wrap rounded-b-xl">
+                <span className="text-xxs text-zinc-500 font-medium">Insert tags:</span>
                 <div className="flex items-center gap-1 flex-wrap">
                   {MIMO_STYLE_TAGS.slice(0, 6).map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => insertTagIntoText(tag)}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-blue-300 hover:bg-blue-950/30 border border-[#202533] transition-colors"
+                      className="px-2 py-0.5 rounded text-xxs font-mono text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border border-zinc-800 transition-colors"
                     >
                       {tag}
                     </button>
@@ -777,7 +775,7 @@ export default function VoicePage() {
                       key={tag}
                       type="button"
                       onClick={() => insertTagIntoText(tag)}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-purple-300 hover:bg-purple-950/30 border border-[#202533] transition-colors"
+                      className="px-2 py-0.5 rounded text-xxs font-mono text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border border-zinc-800 transition-colors"
                     >
                       {tag}
                     </button>
@@ -786,25 +784,25 @@ export default function VoicePage() {
               </div>
             </div>
 
-            {/* Synthesis Progress Bar (Google AI Studio pulse line) */}
+            {/* Synthesis Progress Bar */}
             {busy && (
-              <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 space-y-2.5">
+              <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-blue-300 flex items-center gap-2">
-                    <Loader2 size={13} className="animate-spin text-blue-400" />
+                  <span className="text-zinc-300 flex items-center gap-2">
+                    <Loader2 size={13} className="animate-spin text-zinc-400" />
                     {phase === 'planning' ? 'Preparing acoustic plan…' : 'Synthesizing voice audio…'}
                   </span>
-                  <span className="text-blue-200 font-mono font-medium">{progress}%</span>
+                  <span className="text-zinc-200 font-mono font-medium">{progress}%</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-[#161a26] overflow-hidden">
+                <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300"
+                    className="h-full rounded-full bg-white transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
                 <button
                   onClick={cancelGeneration}
-                  className="text-[11px] text-slate-400 hover:text-red-400 transition-colors"
+                  className="text-xxs text-zinc-400 hover:text-red-400 transition-colors"
                 >
                   Cancel synthesis
                 </button>
@@ -820,7 +818,7 @@ export default function VoicePage() {
 
             {/* Output Stage: Enhanced Native Audio Player & Power Control Suite */}
             {phase === 'done' && resultUrl && (
-              <div className="rounded-2xl border border-emerald-500/30 bg-[#0c1218]/90 backdrop-blur-md p-5 shadow-2xl space-y-4">
+              <div className="rounded-2xl border border-bg-border bg-bg-surface/90 backdrop-blur-md p-5 shadow-2xl space-y-4">
                 {/* Header bar: Info & Download */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -829,19 +827,15 @@ export default function VoicePage() {
                         <span className="text-xs font-semibold text-white tracking-wide">
                           Voice Output
                         </span>
-
                       </div>
-
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-
-
                     <button
                       type="button"
                       onClick={handleDownloadResult}
-                      className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                      className="btn-secondary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
                     >
                       <Download size={13} className="stroke-[2.5]" />
                       <span>Download WAV</span>
@@ -850,7 +844,7 @@ export default function VoicePage() {
                 </div>
 
                 {/* Native HTML5 Audio Element with Native Controls & Dark Styling */}
-                <div className="rounded-xl bg-[#070b0e] p-2.5 border border-[#1b2631] shadow-inner">
+                <div className="rounded-xl bg-bg-base p-2.5 border border-bg-border shadow-inner">
                   <audio
                     ref={audioRef}
                     controls
@@ -859,15 +853,13 @@ export default function VoicePage() {
                     style={{ colorScheme: 'dark' }}
                   />
                 </div>
-
-
               </div>
             )}
           </div>
 
           {/* ─── Google AI Studio Docked Action Bar ─── */}
-          <div className="absolute bottom-0 left-0 right-0 h-16 px-6 lg:px-8 border-t border-[#1c202b] bg-[#0c0d12]/95 backdrop-blur-md flex items-center justify-between z-10">
-            <div className="flex items-center gap-3 text-xs text-slate-400">
+          <div className="absolute bottom-0 left-0 right-0 h-16 px-6 lg:px-8 border-t border-bg-border bg-bg-surface/95 backdrop-blur-md flex items-center justify-between z-10">
+            <div className="flex items-center gap-3 text-xs text-zinc-400">
               <button
                 type="button"
                 onClick={() => {
@@ -875,21 +867,17 @@ export default function VoicePage() {
                   setVoiceDescription('');
                 }}
                 disabled={busy}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-[#161a24] transition-colors"
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
                 title="Clear inputs"
               >
                 <RotateCcw size={14} />
               </button>
 
-              <span className="text-slate-500">|</span>
+              <span className="text-zinc-600">|</span>
 
-              <span className="text-slate-400 font-mono">
+              <span className="text-zinc-400 font-mono">
                 {text.length.toLocaleString()} / {charLimit.toLocaleString()} chars
               </span>
-
-
-
-
             </div>
 
             <div className="flex items-center gap-2">
@@ -897,7 +885,7 @@ export default function VoicePage() {
                 type="button"
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-850 disabled:text-slate-600 text-white font-semibold text-xs tracking-wide transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 disabled:shadow-none"
+                className="btn-primary px-6 py-2 rounded-xl text-xs font-semibold tracking-wide flex items-center gap-2"
               >
                 {busy ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -911,7 +899,7 @@ export default function VoicePage() {
                       ? `Run (${creditEstimate} credit)`
                       : 'Run'}
                 </span>
-                <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-black/30 rounded border border-white/10 font-mono text-slate-300 font-normal">
+                <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-2xs bg-black/30 rounded border border-white/10 font-mono text-zinc-300 font-normal">
                   ⌘↵
                 </kbd>
               </button>

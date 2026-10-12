@@ -97,8 +97,8 @@ export default function PayoutModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+    <div className="modal-overlay">
+      <div className="modal-panel max-w-md p-6 space-y-4">
         <h3 className="text-base font-bold text-white flex items-center gap-2">
           <DollarSign size={18} className="text-emerald-400" />
           Withdraw Referral Commission
@@ -115,9 +115,9 @@ export default function PayoutModal({
               <button
                 type="button"
                 onClick={() => setPayoutMethod('bkash')}
-                className={`py-2 px-3 rounded-xl border font-bold text-center ${payoutMethod === 'bkash'
+                className={`py-2 px-3 rounded-lg border font-bold text-center transition-colors ${payoutMethod === 'bkash'
                   ? 'border-pink-500 bg-pink-500/10 text-white'
-                  : 'border-zinc-800 bg-zinc-950 text-zinc-400'
+                  : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700'
                   }`}
               >
                 bKash
@@ -125,9 +125,9 @@ export default function PayoutModal({
               <button
                 type="button"
                 onClick={() => setPayoutMethod('nagad')}
-                className={`py-2 px-3 rounded-xl border font-bold text-center ${payoutMethod === 'nagad'
+                className={`py-2 px-3 rounded-lg border font-bold text-center transition-colors ${payoutMethod === 'nagad'
                   ? 'border-orange-500 bg-orange-500/10 text-white'
-                  : 'border-zinc-800 bg-zinc-950 text-zinc-400'
+                  : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700'
                   }`}
               >
                 Nagad
@@ -145,7 +145,7 @@ export default function PayoutModal({
               placeholder="e.g. 017XXXXXXXX"
               value={payoutAccount}
               onChange={(e) => setPayoutAccount(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono"
+              className="input font-mono"
             />
           </div>
 
@@ -157,7 +157,7 @@ export default function PayoutModal({
               max={pendingBDT}
               value={payoutAmount}
               onChange={(e) => setPayoutAmount(Number(e.target.value))}
-              className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono font-bold"
+              className="input font-mono font-bold"
             />
           </div>
 
@@ -172,13 +172,13 @@ export default function PayoutModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 font-semibold"
+              className="btn-secondary flex-1"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold"
+              className="btn-accent flex-1"
             >
               Submit Request
             </button>

@@ -267,28 +267,28 @@ export default function AdminHubPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <Link
               href="/admin/models"
-              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 border border-cyan-500/20"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               <Zap size={14} /> AI Models
             </Link>
             <Link
               href="/admin/styles"
-              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               <Palette size={14} /> Art Styles
             </Link>
             <Link
               href="/admin/plan"
-              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               Plans & Pricing
             </Link>
             <Link
               href="/admin/users"
-              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               User Directory
             </Link>
@@ -296,7 +296,7 @@ export default function AdminHubPage() {
             <button
               onClick={refreshData}
               disabled={isLoading}
-              className="px-3.5 py-2 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               Refresh
@@ -307,7 +307,7 @@ export default function AdminHubPage() {
         {/* Analytics KPIs */}
         {analytics && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800">
+            <div className="p-5 rounded-2xl bg-bg-surface border border-bg-border">
               <div className="flex items-center justify-between text-zinc-400 mb-2">
                 <span className="text-xs font-medium">Total Revenue</span>
                 <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -315,10 +315,10 @@ export default function AdminHubPage() {
                 </span>
               </div>
               <p className="text-2xl font-extrabold text-white">৳{analytics.totalRevenueBDT.toLocaleString()} BDT</p>
-              <p className="text-[11px] text-emerald-400 mt-1">Verified earnings</p>
+              <p className="text-xxs text-emerald-400 mt-1">Verified earnings</p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800">
+            <div className="p-5 rounded-2xl bg-bg-surface border border-bg-border">
               <div className="flex items-center justify-between text-zinc-400 mb-2">
                 <span className="text-xs font-medium">Pending Verifications</span>
                 <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
@@ -326,29 +326,29 @@ export default function AdminHubPage() {
                 </span>
               </div>
               <p className="text-2xl font-extrabold text-amber-400">{analytics.pendingApprovals}</p>
-              <p className="text-[11px] text-zinc-500 mt-1">Needs your approval</p>
+              <p className="text-xxs text-zinc-500 mt-1">Needs your approval</p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800">
+            <div className="p-5 rounded-2xl bg-bg-surface border border-bg-border">
               <div className="flex items-center justify-between text-zinc-400 mb-2">
                 <span className="text-xs font-medium">Active Subscribers</span>
-                <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+                <span className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300">
                   <Users size={16} />
                 </span>
               </div>
               <p className="text-2xl font-extrabold text-white">{analytics.activeSubscribers}</p>
-              <p className="text-[11px] text-zinc-500 mt-1">Paying customers</p>
+              <p className="text-xxs text-zinc-500 mt-1">Paying customers</p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800">
+            <div className="p-5 rounded-2xl bg-bg-surface border border-bg-border">
               <div className="flex items-center justify-between text-zinc-400 mb-2">
                 <span className="text-xs font-medium">Images Generated</span>
-                <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+                <span className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300">
                   <Zap size={16} />
                 </span>
               </div>
               <p className="text-2xl font-extrabold text-white">{analytics.totalImagesGenerated}</p>
-              <p className="text-[11px] text-zinc-500 mt-1">{analytics.totalCreditsUsed} credits consumed</p>
+              <p className="text-xxs text-zinc-500 mt-1">{analytics.totalCreditsUsed} credits consumed</p>
             </div>
           </div>
         )}
@@ -382,7 +382,7 @@ export default function AdminHubPage() {
             </div>
           </div>
 
-          <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-bg-surface border border-bg-border rounded-2xl overflow-hidden shadow-sm">
             {filteredSubmissions.length === 0 ? (
               <div className="text-center py-12 text-zinc-500 text-xs">
                 No payment submissions found matching filter &quot;{statusFilter}&quot;.
@@ -390,7 +390,7 @@ export default function AdminHubPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                  <thead className="bg-bg-base border-b border-bg-border text-zinc-400 uppercase font-semibold">
                     <tr>
                       <th className="py-3 px-4">Item & Plan</th>
                       <th className="py-3 px-4">User Details</th>
@@ -402,28 +402,28 @@ export default function AdminHubPage() {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/60">
+                  <tbody className="divide-y divide-bg-border/60">
                     {filteredSubmissions.map((sub) => (
                       <tr key={sub.id} className="hover:bg-zinc-850/40 transition-colors">
                         <td className="py-3.5 px-4">
                           <span className="font-semibold text-white block">
                             {sub.planId ? `Plan: ${sub.planId}` : `Top-up Pack`}
                           </span>
-                          <span className="text-[10px] text-zinc-500">
+                          <span className="text-2xs text-zinc-500">
                             {new Date(sub.submittedAt).toLocaleTimeString()} · {new Date(sub.submittedAt).toLocaleDateString()}
                           </span>
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="text-zinc-200 block font-mono">{sub.userEmail}</span>
                           {sub.promoCodeApplied && (
-                            <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-amber-400/10 text-amber-400 rounded text-[10px] font-mono">
+                            <span className="inline-block mt-0.5 px-1.5 py-0.2 bg-amber-400/10 text-amber-400 rounded text-2xs font-mono">
                               Promo: {sub.promoCodeApplied}
                             </span>
                           )}
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-1.5">
-                            <span className="uppercase font-bold text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                            <span className="uppercase font-bold text-2xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">
                               {sub.paymentMethod}
                             </span>
                             <span className="font-mono text-zinc-300">{sub.senderNumber}</span>
@@ -432,7 +432,7 @@ export default function AdminHubPage() {
                         <td className="py-3.5 px-4">
                           {sub.trxId ? (
                             <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-bold text-white bg-zinc-950 px-2 py-1 rounded border border-zinc-800">
+                              <span className="font-mono font-bold text-white bg-bg-base px-2 py-1 rounded border border-bg-border">
                                 {sub.trxId}
                               </span>
                               <button
@@ -442,10 +442,10 @@ export default function AdminHubPage() {
                               >
                                 <Copy size={13} />
                               </button>
-                              {copiedId === sub.id && <span className="text-[10px] text-emerald-400">Copied!</span>}
+                              {copiedId === sub.id && <span className="text-2xs text-emerald-400">Copied!</span>}
                             </div>
                           ) : (
-                            <span className="text-[11px] text-zinc-400 font-mono">📱 WhatsApp/Phone</span>
+                            <span className="text-xxs text-zinc-400 font-mono">📱 WhatsApp/Phone</span>
                           )}
                         </td>
                         <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
@@ -456,7 +456,7 @@ export default function AdminHubPage() {
                         </td>
                         <td className="py-3.5 px-4">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${sub.status === 'APPROVED'
+                            className={`px-2 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wider ${sub.status === 'APPROVED'
                               ? 'bg-emerald-500/20 text-emerald-400'
                               : sub.status === 'REJECTED'
                                 ? 'bg-rose-500/20 text-rose-400'
@@ -471,19 +471,19 @@ export default function AdminHubPage() {
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => handleApprove(sub.id)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-[11px] transition-colors"
+                                className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xxs transition-colors"
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => handleReject(sub.id)}
-                                className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 font-medium text-[11px] transition-colors"
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 font-medium text-xxs transition-colors"
                               >
                                 Reject
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[11px] text-zinc-500 italic">Completed</span>
+                            <span className="text-xxs text-zinc-500 italic">Completed</span>
                           )}
                         </td>
                       </tr>
@@ -500,7 +500,7 @@ export default function AdminHubPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Tag size={18} className="text-purple-400" />
+                <Tag size={18} className="text-zinc-400" />
                 Promo Codes & Discount Engine
               </h2>
               <p className="text-xs text-zinc-400">
@@ -509,7 +509,7 @@ export default function AdminHubPage() {
             </div>
             <button
               onClick={() => setPromoModalOpen(true)}
-              className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5"
             >
               <Plus size={15} />
               Create Promo Code
@@ -522,11 +522,11 @@ export default function AdminHubPage() {
               return (
                 <div
                   key={promo.code}
-                  className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3 relative group"
+                  className="p-5 rounded-2xl bg-bg-surface border border-bg-border space-y-3 relative group"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <span className="font-mono font-extrabold text-lg text-white bg-zinc-950 px-2.5 py-1 rounded-lg border border-zinc-800">
+                      <span className="font-mono font-extrabold text-lg text-white bg-bg-base px-2.5 py-1 rounded-lg border border-bg-border">
                         {promo.code}
                       </span>
                       <p className="text-xs text-zinc-400 mt-2 font-medium">{promo.description}</p>
@@ -540,8 +540,8 @@ export default function AdminHubPage() {
                     </button>
                   </div>
 
-                  <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs">
-                    <span className="text-purple-400 font-semibold">
+                  <div className="pt-2 border-t border-bg-border/80 flex items-center justify-between text-xs">
+                    <span className="text-zinc-200 font-semibold">
                       {promo.type === 'PERCENTAGE'
                         ? `${promo.discountValue}% OFF`
                         : promo.type === 'FIXED'
@@ -553,12 +553,12 @@ export default function AdminHubPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                  <div className="flex items-center justify-between text-xxs text-zinc-500">
                     <span>
                       {isExpired ? 'Expired' : `Expires in ${Math.round((promo.validUntil - Date.now()) / (24 * 3600 * 1000))} days`}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${promo.isActive && !isExpired ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 bg-zinc-800'
+                      className={`px-2 py-0.5 rounded text-2xs font-bold ${promo.isActive && !isExpired ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 bg-zinc-800'
                         }`}
                     >
                       {promo.isActive && !isExpired ? 'ACTIVE' : 'INACTIVE'}
@@ -571,11 +571,11 @@ export default function AdminHubPage() {
         </div>
 
         {/* Section 3: User Quota & Live Support Granter */}
-        <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
+        <div className="p-6 rounded-2xl bg-bg-surface border border-bg-border space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Zap size={18} className="text-amber-400 fill-amber-400" />
+                <Zap size={18} className="text-zinc-300" />
                 Live Customer Support Credit Granter
               </h2>
               <p className="text-xs text-zinc-400">
@@ -593,19 +593,19 @@ export default function AdminHubPage() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => handleGrantCredits(50)}
-              className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-xs font-semibold text-white border border-zinc-700/80"
+              className="btn-secondary text-xs py-2 px-4"
             >
               +50 Credits
             </button>
             <button
               onClick={() => handleGrantCredits(100)}
-              className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-xs font-semibold text-white border border-zinc-700/80"
+              className="btn-secondary text-xs py-2 px-4"
             >
               +100 Credits
             </button>
             <button
               onClick={() => handleGrantCredits(250)}
-              className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 text-xs font-semibold text-white border border-zinc-700/80"
+              className="btn-secondary text-xs py-2 px-4"
             >
               +250 Credits
             </button>
@@ -614,12 +614,12 @@ export default function AdminHubPage() {
                 type="number"
                 value={creditAdjustmentAmount}
                 onChange={(e) => setCreditAdjustmentAmount(Number(e.target.value))}
-                className="w-24 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                className="w-24 bg-bg-base border border-bg-border rounded-xl px-3 py-1.5 text-xs text-white"
                 placeholder="Amount"
               />
               <button
                 onClick={() => handleGrantCredits(creditAdjustmentAmount)}
-                className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs"
+                className="btn-primary text-xs py-1.5 px-4"
               >
                 Grant Custom
               </button>
@@ -630,11 +630,11 @@ export default function AdminHubPage() {
 
       {/* Create Promo Code Modal */}
       {promoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Tag size={16} className="text-purple-400" />
+                <Tag size={16} className="text-zinc-400" />
                 Create New Promo Code
               </h3>
               <button onClick={() => setPromoModalOpen(false)} className="text-zinc-400 hover:text-white">
@@ -651,7 +651,7 @@ export default function AdminHubPage() {
                   placeholder="e.g. YOUTUBE50"
                   value={newPromoCode}
                   onChange={(e) => setNewPromoCode(e.target.value.toUpperCase())}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono uppercase focus:border-purple-400 outline-none"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white font-mono uppercase focus:border-zinc-500 outline-none"
                 />
               </div>
 
@@ -660,7 +660,7 @@ export default function AdminHubPage() {
                 <select
                   value={newPromoType}
                   onChange={(e) => setNewPromoType(e.target.value as PromoDiscountType)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white focus:border-purple-400 outline-none"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:border-zinc-500 outline-none"
                 >
                   <option value="PERCENTAGE">Percentage Discount (%)</option>
                   <option value="FIXED">Fixed Amount Discount (BDT)</option>
@@ -677,7 +677,7 @@ export default function AdminHubPage() {
                     max="100"
                     value={newPromoValue}
                     onChange={(e) => setNewPromoValue(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white outline-none"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white outline-none"
                   />
                 </div>
               )}
@@ -690,7 +690,7 @@ export default function AdminHubPage() {
                     min="1"
                     value={newPromoValue}
                     onChange={(e) => setNewPromoValue(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white outline-none"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white outline-none"
                   />
                 </div>
               )}
@@ -703,7 +703,7 @@ export default function AdminHubPage() {
                     min="1"
                     value={newPromoBonusCredits}
                     onChange={(e) => setNewPromoBonusCredits(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white outline-none"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white outline-none"
                   />
                 </div>
               )}
@@ -716,7 +716,7 @@ export default function AdminHubPage() {
                     min="1"
                     value={newPromoMaxUses}
                     onChange={(e) => setNewPromoMaxUses(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white outline-none"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white outline-none"
                   />
                 </div>
                 <div>
@@ -726,7 +726,7 @@ export default function AdminHubPage() {
                     min="1"
                     value={newPromoDays}
                     onChange={(e) => setNewPromoDays(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white outline-none"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white outline-none"
                   />
                 </div>
               </div>
@@ -738,14 +738,14 @@ export default function AdminHubPage() {
                   placeholder="e.g. Eid special 50% discount"
                   value={newPromoDesc}
                   onChange={(e) => setNewPromoDesc(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white outline-none"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white outline-none"
                 />
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold transition-colors"
+                  className="btn-primary w-full py-2.5 rounded-xl font-bold"
                 >
                   Create & Launch Promo Code
                 </button>

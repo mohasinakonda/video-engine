@@ -35,22 +35,22 @@ export function TopupPacksSection({
         {topupPacks.map((pack) => (
           <div
             key={pack.id}
-            className={`rounded-3xl p-6 bg-zinc-900/80 border transition-all relative shadow-xl ${
+            className={`rounded-xl p-6 bg-bg-surface border transition-all relative shadow-xl card-interactive ${
               !hasActiveSubscription
-                ? 'border-zinc-800/80 opacity-90'
+                ? 'border-bg-border opacity-90'
                 : pack.popular
                 ? 'border-amber-400/60 shadow-lg shadow-amber-950/20'
-                : 'border-zinc-800 hover:border-zinc-700'
+                : 'border-bg-border hover:border-bg-border-strong'
             }`}
           >
             {!hasActiveSubscription ? (
               <div className="mb-2">
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-800 text-amber-400/90 border border-amber-500/20 text-[10px] font-bold uppercase tracking-wider">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-zinc-800 text-amber-400/90 border border-amber-500/20 text-2xs font-bold uppercase tracking-wider">
                   <Lock size={10} /> Subscriber Exclusive
                 </span>
               </div>
             ) : pack.popular ? (
-              <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full bg-amber-400 text-zinc-950 font-bold text-[10px] uppercase tracking-wider shadow-sm">
+              <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full bg-amber-400 text-zinc-950 font-bold text-2xs uppercase tracking-wider shadow-sm">
                 Most Popular
               </span>
             ) : null}
@@ -62,14 +62,14 @@ export function TopupPacksSection({
             <p className="text-xs text-emerald-400 font-semibold mt-1">
               {pack.credits} Image Credits (~{Math.round(pack.credits / 15)} videos)
             </p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
+            <p className="text-xxs text-zinc-500 mt-0.5">
               ৳{pack.perCreditBDT.toFixed(2)} per credit
             </p>
 
             {hasActiveSubscription ? (
               <button
                 onClick={() => onSelectTopup(pack)}
-                className="w-full mt-5 py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                className="w-full mt-5 py-2.5 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <Zap size={14} className="fill-zinc-950" />
                 Top-up {pack.credits} Credits
@@ -77,7 +77,7 @@ export function TopupPacksSection({
             ) : (
               <button
                 onClick={() => onSelectTopup(pack)}
-                className="w-full mt-5 py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 border border-zinc-700/80 group"
+                className="w-full mt-5 py-2.5 px-4 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 border border-zinc-700/80 group"
               >
                 <Lock size={13} className="text-amber-400 group-hover:scale-110 transition-transform" />
                 Subscribe to Unlock

@@ -314,11 +314,11 @@ export default function ExportInner() {
           <div>
             <h1 className="text-sm font-bold text-white leading-tight flex items-center gap-2">
               <span>{project.title}</span>
-              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+              <span className="text-2xs font-mono font-medium px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
                 Phase 3 · Launch Studio
               </span>
             </h1>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
+            <p className="text-xxs text-zinc-400 mt-0.5">
               Production Render & YouTube Viral Packaging
             </p>
           </div>
@@ -328,10 +328,10 @@ export default function ExportInner() {
         <div className="flex items-center gap-2">
           <Link
             href={`/youtube-kit-studio?id=${project.projectId}`}
-            className="px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-sm"
+            className="btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-2"
             title="Open YouTube Kit Studio for this video"
           >
-            <Sparkles size={14} className="text-red-400" />
+            <Sparkles size={14} className="text-rose-400" />
             <span>YouTube Kit Studio</span>
           </Link>
         </div>
@@ -351,12 +351,12 @@ export default function ExportInner() {
                 <div className="card space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Sliders size={15} className="text-blue-400" />
+                      <Sliders size={15} className="text-zinc-300" />
                       <h2 className="text-xs font-bold text-white uppercase tracking-wider">
                         Video Aspect Ratio
                       </h2>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
+                    <span className="text-2xs font-mono text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
                       {aspectRatio === '16:9'
                         ? '1920 × 1080 (Landscape)'
                         : aspectRatio === '9:16'
@@ -376,7 +376,7 @@ export default function ExportInner() {
                     >
                       <Monitor size={18} className="mx-auto mb-1.5" />
                       <p className="text-xs font-bold">16:9 Landscape</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">YouTube / Desktop</p>
+                      <p className="text-2xs text-zinc-400 mt-0.5">YouTube / Desktop</p>
                     </button>
 
                     <button
@@ -389,7 +389,7 @@ export default function ExportInner() {
                     >
                       <Smartphone size={18} className="mx-auto mb-1.5" />
                       <p className="text-xs font-bold">9:16 Portrait</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">Reels / Shorts / TikTok</p>
+                      <p className="text-2xs text-zinc-400 mt-0.5">Reels / Shorts / TikTok</p>
                     </button>
 
                     <button
@@ -402,7 +402,7 @@ export default function ExportInner() {
                     >
                       <Square size={18} className="mx-auto mb-1.5" />
                       <p className="text-xs font-bold">1:1 Square</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">Instagram Feed</p>
+                      <p className="text-2xs text-zinc-400 mt-0.5">Instagram Feed</p>
                     </button>
                   </div>
                 </div>
@@ -426,8 +426,8 @@ export default function ExportInner() {
                         }`}
                     >
                       <p className="text-sm font-bold text-white">1080p Full HD</p>
-                      <p className="text-[11px] text-zinc-400 mt-0.5">1920×1080 · 30 FPS · 8–10 Mbps</p>
-                      <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
+                      <p className="text-xxs text-zinc-400 mt-0.5">1920×1080 · 30 FPS · 8–10 Mbps</p>
+                      <span className="inline-block mt-2 text-2xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
                         Recommended
                       </span>
                     </button>
@@ -441,8 +441,8 @@ export default function ExportInner() {
                         }`}
                     >
                       <p className="text-sm font-bold text-white">4K Ultra HD</p>
-                      <p className="text-[11px] text-zinc-400 mt-0.5">3840×2160 · 30 FPS · 25–35 Mbps</p>
-                      <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
+                      <p className="text-xxs text-zinc-400 mt-0.5">3840×2160 · 30 FPS · 25–35 Mbps</p>
+                      <span className="inline-block mt-2 text-2xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
                         Ultra Quality
                       </span>
                     </button>
@@ -459,7 +459,7 @@ export default function ExportInner() {
                   </div>
 
                   <select
-                    className="input"
+                    className="select"
                     value={encoder}
                     onChange={(e) => setEncoder(e.target.value as HardwareEncoder)}
                   >
@@ -480,7 +480,7 @@ export default function ExportInner() {
                         Scene Transitions & Blending
                       </h2>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-300 font-semibold bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded">
+                    <span className="text-2xs font-mono text-zinc-300 font-semibold bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded">
                       {transitionType === 'crossfade'
                         ? 'Cross-Dissolve'
                         : transitionType === 'fade_black'
@@ -500,8 +500,8 @@ export default function ExportInner() {
                         }`}
                     >
                       <p className="text-xs font-bold text-white">Cross-Dissolve</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">Smooth blending between images</p>
-                      <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
+                      <p className="text-2xs text-zinc-400 mt-0.5">Smooth blending between images</p>
+                      <span className="inline-block mt-2 text-3xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
                         Recommended
                       </span>
                     </button>
@@ -515,8 +515,8 @@ export default function ExportInner() {
                         }`}
                     >
                       <p className="text-xs font-bold text-white">Dip to Black</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">Gentle fade to black breath</p>
-                      <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
+                      <p className="text-2xs text-zinc-400 mt-0.5">Gentle fade to black breath</p>
+                      <span className="inline-block mt-2 text-3xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
                         Classic Film
                       </span>
                     </button>
@@ -530,8 +530,8 @@ export default function ExportInner() {
                         }`}
                     >
                       <p className="text-xs font-bold text-white">Hard Cut</p>
-                      <p className="text-[10px] text-zinc-400 mt-0.5">Instant switch between scenes</p>
-                      <span className="inline-block mt-2 text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-medium">
+                      <p className="text-2xs text-zinc-400 mt-0.5">Instant switch between scenes</p>
+                      <span className="inline-block mt-2 text-3xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-medium">
                         Fast Montage
                       </span>
                     </button>
@@ -565,12 +565,12 @@ export default function ExportInner() {
                 <div className="card space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <FolderOpen size={15} className="text-amber-400" />
+                      <FolderOpen size={15} className="text-zinc-400" />
                       <h2 className="text-xs font-bold text-white uppercase tracking-wider">
                         Export Destination
                       </h2>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                    <span className="text-2xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
                       Downloads Folder (~/Downloads)
                     </span>
                   </div>
@@ -585,7 +585,7 @@ export default function ExportInner() {
                       readOnly
                     />
                   </div>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xxs text-zinc-400">
                     Rendered videos are automatically saved directly into your computer&apos;s Downloads folder.
                   </p>
                 </div>

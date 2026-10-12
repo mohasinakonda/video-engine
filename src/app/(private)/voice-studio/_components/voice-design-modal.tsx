@@ -422,22 +422,22 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
     }, [modalSaving, modalVoiceName, modalAudioBase64, modalPrompt, modalConfig, modalAudioUrl]);
     return (
 
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-            <div className="max-w-2xl w-full bg-[#0d1017] border border-[#232b3d] rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+        <div className="modal-overlay">
+            <div className="modal-panel max-w-2xl w-full overflow-hidden flex flex-col my-auto max-h-[92vh]">
                 {/* Modal Header */}
-                <div className="px-6 py-4 border-b border-[#1b2230] bg-[#11141e] flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-bg-border bg-bg-surface flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                            <Sparkles size={18} className="text-amber-300" />
+                        <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white shadow-sm">
+                            <Sparkles size={18} className="text-zinc-200" />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
                                 <h3 className="text-base font-semibold text-white">Voice Design Studio</h3>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                <span className="px-2 py-0.5 rounded-full text-2xs font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
                                     Locked Timbre
                                 </span>
                             </div>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-zinc-400">
                                 Design a signature acoustic persona, audition live, and lock permanent speaker timbre.
                             </p>
                         </div>
@@ -453,7 +453,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             }
                             setModalAudioBase64(null);
                         }}
-                        className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-[#1a202c] transition-colors"
+                        className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-zinc-800 transition-colors"
                         title="Close"
                     >
                         <X size={18} />
@@ -461,10 +461,10 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                 </div>
 
                 {/* Modal Scrollable Content */}
-                <div className="overflow-y-auto p-6 space-y-5 text-xs text-slate-300">
+                <div className="overflow-y-auto p-6 space-y-5 text-xs text-zinc-300">
                     {/* 1. Voice Name */}
                     <div>
-                        <label className="text-xs font-semibold text-slate-200 block mb-1.5">
+                        <label className="text-xs font-semibold text-zinc-200 block mb-1.5">
                             Voice Profile Name <span className="text-rose-400">*</span>
                         </label>
                         <input
@@ -472,29 +472,29 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             value={modalVoiceName}
                             onChange={(e) => setModalVoiceName(e.target.value)}
                             placeholder="e.g. Liam - Cinematic Tech Narrator"
-                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#131620] border border-[#23293a] text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
                             autoFocus
                         />
                     </div>
 
                     {/* 2. Persona Controls Grid */}
-                    <div className="p-4 rounded-xl bg-[#10131c] border border-[#1d2331] space-y-3">
+                    <div className="p-4 rounded-xl bg-bg-elevated border border-bg-border space-y-3">
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
                                 Acoustic Persona Attributes
                             </span>
-                            <span className="text-[11px] text-slate-500">
+                            <span className="text-xxs text-zinc-500">
                                 Configures MiMo acoustic conditioning
                             </span>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             <div>
-                                <label className="text-[11px] text-slate-400 block mb-1 font-medium">Language</label>
+                                <label className="text-xxs text-zinc-400 block mb-1 font-medium">Language</label>
                                 <select
                                     value={modalConfig.language}
                                     onChange={(e) => handleModalConfigChange('language', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#161a24] border border-[#23293a] text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-600"
                                 >
                                     {LANGUAGE_OPTIONS.map((opt) => (
                                         <option key={opt} value={opt}>
@@ -505,11 +505,11 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             </div>
 
                             <div>
-                                <label className="text-[11px] text-slate-400 block mb-1 font-medium">Gender</label>
+                                <label className="text-xxs text-zinc-400 block mb-1 font-medium">Gender</label>
                                 <select
                                     value={modalConfig.gender}
                                     onChange={(e) => handleModalConfigChange('gender', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#161a24] border border-[#23293a] text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-600"
                                 >
                                     {GENDER_OPTIONS.filter((o) => o !== 'All genders').map((g) => (
                                         <option key={g} value={g}>
@@ -520,11 +520,11 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             </div>
 
                             <div>
-                                <label className="text-[11px] text-slate-400 block mb-1 font-medium">Age Bracket (Life Stage)</label>
+                                <label className="text-xxs text-zinc-400 block mb-1 font-medium">Age Bracket (Life Stage)</label>
                                 <select
                                     value={modalConfig.ageGroup}
                                     onChange={(e) => handleModalConfigChange('ageGroup', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#161a24] border border-[#23293a] text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-600"
                                 >
                                     {AGE_GROUP_OPTIONS.filter((o) => o !== 'All ages').map((a) => (
                                         <option key={a} value={a}>
@@ -535,11 +535,11 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             </div>
 
                             <div>
-                                <label className="text-[11px] text-slate-400 block mb-1 font-medium">Pitch</label>
+                                <label className="text-xxs text-zinc-400 block mb-1 font-medium">Pitch</label>
                                 <select
                                     value={modalConfig.pitch}
                                     onChange={(e) => handleModalConfigChange('pitch', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#161a24] border border-[#23293a] text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-600"
                                 >
                                     {PITCH_OPTIONS.map((opt) => (
                                         <option key={opt} value={opt}>
@@ -550,11 +550,11 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             </div>
 
                             <div>
-                                <label className="text-[11px] text-slate-400 block mb-1 font-medium">Style / Emotion</label>
+                                <label className="text-xxs text-zinc-400 block mb-1 font-medium">Style / Emotion</label>
                                 <select
                                     value={modalConfig.style}
                                     onChange={(e) => handleModalConfigChange('style', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#161a24] border border-[#23293a] text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-600"
                                 >
                                     {STYLE_OPTIONS.map((opt) => (
                                         <option key={opt} value={opt}>
@@ -565,11 +565,11 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             </div>
 
                             <div>
-                                <label className="text-[11px] text-slate-400 block mb-1 font-medium">Use Case</label>
+                                <label className="text-xxs text-zinc-400 block mb-1 font-medium">Use Case</label>
                                 <select
                                     value={modalConfig.useCase}
                                     onChange={(e) => handleModalConfigChange('useCase', e.target.value)}
-                                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#161a24] border border-[#23293a] text-xs text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-600"
                                 >
                                     {USE_CASE_OPTIONS.map((opt) => (
                                         <option key={opt} value={opt}>
@@ -584,14 +584,14 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                     {/* 3. System Acoustic Instructions */}
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
-                            <label className="text-xs font-semibold text-slate-200">
+                            <label className="text-xs font-semibold text-zinc-200">
                                 System Instructions (Voice Description Prompt)
                             </label>
                             <button
                                 type="button"
                                 onClick={handleModalEnhancePrompt}
                                 disabled={modalEnhancingPrompt}
-                                className="px-2.5 py-1 rounded-md text-[11px] font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-950/40 border border-blue-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
+                                className="px-2.5 py-1 rounded-md text-xxs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                             >
                                 {modalEnhancingPrompt ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
                                 Enhance Prompt
@@ -601,29 +601,29 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             value={modalPrompt}
                             onChange={(e) => setModalPrompt(e.target.value)}
                             rows={2}
-                            className="w-full p-3 rounded-xl bg-[#11141e] border border-[#202737] text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500 leading-relaxed"
+                            className="w-full p-3 rounded-xl bg-bg-surface border border-bg-border text-xs text-zinc-200 font-mono focus:outline-none focus:border-zinc-600 leading-relaxed"
                             placeholder="e.g. Authoritative male voice, with low pitch, speaking in fluent English (US)..."
                         />
                     </div>
 
                     {/* 4. Audition & Live Preview */}
-                    <div className="p-4 rounded-xl bg-[#0e1119] border border-[#1e2433] space-y-3">
+                    <div className="p-4 rounded-xl bg-bg-elevated border border-bg-border space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold uppercase tracking-wider text-slate-200">
+                                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-200">
                                     Live Voice Audition
                                 </span>
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                <span className="px-1.5 py-0.2 rounded text-2xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
                                     Free Preview
                                 </span>
                             </div>
-                            <span className="text-[11px] text-slate-500">
+                            <span className="text-xxs text-zinc-500">
                                 Audition before saving to verify timbre
                             </span>
                         </div>
 
                         <div>
-                            <label className="text-[11px] text-slate-400 block mb-1 font-medium">
+                            <label className="text-xxs text-zinc-400 block mb-1 font-medium">
                                 Audition Script (Sample sentence to speak)
                             </label>
                             <input
@@ -632,7 +632,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                 onChange={(e) => setModalAuditionText(e.target.value)}
                                 maxLength={240}
                                 placeholder="e.g. In a world shaped by endless questions, one voice emerges to tell the story."
-                                className="w-full px-3 py-2 rounded-lg bg-[#141822] border border-[#222938] text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                                className="w-full px-3 py-2 rounded-lg bg-bg-surface border border-bg-border text-xs text-zinc-200 focus:outline-none focus:border-zinc-600"
                             />
                         </div>
 
@@ -643,7 +643,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                     type="button"
                                     onClick={handleModalAudition}
                                     disabled={modalAuditioning || !modalAuditionText.trim()}
-                                    className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-98"
+                                    className="btn-primary w-full py-3 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2"
                                 >
                                     {modalAuditioning ? (
                                         <>
@@ -652,13 +652,13 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                         </>
                                     ) : (
                                         <>
-                                            <Play size={14} className="fill-white" />
+                                            <Play size={14} className="fill-current" />
                                             <span>Audition Voice Now</span>
                                         </>
                                     )}
                                 </button>
                             ) : (
-                                <div className="p-3.5 rounded-xl bg-[#121622] border border-[#232c3f] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
+                                <div className="p-3.5 rounded-xl bg-bg-surface border border-bg-border flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
                                     {/* Hidden Audio Element */}
                                     <audio
                                         ref={modalAudioRef}
@@ -675,16 +675,16 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                         <button
                                             type="button"
                                             onClick={toggleModalAudioPlay}
-                                            className="w-10 h-10 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/25 active:scale-95 transition-all"
+                                            className="w-10 h-10 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 flex items-center justify-center flex-shrink-0 shadow-md active:scale-95 transition-all"
                                             title={modalAudioPlaying ? 'Pause' : 'Play Audition'}
                                         >
-                                            {modalAudioPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5 fill-black" />}
+                                            {modalAudioPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5 fill-zinc-950" />}
                                         </button>
 
                                         <div className="flex flex-col gap-1 min-w-[130px]">
-                                            <div className="flex items-center justify-between text-[11px] font-mono text-slate-300">
+                                            <div className="flex items-center justify-between text-xxs font-mono text-zinc-300">
                                                 <span>{formatDuration(modalAudioCurrentTime)}</span>
-                                                <span className="text-slate-500">/</span>
+                                                <span className="text-zinc-500">/</span>
                                                 <span>{formatDuration(modalAudioDuration)}</span>
                                             </div>
 
@@ -693,7 +693,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                                 {[0.4, 0.7, 1.0, 0.6, 0.9, 0.5, 0.8, 0.3, 0.6, 0.9, 0.7, 0.4].map((h, i) => (
                                                     <div
                                                         key={i}
-                                                        className={`w-1 rounded-full transition-all duration-150 ${modalAudioPlaying ? 'bg-emerald-400' : 'bg-slate-600'
+                                                        className={`w-1 rounded-full transition-all duration-150 ${modalAudioPlaying ? 'bg-white' : 'bg-zinc-700'
                                                             }`}
                                                         style={{
                                                             height: modalAudioPlaying
@@ -711,7 +711,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                         type="button"
                                         onClick={handleModalAudition}
                                         disabled={modalAuditioning}
-                                        className="px-3 py-1.5 rounded-lg bg-[#181d2a] hover:bg-[#202738] border border-[#2b3548] text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors self-end sm:self-center"
+                                        className="btn-secondary px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 self-end sm:self-center"
                                     >
                                         {modalAuditioning ? (
                                             <Loader2 size={12} className="animate-spin" />
@@ -726,8 +726,8 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                     </div>
 
                     {/* 5. Timbre Anchor Guarantee */}
-                    <div className="p-3.5 rounded-xl bg-blue-950/25 border border-blue-900/40 text-[11px] text-blue-200/90 leading-relaxed flex items-start gap-2.5">
-                        <span className="p-1 rounded-md bg-blue-500/20 text-blue-400 mt-0.5">
+                    <div className="p-3.5 rounded-xl bg-bg-surface border border-bg-border text-xxs text-zinc-300 leading-relaxed flex items-start gap-2.5">
+                        <span className="p-1 rounded-md bg-zinc-800 text-zinc-300 mt-0.5">
                             <Lock size={12} />
                         </span>
                         <div>
@@ -737,7 +737,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                 </div>
 
                 {/* Modal Sticky Footer */}
-                <div className="px-6 py-4 border-t border-[#1c2230] bg-[#090b10] flex items-center justify-between">
+                <div className="px-6 py-4 border-t border-bg-border bg-bg-surface flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs">
                         {modalAudioBase64 ? (
                             <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
@@ -745,8 +745,8 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                 Audition sample ready to lock
                             </span>
                         ) : (
-                            <span className="flex items-center gap-1.5 text-slate-500">
-                                <span className="w-2 h-2 rounded-full bg-slate-600" />
+                            <span className="flex items-center gap-1.5 text-zinc-500">
+                                <span className="w-2 h-2 rounded-full bg-zinc-600" />
                                 Audition recommended before saving
                             </span>
                         )}
@@ -764,7 +764,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                                 setModalAudioBase64(null);
                             }}
                             disabled={modalSaving}
-                            className="px-4 py-2 rounded-xl bg-[#141822] hover:bg-[#1c2230] text-slate-300 text-xs font-medium transition-colors"
+                            className="btn-secondary px-4 py-2 rounded-xl text-xs font-medium"
                         >
                             Cancel
                         </button>
@@ -773,10 +773,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             type="button"
                             onClick={handleModalSaveVoice}
                             disabled={modalSaving || !modalVoiceName.trim()}
-                            className={`px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-lg active:scale-95 disabled:opacity-50 ${modalAudioBase64
-                                ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-emerald-500/20'
-                                : 'bg-blue-600 hover:bg-blue-500 text-white'
-                                }`}
+                            className="btn-primary px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
                             title={!modalAudioBase64 ? 'Audition the voice first to generate sample' : 'Save and lock voice timbre'}
                         >
                             {modalSaving ? (

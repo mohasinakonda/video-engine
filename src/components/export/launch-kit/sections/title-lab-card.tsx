@@ -33,43 +33,38 @@ export function TitleLabCard() {
   const getHookBadge = (style: string) => {
     switch (style) {
       case 'Curiosity Gap':
-        return 'bg-purple-950/60 border-purple-800/50 text-purple-300';
       case 'Extreme Transformation':
-        return 'bg-amber-950/60 border-amber-800/50 text-amber-300';
       case 'Counter-Intuitive Truth':
-        return 'bg-rose-950/60 border-rose-800/50 text-rose-300';
       case 'High-Stakes Story':
-        return 'bg-blue-950/60 border-blue-800/50 text-blue-300';
       case 'Search / SEO Authority':
       case 'Search / SEO':
-        return 'bg-emerald-950/60 border-emerald-800/50 text-emerald-300';
       default:
-        return 'bg-zinc-800 border-zinc-700 text-zinc-300';
+        return 'bg-zinc-850 border-zinc-750 text-zinc-300';
     }
   };
 
   return (
-    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-4 shadow-xl">
+    <div className="card p-5 bg-bg-surface border-bg-border space-y-4 shadow-xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-zinc-800/80">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
             <TrendingUp size={17} />
           </div>
           <div>
             <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <span>High-CTR Title Laboratory</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              <span className="text-2xs font-mono px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
                 5 Archetypes
               </span>
             </h3>
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-xxs text-zinc-400">
               Battle-tested psychological hooks designed to avoid mobile feed truncation (&lt;60 chars)
             </p>
           </div>
         </div>
 
-        <span className="text-[10px] text-zinc-400 flex items-center gap-1 font-mono">
+        <span className="text-2xs text-zinc-400 flex items-center gap-1 font-mono">
           <Smartphone size={12} className="text-zinc-500" />
           Click to sync with feed mockup
         </span>
@@ -88,7 +83,7 @@ export function TitleLabCard() {
               onClick={() => handleSelectTitle(idx)}
               className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
                 isSelected
-                  ? 'bg-zinc-850/95 border-emerald-500/60 text-white shadow-lg ring-1 ring-emerald-500/20'
+                  ? 'bg-zinc-850/95 border-white/40 text-white shadow-lg ring-1 ring-white/10'
                   : 'bg-zinc-950/70 border-zinc-800/90 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/60'
               }`}
             >
@@ -97,7 +92,7 @@ export function TitleLabCard() {
                 <div
                   className={`w-6 h-6 rounded-full border flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 transition-colors ${
                     isSelected
-                      ? 'border-emerald-400 bg-emerald-500 text-zinc-950'
+                      ? 'border-white bg-white text-zinc-950'
                       : 'border-zinc-700 text-zinc-400 group-hover:border-zinc-600'
                   }`}
                 >
@@ -111,7 +106,7 @@ export function TitleLabCard() {
 
                   {/* Why it works / Psychology */}
                   {t.whyItWorks && (
-                    <p className="text-[11px] text-zinc-400 flex items-center gap-1.5 font-normal leading-relaxed">
+                    <p className="text-xxs text-zinc-400 flex items-center gap-1.5 font-normal leading-relaxed">
                       <Info size={11} className="text-zinc-500 flex-shrink-0" />
                       <span>{t.whyItWorks}</span>
                     </p>
@@ -120,7 +115,7 @@ export function TitleLabCard() {
                   {/* Metadata Chips: Hook Style + Mobile Length + Predicted CTR */}
                   <div className="flex flex-wrap items-center gap-2 pt-0.5">
                     <span
-                      className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded border tracking-wider ${getHookBadge(
+                      className={`text-3xs uppercase font-bold px-2 py-0.5 rounded border tracking-wider ${getHookBadge(
                         t.hookStyle
                       )}`}
                     >
@@ -128,14 +123,14 @@ export function TitleLabCard() {
                     </span>
 
                     <span
-                      className={`text-[9px] font-mono px-2 py-0.5 rounded border font-semibold ${charBadge.cls}`}
+                      className={`text-3xs font-mono px-2 py-0.5 rounded border font-semibold ${charBadge.cls}`}
                     >
                       {charBadge.text}
                     </span>
 
-                    <span className="text-[10px] text-zinc-300 font-mono flex items-center gap-1">
-                      <span className="text-amber-400 font-bold">⚡ {t.ctrScore || 95}%</span>
-                      <span className="text-zinc-500 text-[9px]">Predicted CTR</span>
+                    <span className="text-2xs text-zinc-300 font-mono flex items-center gap-1">
+                      <span className="text-zinc-200 font-bold">⚡ {t.ctrScore || 95}%</span>
+                      <span className="text-zinc-500 text-3xs">Predicted CTR</span>
                     </span>
                   </div>
                 </div>

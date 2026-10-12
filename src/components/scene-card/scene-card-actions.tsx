@@ -76,7 +76,7 @@ export default function SceneCardActions({
             className="w-5 h-5 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-all active:scale-90"
             title="Download image"
           >
-            <Download size={11} className="text-cyan-400" />
+            <Download size={11} className="text-zinc-300" />
           </a>
         )}
 
@@ -117,7 +117,7 @@ export default function SceneCardActions({
                   }}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
                 >
-                  <Upload size={12} className="text-emerald-400" />
+                  <Upload size={12} className="text-zinc-300" />
                   <span>Replace Image</span>
                 </button>
 
@@ -125,7 +125,7 @@ export default function SceneCardActions({
 
                 {/* Switch B-Roll Perspective */}
                 <div className="border-t border-zinc-800 my-1 pt-1">
-                  <span className="px-2 py-0.5 text-[9px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                  <span className="px-2 py-0.5 text-3xs font-semibold text-zinc-500 uppercase tracking-wider block">
                     Switch B-Roll Perspective
                   </span>
                   {(Object.keys(SHOT_TYPE_CONFIG) as ShotType[]).map((type) => {
@@ -140,7 +140,7 @@ export default function SceneCardActions({
                           onSetMoreMenuOpen(false);
                           onSwitchShotType(type);
                         }}
-                        className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] transition-colors ${isSelected
+                        className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-xxs transition-colors ${isSelected
                           ? 'bg-zinc-800 text-white font-medium'
                           : 'text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200'
                           }`}

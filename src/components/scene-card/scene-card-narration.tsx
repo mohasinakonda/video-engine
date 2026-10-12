@@ -33,14 +33,12 @@ export default function SceneCardNarration({
       <div className="bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-8 pb-2.5 px-3">
         {/* Optional Metadata Row (Visual Type label / Shot Type / Motion) */}
         {(visualType || shotTypeObj || motionReady) && (
-          <div className="flex items-center gap-1.5 mb-1.5 text-[9px] font-medium tracking-tight select-none">
+          <div className="flex items-center gap-1.5 mb-1.5 text-3xs font-medium tracking-tight select-none">
             {visualType && (
               <span
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border ${visualType === 'HERO_AI'
-                  ? 'bg-purple-950/80 border-purple-500/40 text-purple-300'
-                  : visualType === 'STOCK_BROLL'
-                    ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300'
-                    : 'bg-amber-950/80 border-amber-500/40 text-amber-300'
+                  ? 'bg-white/10 border-white/20 text-zinc-200'
+                  : 'bg-zinc-800/90 border-zinc-700 text-zinc-300'
                   }`}
               >
                 {visualType === 'HERO_AI' ? (
@@ -77,14 +75,14 @@ export default function SceneCardNarration({
         {/* Cinematic Script Narration Text */}
         {narrationText && (
           <div className="pointer-events-auto flex items-start gap-1 text-zinc-200 select-text">
-            <span className="text-amber-400/90 text-xs font-serif leading-none select-none mt-0.5">“</span>
+            <span className="text-zinc-500 text-xs font-serif leading-none select-none mt-0.5">“</span>
             <p
-              className="text-[11px] leading-snug font-normal text-zinc-100 line-clamp-2"
+              className="text-xxs leading-snug font-normal text-zinc-100 line-clamp-2"
               title={narrationText}
             >
               {narrationText}
             </p>
-            <span className="text-amber-400/90 text-xs font-serif leading-none select-none mt-0.5">”</span>
+            <span className="text-zinc-500 text-xs font-serif leading-none select-none mt-0.5">”</span>
           </div>
         )}
       </div>

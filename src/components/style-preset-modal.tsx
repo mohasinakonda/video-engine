@@ -379,17 +379,16 @@ export default function StylePresetModal({
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
 
       {/* Modal Dialog */}
-      <div className="relative w-full max-w-5xl h-[92vh] bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-zinc-100 animate-slide-up">
+      <div className="relative w-full max-w-5xl h-[92vh] bg-bg-surface border border-bg-border rounded-xl shadow-2xl flex flex-col overflow-hidden text-zinc-100 animate-slide-up">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-zinc-800 bg-zinc-900/70 flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-4 border-b border-bg-border bg-bg-surface flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-inner">
+            <div className="w-9 h-9 rounded-xl bg-zinc-800 border border-bg-border flex items-center justify-center text-zinc-300 shadow-inner">
               <Palette size={18} />
             </div>
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
                 Base Style Presets &amp; AI Architect
-
               </h2>
               <p className="text-xs text-zinc-400">
                 Guaranteed multi-scene visual consistency with tailored art medium anchors
@@ -398,7 +397,7 @@ export default function StylePresetModal({
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-md border border-zinc-800">
+          <div className="flex items-center gap-1.5 p-1 rounded-lg border border-bg-border bg-bg-base">
             <button
               type="button"
               onClick={() => {
@@ -406,11 +405,11 @@ export default function StylePresetModal({
                 setTestingImageUrl(null);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${activeTab === 'catalog'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-bold'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-xs font-semibold'
                 : 'text-zinc-400 hover:text-white'
                 }`}
             >
-              <Palette size={13} className="text-emerald-400" />
+              <Palette size={13} className="text-zinc-400" />
               <span>Explore Catalog</span>
             </button>
 
@@ -421,11 +420,11 @@ export default function StylePresetModal({
                 setTestingImageUrl(null);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${activeTab === 'architect'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-bold'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-xs font-semibold'
                 : 'text-zinc-400 hover:text-white'
                 }`}
             >
-              <Wand2 size={13} className="text-amber-400" />
+              <Wand2 size={13} className="text-zinc-400" />
               <span>AI Architect</span>
             </button>
 
@@ -436,11 +435,11 @@ export default function StylePresetModal({
                 setTestingImageUrl(null);
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${activeTab === 'library'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm font-bold'
+                ? 'bg-zinc-800 text-white border border-zinc-700 shadow-xs font-semibold'
                 : 'text-zinc-400 hover:text-white'
                 }`}
             >
-              <BookOpen size={13} className="text-cyan-400" />
+              <BookOpen size={13} className="text-zinc-400" />
               <span>My Library ({customPresets.length})</span>
             </button>
           </div>
@@ -454,9 +453,9 @@ export default function StylePresetModal({
         {activeTab === 'catalog' && (
           <div className="flex-1 flex overflow-hidden">
             {/* Left 65%: Filter & Sub-Styles Grid */}
-            <div className="flex-1 flex flex-col border-r border-zinc-800 overflow-hidden bg-zinc-950/60">
+            <div className="flex-1 flex flex-col border-r border-bg-border overflow-hidden bg-bg-base/60">
               {/* Family Filters & Search */}
-              <div className="p-4 border-b border-zinc-800/80 space-y-3 bg-zinc-900/30">
+              <div className="p-4 border-b border-bg-border space-y-3 bg-bg-surface/30">
                 {/* Search Bar */}
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
@@ -466,7 +465,7 @@ export default function StylePresetModal({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search sub-styles (e.g. Noir, Ghibli, Linocut, Cyberpunk, 16mm)…"
-                      className="w-full bg-zinc-900 border border-zinc-800 focus:border-emerald-500/60 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                      className="w-full bg-bg-base border border-bg-border focus:border-zinc-500 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none"
                     />
                     {searchQuery && (
                       <button
@@ -484,9 +483,9 @@ export default function StylePresetModal({
                         setUserCustomNotes(searchQuery);
                         setActiveTab('architect');
                       }}
-                      className="px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5 transition-all"
+                      className="btn-secondary px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all"
                     >
-                      <Sparkles size={12} />
+                      <Sparkles size={12} className="text-zinc-400" />
                       <span>Invent &ldquo;{searchQuery.slice(0, 15)}&rdquo;</span>
                     </button>
                   )}
@@ -503,7 +502,7 @@ export default function StylePresetModal({
                           onClick={() => setSelectedFamilyId(family.id)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${isSelected
                             ? 'bg-zinc-800 text-white border border-zinc-700 font-semibold shadow-xs'
-                            : 'bg-zinc-900/60 text-zinc-400 hover:text-white hover:bg-zinc-850 border border-transparent'
+                            : 'bg-bg-surface text-zinc-400 hover:text-white hover:bg-bg-hover border border-transparent'
                             }`}
                         >
                           <span>{family.name}</span>
@@ -528,13 +527,13 @@ export default function StylePresetModal({
                         setTestingImageUrl(null);
                         setTestError('');
                       }}
-                      className={`group cursor-pointer rounded-md border transition-all flex flex-col justify-between ${isCurrent
-                        ? 'border-emerald-500 bg-zinc-900 shadow-md ring-1 ring-emerald-500/40'
-                        : 'border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-700'
+                      className={`group cursor-pointer rounded-xl border transition-all flex flex-col justify-between ${isCurrent
+                        ? 'border-zinc-500 bg-bg-elevated shadow-md ring-1 ring-zinc-500/40'
+                        : 'border-bg-border bg-bg-surface/50 hover:bg-bg-surface hover:border-bg-border-strong'
                         }`}
                     >
                       {/* Image Thumbnail */}
-                      <div className="relative aspect-video w-full bg-zinc-950 overflow-hidden">
+                      <div className="relative aspect-video w-full bg-zinc-950 overflow-hidden rounded-t-xl">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={style.thumbnailUrl}
@@ -542,17 +541,17 @@ export default function StylePresetModal({
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80" />
-                        <span className="absolute top-2 left-2 text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10">
+                        <span className="absolute top-2 left-2 text-3xs font-mono uppercase px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10">
                           {style.tag}
                         </span>
                         {isProjectSelected && (
-                          <span className="absolute top-2 right-2 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500 text-zinc-950 flex items-center gap-1 shadow-sm">
+                          <span className="absolute top-2 right-2 text-3xs font-semibold px-2 py-0.5 rounded-full bg-white text-zinc-950 flex items-center gap-1 shadow-sm">
                             <Check size={10} strokeWidth={3} />
                             Active
                           </span>
                         )}
                         {!isProjectSelected && preferredStyleId === style.id && (
-                          <span className="absolute top-2 right-2 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-zinc-950 flex items-center gap-1 shadow-sm">
+                          <span className="absolute top-2 right-2 text-3xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-zinc-950 flex items-center gap-1 shadow-sm">
                             <Star size={10} className="fill-zinc-950 text-zinc-950" />
                             Default
                           </span>
@@ -561,10 +560,10 @@ export default function StylePresetModal({
 
                       {/* Content */}
                       <div className="p-3 space-y-1">
-                        <h4 className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">
+                        <h4 className="text-xs font-semibold text-white group-hover:text-zinc-200 transition-colors">
                           {style.name}
                         </h4>
-                        <p className="text-[10px] text-zinc-400 line-clamp-2 leading-relaxed">
+                        <p className="text-2xs text-zinc-400 line-clamp-2 leading-relaxed">
                           {style.description}
                         </p>
                       </div>
@@ -575,10 +574,10 @@ export default function StylePresetModal({
             </div>
 
             {/* Right 35%: Style Inspector & Test Preview */}
-            <div className="w-80 lg:w-96 flex-shrink-0 flex flex-col bg-zinc-900/40 overflow-hidden">
+            <div className="w-80 lg:w-96 flex-shrink-0 flex flex-col bg-bg-surface/40 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {/* Active Preview Thumbnail */}
-                <div className="rounded-xl overflow-hidden border border-zinc-800 aspect-video relative bg-zinc-950">
+                <div className="rounded-xl overflow-hidden border border-bg-border aspect-video relative bg-zinc-950">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={testingImageUrl || activeCatalogPreset.thumbnailUrl}
@@ -589,10 +588,10 @@ export default function StylePresetModal({
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
                     <div>
                       <p className="text-xs font-bold text-white">{activeCatalogPreset.name}</p>
-                      <p className="text-[10px] text-emerald-400 font-mono">{activeCatalogPreset.tag}</p>
+                      <p className="text-2xs text-zinc-400 font-mono">{activeCatalogPreset.tag}</p>
                     </div>
                     {preferredStyleId === activeCatalogPreset.id && (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-bold flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-3xs font-bold flex items-center gap-1">
                         <Star size={9} className="fill-amber-400" /> Default
                       </span>
                     )}
@@ -601,11 +600,11 @@ export default function StylePresetModal({
 
                 {/* Prompt Breakdown */}
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                    <Layers size={11} className="text-emerald-400" />
+                  <label className="text-xxs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    <Layers size={11} className="text-zinc-400" />
                     <span>Consistency Art Anchor</span>
                   </label>
-                  <p className="text-xs text-zinc-300 bg-zinc-950 border border-zinc-800 rounded-xl p-3 font-mono leading-relaxed">
+                  <p className="text-xs text-zinc-300 bg-bg-base border border-bg-border rounded-xl p-3 font-mono leading-relaxed">
                     {activeCatalogPreset.stylePrompt}
                   </p>
                 </div>
@@ -613,10 +612,10 @@ export default function StylePresetModal({
                 {/* Negative Constraints */}
                 {activeCatalogPreset.negativePrompt && (
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    <label className="text-2xs font-semibold text-zinc-500 uppercase tracking-wider">
                       Negative Exclusions (Anti-Slop)
                     </label>
-                    <p className="text-[11px] text-zinc-400 bg-zinc-950/60 border border-zinc-900 rounded-lg p-2 font-mono line-clamp-2">
+                    <p className="text-xxs text-zinc-400 bg-bg-base/60 border border-bg-border rounded-lg p-2 font-mono line-clamp-2">
                       {activeCatalogPreset.negativePrompt}
                     </p>
                   </div>
@@ -632,23 +631,23 @@ export default function StylePresetModal({
                       )
                     }
                     disabled={testing}
-                    className="w-full py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 hover:text-white border border-zinc-700 flex items-center justify-center gap-2 transition-all active:scale-98"
+                    className="btn-secondary w-full py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition-all active:scale-98"
                   >
                     {testing ? (
                       <>
-                        <Loader2 size={13} className="animate-spin text-emerald-400" />
+                        <Loader2 size={13} className="animate-spin text-zinc-300" />
                         <span>Generating Live Sample…</span>
                       </>
                     ) : (
                       <>
-                        <ImageIcon size={13} className="text-emerald-400" />
+                        <ImageIcon size={13} className="text-zinc-400" />
                         <span>Test Sample Image (Pollinations AI)</span>
                       </>
                     )}
                   </button>
 
                   {testError && (
-                    <p className="text-[11px] text-amber-400 mt-2 flex items-center gap-1">
+                    <p className="text-xxs text-amber-400 mt-2 flex items-center gap-1">
                       <AlertTriangle size={12} />
                       {testError}
                     </p>
@@ -657,13 +656,13 @@ export default function StylePresetModal({
               </div>
 
               {/* Action Footer */}
-              <div className="p-4 border-t border-zinc-800 bg-zinc-900/80 space-y-2">
+              <div className="p-4 border-t border-bg-border bg-bg-surface/80 space-y-2">
                 <button
                   onClick={() => {
                     onSelect(activeCatalogPreset);
                     onClose();
                   }}
-                  className="w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-bold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 flex items-center justify-center gap-2 transition-all shadow-lg active:scale-98"
+                  className="btn-primary w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-98"
                 >
                   <CheckCircle2 size={15} />
                   <span>Use &ldquo;{activeCatalogPreset.name}&rdquo;</span>
@@ -672,10 +671,10 @@ export default function StylePresetModal({
                 <button
                   type="button"
                   onClick={() => handleSetDefault(activeCatalogPreset.id, activeCatalogPreset.name)}
-                  className={`w-full py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`btn-secondary w-full py-2 px-3 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1.5 transition-colors ${
                     preferredStyleId === activeCatalogPreset.id
                       ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                      : 'bg-zinc-800/80 hover:bg-zinc-800 border-zinc-700/80 text-zinc-300 hover:text-white'
+                      : ''
                   }`}
                 >
                   <Star size={13} className={preferredStyleId === activeCatalogPreset.id ? 'fill-amber-400 text-amber-400' : 'text-zinc-400'} />
@@ -690,11 +689,11 @@ export default function StylePresetModal({
         {activeTab === 'architect' && (
           <div className="flex-1 flex overflow-hidden">
             {/* Left 60%: Guided Questionnaire */}
-            <div className="flex-1 flex flex-col border-r border-zinc-800 overflow-y-auto p-6 space-y-6 bg-zinc-950/60">
+            <div className="flex-1 flex flex-col border-r border-bg-border overflow-y-auto p-6 space-y-6 bg-bg-base/60">
               {/* Step 1: Video Genre */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 font-mono text-xs flex items-center justify-center font-bold">
                     1
                   </span>
                   <label className="text-xs font-semibold text-white uppercase tracking-wider">
@@ -708,8 +707,8 @@ export default function StylePresetModal({
                       type="button"
                       onClick={() => setSelectedGenre(g.label)}
                       className={`p-2.5 rounded-xl border text-left transition-all ${selectedGenre === g.label
-                        ? 'bg-zinc-800 border-emerald-500 text-white font-semibold shadow-xs ring-1 ring-emerald-500/30'
-                        : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
+                        ? 'bg-zinc-800 border-zinc-600 text-white font-semibold shadow-xs ring-1 ring-zinc-600/30'
+                        : 'bg-bg-surface border-bg-border text-zinc-400 hover:text-white hover:bg-bg-hover'
                         }`}
                     >
                       <span className="text-base mr-1.5">{g.icon}</span>
@@ -722,7 +721,7 @@ export default function StylePresetModal({
               {/* Step 2: Core Art Medium with Thumbnails */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 font-mono text-xs flex items-center justify-center font-bold">
                     2
                   </span>
                   <label className="text-xs font-semibold text-white uppercase tracking-wider">
@@ -737,19 +736,18 @@ export default function StylePresetModal({
                         key={m.id}
                         onClick={() => setSelectedMedium(m.id)}
                         className={`cursor-pointer rounded-xl border overflow-hidden transition-all ${isSelected
-                          ? 'bg-zinc-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500/30'
-                          : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700'
+                          ? 'bg-zinc-800 border-zinc-500 shadow-sm ring-1 ring-zinc-500/30'
+                          : 'bg-bg-surface border-bg-border hover:border-bg-border-strong'
                           }`}
                       >
                         <div className="aspect-[16/10] w-full bg-zinc-950 overflow-hidden relative">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={m.thumb} alt={m.label} className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                          <span className="absolute bottom-1.5 left-2 text-[10px] font-bold text-white truncate max-w-[90%]">
+                          <span className="absolute bottom-1.5 left-2 text-2xs font-bold text-white truncate max-w-[90%]">
                             {m.label}
                           </span>
                         </div>
-                        {/* <p className="p-2 text-[10px] text-zinc-400 line-clamp-2">{m.desc}</p> */}
                       </div>
                     );
                   })}
@@ -759,7 +757,7 @@ export default function StylePresetModal({
               {/* Step 3: Custom Notes */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono text-xs flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 font-mono text-xs flex items-center justify-center font-bold">
                     3
                   </span>
                   <label className="text-xs font-semibold text-white uppercase tracking-wider">
@@ -771,7 +769,7 @@ export default function StylePresetModal({
                   value={userCustomNotes}
                   onChange={(e) => setUserCustomNotes(e.target.value)}
                   placeholder="e.g. Needs to feel ancient, dusty and mysterious with golden hour light and dramatic shadows…"
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-emerald-500/60 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none resize-none font-mono"
+                  className="w-full bg-bg-base border border-bg-border focus:border-zinc-500 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none resize-none font-mono"
                 />
               </div>
 
@@ -781,7 +779,7 @@ export default function StylePresetModal({
                   type="button"
                   onClick={handleRunAiArchitect}
                   disabled={architectGenerating}
-                  className="w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-zinc-950 bg-gradient-to-r from-emerald-400 to-teal-300 hover:from-emerald-300 hover:to-teal-200 flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98"
+                  className="btn-primary w-full py-3 px-4 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-98"
                 >
                   {architectGenerating ? (
                     <>
@@ -799,17 +797,17 @@ export default function StylePresetModal({
             </div>
 
             {/* Right 40%: Generated Style Result Panel */}
-            <div className="w-80 lg:w-[420px] flex-shrink-0 flex flex-col bg-zinc-900/40 overflow-hidden">
+            <div className="w-80 lg:w-[420px] flex-shrink-0 flex flex-col bg-bg-surface/40 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
                 {!architectResult ? (
                   <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500">
-                    <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-3">
+                    <div className="w-14 h-14 rounded-2xl bg-bg-base border border-bg-border flex items-center justify-center text-zinc-500 mb-3">
                       <Sparkles size={24} />
                     </div>
                     <h4 className="text-xs font-semibold text-zinc-400 mb-1">
                       Ready to synthesize your visual style
                     </h4>
-                    <p className="text-[11px] text-zinc-500 max-w-xs leading-relaxed">
+                    <p className="text-xxs text-zinc-500 max-w-xs leading-relaxed">
                       Select your genre and preferred art medium on the left, then click &ldquo;AI Craft My Unique Visual Style&rdquo;.
                     </p>
                   </div>
@@ -817,8 +815,8 @@ export default function StylePresetModal({
                   <div className="space-y-4 animate-fade-in">
                     {/* Header */}
                     <div>
-                      <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold mb-1">
-                        <Sparkles size={13} />
+                      <div className="flex items-center gap-1.5 text-zinc-300 text-xs font-semibold mb-1">
+                        <Sparkles size={13} className="text-zinc-400" />
                         <span>AI Synthesized Visual Signature</span>
                       </div>
                       <h3 className="text-sm font-bold text-white">{architectResult.name}</h3>
@@ -829,7 +827,7 @@ export default function StylePresetModal({
 
                     {/* Editable Prompt */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                      <label className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">
                         Style Anchor Prompt (Immutable)
                       </label>
                       <textarea
@@ -838,13 +836,13 @@ export default function StylePresetModal({
                         onChange={(e) =>
                           setArchitectResult({ ...architectResult, stylePrompt: e.target.value })
                         }
-                        className="w-full bg-zinc-950 border border-zinc-800 focus:border-emerald-500/60 rounded-xl p-2.5 text-xs text-zinc-200 font-mono leading-relaxed"
+                        className="w-full bg-bg-base border border-bg-border focus:border-zinc-500 rounded-xl p-2.5 text-xs text-zinc-200 font-mono leading-relaxed"
                       />
                     </div>
 
                     {/* Negative Prompt */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      <label className="text-2xs font-semibold text-zinc-500 uppercase tracking-wider">
                         Negative Constraint Shield
                       </label>
                       <textarea
@@ -853,7 +851,7 @@ export default function StylePresetModal({
                         onChange={(e) =>
                           setArchitectResult({ ...architectResult, negativePrompt: e.target.value })
                         }
-                        className="w-full bg-zinc-950 border border-zinc-800 focus:border-emerald-500/60 rounded-xl p-2.5 text-[11px] text-zinc-400 font-mono leading-relaxed"
+                        className="w-full bg-bg-base border border-bg-border focus:border-zinc-500 rounded-xl p-2.5 text-xxs text-zinc-400 font-mono leading-relaxed"
                       />
                     </div>
 
@@ -867,23 +865,23 @@ export default function StylePresetModal({
                           )
                         }
                         disabled={testing}
-                        className="w-full py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 hover:text-white border border-zinc-700 flex items-center justify-center gap-2 transition-all"
+                        className="btn-secondary w-full py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition-all"
                       >
                         {testing ? (
                           <>
-                            <Loader2 size={13} className="animate-spin text-emerald-400" />
+                            <Loader2 size={13} className="animate-spin text-zinc-300" />
                             <span>Generating Live Sample…</span>
                           </>
                         ) : (
                           <>
-                            <ImageIcon size={13} className="text-emerald-400" />
+                            <ImageIcon size={13} className="text-zinc-400" />
                             <span>Test Live Sample Image</span>
                           </>
                         )}
                       </button>
 
                       {testingImageUrl && (
-                        <div className="rounded-xl overflow-hidden border border-zinc-800 aspect-video relative animate-fade-in bg-zinc-950">
+                        <div className="rounded-xl overflow-hidden border border-bg-border aspect-video relative animate-fade-in bg-zinc-950">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={testingImageUrl}
@@ -899,10 +897,10 @@ export default function StylePresetModal({
 
               {/* Action Footer */}
               {architectResult && (
-                <div className="p-4 border-t border-zinc-800 bg-zinc-900/80 space-y-2">
+                <div className="p-4 border-t border-bg-border bg-bg-surface/80 space-y-2">
                   <button
                     onClick={() => handleApplyArchitectResult(true, false)}
-                    className="w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-bold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 flex items-center justify-center gap-2 transition-all shadow-lg active:scale-98"
+                    className="btn-primary w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-98"
                   >
                     <CheckCircle2 size={15} />
                     <span>Apply Style &amp; Save to Library</span>
@@ -910,7 +908,7 @@ export default function StylePresetModal({
                   <button
                     type="button"
                     onClick={() => handleApplyArchitectResult(true, true)}
-                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-amber-300 border border-zinc-700 flex items-center justify-center gap-1.5 transition-colors"
+                    className="btn-secondary w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Star size={13} className="fill-amber-400 text-amber-400" />
                     <span>Apply &amp; Set as My Default</span>
@@ -925,8 +923,8 @@ export default function StylePresetModal({
         {activeTab === 'library' && (
           <div className="flex-1 flex overflow-hidden">
             {/* Left Column: Preset List */}
-            <div className="w-80 flex-shrink-0 border-r border-zinc-800 flex flex-col overflow-hidden bg-zinc-950/60">
-              <div className="p-3 border-b border-zinc-800/80 flex items-center justify-between">
+            <div className="w-80 flex-shrink-0 border-r border-bg-border flex flex-col overflow-hidden bg-bg-base/60">
+              <div className="p-3 border-b border-bg-border flex items-center justify-between">
                 <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
                   Saved Custom Styles
                 </span>
@@ -935,7 +933,7 @@ export default function StylePresetModal({
                     setEditingPreset(newEmptyPreset());
                     setIsCreatingManual(true);
                   }}
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 flex items-center gap-1 transition-colors"
+                  className="btn-secondary px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <Plus size={12} />
                   <span>New</span>
@@ -946,7 +944,7 @@ export default function StylePresetModal({
                 {customPresets.length === 0 ? (
                   <div className="text-center py-8 text-zinc-500 px-4">
                     <p className="text-xs">No custom styles saved yet.</p>
-                    <p className="text-[10px] text-zinc-600 mt-1">
+                    <p className="text-2xs text-zinc-600 mt-1">
                       Use the &ldquo;AI Architect&rdquo; tab to craft your first unique style.
                     </p>
                   </div>
@@ -963,19 +961,19 @@ export default function StylePresetModal({
                         }}
                         className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${isSelected
                           ? 'bg-zinc-800 border-zinc-600 text-white font-semibold'
-                          : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-850'
+                          : 'bg-bg-surface border-bg-border text-zinc-400 hover:text-white hover:bg-bg-hover'
                           }`}
                       >
                         <div className="min-w-0 pr-2 flex-1">
                           <div className="flex items-center gap-1.5">
                             <p className="text-xs font-medium truncate">{preset.name}</p>
                             {(preferredStyleId === preset.id || preset.isDefault) && (
-                              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-0.5 flex-shrink-0">
+                              <span className="text-3xs font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-0.5 flex-shrink-0">
                                 <Star size={8} className="fill-amber-400" /> Default
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-zinc-500 truncate">{preset.stylePrompt}</p>
+                          <p className="text-2xs text-zinc-500 truncate">{preset.stylePrompt}</p>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <button
@@ -997,7 +995,7 @@ export default function StylePresetModal({
                               e.stopPropagation();
                               handleDeleteCustom(preset.id);
                             }}
-                            className="text-zinc-500 hover:text-red-400 p-1 transition-colors"
+                            className="text-zinc-500 hover:text-rose-400 p-1 transition-colors"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1010,7 +1008,7 @@ export default function StylePresetModal({
             </div>
 
             {/* Right Column: Editor */}
-            <div className="flex-1 overflow-y-auto p-6 bg-zinc-900/30">
+            <div className="flex-1 overflow-y-auto p-6 bg-bg-surface/30">
               {!editingPreset ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-zinc-500">
                   <Palette size={28} className="mb-2 text-zinc-600" />
@@ -1023,7 +1021,7 @@ export default function StylePresetModal({
                   </h3>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    <label className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">
                       Style Name
                     </label>
                     <input
@@ -1031,12 +1029,12 @@ export default function StylePresetModal({
                       value={editingPreset.name}
                       onChange={(e) => setEditingPreset({ ...editingPreset, name: e.target.value })}
                       placeholder="e.g. 1970s Warm Kodachrome"
-                      className="w-full bg-zinc-950 border border-zinc-800 focus:border-emerald-500/60 rounded-xl p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none"
+                      className="w-full bg-bg-base border border-bg-border focus:border-zinc-500 rounded-xl p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    <label className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">
                       Style Prompt Anchor
                     </label>
                     <textarea
@@ -1046,12 +1044,12 @@ export default function StylePresetModal({
                         setEditingPreset({ ...editingPreset, stylePrompt: e.target.value })
                       }
                       placeholder="e.g. 35mm film photography, golden hour lighting, muted warm colors…"
-                      className="w-full bg-zinc-950 border border-zinc-800 focus:border-emerald-500/60 rounded-xl p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none resize-none font-mono"
+                      className="w-full bg-bg-base border border-bg-border focus:border-zinc-500 rounded-xl p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none resize-none font-mono"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    <label className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">
                       Negative Exclusions
                     </label>
                     <textarea
@@ -1061,13 +1059,13 @@ export default function StylePresetModal({
                         setEditingPreset({ ...editingPreset, negativePrompt: e.target.value })
                       }
                       placeholder="e.g. plastic 3D, CGI, blurry, text, watermark"
-                      className="w-full bg-zinc-950 border border-zinc-800 focus:border-emerald-500/60 rounded-xl p-2.5 text-[11px] text-zinc-400 placeholder-zinc-500 focus:outline-none resize-none font-mono"
+                      className="w-full bg-bg-base border border-bg-border focus:border-zinc-500 rounded-xl p-2.5 text-xxs text-zinc-400 placeholder-zinc-500 focus:outline-none resize-none font-mono"
                     />
                   </div>
 
                   {/* Reference Thumbnail Image Upload */}
                   <div className="space-y-1.5 pt-1">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    <label className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">
                       Reference Thumbnail Image
                     </label>
                     <input
@@ -1079,7 +1077,7 @@ export default function StylePresetModal({
                     />
 
                     {editingPreset.thumbnailUrl ? (
-                      <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-zinc-800 group">
+                      <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-zinc-950 border border-bg-border group">
                         <img
                           src={editingPreset.thumbnailUrl}
                           alt="Thumbnail Preview"
@@ -1089,14 +1087,14 @@ export default function StylePresetModal({
                           <button
                             type="button"
                             onClick={() => libraryFileInputRef.current?.click()}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-[11px] font-semibold flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 text-xxs font-semibold flex items-center gap-1"
                           >
                             <Upload size={12} /> Replace
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingPreset({ ...editingPreset, thumbnailUrl: undefined })}
-                            className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-semibold flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xxs font-semibold flex items-center gap-1"
                           >
                             <Trash2 size={12} /> Remove
                           </button>
@@ -1105,9 +1103,9 @@ export default function StylePresetModal({
                     ) : (
                       <div
                         onClick={() => libraryFileInputRef.current?.click()}
-                        className="border border-dashed border-zinc-800 hover:border-emerald-500/50 rounded-xl p-3 text-center cursor-pointer transition-colors bg-zinc-950/60 flex items-center justify-center gap-2"
+                        className="border border-dashed border-bg-border hover:border-zinc-500 rounded-xl p-3 text-center cursor-pointer transition-colors bg-bg-base/60 flex items-center justify-center gap-2"
                       >
-                        <Upload size={14} className="text-emerald-400" />
+                        <Upload size={14} className="text-zinc-400" />
                         <span className="text-xs text-zinc-400 hover:text-zinc-200">
                           {libraryUploading ? 'Uploading...' : 'Click to upload style reference image'}
                         </span>
@@ -1119,7 +1117,7 @@ export default function StylePresetModal({
                     <button
                       onClick={handleSaveManualPreset}
                       disabled={!editingPreset.name.trim() || !editingPreset.stylePrompt.trim()}
-                      className="py-2 px-4 rounded-xl text-xs font-semibold bg-emerald-400 text-zinc-950 hover:bg-emerald-300 transition-colors"
+                      className="btn-primary py-2 px-4 text-xs font-semibold"
                     >
                       Save Preset
                     </button>
@@ -1135,7 +1133,7 @@ export default function StylePresetModal({
                         onSelect(editingPreset);
                         onClose();
                       }}
-                      className="py-2 px-4 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-white transition-colors"
+                      className="btn-secondary py-2 px-4 text-xs font-semibold"
                     >
                       Save &amp; Use For This Video
                     </button>
@@ -1148,7 +1146,7 @@ export default function StylePresetModal({
 
         {/* Floating Toast Notification */}
         {modalToast && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-900 border border-emerald-500/50 text-emerald-300 text-xs font-semibold shadow-2xl animate-fade-in">
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-900 border border-bg-border text-zinc-200 text-xs font-medium shadow-2xl animate-fade-in">
             <CheckCircle2 size={14} className="text-emerald-400" />
             <span>{modalToast}</span>
           </div>

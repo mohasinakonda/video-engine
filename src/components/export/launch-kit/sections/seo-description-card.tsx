@@ -11,10 +11,10 @@ export function SeoDescriptionCard() {
   if (!packaging?.description) return null;
 
   return (
-    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-3.5 shadow-xl">
+    <div className="card p-5 bg-bg-surface border-bg-border space-y-3.5 shadow-xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText size={15} className="text-amber-400" />
+          <FileText size={15} className="text-zinc-300" />
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">
             Complete YouTube SEO Description
           </h3>

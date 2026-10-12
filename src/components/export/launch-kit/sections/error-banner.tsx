@@ -15,14 +15,14 @@ export function ErrorBanner() {
         <AlertTriangle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
         <div>
           <p className="font-semibold text-white">AI Generation Encountered an Issue</p>
-          <p className="text-[11px] text-red-300 mt-0.5">{errorMessage}</p>
+          <p className="text-xxs text-red-300 mt-0.5">{errorMessage}</p>
         </div>
       </div>
       <button
         type="button"
         onClick={handleGeneratePackaging}
         disabled={isGenerating}
-        className="btn-secondary text-[11px] py-1 px-3 flex items-center gap-1.5 flex-shrink-0"
+        className="btn-secondary text-xxs py-1 px-3 flex items-center gap-1.5 flex-shrink-0"
       >
         <RotateCcw size={12} />
         <span>Retry</span>

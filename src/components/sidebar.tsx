@@ -85,7 +85,7 @@ export default function Sidebar() {
           </div>
           <div>
             <p className="text-sm font-semibold text-zinc-100 leading-tight">AI Video</p>
-            <p className="text-[10px] text-zinc-400 leading-tight">Studio Web</p>
+            <p className="text-2xs text-zinc-400 leading-tight">Studio Web</p>
           </div>
         </div>
       </div>
@@ -202,18 +202,18 @@ export default function Sidebar() {
           {isLoading ? (
             <div className="flex items-center gap-2 py-1">
               <div className="w-3 h-3 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
-              <span className="text-[11px] text-zinc-400">Loading balance...</span>
+              <span className="text-xxs text-zinc-400">Loading balance...</span>
             </div>
           ) : isLoggedIn && sub ? (
             <>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <Zap size={14} className="text-amber-400 fill-amber-400" />
-                  <span className="text-[11px] font-bold text-white">
+                  <span className="text-xxs font-bold text-white">
                     {sub.creditsRemaining} Credits
                   </span>
                 </div>
-                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60">
+                <span className="text-3xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60">
                   {sub.tier}
                 </span>
               </div>
@@ -229,7 +229,7 @@ export default function Sidebar() {
 
               <Link
                 href="/plan"
-                className="flex items-center justify-between w-full pt-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="flex items-center justify-between w-full pt-1 text-xxs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 <span>Top-up / Upgrade</span>
                 <ChevronRight size={12} />
@@ -238,14 +238,14 @@ export default function Sidebar() {
           ) : (
             <div className="space-y-2 py-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-zinc-400">Guest</span>
-                <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                <span className="text-xxs font-medium text-zinc-400">Guest</span>
+                <span className="text-3xs uppercase font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
                   0 Credits
                 </span>
               </div>
               <Link
                 href="/dashboard"
-                className="flex items-center justify-between w-full text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="flex items-center justify-between w-full text-xxs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 <span>Sign in</span>
                 <ChevronRight size={12} />
@@ -268,12 +268,12 @@ export default function Sidebar() {
                     {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                   </p>
                   {sub?.tier && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60 shrink-0">
+                    <span className="text-3xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/60 shrink-0">
                       {sub.tier}
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-zinc-400 truncate mt-0.5">{user.email}</p>
+                <p className="text-2xs text-zinc-400 truncate mt-0.5">{user.email}</p>
               </div>
 
               {/* Menu Links */}
@@ -370,7 +370,7 @@ export default function Sidebar() {
                   className="w-7 h-7 rounded-full object-cover border border-zinc-700/80 group-hover:border-zinc-500 transition-colors shrink-0"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 border border-cyan-500/30 text-cyan-300 flex items-center justify-center text-xs font-bold font-mono shrink-0">
+                <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200 flex items-center justify-center text-xs font-bold font-mono shrink-0">
                   {(user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()}
                 </div>
               )}
@@ -378,7 +378,7 @@ export default function Sidebar() {
                 <p className="text-xs font-medium text-zinc-200 truncate group-hover:text-white transition-colors leading-tight">
                   {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                 </p>
-                <p className="text-[10px] text-zinc-500 truncate leading-tight mt-0.5">
+                <p className="text-2xs text-zinc-500 truncate leading-tight mt-0.5">
                   {user.email}
                 </p>
               </div>

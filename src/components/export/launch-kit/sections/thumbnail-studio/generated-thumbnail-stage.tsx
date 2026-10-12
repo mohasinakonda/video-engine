@@ -94,11 +94,11 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
           <span className="text-xs font-bold text-white">
             Idea #{activeIndex + 1}: {concept.conceptName}
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1">
+          <span className="text-2xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1">
             <Check size={11} /> High-Res Ready
           </span>
           {concept.canvaDesignId && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold flex items-center gap-1">
+            <span className="text-2xs px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold flex items-center gap-1">
               <Layers size={10} /> Canva Linked
             </span>
           )}
@@ -130,7 +130,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
 
 
         {/* Top-right watermark badge */}
-        <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/80 backdrop-blur-md text-[10px] font-mono text-zinc-300 border border-white/10 pointer-events-none">
+        <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/80 backdrop-blur-md text-2xs font-mono text-zinc-300 border border-white/10 pointer-events-none">
           {project.aspectRatio || '16:9'} · {stylePreset?.name || 'Cinematic'}
         </div>
       </div>
@@ -144,7 +144,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
             className="px-3.5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-zinc-700"
             title="Flip back to the prompt box to edit or re-generate"
           >
-            <Edit3 size={13} className="text-purple-400" />
+            <Edit3 size={13} className="text-zinc-300" />
             <span>Edit Prompt</span>
           </button>
 
@@ -217,7 +217,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
           <button
             type="button"
             onClick={() => handleDownloadThumbnail(concept)}
-            className="px-3.5 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-purple-600/20 transition-all"
+            className="btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5"
             title="Download Thumbnail HD 1280x720"
           >
             <Download size={13} />

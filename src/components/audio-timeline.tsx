@@ -36,7 +36,7 @@ const STATUS_CFG: Record<ChunkStatus, { label: string; className: string; icon: 
   PENDING: {
     label: 'Queued',
     className: 'badge-pending',
-    icon: <span className="w-1.5 h-1.5 rounded-full bg-slate-500 inline-block" />,
+    icon: <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 inline-block" />,
   },
   PROCESSING: {
     label: 'Generating',
@@ -121,7 +121,7 @@ function AudioPlayer({ audioUrl }: { audioUrl: string }) {
         </div>
       </div>
 
-      <span className="text-[10px] font-mono text-slate-500 flex-shrink-0 tabular-nums">
+      <span className="text-2xs font-mono text-zinc-500 flex-shrink-0 tabular-nums">
         {formatTime(current)} / {formatTime(duration)}
       </span>
     </div>
@@ -144,14 +144,14 @@ function ChunkCard({ chunk, onRetry, onTextChange, editingEnabled }: ChunkCardPr
   return (
     <div className={`card transition-colors duration-150 animate-slide-up
                      ${chunk.status === 'PROCESSING' ? 'border-zinc-500' : ''}
-                     ${chunk.status === 'COMPLETED' ? 'border-zinc-800' : ''}
-                     ${chunk.status === 'FAILED' ? 'border-red-900/40' : ''}`}>
+                     ${chunk.status === 'COMPLETED' ? 'border-bg-border' : ''}
+                     ${chunk.status === 'FAILED' ? 'border-rose-900/40' : ''}`}>
       {/* Chunk Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           {/* Index badge */}
           <span className="w-7 h-7 rounded-lg bg-bg-border flex items-center justify-center
-                           text-xs font-bold text-slate-300 flex-shrink-0">
+                           text-xs font-bold text-zinc-300 flex-shrink-0">
             {chunk.index + 1}
           </span>
 
@@ -165,13 +165,13 @@ function ChunkCard({ chunk, onRetry, onTextChange, editingEnabled }: ChunkCardPr
                 {cfg.label}
               </span>
               {chunk.status === 'COMPLETED' && chunk.durationMs > 0 && (
-                <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                <span className="flex items-center gap-1 text-2xs text-zinc-500">
                   <Clock size={9} />
                   {formatMs(chunk.durationMs)}
                 </span>
               )}
               {chunk.retryCount && chunk.retryCount > 0 && (
-                <span className="text-[10px] text-amber-500">
+                <span className="text-2xs text-amber-500">
                   retry #{chunk.retryCount}
                 </span>
               )}
@@ -207,14 +207,14 @@ function ChunkCard({ chunk, onRetry, onTextChange, editingEnabled }: ChunkCardPr
 
       {/* Error message */}
       {chunk.status === 'FAILED' && chunk.error && (
-        <p className="text-[11px] text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2 mb-2 animate-fade-in">
+        <p className="text-xxs text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-lg px-3 py-2 mb-2 animate-fade-in">
           {chunk.error}
         </p>
       )}
 
       {/* In-progress error/status message */}
       {chunk.status === 'PROCESSING' && chunk.error && (
-        <p className="text-[11px] text-amber-400 mb-2 animate-fade-in">{chunk.error}</p>
+        <p className="text-xxs text-amber-400 mb-2 animate-fade-in">{chunk.error}</p>
       )}
 
       {/* Audio Player */}
@@ -226,8 +226,8 @@ function ChunkCard({ chunk, onRetry, onTextChange, editingEnabled }: ChunkCardPr
       {expanded && (
         <div className="mt-3 animate-fade-in">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-slate-600 uppercase tracking-wide">Script Text</span>
-            <span className="text-[10px] text-slate-600">
+            <span className="text-2xs text-zinc-500 uppercase tracking-wide">Script Text</span>
+            <span className="text-2xs text-zinc-500">
               {chunk.text.trim().split(/\s+/).length} words
             </span>
           </div>
@@ -239,7 +239,7 @@ function ChunkCard({ chunk, onRetry, onTextChange, editingEnabled }: ChunkCardPr
               rows={5}
             />
           ) : (
-            <div className="bg-bg-base/50 border border-bg-border rounded-lg p-3 text-xs text-slate-400 leading-relaxed font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+            <div className="bg-bg-base/50 border border-bg-border rounded-lg p-3 text-xs text-zinc-400 leading-relaxed font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
               {chunk.text}
             </div>
           )}

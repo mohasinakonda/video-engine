@@ -50,13 +50,13 @@ export default function VoiceBrowser({
       <div className="relative mb-3">
         <Search
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
         />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search voices…"
-          className="w-full bg-bg-surface border border-bg-border rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/60"
+          className="w-full bg-bg-surface border border-bg-border rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500"
         />
       </div>
 
@@ -68,8 +68,8 @@ export default function VoiceBrowser({
             onClick={() => setFilter(f)}
             className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
               filter === f
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                : 'bg-bg-surface text-slate-400 border border-bg-border hover:text-slate-200'
+                ? 'bg-zinc-800 text-zinc-100 border border-zinc-600'
+                : 'bg-bg-surface text-zinc-400 border border-bg-border hover:text-zinc-200'
             }`}
           >
             {FILTER_LABELS[f]}
@@ -80,7 +80,7 @@ export default function VoiceBrowser({
       {/* Voice list */}
       <div className="flex-1 overflow-y-auto min-h-0 -mx-1 px-1 space-y-1.5">
         {filtered.length === 0 && (
-          <p className="text-xs text-slate-500 text-center py-8">
+          <p className="text-xs text-zinc-500 text-center py-8">
             No voices match your search.
           </p>
         )}
@@ -93,8 +93,8 @@ export default function VoiceBrowser({
               onClick={() => onSelect(voice)}
               className={`group flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-colors ${
                 isSelected
-                  ? 'bg-indigo-500/10 border-indigo-500/50'
-                  : 'bg-bg-surface/40 border-bg-border hover:border-slate-600'
+                  ? 'bg-zinc-800/80 border-white/40 ring-1 ring-white/10'
+                  : 'bg-bg-surface/40 border-bg-border hover:border-zinc-700'
               }`}
             >
               <button
@@ -105,8 +105,8 @@ export default function VoiceBrowser({
                 aria-label={isPreviewing ? `Stop preview ${voice.name}` : `Preview ${voice.name}`}
                 className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
                   isPreviewing
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-bg-surface border border-bg-border text-slate-300 hover:bg-indigo-500/20 hover:text-white'
+                    ? 'bg-white text-zinc-950'
+                    : 'bg-bg-surface border border-bg-border text-zinc-300 hover:bg-zinc-850 hover:text-white'
                 }`}
               >
                 {isPreviewing ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
@@ -115,12 +115,12 @@ export default function VoiceBrowser({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-medium text-white truncate">{voice.name}</span>
-                  {isSelected && <Check size={13} className="text-indigo-400 flex-shrink-0" />}
+                  {isSelected && <Check size={13} className="text-white flex-shrink-0" />}
                 </div>
-                <p className="text-xs text-slate-500 truncate">{voice.description}</p>
+                <p className="text-xs text-zinc-400 truncate">{voice.description}</p>
               </div>
 
-              <span className="flex-shrink-0 text-[10px] uppercase tracking-wide text-slate-600 border border-bg-border rounded px-1.5 py-0.5">
+              <span className="flex-shrink-0 text-2xs uppercase tracking-wide text-zinc-400 border border-bg-border rounded px-1.5 py-0.5">
                 {voice.language.slice(0, 2).toUpperCase()}
               </span>
             </div>

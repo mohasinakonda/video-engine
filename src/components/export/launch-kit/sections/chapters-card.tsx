@@ -13,10 +13,10 @@ export function ChaptersCard() {
   const chaptersText = packaging.chapters.map((c) => `${c.time} - ${c.title}`).join('\n');
 
   return (
-    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-3.5 shadow-xl">
+    <div className="card p-5 bg-bg-surface border-bg-border space-y-3.5 shadow-xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Clock size={15} className="text-purple-400" />
+          <Clock size={15} className="text-zinc-300" />
           <h3 className="text-xs font-bold text-white uppercase tracking-wider">
             Automated Chapters &amp; Timestamps
           </h3>
@@ -39,7 +39,7 @@ export function ChaptersCard() {
             className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between gap-2"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono text-[11px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
+              <span className="font-mono text-xxs font-bold text-zinc-300 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded">
                 {ch.time}
               </span>
               <span className="text-xs text-zinc-200 truncate">{ch.title}</span>

@@ -46,7 +46,7 @@ export default function VoiceHistory({
 
   return (
     <div className="mt-6">
-      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+      <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">
         Recent generations
       </h3>
       <div className="space-y-2">
@@ -62,16 +62,16 @@ export default function VoiceHistory({
                 aria-label={isPlaying ? 'Pause' : 'Play'}
                 className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
                   isPlaying
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-bg-surface border border-bg-border text-slate-300 hover:bg-indigo-500/20 hover:text-white'
+                    ? 'bg-white text-zinc-950'
+                    : 'bg-bg-surface border border-bg-border text-zinc-300 hover:bg-zinc-850 hover:text-white'
                 }`}
               >
                 {isPlaying ? <Pause size={13} /> : <Play size={13} className="ml-0.5" />}
               </button>
 
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-200 truncate">{entry.text}</p>
-                <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                <p className="text-sm text-zinc-200 truncate">{entry.text}</p>
+                <p className="text-xs text-zinc-400 flex items-center gap-2 mt-0.5">
                   <span>{entry.voiceName}</span>
                   <span>·</span>
                   <span>{entry.engineName}</span>
@@ -88,14 +88,14 @@ export default function VoiceHistory({
               <button
                 onClick={() => onDownload(entry)}
                 aria-label="Download"
-                className="flex-shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-bg-surface transition-colors"
+                className="flex-shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-bg-surface transition-colors"
               >
                 <Download size={14} />
               </button>
               <button
                 onClick={() => onDelete(entry.id)}
                 aria-label="Delete"
-                className="flex-shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                className="flex-shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
               >
                 <Trash2 size={14} />
               </button>

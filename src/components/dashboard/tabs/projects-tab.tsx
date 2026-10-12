@@ -73,15 +73,15 @@ export default function ProjectsTab({
             placeholder="Search projects..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600"
+            className="w-full pl-9 pr-3 py-1.5 text-xs bg-bg-surface border border-bg-border rounded-lg text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
           />
         </div>
       </div>
 
       {/* Empty State */}
       {filteredProjects.length === 0 ? (
-        <div className="p-12 rounded-3xl bg-zinc-900/60 border border-zinc-800 text-center space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-zinc-800 mx-auto flex items-center justify-center text-zinc-400">
+        <div className="p-12 rounded-2xl bg-bg-surface border border-bg-border text-center space-y-4">
+          <div className="w-14 h-14 rounded-xl bg-zinc-800 mx-auto flex items-center justify-center text-zinc-400">
             <Film size={26} />
           </div>
           <div>
@@ -94,7 +94,7 @@ export default function ProjectsTab({
           </div>
           <Link
             href="/project/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-zinc-950 font-bold text-xs hover:bg-zinc-200 transition-colors shadow-sm"
+            className="btn-primary text-xs"
           >
             <PlusCircle size={15} />
             Start First Video Project
@@ -116,7 +116,7 @@ export default function ProjectsTab({
             return (
               <div
                 key={p.projectId}
-                className="rounded-2xl bg-zinc-900 border border-zinc-800/80 overflow-hidden hover:border-zinc-700 transition-all flex flex-col group shadow-sm"
+                className="rounded-xl bg-bg-surface border border-bg-border overflow-hidden hover:border-bg-border-strong transition-all flex flex-col group shadow-sm"
               >
                 {/* Thumbnail Container */}
                 <div className="relative aspect-video bg-zinc-950 overflow-hidden flex items-center justify-center">
@@ -130,17 +130,17 @@ export default function ProjectsTab({
                   ) : (
                     <div className="flex flex-col items-center gap-1.5 text-zinc-600">
                       <Film size={24} />
-                      <span className="text-[10px]">No Thumbnail</span>
+                      <span className="text-2xs">No Thumbnail</span>
                     </div>
                   )}
 
                   {/* Top Badges */}
                   <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-semibold text-zinc-300 border border-white/10">
+                    <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-2xs font-semibold text-zinc-300 border border-white/10">
                       {p.exportSettings?.aspectRatio || '16:9'}
                     </span>
                     {p.totalDurationMs && p.totalDurationMs > 0 ? (
-                      <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-semibold text-zinc-300 border border-white/10">
+                      <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-2xs font-semibold text-zinc-300 border border-white/10">
                         {formatDuration(p.totalDurationMs)}
                       </span>
                     ) : null}
@@ -159,21 +159,21 @@ export default function ProjectsTab({
                   {/* Status Overlay Badge */}
                   <div className="absolute bottom-2.5 left-2.5">
                     {isFullyReady ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/90 text-zinc-950 shadow-md">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-2xs font-bold bg-emerald-500/90 text-zinc-950 shadow-md">
                         <CheckCircle2 size={11} />
                         Ready to Export ({readyScenes}/{totalScenes})
                       </span>
                     ) : isPartiallyReady ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-400 text-zinc-950 shadow-md animate-pulse">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-2xs font-bold bg-amber-400 text-zinc-950 shadow-md animate-pulse">
                         <Sparkles size={11} />
                         Partial ({readyScenes}/{totalScenes} Ready)
                       </span>
                     ) : totalScenes > 0 ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-2xs font-semibold bg-zinc-800 text-zinc-300 border border-zinc-700">
                         {totalScenes} Scenes Queued
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-2xs font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
                         Script Draft
                       </span>
                     )}
@@ -183,17 +183,17 @@ export default function ProjectsTab({
                 {/* Card Body */}
                 <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                   <div>
-                    <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                    <div className="flex items-center justify-between text-xxs text-zinc-500">
                       <span>{timeAgo(p.updatedAt)}</span>
                       {totalScenes > 0 && (
                         <span className="font-mono text-zinc-400">{percentReady}% Complete</span>
                       )}
                     </div>
-                    <h3 className="font-bold text-sm text-white line-clamp-1 mt-1 group-hover:text-amber-300 transition-colors">
+                    <h3 className="font-bold text-sm text-white line-clamp-1 mt-1 group-hover:text-zinc-200 transition-colors">
                       {p.title || 'Untitled Video Project'}
                     </h3>
                     {p.rawScript && (
-                      <p className="text-[11px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
+                      <p className="text-xxs text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
                         {p.rawScript}
                       </p>
                     )}
@@ -211,7 +211,7 @@ export default function ProjectsTab({
                         />
                       </div>
                       {isPartiallyReady && (
-                        <p className="text-[10px] text-amber-400/90 font-medium">
+                        <p className="text-2xs text-amber-400/90 font-medium">
                           ⚡ {remainingScenes} scenes waiting for generation
                         </p>
                       )}
@@ -219,12 +219,12 @@ export default function ProjectsTab({
                   )}
 
                   {/* Action Buttons */}
-                  <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-2">
+                  <div className="pt-2 border-t border-bg-border flex items-center gap-2">
                     {isPartiallyReady ? (
                       /* Resilient Midway Resume Button */
                       <Link
                         href={`/project/${p.projectId}/storyboard?autoGenerate=true`}
-                        className="flex-1 py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                        className="flex-1 py-2 px-3 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                       >
                         <Zap size={14} className="fill-zinc-950" />
                         <span>Resume Generation ({remainingScenes} left)</span>
@@ -233,20 +233,20 @@ export default function ProjectsTab({
                       <>
                         <Link
                           href={`/project/${p.projectId}/storyboard`}
-                          className="flex-1 py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs text-center transition-colors"
+                          className="flex-1 py-2 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs text-center transition-colors"
                         >
                           View Scenes
                         </Link>
                         <Link
                           href={`/export?projectId=${p.projectId}`}
-                          className="flex-1 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs flex items-center justify-center gap-1 transition-colors"
+                          className="flex-1 py-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-xs flex items-center justify-center gap-1 transition-colors"
                         >
                           <Download size={13} />
                           <span>Export MP4</span>
                         </Link>
                         <Link
                           href={`/youtube-kit-studio?id=${p.projectId}`}
-                          className="py-2 px-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 font-bold text-xs flex items-center justify-center gap-1 transition-colors"
+                          className="py-2 px-2.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 font-bold text-xs flex items-center justify-center gap-1 transition-colors"
                           title="Open YouTube Kit Studio"
                         >
                           <Flame size={13} />
@@ -255,7 +255,7 @@ export default function ProjectsTab({
                     ) : (
                       <Link
                         href={`/project/new?id=${p.projectId}`}
-                        className="w-full py-2 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs text-center transition-colors"
+                        className="w-full py-2 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs text-center transition-colors"
                       >
                         Open Studio & Storyboard &rarr;
                       </Link>

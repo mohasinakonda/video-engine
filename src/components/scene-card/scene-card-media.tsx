@@ -100,7 +100,7 @@ export default function SceneCardMedia({
                   e.stopPropagation();
                   onRegenerate();
                 }}
-                className="mt-1 px-3 py-1.5 rounded-lg bg-white text-zinc-950 text-xs font-semibold hover:bg-zinc-200 transition-colors shadow-sm flex items-center gap-1.5"
+                className="mt-1 btn-primary btn-xs flex items-center gap-1.5"
               >
                 <RefreshCw size={12} />
                 <span>Regenerate</span>
@@ -110,31 +110,31 @@ export default function SceneCardMedia({
             <div className="flex flex-col items-center gap-1.5 px-3">
               {scene.visualType === 'STOCK_BROLL' ? (
                 <>
-                  <div className="w-9 h-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                    <Video size={18} className="text-emerald-400" />
+                  <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                    <Video size={18} className="text-zinc-300" />
                   </div>
-                  <p className="text-xs font-semibold text-emerald-300">Stock B-Roll Slot</p>
-                  <p className="text-[10px] text-zinc-400 line-clamp-2 max-w-[210px] text-center">
+                  <p className="text-xs font-semibold text-zinc-300">Stock B-Roll Slot</p>
+                  <p className="text-2xs text-zinc-400 line-clamp-2 max-w-[210px] text-center">
                     {scene.bRollFocus || 'Real footage overlay cue'}
                   </p>
                 </>
               ) : scene.visualType === 'MOTION_GRAPHIC' ? (
                 <>
-                  <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-                    <Layers size={18} className="text-amber-400" />
+                  <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                    <Layers size={18} className="text-zinc-300" />
                   </div>
-                  <p className="text-xs font-semibold text-amber-300">Motion Graphic Slot</p>
-                  <p className="text-[10px] text-zinc-400 line-clamp-2 max-w-[210px] text-center">
+                  <p className="text-xs font-semibold text-zinc-300">Motion Graphic Slot</p>
+                  <p className="text-2xs text-zinc-400 line-clamp-2 max-w-[210px] text-center">
                     Kinetic typography, timeline or data callout
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="w-9 h-9 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-                    <Sparkles size={18} className="text-purple-400" />
+                  <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                    <Sparkles size={18} className="text-zinc-200" />
                   </div>
                   <p className="text-xs font-semibold text-zinc-300">Hero Visual</p>
-                  <p className="text-[10px] text-zinc-400">Ready for image generation</p>
+                  <p className="text-2xs text-zinc-400">Ready for image generation</p>
                 </>
               )}
             </div>

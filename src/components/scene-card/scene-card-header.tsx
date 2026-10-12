@@ -33,10 +33,10 @@ export default function SceneCardHeader({
 
   const visualTypeConfig = visualType
     ? visualType === 'HERO_AI'
-      ? { label: 'Hero: AI-generated visual anchor', icon: Sparkles, color: 'text-purple-400' }
+      ? { label: 'Hero: AI-generated visual anchor', icon: Sparkles, color: 'text-zinc-200' }
       : visualType === 'STOCK_BROLL'
-        ? { label: 'Stock B-Roll: Real footage asset', icon: Video, color: 'text-emerald-400' }
-        : { label: 'Motion Graphic: Animated typography or vector', icon: Layers, color: 'text-amber-400' }
+        ? { label: 'Stock B-Roll: Real footage asset', icon: Video, color: 'text-zinc-300' }
+        : { label: 'Motion Graphic: Animated typography or vector', icon: Layers, color: 'text-zinc-300' }
     : null;
 
   return (
@@ -54,13 +54,13 @@ export default function SceneCardHeader({
         )}
 
         {/* Scene Index */}
-        <span className="text-[10px] font-bold text-zinc-300 font-mono tracking-tight">#{sceneId}</span>
+        <span className="text-2xs font-bold text-zinc-300 font-mono tracking-tight">#{sceneId}</span>
 
-        <span className="text-[10px] text-white/30 select-none">·</span>
+        <span className="text-2xs text-white/30 select-none">·</span>
 
         {/* Duration with Stepper */}
         {onUpdateDuration ? (
-          <div className="flex items-center gap-0.5 text-[10px] font-mono select-none">
+          <div className="flex items-center gap-0.5 text-2xs font-mono select-none">
             <button
               type="button"
               onClick={() => onUpdateDuration(sceneId, -0.5)}
@@ -84,21 +84,21 @@ export default function SceneCardHeader({
             </button>
           </div>
         ) : (
-          <span className="text-[10px] font-mono text-zinc-200">{duration}s</span>
+          <span className="text-2xs font-mono text-zinc-200">{duration}s</span>
         )}
 
         {/* Camera Motion Mini Indicator (if active) */}
         {cameraMotion && cameraMotion !== 'STATIC' && (
           <>
-            <span className="text-[10px] text-white/30 select-none">·</span>
+            <span className="text-2xs text-white/30 select-none">·</span>
             <span
               title={`Camera Motion: ${cameraMotion.replace('_', ' ')}`}
               className="flex items-center text-zinc-400"
             >
-              {cameraMotion === 'ZOOM_IN' && <ZoomIn size={10} className="text-blue-400" />}
-              {cameraMotion === 'ZOOM_OUT' && <ZoomOut size={10} className="text-blue-400" />}
-              {cameraMotion === 'PAN_LEFT' && <ArrowLeft size={10} className="text-indigo-400" />}
-              {cameraMotion === 'PAN_RIGHT' && <ArrowRight size={10} className="text-indigo-400" />}
+              {cameraMotion === 'ZOOM_IN' && <ZoomIn size={10} className="text-zinc-300" />}
+              {cameraMotion === 'ZOOM_OUT' && <ZoomOut size={10} className="text-zinc-300" />}
+              {cameraMotion === 'PAN_LEFT' && <ArrowLeft size={10} className="text-zinc-300" />}
+              {cameraMotion === 'PAN_RIGHT' && <ArrowRight size={10} className="text-zinc-300" />}
             </span>
           </>
         )}

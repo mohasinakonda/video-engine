@@ -91,8 +91,8 @@ export function PaymentCheckoutModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto text-white">
+    <div className="modal-overlay">
+      <div className="modal-panel max-w-lg p-6 sm:p-7 relative max-h-[90vh] overflow-y-auto text-white">
         <button
           onClick={onClose}
           type="button"
@@ -123,7 +123,7 @@ export function PaymentCheckoutModal({
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition-transform hover:scale-105"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm shadow-xl shadow-emerald-500/25 transition-transform hover:scale-105"
               >
                 <MessageCircle size={18} />
                 <span>Message Admin on WhatsApp Now</span>
@@ -134,7 +134,7 @@ export function PaymentCheckoutModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-semibold text-xs hover:bg-zinc-700 transition-colors"
+                className="btn-secondary px-6 py-2 text-xs"
               >
                 Close
               </button>
@@ -383,11 +383,11 @@ export function PaymentCheckoutModal({
                   value={senderNumber}
                   onChange={(e) => setSenderNumber(e.target.value)}
                   placeholder="e.g. 017XXXXXXXX"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-400"
+                  className="input text-xs font-mono"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-zinc-400 mb-1">
+                <label className="block text-xxs font-medium text-zinc-400 mb-1">
                   Your Account Email (optional)
                 </label>
                 <input
@@ -395,7 +395,7 @@ export function PaymentCheckoutModal({
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
                   placeholder="e.g. yourname@gmail.com"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-400"
+                  className="input text-xs"
                 />
               </div>
             </div>
@@ -410,7 +410,7 @@ export function PaymentCheckoutModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-sm transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="btn-accent w-full py-3 text-sm flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>

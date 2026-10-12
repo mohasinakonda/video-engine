@@ -61,11 +61,11 @@ export default function SceneStudioModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/90 backdrop-blur-md animate-fade-in"
+      className="modal-overlay"
       onClick={onClose}
     >
       <div
-        className="relative max-w-5xl w-full max-h-[92vh] bg-bg-surface border border-bg-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        className="modal-panel max-w-5xl w-full max-h-[92vh] overflow-hidden flex flex-col p-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -74,15 +74,15 @@ export default function SceneStudioModal({
             <span className="px-2.5 py-0.5 rounded-md bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-bold">
               Scene #{scene.sceneId}
             </span>
-            <span className="text-xs text-slate-400 font-mono">
+            <span className="text-xs text-zinc-400 font-mono">
               {timeRange} ({duration}s)
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-950/70 border border-emerald-700/50 text-emerald-300 text-[10px] font-mono font-bold">
+            <span className="px-2 py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 text-2xs font-mono font-bold">
               {getAspectRatioLabel(aspectRatio)}
             </span>
             {shotConfig && ShotIcon && (
               <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border ${shotConfig.badgeColor}`}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-2xs font-medium border ${shotConfig.badgeColor}`}
               >
                 <ShotIcon size={10} />
                 {shotConfig.shortLabel} B-Roll
@@ -93,17 +93,17 @@ export default function SceneStudioModal({
             <button
               type="button"
               onClick={onUploadClick}
-              className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-zinc-300 hover:text-white"
+              className="btn-secondary btn-xs flex items-center gap-1.5 text-zinc-300 hover:text-white"
               title="Upload local image to replace this scene"
             >
-              <Upload size={13} className="text-emerald-400" />
+              <Upload size={13} className="text-zinc-300" />
               Replace Image
             </button>
             {imgSrc && (
               <a
                 href={imgSrc}
                 download={`scene_${scene.sceneId}.jpg`}
-                className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                className="btn-secondary btn-xs flex items-center gap-1.5"
                 title="Download full resolution image"
               >
                 <Download size={13} />
@@ -113,7 +113,7 @@ export default function SceneStudioModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
               title="Close preview"
             >
               <X size={18} />
@@ -135,7 +135,7 @@ export default function SceneStudioModal({
             )}
             {isGenerating && (
               <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center gap-2 z-20">
-                <Loader2 size={32} className="text-emerald-400 animate-spin" />
+                <Loader2 size={32} className="text-white animate-spin" />
                 <p className="text-xs font-medium text-zinc-200">
                   Regenerating scene image
                 </p>
@@ -148,7 +148,7 @@ export default function SceneStudioModal({
             {/* Narration Excerpt */}
             {scene.narrationLine && (
               <div className="p-2.5 rounded-xl bg-zinc-900/80 border border-zinc-800">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+                <span className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
                   Narration
                 </span>
                 <p className="text-xs text-zinc-200 leading-relaxed italic">
@@ -160,15 +160,15 @@ export default function SceneStudioModal({
             {/* Prompt Editor */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Edit2 size={11} className="text-emerald-400" />
+                <span className="text-2xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Edit2 size={11} className="text-zinc-300" />
                   Visual Prompt
                 </span>
                 <button
                   type="button"
                   onClick={onEnhancePrompt}
                   disabled={isEnhancingPrompt}
-                  className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors disabled:opacity-50"
+                  className="text-2xs text-zinc-300 hover:text-white flex items-center gap-1 transition-colors disabled:opacity-50"
                 >
                   {isEnhancingPrompt ? (
                     <Loader2 size={10} className="animate-spin" />
@@ -189,7 +189,7 @@ export default function SceneStudioModal({
 
             {/* Quick Modifiers */}
             <div>
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
+              <span className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider block mb-1.5">
                 Quick Style Modifiers
               </span>
               <PromptModifierChips onAppend={onAppendModifier} size="sm" />
@@ -198,7 +198,7 @@ export default function SceneStudioModal({
             {/* Regenerate Action */}
             <div className="pt-2 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                <span className="text-2xs font-semibold text-zinc-400 uppercase tracking-wider">
                   Engine &amp; Credits
                 </span>
                 <ModelSelectorDropdown size="sm" direction="up" />
@@ -207,7 +207,7 @@ export default function SceneStudioModal({
                 type="button"
                 onClick={onRegenerate}
                 disabled={isSubmitDisabled}
-                className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+                className="btn-primary w-full py-2.5 px-3 flex items-center justify-center gap-2"
               >
                 <RefreshCw
                   size={12}

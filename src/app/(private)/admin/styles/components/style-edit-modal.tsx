@@ -339,12 +339,12 @@ export function StyleEditModal({
   const availableFamilies = CORE_FAMILIES.filter((f) => f.id !== 'all');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-hidden">
-      <div className="relative w-full max-w-5xl h-[92vh] max-h-[880px] bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
+    <div className="modal-overlay p-3 sm:p-6">
+      <div className="modal-panel max-w-5xl w-full h-[92vh] max-h-[880px] flex flex-col overflow-hidden p-0">
         {/* ── Top Header ────────────────────────────────────────────────────────── */}
-        <div className="px-6 py-4 border-b border-zinc-800/80 bg-zinc-900/90 flex items-center justify-between flex-shrink-0 z-10">
+        <div className="px-6 py-4 border-b border-bg-border bg-bg-surface flex items-center justify-between flex-shrink-0 z-10">
           <div className="flex items-center gap-3">
-            <span className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400">
+            <span className="p-2.5 rounded-xl bg-bg-surface border border-bg-border text-white">
               <Palette size={20} />
             </span>
             <div>
@@ -368,12 +368,12 @@ export function StyleEditModal({
           </div>
 
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer bg-zinc-950 px-3 py-1.5 rounded-xl border border-zinc-800">
+            <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer bg-bg-base px-3 py-1.5 rounded-xl border border-bg-border">
               <input
                 type="checkbox"
                 checked={formIsActive}
                 onChange={(e) => setFormIsActive(e.target.checked)}
-                className="w-3.5 h-3.5 accent-purple-600 rounded cursor-pointer"
+                className="w-3.5 h-3.5 accent-white rounded cursor-pointer"
               />
               <span className="text-[11px] font-medium">{formIsActive ? 'Visible in Catalog' : 'Hidden'}</span>
             </label>
@@ -392,7 +392,7 @@ export function StyleEditModal({
         {/* ── Main Split 2-Column Body ────────────────────────────────────────── */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
           {/* ── Left Column: Form Fields & Test Button (60%) ── */}
-          <div className="lg:col-span-7 overflow-y-auto p-6 space-y-5 border-r border-zinc-800/80 custom-scrollbar flex flex-col justify-between">
+          <div className="lg:col-span-7 overflow-y-auto p-6 space-y-5 border-r border-bg-border custom-scrollbar flex flex-col justify-between">
             <div className="space-y-4">
               {/* Identity & Taxonomy */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -406,7 +406,7 @@ export function StyleEditModal({
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="e.g. 70mm IMAX Photorealism"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500 transition-colors"
                   />
                 </div>
 
@@ -417,7 +417,7 @@ export function StyleEditModal({
                   <select
                     value={formFamilyId}
                     onChange={(e) => setFormFamilyId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors cursor-pointer"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500 transition-colors cursor-pointer"
                   >
                     {availableFamilies.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -438,7 +438,7 @@ export function StyleEditModal({
                     value={formTag}
                     onChange={(e) => setFormTag(e.target.value)}
                     placeholder="e.g. Ultra-High Clarity"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500 transition-colors"
                   />
                 </div>
 
@@ -450,7 +450,7 @@ export function StyleEditModal({
                     type="number"
                     value={formSortOrder}
                     onChange={(e) => setFormSortOrder(Number(e.target.value))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500 transition-colors"
                   />
                 </div>
               </div>
@@ -464,7 +464,7 @@ export function StyleEditModal({
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="e.g. Pristine 8K documentary cinematography, natural lighting, exceptional realism, IMAX standard."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500 transition-colors"
                 />
               </div>
 
@@ -472,7 +472,7 @@ export function StyleEditModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
-                    <Sparkles size={14} className="text-purple-400" />
+                    <Sparkles size={14} className="text-zinc-300" />
                     Visual Style Prompt (DNA Anchor) <span className="text-rose-400">*</span>
                   </label>
                   <span className="text-[10px] font-mono text-zinc-500">
@@ -486,7 +486,7 @@ export function StyleEditModal({
                   value={formStylePrompt}
                   onChange={(e) => setFormStylePrompt(e.target.value)}
                   placeholder="e.g. 70mm IMAX documentary cinematography, photorealistic 8k, pristine optical clarity, natural balanced lighting, subtle cinematic depth of field, authentic real-world textures, masterwork composition, shot on Panavision 70mm lens"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-purple-200 font-mono leading-relaxed focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-zinc-200 font-mono leading-relaxed focus:outline-none focus:border-zinc-500 transition-colors"
                 />
 
                 {/* 1-Click Prompt Enhancers */}
@@ -500,7 +500,7 @@ export function StyleEditModal({
                         key={booster}
                         type="button"
                         onClick={() => appendPromptBooster(booster)}
-                        className="px-2 py-1 rounded-lg bg-zinc-800/80 hover:bg-purple-900/40 hover:text-purple-200 border border-zinc-700/60 hover:border-purple-500/40 text-[10px] text-zinc-300 font-medium transition-colors"
+                        className="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 hover:text-white border border-zinc-700 hover:border-zinc-500 text-[10px] text-zinc-300 font-medium transition-colors"
                       >
                         + {booster}
                       </button>
@@ -519,7 +519,7 @@ export function StyleEditModal({
                   value={formNegativePrompt}
                   onChange={(e) => setFormNegativePrompt(e.target.value)}
                   placeholder="e.g. cartoon, anime, 3D render, CGI, glossy, blurry, distorted faces, low resolution, oversaturated, text, watermark, signature"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-rose-300/90 font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-rose-300 font-mono focus:outline-none focus:border-zinc-500 transition-colors"
                 />
 
                 {/* 1-Click Negative Exclusion Chips */}
@@ -529,7 +529,7 @@ export function StyleEditModal({
                       key={chip}
                       type="button"
                       onClick={() => appendNegativeChip(chip)}
-                      className="px-2 py-1 rounded-lg bg-zinc-800/60 hover:bg-rose-950/40 hover:text-rose-200 border border-zinc-800 hover:border-rose-500/40 text-[10px] text-zinc-400 font-medium transition-colors"
+                      className="px-2 py-1 rounded-lg bg-zinc-800/60 hover:bg-rose-950/30 hover:text-rose-200 border border-bg-border hover:border-rose-500/30 text-[10px] text-zinc-400 font-medium transition-colors"
                     >
                       + {chip}
                     </button>
@@ -539,16 +539,16 @@ export function StyleEditModal({
             </div>
 
             {/* ── Test Prompt Button (Bottom of Left Column) ── */}
-            <div className="pt-4 border-t border-zinc-800/80">
+            <div className="pt-4 border-t border-bg-border">
               <button
                 type="button"
                 onClick={handleRunLiveTest}
                 disabled={testGenerating || !formStylePrompt.trim()}
-                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 transition-all disabled:opacity-50"
+                className="btn-secondary w-full py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
               >
                 {testGenerating ? (
                   <>
-                    <Loader2 size={15} className="animate-spin text-purple-200" />
+                    <Loader2 size={15} className="animate-spin text-zinc-300" />
                     <span>Rendering Test Sample ({testTimer}s)…</span>
                   </>
                 ) : (
@@ -562,12 +562,12 @@ export function StyleEditModal({
           </div>
 
           {/* ── Right Column: Image Preview & Save as Thumbnail (40%) ── */}
-          <div className="lg:col-span-5 overflow-y-auto p-6 space-y-5 bg-zinc-950/60 custom-scrollbar flex flex-col justify-between">
+          <div className="lg:col-span-5 overflow-y-auto p-6 space-y-5 bg-bg-base/60 custom-scrollbar flex flex-col justify-between">
             <div className="space-y-4">
               {/* Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
+              <div className="flex items-center justify-between pb-2 border-b border-bg-border">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <ImageIcon size={14} className="text-purple-400" /> Style Thumbnail & Preview
+                  <ImageIcon size={14} className="text-zinc-300" /> Style Thumbnail &amp; Preview
                 </span>
                 <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
                   FLUX HD Output
@@ -575,10 +575,10 @@ export function StyleEditModal({
               </div>
 
               {/* Large Image Canvas */}
-              <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-zinc-950 border border-zinc-800 flex items-center justify-center shadow-lg">
+              <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-bg-surface border border-bg-border flex items-center justify-center shadow-lg">
                 {testGenerating ? (
                   <div className="flex flex-col items-center justify-center gap-2 text-zinc-400 p-6 text-center">
-                    <Loader2 size={26} className="animate-spin text-purple-400" />
+                    <Loader2 size={26} className="animate-spin text-zinc-300" />
                     <p className="text-xs font-medium text-zinc-300">Rendering high-definition 1080p sample...</p>
                     <p className="text-[10px] text-zinc-500">Using authenticated FLUX HD Engine ({testTimer}s)</p>
                   </div>
@@ -619,14 +619,14 @@ export function StyleEditModal({
                   ) : (
                     <>
                       <Check size={14} />
-                      <span>Set as Style Thumbnail & Save to DB</span>
+                      <span>Set as Style Thumbnail &amp; Save to DB</span>
                     </>
                   )}
                 </button>
               )}
 
               {/* Upload or URL Controls */}
-              <div className="pt-2 border-t border-zinc-800/80 space-y-2.5">
+              <div className="pt-2 border-t border-bg-border space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
                     Or Use Custom Image:
@@ -636,14 +636,14 @@ export function StyleEditModal({
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingImage}
-                      className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 flex items-center gap-1.5 transition-colors"
+                      className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1.5"
                     >
                       <Upload size={12} /> {uploadingImage ? 'Uploading...' : 'Upload File'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowUrlInput(!showUrlInput)}
-                      className="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] text-zinc-300 flex items-center gap-1.5 transition-colors"
+                      className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1.5"
                     >
                       <ExternalLink size={12} /> Image URL
                     </button>
@@ -665,7 +665,7 @@ export function StyleEditModal({
                       value={customImageUrlInput}
                       onChange={(e) => setCustomImageUrlInput(e.target.value)}
                       placeholder="https://..."
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-white focus:outline-none focus:border-purple-500"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                     />
                     <button
                       type="button"
@@ -676,7 +676,7 @@ export function StyleEditModal({
                           showToast('✓ Thumbnail URL applied');
                         }
                       }}
-                      className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold"
+                      className="btn-primary text-xs py-1.5 px-3"
                     >
                       Apply
                     </button>
@@ -686,7 +686,7 @@ export function StyleEditModal({
             </div>
 
             {/* Thumbnail Status Footer */}
-            <div className="text-[11px] text-zinc-500 pt-2 border-t border-zinc-800/80 flex items-center justify-between">
+            <div className="text-[11px] text-zinc-500 pt-2 border-t border-bg-border flex items-center justify-between">
               <span>Aspect Ratio: 16:9 Widescreen</span>
               {formThumbnailUrl ? (
                 <span className="text-emerald-400 font-medium">✓ Thumbnail Assigned</span>
@@ -698,7 +698,7 @@ export function StyleEditModal({
         </div>
 
         {/* ── Fixed Bottom Footer ────────────────────────────────────────────────── */}
-        <div className="px-6 py-4 border-t border-zinc-800/80 bg-zinc-900/95 flex items-center justify-between flex-shrink-0 z-10">
+        <div className="px-6 py-4 border-t border-bg-border bg-bg-surface flex items-center justify-between flex-shrink-0 z-10">
           <div className="flex items-center gap-2 text-xs text-zinc-400">
             <span className="font-mono text-[10px] text-zinc-500">ID: {formId}</span>
           </div>
@@ -708,7 +708,7 @@ export function StyleEditModal({
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-colors"
+              className="btn-secondary text-xs py-2 px-4"
             >
               Cancel
             </button>
@@ -717,7 +717,7 @@ export function StyleEditModal({
               type="button"
               onClick={handleSubmit}
               disabled={saving || !formName.trim() || !formStylePrompt.trim()}
-              className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-900/30 transition-all disabled:opacity-50"
+              className="btn-primary text-xs py-2 px-5 flex items-center gap-2 shadow-lg"
             >
               {saving ? (
                 <>

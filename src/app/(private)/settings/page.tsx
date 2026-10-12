@@ -128,38 +128,36 @@ export default function SettingsPage() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-bg-base">
       {/* Header */}
-      <header className="px-8 py-5 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm flex items-center justify-between">
+      <header className="page-header justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Wand2 size={20} className="text-cyan-400" />
+          <h1 className="page-title">
+            <Wand2 size={20} className="text-zinc-400" />
             AI Engine &amp; System Settings
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="page-subtitle">
             Configure image AI models, YouTube market research API, and prompt diagnostics
           </p>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 md:p-8">
-        <div className="max-w-4xl space-y-6 mx-auto animate-slide-up">
-
-
+      <div className="flex-1 overflow-y-auto page-shell">
+        <div className="page-container max-w-4xl space-y-6">
 
           {/* YouTube Data API & Market Research Card */}
-          <div className="card border-red-500/20 bg-gradient-to-b from-red-950/10 to-transparent">
+          <div className="card rounded-xl border-rose-500/20 bg-rose-950/10 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-red-500/15 border border-red-500/25 flex items-center justify-center">
-                  <Flame size={16} className="text-red-400" />
+                <div className="w-9 h-9 rounded-lg bg-rose-500/15 border border-rose-500/25 flex items-center justify-center">
+                  <Flame size={16} className="text-rose-400" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-white">YouTube Data &amp; Market Research API</h2>
-                    <span className="text-[10px] text-red-300 bg-red-950/60 border border-red-800/60 px-2 py-0.5 rounded-full font-mono font-bold">
+                    <h2 className="text-sm font-semibold text-zinc-100">YouTube Data &amp; Market Research API</h2>
+                    <span className="text-2xs text-rose-300 bg-rose-950/60 border border-rose-800/60 px-2 py-0.5 rounded-full font-mono font-bold">
                       Viral Engine
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-zinc-400 mt-0.5">
                     Live competitor video search, view benchmarking, and packaging intelligence
                   </p>
                 </div>
@@ -174,9 +172,9 @@ export default function SettingsPage() {
 
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-300 flex items-center justify-between">
                   <span>Google Cloud YouTube Data API v3 Key (Optional)</span>
-                  <span className="text-[11px] text-emerald-400 font-mono">
+                  <span className="text-xxs text-emerald-400 font-mono">
                     {youtubeApiKey ? '● Official API Active' : '● Zero-Config Mode Active'}
                   </span>
                 </label>
@@ -199,33 +197,33 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+              <div className="p-3 rounded-lg bg-zinc-900/80 border border-bg-border text-xxs text-zinc-400 space-y-1">
                 <p className="text-zinc-300 font-medium">⚡ How YouTube Market Research Works:</p>
                 <p>
                   • <strong>Zero-Config Mode (Default)</strong>: Works 100% free out of the box without any key. Our server searches YouTube and extracts top viral videos, real thumbnails, and view counts automatically.
                 </p>
                 <p>
-                  • <strong>Google Cloud API (Optional)</strong>: To use Google&apos;s official YouTube Data API v3, create a free project at <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" className="text-red-400 underline">Google Cloud Console</a>, enable &quot;YouTube Data API v3&quot;, generate an API key (includes 10,000 free quota units/day), and paste it above.
+                  • <strong>Google Cloud API (Optional)</strong>: To use Google&apos;s official YouTube Data API v3, create a free project at <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" className="text-rose-400 underline">Google Cloud Console</a>, enable &quot;YouTube Data API v3&quot;, generate an API key (includes 10,000 free quota units/day), and paste it above.
                 </p>
               </div>
             </div>
           </div>
 
           {/* 2. Interactive Prompt Enhancement Playground */}
-          <div className="card border-cyan-500/30 bg-gradient-to-b from-cyan-950/10 to-transparent">
+          <div className="card rounded-xl border-bg-border bg-bg-surface p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
-                  <Wand2 size={16} className="text-cyan-300" />
+                <div className="w-9 h-9 rounded-lg bg-zinc-800 border border-bg-border flex items-center justify-center">
+                  <Wand2 size={16} className="text-zinc-200" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-white">Interactive Prompt Enhancement Playground</h2>
-                    <span className="text-[10px] text-cyan-300 bg-cyan-950/60 border border-cyan-800/60 px-2 py-0.5 rounded-full font-mono font-bold">
+                    <h2 className="text-sm font-semibold text-zinc-100">Interactive Prompt Enhancement Playground</h2>
+                    <span className="text-2xs text-zinc-400 bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded-full font-mono font-medium">
                       Live AI Director
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-zinc-400">
                     Test how any raw narration or scene draft expands into an 80-120 word studio-grade prompt
                   </p>
                 </div>
@@ -235,7 +233,7 @@ export default function SettingsPage() {
             {/* Test Input & Controls */}
             <div className="space-y-3 mb-4">
               <div>
-                <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                <label className="text-xxs font-semibold text-zinc-300 block mb-1">
                   Raw Scene Description or Narration Line:
                 </label>
                 <input
@@ -249,11 +247,11 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-400 block mb-1">Shot Type Perspective</label>
+                  <label className="text-2xs font-semibold text-zinc-400 block mb-1">Shot Type Perspective</label>
                   <select
                     value={testShotType}
                     onChange={(e) => setTestShotType(e.target.value as ShotType)}
-                    className="input text-xs"
+                    className="select text-xs w-full"
                   >
                     <option value="WIDE_ESTABLISHING">Wide Establishing Vista</option>
                     <option value="AERIAL_GEOMETRY">90° Top-Down Drone</option>
@@ -265,11 +263,11 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-400 block mb-1">Lighting Preset</label>
+                  <label className="text-2xs font-semibold text-zinc-400 block mb-1">Lighting Preset</label>
                   <select
                     value={selectedLighting}
                     onChange={(e) => setSelectedLighting(e.target.value)}
-                    className="input text-xs"
+                    className="select text-xs w-full"
                   >
                     {LIGHTING_MODIFIERS.map((m) => (
                       <option key={m.name} value={m.value}>
@@ -280,11 +278,11 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-semibold text-slate-400 block mb-1">Camera &amp; Lens</label>
+                  <label className="text-2xs font-semibold text-zinc-400 block mb-1">Camera &amp; Lens</label>
                   <select
                     value={selectedCamera}
                     onChange={(e) => setSelectedCamera(e.target.value)}
-                    className="input text-xs"
+                    className="select text-xs w-full"
                   >
                     {CAMERA_MODIFIERS.map((m) => (
                       <option key={m.name} value={m.value}>
@@ -299,7 +297,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleRunEnhancementTest}
                 disabled={isEnhancing || !testInput.trim()}
-                className="w-full btn-primary py-2 text-xs flex items-center justify-center gap-2 mt-1 shadow-md shadow-cyan-950/40"
+                className="w-full btn-primary py-2 text-xs flex items-center justify-center gap-2 mt-1 shadow-sm"
               >
                 {isEnhancing ? (
                   <>
@@ -317,45 +315,45 @@ export default function SettingsPage() {
 
             {/* Live Enhanced Output Display */}
             {enhancedResult && (
-              <div className="p-4 rounded-xl bg-zinc-950/80 border border-cyan-800/40 space-y-3 animate-fade-in text-xs">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+              <div className="p-4 rounded-xl bg-bg-base border border-bg-border space-y-3 animate-fade-in text-xs">
+                <div className="flex items-center justify-between border-b border-bg-border pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white">Enhanced Scene Visual Prompt:</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800/50 font-mono">
+                    <span className="font-semibold text-zinc-100">Enhanced Scene Visual Prompt:</span>
+                    <span className="text-2xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono">
                       {enhancedResult.b_roll_focus}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={handleCopyEnhancedPrompt}
-                    className="flex items-center gap-1 text-[11px] text-cyan-300 hover:text-white transition-colors"
+                    className="flex items-center gap-1 text-xxs text-zinc-400 hover:text-white transition-colors"
                   >
                     {copiedEnhanced ? <CheckCircle size={12} className="text-emerald-400" /> : <Copy size={12} />}
                     <span>{copiedEnhanced ? 'Copied Full Prompt!' : 'Copy Formatted'}</span>
                   </button>
                 </div>
 
-                <p className="text-zinc-200 font-mono text-[11px] leading-relaxed bg-zinc-900/60 p-2.5 rounded-lg border border-zinc-800">
+                <p className="text-zinc-200 font-mono text-xxs leading-relaxed bg-zinc-900/60 p-2.5 rounded-lg border border-bg-border">
                   {enhancedResult.visual_prompt}
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px]">
-                  <div className="bg-zinc-900/40 p-2 rounded border border-zinc-800/60">
-                    <span className="text-slate-400 block mb-0.5 font-semibold">Camera Direction:</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-2xs">
+                  <div className="bg-zinc-900/40 p-2 rounded-lg border border-bg-border">
+                    <span className="text-zinc-400 block mb-0.5 font-semibold">Camera Direction:</span>
                     <span className="text-zinc-300 font-mono">{enhancedResult.camera}</span>
                   </div>
-                  <div className="bg-zinc-900/40 p-2 rounded border border-zinc-800/60">
-                    <span className="text-slate-400 block mb-0.5 font-semibold">Lighting &amp; Atmosphere:</span>
+                  <div className="bg-zinc-900/40 p-2 rounded-lg border border-bg-border">
+                    <span className="text-zinc-400 block mb-0.5 font-semibold">Lighting &amp; Atmosphere:</span>
                     <span className="text-zinc-300 font-mono">{enhancedResult.lighting}</span>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-zinc-800/80 text-[10px] text-slate-400">
-                  <span className="font-semibold text-slate-300 block mb-1">Prompt Construction Preview:</span>
-                  <div className="font-mono text-zinc-400 leading-normal bg-black/40 p-2 rounded">
-                    <span className="text-cyan-300">{enhancedResult.visual_prompt}</span>
-                    <span className="text-slate-500">. </span>
-                    <span className="text-zinc-300">Photorealistic, cinematic lighting, 8k resolution, 35mm lens, dramatic shadows</span>
+                <div className="pt-2 border-t border-bg-border text-2xs text-zinc-400">
+                  <span className="font-semibold text-zinc-300 block mb-1">Prompt Construction Preview:</span>
+                  <div className="font-mono text-zinc-400 leading-normal bg-zinc-900/60 p-2.5 rounded-lg border border-bg-border">
+                    <span className="text-zinc-200">{enhancedResult.visual_prompt}</span>
+                    <span className="text-zinc-500">. </span>
+                    <span className="text-zinc-400">Photorealistic, cinematic lighting, 8k resolution, 35mm lens, dramatic shadows</span>
                   </div>
                 </div>
               </div>

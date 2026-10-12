@@ -133,7 +133,7 @@ export default function YouTubeKitStudioInner() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 size={32} className="animate-spin text-red-500" />
+          <Loader2 size={32} className="animate-spin text-zinc-400" />
           <p className="text-sm font-medium text-zinc-400">Loading YouTube Kit Studio...</p>
         </div>
       </div>
@@ -144,7 +144,7 @@ export default function YouTubeKitStudioInner() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-base p-6">
         <div className="text-center space-y-4 max-w-md">
-          <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-400">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-400">
             <Flame size={24} />
           </div>
           <h2 className="text-lg font-bold text-white">No Project Found</h2>
@@ -154,7 +154,7 @@ export default function YouTubeKitStudioInner() {
           <button
             type="button"
             onClick={() => handleSelectProject('NEW_STANDALONE')}
-            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-colors"
+            className="btn-primary text-sm px-4 py-2"
           >
             Create Standalone Packaging
           </button>
@@ -177,7 +177,7 @@ export default function YouTubeKitStudioInner() {
           </Link>
 
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
               <Flame size={18} />
             </div>
             <div className="min-w-0">
@@ -185,11 +185,11 @@ export default function YouTubeKitStudioInner() {
                 <h1 className="text-sm font-bold text-white tracking-wide truncate">
                   YouTube Kit Studio
                 </h1>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300 font-mono font-medium border border-red-500/30 shrink-0">
+                <span className="text-2xs px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 font-mono font-medium border border-rose-500/30 shrink-0">
                   AI PACKAGING
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 truncate">
+              <p className="text-xxs text-zinc-400 truncate">
                 Viral titles, hook retention diagnostics, high-CTR thumbnails &amp; SEO
               </p>
             </div>

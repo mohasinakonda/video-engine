@@ -12,7 +12,7 @@ export function EmptyState() {
   return (
     <div className="card p-10 text-center border-dashed border-zinc-800 bg-zinc-900/40 space-y-4">
       <div className="w-14 h-14 mx-auto rounded-2xl bg-zinc-800/80 border border-zinc-700 flex items-center justify-center text-zinc-300">
-        <Sparkles size={24} className="text-amber-400" />
+        <Sparkles size={24} className="text-zinc-200" />
       </div>
       <div className="max-w-md mx-auto space-y-1.5">
         <h3 className="text-sm font-bold text-white">Ready to Package Your Video</h3>
@@ -21,14 +21,14 @@ export function EmptyState() {
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2 pt-2">
-        <span className="text-[11px] px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
-          <Search size={12} className="text-red-400" /> YouTube Market Search
+        <span className="text-xxs px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
+          <Search size={12} className="text-zinc-400" /> YouTube Market Search
         </span>
-        <span className="text-[11px] px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
-          <Palette size={12} className="text-purple-400" /> Matches {stylePreset?.name || 'Cinematic'}
+        <span className="text-xxs px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
+          <Palette size={12} className="text-zinc-400" /> Matches {stylePreset?.name || 'Cinematic'}
         </span>
-        <span className="text-[11px] px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
-          <TrendingUp size={12} className="text-emerald-400" /> High-CTR Viral Titles
+        <span className="text-xxs px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
+          <TrendingUp size={12} className="text-zinc-400" /> High-CTR Viral Titles
         </span>
       </div>
     </div>

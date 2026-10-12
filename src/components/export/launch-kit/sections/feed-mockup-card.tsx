@@ -35,7 +35,7 @@ export function FeedMockupCard() {
   const [mobileScaleDown, setMobileScaleDown] = useState(false);
 
   return (
-    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-4 shadow-2xl">
+    <div className="card p-5 bg-bg-surface border-bg-border space-y-4 shadow-2xl">
       {/* Header with Mode Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-zinc-800/80">
 
@@ -45,7 +45,7 @@ export function FeedMockupCard() {
           <button
             type="button"
             onClick={() => setSimulatorMode('mobile')}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors ${simulatorMode === 'mobile'
+            className={`px-2.5 py-1 rounded-md text-2xs font-semibold flex items-center gap-1 transition-colors ${simulatorMode === 'mobile'
               ? 'bg-zinc-800 text-white font-bold'
               : 'text-zinc-400 hover:text-white'
               }`}
@@ -56,7 +56,7 @@ export function FeedMockupCard() {
           <button
             type="button"
             onClick={() => setSimulatorMode('desktop')}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors ${simulatorMode === 'desktop'
+            className={`px-2.5 py-1 rounded-md text-2xs font-semibold flex items-center gap-1 transition-colors ${simulatorMode === 'desktop'
               ? 'bg-zinc-800 text-white font-bold'
               : 'text-zinc-400 hover:text-white'
               }`}
@@ -67,8 +67,8 @@ export function FeedMockupCard() {
           <button
             type="button"
             onClick={() => setSimulatorMode('shorts')}
-            className={`px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors ${simulatorMode === 'shorts'
-              ? 'bg-red-950/60 text-red-300 font-bold'
+            className={`px-2.5 py-1 rounded-md text-2xs font-semibold flex items-center gap-1 transition-colors ${simulatorMode === 'shorts'
+              ? 'bg-rose-950/60 text-rose-300 font-bold'
               : 'text-zinc-400 hover:text-white'
               }`}
           >
@@ -80,16 +80,16 @@ export function FeedMockupCard() {
 
       {/* 120px Mobile Feed Eye-Test Toggle */}
       {simulatorMode === 'mobile' && (
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg   text-[11px] text-zinc-400">
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg text-xxs text-zinc-400">
           <span className="flex items-center gap-1.5">
-            <ZoomIn size={12} className="text-amber-400" />
+            <ZoomIn size={12} className="text-zinc-300" />
             <span>120px Arm&apos;s-Length Eye Test:</span>
           </span>
           <button
             type="button"
             onClick={() => setMobileScaleDown(!mobileScaleDown)}
-            className={`px-2 py-0.5 rounded text-[10px] font-mono border transition-colors ${mobileScaleDown
-              ? 'bg-amber-400 text-zinc-950 font-bold border-amber-300'
+            className={`px-2 py-0.5 rounded text-2xs font-mono border transition-colors ${mobileScaleDown
+              ? 'bg-white text-zinc-950 font-bold border-white'
               : 'bg-zinc-850 text-zinc-300 border-zinc-700'
               }`}
           >
@@ -120,20 +120,20 @@ export function FeedMockupCard() {
                   <span>No Thumbnail Generated</span>
                 </div>
               )}
-              <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/90 text-white text-[10px] font-mono font-bold tracking-wider">
+              <span className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-black/90 text-white text-2xs font-mono font-bold tracking-wider">
                 {durationStr}
               </span>
             </div>
 
             <div className="p-3 flex items-start gap-2.5 bg-zinc-950">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-600 via-rose-500 to-amber-400 flex-shrink-0 flex items-center justify-center font-black text-[11px] text-white shadow-md">
+              <div className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 flex-shrink-0 flex items-center justify-center font-black text-xxs shadow-md">
                 YT
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug">
                   {selectedTitle}
                 </h4>
-                <p className="text-[10px] text-zinc-400 mt-1 flex items-center gap-1">
+                <p className="text-2xs text-zinc-400 mt-1 flex items-center gap-1">
                   <span className="truncate">Creator Channel</span>
                   <span>•</span>
                   <span>240K views</span>
@@ -161,7 +161,7 @@ export function FeedMockupCard() {
                   <ImageIcon size={18} />
                 </div>
               )}
-              <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/90 text-white text-[9px] font-mono font-bold">
+              <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/90 text-white text-3xs font-mono font-bold">
                 {durationStr}
               </span>
             </div>
@@ -170,10 +170,10 @@ export function FeedMockupCard() {
               <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug hover:text-blue-400 cursor-pointer">
                 {selectedTitle}
               </h4>
-              <p className="text-[10px] text-zinc-400">
+              <p className="text-2xs text-zinc-400">
                 Creator Channel • 320K views
               </p>
-              <p className="text-[10px] text-zinc-400 line-clamp-2 pt-0.5 leading-relaxed">
+              <p className="text-2xs text-zinc-400 line-clamp-2 pt-0.5 leading-relaxed">
                 {project.youtubePackaging?.scriptIntelligence?.narrativeSummary ||
                   project.youtubePackaging?.description?.slice(0, 150) ||
                   'Deep dive analysis into this fascinating phenomenon with evidence and takeaways.'}
@@ -201,24 +201,24 @@ export function FeedMockupCard() {
 
             {/* Shorts UI Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/40 flex flex-col justify-between p-3 pointer-events-none">
-              <div className="flex justify-between items-center text-[10px] text-white/80">
+              <div className="flex justify-between items-center text-2xs text-white/80">
                 <span className="font-bold flex items-center gap-1">
-                  <Flame size={12} className="text-red-500" /> Shorts
+                  <Flame size={12} className="text-rose-500" /> Shorts
                 </span>
                 <span className="font-mono">{durationStr}</span>
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-red-600 text-white font-bold text-[9px] flex items-center justify-center">
+                  <div className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold text-3xs flex items-center justify-center">
                     YT
                   </div>
-                  <span className="text-[11px] font-semibold text-white">@creator</span>
+                  <span className="text-xxs font-semibold text-white">@creator</span>
                 </div>
                 <p className="text-xs font-bold text-white line-clamp-2 leading-snug">
                   {selectedTitle}
                 </p>
-                <p className="text-[10px] text-zinc-300">#shorts #viral</p>
+                <p className="text-2xs text-zinc-300">#shorts #viral</p>
               </div>
             </div>
           </div>
@@ -230,16 +230,16 @@ export function FeedMockupCard() {
         <button
           type="button"
           onClick={handleCopyMasterLaunchPack}
-          className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xl shadow-red-600/20 transition-all"
+          className="btn-primary w-full py-3 px-4 text-xs font-bold flex items-center justify-center gap-2"
         >
           {copiedKey === 'master_launch_pack' ? (
             <>
-              <CheckCircle size={15} className="text-white" />
+              <CheckCircle size={15} className="text-zinc-950" />
               <span>Copied Complete Launch Pack!</span>
             </>
           ) : (
             <>
-              <Sparkles size={15} className="text-amber-200" />
+              <Sparkles size={15} className="text-zinc-950" />
               <span>Copy Complete YouTube Launch Pack (1-Click)</span>
             </>
           )}
@@ -252,7 +252,7 @@ export function FeedMockupCard() {
               onClick={() => handleDownloadThumbnail(activeConcept)}
               className="flex-1 py-2 px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
             >
-              <Download size={13} className="text-purple-400" />
+              <Download size={13} className="text-zinc-300" />
               <span>Download Active Thumbnail</span>
             </button>
           </div>

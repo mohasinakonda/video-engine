@@ -21,8 +21,8 @@ export default function VoicePresetList({
   if (presets.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-40 text-center">
-        <Mic2 size={28} className="text-slate-700 mb-2" />
-        <p className="text-xs text-slate-600">No presets yet</p>
+        <Mic2 size={28} className="text-zinc-700 mb-2" />
+        <p className="text-xs text-zinc-500">No presets yet</p>
       </div>
     );
   }
@@ -45,7 +45,7 @@ export default function VoicePresetList({
           >
             {/* Default badge */}
             {preset.isDefault && (
-              <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full
+              <span className="absolute top-2 right-2 text-3xs px-1.5 py-0.5 rounded-full
                                bg-zinc-800 text-zinc-200 border border-zinc-700">
                 Default
               </span>
@@ -58,11 +58,11 @@ export default function VoicePresetList({
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold truncate">{preset.name}</p>
-                <p className="text-[10px] text-zinc-400 mt-0.5 truncate">
+                <p className="text-2xs text-zinc-400 mt-0.5 truncate">
                   {preset.voiceCharacter} · {preset.pace.toFixed(2)}× · {preset.accent}
                 </p>
                 {preset.scene && (
-                  <p className="text-[10px] text-zinc-500 truncate mt-0.5 italic">
+                  <p className="text-2xs text-zinc-500 truncate mt-0.5 italic">
                     {preset.scene}
                   </p>
                 )}

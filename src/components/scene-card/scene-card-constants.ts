@@ -124,12 +124,12 @@ export const PROMPT_MODIFIERS: PromptModifier[] = [
   {
     label: '+ Golden Hour',
     text: 'warm golden hour sunbeams, soft rim light',
-    colorClass: 'text-amber-300/90',
+    colorClass: 'text-zinc-300',
   },
   {
     label: '+ 35mm Lens',
     text: 'shot on 35mm anamorphic cinema lens, shallow depth of field',
-    colorClass: 'text-cyan-300/90',
+    colorClass: 'text-zinc-300',
   },
   {
     label: '+ Chiaroscuro',
@@ -139,12 +139,12 @@ export const PROMPT_MODIFIERS: PromptModifier[] = [
   {
     label: '+ Macro',
     text: 'extreme tactile macro close-up with razor-sharp surface texture',
-    colorClass: 'text-emerald-300/90',
+    colorClass: 'text-zinc-300',
   },
   {
     label: '+ Drone Aerial',
     text: 'cinematic top-down aerial drone perspective with geometric framing',
-    colorClass: 'text-purple-300/90',
+    colorClass: 'text-zinc-300',
   },
 ];
 
