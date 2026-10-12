@@ -111,7 +111,7 @@ export async function POST(req: Request) {
         ? body.voiceDescription.trim()
         : undefined;
 
-    const { audio, mimeType } = await synthesizeVoiceChunk({
+    const { audio, mimeType, sessionVoiceId } = await synthesizeVoiceChunk({
       modelId: model.modelId,
       text,
       voiceId: typeof body.voiceId === 'string' ? body.voiceId : undefined,
@@ -123,6 +123,10 @@ export async function POST(req: Request) {
       planId: isPreview ? undefined : planId,
       index,
       totalChunks,
+      sessionVoiceId:
+        typeof body.sessionVoiceId === 'string' && body.sessionVoiceId.trim()
+          ? body.sessionVoiceId.trim()
+          : undefined,
     });
 
     const base64 = Buffer.from(audio).toString('base64');
@@ -133,6 +137,9 @@ export async function POST(req: Request) {
       audioBase64: base64,
       mimeType,
       bytes: audio.byteLength,
+      // Session anchor voice (created on chunk 0 of voice-design jobs) —
+      // the client echoes this back on later chunks for voice consistency.
+      ...(sessionVoiceId ? { sessionVoiceId } : {}),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Chunk synthesis failed.';
