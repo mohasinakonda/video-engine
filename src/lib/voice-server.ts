@@ -328,11 +328,13 @@ export async function synthesizeVoiceChunk(params: {
 
   // DeepInfra MiMo-V2.5-TTS docs: the style/voice instruction goes in the
   // user message, the text (with (style)/[audio] tags) in the assistant
-  // message, and the voice is selected via audio.voice.
+  // message, and the voice is selected via audio.voice. The endpoint also
+  // requires top-level `text` (422 otherwise), so it is sent as well.
   // NOTE: { text, voice, instruct } is not a documented shape — the voice ID
   // was silently ignored, so every chunk got a different voice. This
   // restores the documented format (see 331aeab).
   const mimoBody = (userContent: string, voice?: string): Record<string, unknown> => ({
+    text,
     messages: [
       { role: 'user', content: userContent },
       { role: 'assistant', content: text },
