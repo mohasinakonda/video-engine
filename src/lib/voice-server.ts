@@ -328,36 +328,43 @@ export async function synthesizeVoiceChunk(params: {
 
   // DeepInfra MiMo-V2.5-TTS docs: the style/voice instruction goes in the
   // user message, the text (with (style)/[audio] tags) in the assistant
-  // message, and the voice is selected via audio.voice. The endpoint also
-  // requires top-level `text` (422 otherwise), so it is sent as well.
+  // message, and the voice is selected via audio.voice. The endpoint
+  // additionally requires top-level `text` and `voice` (422s otherwise).
   // NOTE: { text, voice, instruct } is not a documented shape — the voice ID
   // was silently ignored, so every chunk got a different voice. This
   // restores the documented format (see 331aeab).
-  const mimoBody = (userContent: string, voice?: string): Record<string, unknown> => ({
+  const mimoBody = (
+    userContent: string,
+    voice: string,
+    audioVoice?: string
+  ): Record<string, unknown> => ({
     text,
+    voice,
     messages: [
       { role: 'user', content: userContent },
       { role: 'assistant', content: text },
     ],
-    audio: voice ? { format: 'wav', voice } : { format: 'wav' },
+    audio: audioVoice ? { format: 'wav', voice: audioVoice } : { format: 'wav' },
   });
   const defaultInstruct = voicePrompt || 'A natural, clear, and engaging voice.';
 
   if (isSavedVoice) {
     // User selected a persistent custom voice: route directly to voiceclone for ALL chunks!
     targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
-    body = mimoBody(defaultInstruct, params.voiceId!.trim());
+    const vid = params.voiceId!.trim();
+    body = mimoBody(defaultInstruct, vid, vid);
     console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via persistent saved voiceclone (${params.voiceId})`);
   } else if (isVoiceDesign) {
     if (isMultiChunk && chunkIndex > 0 && anchorVoiceId) {
       // Continuation chunk in multi-chunk job: use voiceclone with session anchor voice
       targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
-      body = mimoBody(defaultInstruct, anchorVoiceId);
+      body = mimoBody(defaultInstruct, anchorVoiceId, anchorVoiceId);
       console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voiceclone (${anchorVoiceId})`);
     } else {
       // Chunk 0 or standalone single chunk: use voicedesign.
-      // VoiceDesign generates from the text description — no audio.voice.
-      body = mimoBody(defaultInstruct);
+      // VoiceDesign generates from the text description — the description
+      // itself is the top-level voice; no audio.voice ID exists yet.
+      body = mimoBody(defaultInstruct, defaultInstruct);
       console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voicedesign`);
     }
   } else if (isMimo) {
@@ -365,7 +372,7 @@ export async function synthesizeVoiceChunk(params: {
     // Per-section tone becomes a natural-language style cue (user message).
     const tone = (params.tone || '').toLowerCase();
     const styleCue = tone ? `Narrate in a ${tone} tone. ` : '';
-    body = mimoBody(`${styleCue}${defaultInstruct}`, 'mimo_default');
+    body = mimoBody(`${styleCue}${defaultInstruct}`, 'mimo_default', 'mimo_default');
   } else {
     const expr = typeof params.expressiveness === 'number'
       ? Math.min(100, Math.max(0, params.expressiveness))
