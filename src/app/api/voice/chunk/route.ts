@@ -73,8 +73,8 @@ export async function POST(req: Request) {
         typeof body.languageId === 'string'
           ? body.languageId
           : typeof body.language === 'string'
-          ? body.language
-          : 'en'
+            ? body.language
+            : 'en'
       )
         .toLowerCase()
         .trim();
@@ -108,8 +108,8 @@ export async function POST(req: Request) {
       typeof body.voicePrompt === 'string' && body.voicePrompt.trim()
         ? body.voicePrompt.trim()
         : typeof body.voiceDescription === 'string' && body.voiceDescription.trim()
-        ? body.voiceDescription.trim()
-        : undefined;
+          ? body.voiceDescription.trim()
+          : undefined;
 
     const { audio, mimeType, sessionVoiceId } = await synthesizeVoiceChunk({
       modelId: model.modelId,
@@ -123,6 +123,7 @@ export async function POST(req: Request) {
       planId: isPreview ? undefined : planId,
       index,
       totalChunks,
+      seed: typeof body.seed === 'number' && Number.isFinite(body.seed) ? body.seed : undefined,
       sessionVoiceId:
         typeof body.sessionVoiceId === 'string' && body.sessionVoiceId.trim()
           ? body.sessionVoiceId.trim()

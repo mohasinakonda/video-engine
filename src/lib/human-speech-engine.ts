@@ -34,8 +34,8 @@ export function humanizeSpeechText(
 
   // If text already contains explicit breath or action tags, respect user input
   if (
-    /\((?:takes a breath|breathes|sighs|soft inhale|inhale|exhale)\)/i.test(text) ||
-    /\[(?:takes a breath|breathes|sighs|gasp)\]/i.test(text)
+    /\((?:breathes|sighs|soft inhale|inhale|exhale)\)/i.test(text) ||
+    /\[(?:breathes|sighs|gasp)\]/i.test(text)
   ) {
     return text;
   }
@@ -43,11 +43,11 @@ export function humanizeSpeechText(
   // 1. Initial breath: ONLY for the very first chunk.
   // Continuation chunks (chunkIndex > 0) are in the middle of ongoing speech
   // and must enter seamlessly without an abrupt inspiratory loudness spike.
-  let result = options?.isContinuation ? text : `(takes a breath) ${text}`;
+  let result = options?.isContinuation ? text : `(breath) ${text}`;
 
   // 2. Paragraph transitions: New paragraphs represent new thoughts
   result = result.replace(/(\n\s*\n\s*)([A-Za-z0-9"'])/g, (_match, breaks, nextChar) => {
-    return `${breaks}(takes a breath) ${nextChar}`;
+    return `${breaks}(breath) ${nextChar}`;
   });
 
   // 3. Sentence boundary respiratory cadence
@@ -70,6 +70,11 @@ export function humanizeSpeechText(
     // Exclamations and questions retain their punctuation
     return `${punct} (breathes) ${nextChar}`;
   });
+
+  // Safety guard: ensure breathing tag expansion never pushes text over 950 chars (DeepInfra 1000 limit)
+  if (result.length > 950) {
+    return text.length <= 950 ? text : text.slice(0, 950);
+  }
 
   return result;
 }
@@ -104,6 +109,9 @@ export function injectHumanAcoustics(rawPrompt?: string): string {
   return `${base}${separator}${HUMAN_ACOUSTIC_DIRECTIVE}`;
 }
 
+const CONTINUATION_DIRECTIVE =
+  'Unbroken continuous monologue: maintain the exact same vocal warmth, pitch register, emotional delivery, and natural pacing.';
+
 /**
  * Complete server-side pipeline: Transforms both text and voice prompt
  * for maximum human authenticity with smooth multi-chunk continuity.
@@ -127,9 +135,15 @@ export function humanizeSpeechPayload(params: {
 
   // Always inject human bio-acoustics into the prompt for all MiMo models (including voiceclone)
   // to prevent flat robotic monotone and guarantee warm, emotional delivery
-  const humanizedPrompt = isMimo
+  let humanizedPrompt = isMimo
     ? injectHumanAcoustics(params.voicePrompt)
     : params.voicePrompt;
+
+  // For continuation chunks (chunkIndex > 0), instruct the model to maintain unbroken tone & warmth
+  if (isContinuation && humanizedPrompt) {
+    const separator = /[.!?]$/.test(humanizedPrompt) ? ' ' : '. ';
+    humanizedPrompt = `${humanizedPrompt}${separator}${CONTINUATION_DIRECTIVE}`;
+  }
 
   return {
     text: humanizedText,

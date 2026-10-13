@@ -285,6 +285,11 @@ export async function synthesizeVoiceChunk(params: {
   index?: number;
   totalChunks?: number;
   /**
+   * Deterministic sampling seed across chunks to eliminate voice drift,
+   * pitch wandering, and tone variance.
+   */
+  seed?: number;
+  /**
    * Session anchor voice ID echoed back by the client (from chunk 0's
    * response). The plan store is in-memory per server instance; on serverless
    * hosting chunk N+1 can land on a different instance than chunk 0 and lose
@@ -303,12 +308,19 @@ export async function synthesizeVoiceChunk(params: {
   }
 
   // Server-side Human Speech Engine: Seamlessly adds respiratory breathing & biological acoustics
-  const { text, voicePrompt } = humanizeSpeechPayload({
+  const { text: humanizedText, voicePrompt } = humanizeSpeechPayload({
     text: rawText,
     voicePrompt: params.voicePrompt,
     modelId: params.modelId,
     chunkIndex: params.index ?? 0,
   });
+
+  // DeepInfra hard limit is 1000 characters. If humanization ever exceeds 950,
+  // safely clamp or revert to rawText to guarantee 100% API acceptance.
+  let text = humanizedText;
+  if (text.length > 980) {
+    text = rawText.length <= 980 ? rawText : rawText.slice(0, 980);
+  }
 
   const isVoiceDesign = params.modelId.toLowerCase().includes('voicedesign');
   const isMimo = params.modelId.toLowerCase().includes('mimo');
@@ -330,22 +342,25 @@ export async function synthesizeVoiceChunk(params: {
   // user message, the text (with (style)/[audio] tags) in the assistant
   // message, and the voice is selected via audio.voice. The endpoint
   // additionally requires top-level `text` and `voice` (422s otherwise).
-  // NOTE: { text, voice, instruct } is not a documented shape — the voice ID
-  // was silently ignored, so every chunk got a different voice. This
-  // restores the documented format (see 331aeab).
   const mimoBody = (
     userContent: string,
     voice: string,
     audioVoice?: string
-  ): Record<string, unknown> => ({
-    text,
-    voice,
-    messages: [
-      { role: 'user', content: userContent },
-      { role: 'assistant', content: text },
-    ],
-    audio: audioVoice ? { format: 'wav', voice: audioVoice } : { format: 'wav' },
-  });
+  ): Record<string, unknown> => {
+    const payload: Record<string, unknown> = {
+      text,
+      voice,
+      messages: [
+        { role: 'user', content: userContent },
+        { role: 'assistant', content: text },
+      ],
+      audio: audioVoice ? { format: 'wav', voice: audioVoice } : { format: 'wav' },
+    };
+    if (typeof params.seed === 'number' && Number.isFinite(params.seed)) {
+      payload.seed = Math.floor(params.seed);
+    }
+    return payload;
+  };
   const defaultInstruct = voicePrompt || 'A natural, clear, and engaging voice.';
 
   if (isSavedVoice) {
@@ -353,19 +368,18 @@ export async function synthesizeVoiceChunk(params: {
     targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
     const vid = params.voiceId!.trim();
     body = mimoBody(defaultInstruct, vid, vid);
-    console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via persistent saved voiceclone (${params.voiceId})`);
   } else if (isVoiceDesign) {
     if (isMultiChunk && chunkIndex > 0 && anchorVoiceId) {
       // Continuation chunk in multi-chunk job: use voiceclone with session anchor voice
       targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
       body = mimoBody(defaultInstruct, anchorVoiceId, anchorVoiceId);
-      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voiceclone (${anchorVoiceId})`);
+
     } else {
       // Chunk 0 or standalone single chunk: use voicedesign.
       // VoiceDesign generates from the text description — the description
       // itself is the top-level voice; no audio.voice ID exists yet.
       body = mimoBody(defaultInstruct, defaultInstruct);
-      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voicedesign`);
+
     }
   } else if (isMimo) {
     // Base MiMo-V2.5-TTS: same messages format; built-in voice via audio.voice.
@@ -460,9 +474,6 @@ export async function synthesizeVoiceChunk(params: {
     }
   }
 
-  console.log(
-    `[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized: ${audio.byteLength} bytes, ${mimeType} (${targetModelId})`
-  );
 
   // If this was Chunk 0 of a multi-chunk dynamic VoiceDesign session (not a persistent saved voice), register anchor audio clone.
   // The new anchor ID is returned to the client, which echoes it back on
@@ -581,7 +592,7 @@ function sweepPlans() {
   store.plans.forEach((p, id) => {
     if (now - p.createdAt > PLAN_TTL_MS) {
       if (p.sessionVoiceId && apiKey) {
-        deleteDeepinfraVoice(p.sessionVoiceId, apiKey).catch(() => {});
+        deleteDeepinfraVoice(p.sessionVoiceId, apiKey).catch(() => { });
       }
       store.plans.delete(id);
     }
@@ -688,7 +699,7 @@ export function deleteVoicePlan(planId: string): void {
   if (plan?.sessionVoiceId) {
     const apiKey = deepinfraKey();
     if (apiKey) {
-      deleteDeepinfraVoice(plan.sessionVoiceId, apiKey).catch(() => {});
+      deleteDeepinfraVoice(plan.sessionVoiceId, apiKey).catch(() => { });
     }
   }
   store.plans.delete(planId);

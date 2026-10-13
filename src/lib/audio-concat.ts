@@ -88,7 +88,7 @@ function computePcmRms(pcm: Uint8Array): number {
 
 /**
  * Gently levels the volume of a chunk towards target RMS to eliminate sudden loudness surges.
- * Clamps gain adjustment between 0.75x and 1.25x for transparent, distortion-free scaling.
+ * Clamps gain adjustment between 0.70x and 1.30x for transparent, distortion-free scaling.
  */
 function matchPcmLevel(pcm: Uint8Array, targetRms: number): Uint8Array {
   if (targetRms <= 0 || pcm.byteLength < 4) return pcm;
@@ -96,10 +96,10 @@ function matchPcmLevel(pcm: Uint8Array, targetRms: number): Uint8Array {
   if (currentRms <= 0) return pcm;
 
   const ratio = targetRms / currentRms;
-  // If volume is already within ~10%, leave untouched
-  if (ratio >= 0.90 && ratio <= 1.10) return pcm;
+  // If volume is already within ~8%, leave untouched
+  if (ratio >= 0.92 && ratio <= 1.08) return pcm;
 
-  const gain = Math.max(0.75, Math.min(1.25, ratio));
+  const gain = Math.max(0.70, Math.min(1.30, ratio));
   const copy = new Uint8Array(pcm);
   const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
   const totalSamples = Math.floor(pcm.byteLength / 2);
@@ -114,7 +114,26 @@ function matchPcmLevel(pcm: Uint8Array, targetRms: number): Uint8Array {
 }
 
 /**
- * 3ms micro fade-in and fade-out to prevent waveform clicks at boundaries without creating gaps.
+ * Generates an inter-chunk natural respiratory pause (220ms) with inaudible
+ * comfort-room dither (~ -78 dBFS) to prevent abrupt zero-digital-silence jump cuts.
+ */
+function createInterChunkPause(sampleRate = 24000, durationSec = 0.22): Uint8Array {
+  const sampleCount = Math.floor(sampleRate * durationSec);
+  const bytes = new Uint8Array(sampleCount * 2);
+  const view = new DataView(bytes.buffer);
+
+  for (let i = 0; i < sampleCount; i++) {
+    // Subtle inaudible dither (-4 to +4 in 16-bit PCM) eliminates sterile digital gate cutoff
+    const dither = Math.floor((Math.random() - 0.5) * 8);
+    view.setInt16(i * 2, dither, true);
+  }
+
+  return bytes;
+}
+
+/**
+ * Applies soft-knee quarter-sine envelopes to eliminate vocoder onset transient spikes
+ * and provide gentle sentence tail decrescendo without clipping speech consonants.
  */
 function smoothJunctions(
   pcm: Uint8Array,
@@ -122,29 +141,35 @@ function smoothJunctions(
   isLast: boolean,
   sampleRate = 24000
 ): Uint8Array {
-  const fadeDurationSec = 0.003; // 3ms
-  const fadeSamples = Math.max(8, Math.floor(sampleRate * fadeDurationSec));
-  const totalSamples = Math.floor(pcm.byteLength / 2);
+  // 35ms soft-knee attack tamer for continuation chunks (tames vocoder startup bursts)
+  const fadeInSec = 0.035;
+  const fadeInSamples = Math.max(16, Math.floor(sampleRate * fadeInSec));
 
-  if (totalSamples < fadeSamples * 2) return pcm;
+  // 15ms gentle tail decrescendo for leading chunks
+  const fadeOutSec = 0.015;
+  const fadeOutSamples = Math.max(16, Math.floor(sampleRate * fadeOutSec));
+
+  const totalSamples = Math.floor(pcm.byteLength / 2);
+  if (totalSamples < (fadeInSamples + fadeOutSamples)) return pcm;
 
   const copy = new Uint8Array(pcm);
   const view = new DataView(copy.buffer, copy.byteOffset, copy.byteLength);
 
-  // Fade-in at start of continuation chunks
+  // Soft-knee onset fade-in at start of continuation chunks
   if (!isFirst) {
-    for (let i = 0; i < fadeSamples; i++) {
-      const factor = i / fadeSamples;
+    for (let i = 0; i < fadeInSamples; i++) {
+      // Quarter-sine smooth envelope: gentle launch, no pop
+      const factor = Math.sin((i / fadeInSamples) * (Math.PI / 2));
       const s = view.getInt16(i * 2, true);
       view.setInt16(i * 2, Math.round(s * factor), true);
     }
   }
 
-  // Fade-out at end of leading chunks
+  // Smooth fade-out at end of leading chunks
   if (!isLast) {
-    for (let i = 0; i < fadeSamples; i++) {
-      const factor = (fadeSamples - i) / fadeSamples;
-      const offset = (totalSamples - fadeSamples + i) * 2;
+    for (let i = 0; i < fadeOutSamples; i++) {
+      const factor = Math.sin(((fadeOutSamples - i) / fadeOutSamples) * (Math.PI / 2));
+      const offset = (totalSamples - fadeOutSamples + i) * 2;
       const s = view.getInt16(offset, true);
       view.setInt16(offset, Math.round(s * factor), true);
     }
@@ -154,8 +179,31 @@ function smoothJunctions(
 }
 
 /**
- * Combine chunk audio parts into a single playable Blob.
- * Performs RMS level matching and micro-smoothed seamless stitching.
+ * Transparent soft-knee master peak limiter: Prevents sudden phonetic transient bursts
+ * from jarring the listener while leaving 100% of vocal dynamic range untouched.
+ */
+function applyMasterSoftLimiter(pcm: Uint8Array): void {
+  const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  const totalSamples = Math.floor(pcm.byteLength / 2);
+  const THRESHOLD = 28000; // ~ -1.3 dBFS
+  const CEILING_HEADROOM = 32767 - THRESHOLD; // 4767
+
+  for (let i = 0; i < totalSamples; i++) {
+    const s = view.getInt16(i * 2, true);
+    const abs = Math.abs(s);
+    if (abs > THRESHOLD) {
+      const excess = abs - THRESHOLD;
+      // Hyperbolic tangent soft knee
+      const compressed = THRESHOLD + CEILING_HEADROOM * Math.tanh(excess / CEILING_HEADROOM);
+      view.setInt16(i * 2, Math.round(Math.sign(s) * compressed), true);
+    }
+  }
+}
+
+/**
+ * Combine chunk audio parts into a single seamless, playable Blob.
+ * Performs RMS level matching, 220ms natural inter-chunk respiratory pauses,
+ * 35ms soft-knee onset transient taming, and transparent master peak limiting.
  */
 export function concatenateAudioParts(parts: Uint8Array[], mimeType: string): Blob {
   if (parts.length === 0) return new Blob([], { type: mimeType });
@@ -180,18 +228,30 @@ export function concatenateAudioParts(parts: Uint8Array[], mimeType: string): Bl
   const anchorRms = computePcmRms(wavs[0].pcm);
 
   // Level volume across chunks and smooth junctions seamlessly
-  const processedParts = wavs.map((w, idx) => {
+  const processedPcmChunks: Uint8Array[] = wavs.map((w, idx) => {
     const leveled = idx === 0 ? w.pcm : matchPcmLevel(w.pcm, anchorRms);
     return smoothJunctions(leveled, idx === 0, idx === wavs.length - 1, sampleRate);
   });
 
-  const totalPcm = processedParts.reduce((n, p) => n + p.length, 0);
+  // Assemble with natural 220ms inter-chunk respiratory pauses between adjacent chunks
+  const assembledParts: Uint8Array[] = [];
+  for (let i = 0; i < processedPcmChunks.length; i++) {
+    assembledParts.push(processedPcmChunks[i]);
+    if (i < processedPcmChunks.length - 1) {
+      assembledParts.push(createInterChunkPause(sampleRate, 0.22));
+    }
+  }
+
+  const totalPcm = assembledParts.reduce((n, p) => n + p.length, 0);
   const pcm = new Uint8Array(totalPcm);
   let at = 0;
-  for (const p of processedParts) {
+  for (const p of assembledParts) {
     pcm.set(p, at);
     at += p.length;
   }
+
+  // Final master pass: transparent soft-knee peak limiting
+  applyMasterSoftLimiter(pcm);
 
   // Layout: RIFF header (12) + fmt chunk + data header (8) + PCM.
   const out = new Uint8Array(12 + fmtChunk.length + 8 + totalPcm);

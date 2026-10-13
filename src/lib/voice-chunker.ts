@@ -39,8 +39,8 @@ export interface VoiceChunk {
   tone?: string;
 }
 
-/** Stay safely under MiMo TTS provider per-request limit (DeepInfra max 1000 chars, safe target 800). */
-export const MAX_CHUNK_CHARS = 800;
+/** Stay safely under MiMo TTS provider 1000-char limit (target 700 chars leaving 300 chars budget for human respiratory tags). */
+export const MAX_CHUNK_CHARS = 700;
 
 /** Chars that open/close quotations we protect. */
 const QUOTE_CHARS = new Set(['"', '\u201C', '\u201D', "'", '\u2018', '\u2019']);
@@ -278,9 +278,9 @@ function packSection(
 
     if (wouldOverflow && current.length > 0) {
       // Don't strand an open quote: keep pulling sentences until it closes,
-      // but strictly never exceed 950 chars so we stay well below the 1000-char provider ceiling.
+      // but strictly never exceed 800 chars so tags leave plenty of room for DeepInfra.
       const openQuote = hasOpenQuote(current.map((u) => u.text).join(' '));
-      if (openQuote && currentLen + unitLen <= Math.min(950, Math.floor(maxChars * 1.2))) {
+      if (openQuote && currentLen + unitLen <= Math.min(800, Math.floor(maxChars * 1.15))) {
         current.push(unit);
         currentLen += unitLen;
         continue;

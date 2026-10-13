@@ -132,7 +132,7 @@ export async function POST(req: Request) {
     if (dbError) {
       console.error('[custom-voices POST] DB Insert failed:', dbError);
       // Clean up the created DeepInfra voice so we don't leave an orphan
-      await deleteDeepinfraVoice(voiceId, apiKey).catch(() => {});
+      await deleteDeepinfraVoice(voiceId, apiKey).catch(() => { });
       return NextResponse.json(
         { error: `Database error: ${dbError.message}. Please ensure the user_custom_voices table is created.` },
         { status: 500 }

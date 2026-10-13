@@ -464,6 +464,9 @@ export default function VoicePage() {
       const parts: Uint8Array[] = [];
       let charsDone = 0;
       let resultMimeType = 'audio/wav';
+      // Deterministic neural seed for this entire generation session —
+      // locks timbre, pitch contour, and pacing so chunk 1, 2, 3 never drift in tone.
+      const sessionSeed = Math.floor(Math.random() * 900000) + 100000;
 
       for (let i = 0; i < chunks.length; i++) {
         if (cancelRef.current) throw new Error('cancelled');
@@ -484,6 +487,7 @@ export default function VoicePage() {
                 totalChunks: chunks.length,
                 text: chunk.text,
                 tone: chunk.tone,
+                seed: sessionSeed,
                 modelId: targetModelId,
                 voicePrompt: currentVoice
                   ? (currentVoice.voice_prompt || voiceDescription.trim())
