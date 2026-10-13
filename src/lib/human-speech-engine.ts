@@ -26,57 +26,20 @@ const COMMON_ABBREVIATIONS = /\b(?:mr|mrs|ms|dr|prof|sr|jr|vs|etc|inc|ltd|co|cor
  */
 export function humanizeSpeechText(
   rawText: string,
-  options?: { isMimo?: boolean; isContinuation?: boolean }
+  _options?: { isMimo?: boolean; isContinuation?: boolean }
 ): string {
   if (!rawText) return rawText;
   const text = rawText.trim();
   if (!text) return text;
 
-  // If text already contains explicit breath or action tags, respect user input
-  if (
-    /\((?:breathes|sighs|soft inhale|inhale|exhale)\)/i.test(text) ||
-    /\[(?:breathes|sighs|gasp)\]/i.test(text)
-  ) {
-    return text;
-  }
+  // Clean out any lingering artificial breath tags so the AI never produces weird 'huh' sounds
+  const cleaned = text
+    .replace(/\s*\((?:breath|breathes|takes a breath|soft inhale|inhale|exhale)\)\s*/gi, ' ')
+    .replace(/\s*\[(?:breath|breathes|takes a breath|sigh|gasp)\]\s*/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 
-  // 1. Initial breath: ONLY for the very first chunk.
-  // Continuation chunks (chunkIndex > 0) are in the middle of ongoing speech
-  // and must enter seamlessly without an abrupt inspiratory loudness spike.
-  let result = options?.isContinuation ? text : `(breath) ${text}`;
-
-  // 2. Paragraph transitions: New paragraphs represent new thoughts
-  result = result.replace(/(\n\s*\n\s*)([A-Za-z0-9"'])/g, (_match, breaks, nextChar) => {
-    return `${breaks}(breath) ${nextChar}`;
-  });
-
-  // 3. Sentence boundary respiratory cadence
-  // Matches punctuation (. ! ?) followed by whitespace and an uppercase letter or quote
-  result = result.replace(/([.!?])(\s+)([A-Z0-9"'])/g, (match, punct, spaces, nextChar, offset) => {
-    // Check preceding 15 characters to avoid breaking on abbreviations (Dr., Mr., etc.)
-    const preWindow = result.slice(Math.max(0, offset - 15), offset + 1);
-    if (COMMON_ABBREVIATIONS.test(preWindow.trim())) {
-      return match;
-    }
-
-    // Check if it's already an ellipsis
-    const isEllipsis = offset >= 2 && result.slice(offset - 2, offset + 1) === '...';
-
-    if (punct === '.' || isEllipsis) {
-      // Natural trailing pause with subtle breath
-      return `... (breathes) ${nextChar}`;
-    }
-
-    // Exclamations and questions retain their punctuation
-    return `${punct} (breathes) ${nextChar}`;
-  });
-
-  // Safety guard: ensure breathing tag expansion never pushes text over 950 chars (DeepInfra 1000 limit)
-  if (result.length > 950) {
-    return text.length <= 950 ? text : text.slice(0, 950);
-  }
-
-  return result;
+  return cleaned;
 }
 
 /**

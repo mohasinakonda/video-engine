@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { buildChunkPlan } from '@/lib/voice-chunker';
+import { buildChunkPlan, getModelMaxChunkChars } from '@/lib/voice-chunker';
 import {
   authenticateVoiceRequest,
   resolveVoiceModel,
@@ -64,8 +64,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Build the chunk plan (semantic sectioning is best-effort inside).
-    const plan = await buildChunkPlan(text, deepinfraChat);
+    // Build the chunk plan with model-specific capacity (Chatterbox allows up to 4800 chars in 1 chunk!)
+    const maxChunkChars = getModelMaxChunkChars(model.modelId);
+    const plan = await buildChunkPlan(text, deepinfraChat, maxChunkChars);
     if (plan.chunks.length === 0) {
       return NextResponse.json({ error: 'Could not build a synthesis plan from this text.' }, { status: 400 });
     }

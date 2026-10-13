@@ -39,8 +39,23 @@ export interface VoiceChunk {
   tone?: string;
 }
 
-/** Stay safely under MiMo TTS provider 1000-char limit (target 700 chars leaving 300 chars budget for human respiratory tags). */
-export const MAX_CHUNK_CHARS = 700;
+/** Chatterbox multilingual supports up to 5,000 characters in a single pass. 4,800 is a safe budget. */
+export const CHATTERBOX_MAX_CHUNK_CHARS = 4800;
+
+/** Default / MiMo safe per-chunk limit (under 1000 limit). */
+export const MIMO_MAX_CHUNK_CHARS = 850;
+
+/** Default backwards-compatible chunk limit */
+export const MAX_CHUNK_CHARS = 850;
+
+export function getModelMaxChunkChars(modelId?: string): number {
+  if (!modelId) return CHATTERBOX_MAX_CHUNK_CHARS;
+  const m = modelId.toLowerCase();
+  if (m.includes('chatterbox')) return CHATTERBOX_MAX_CHUNK_CHARS;
+  if (m.includes('f5-tts') || m.includes('minimax')) return CHATTERBOX_MAX_CHUNK_CHARS;
+  if (m.includes('mimo')) return MIMO_MAX_CHUNK_CHARS;
+  return CHATTERBOX_MAX_CHUNK_CHARS;
+}
 
 /** Chars that open/close quotations we protect. */
 const QUOTE_CHARS = new Set(['"', '\u201C', '\u201D', "'", '\u2018', '\u2019']);
@@ -413,11 +428,35 @@ export async function buildChunkPlan(
     sections.push(section);
   }
 
-  const chunks: VoiceChunk[] = [];
+  const rawChunks: VoiceChunk[] = [];
   for (const section of sections) {
-    const packed = packSection(section, chunks.length, maxChars);
-    chunks.push(...packed);
+    const packed = packSection(section, rawChunks.length, maxChars);
+    rawChunks.push(...packed);
   }
+
+  // Coalesce adjacent chunks that share the same tone and fit comfortably under maxChars
+  const chunks: VoiceChunk[] = [];
+  for (const chunk of rawChunks) {
+    const last = chunks[chunks.length - 1];
+    if (
+      last &&
+      (!last.tone || !chunk.tone || last.tone === chunk.tone) &&
+      last.text.length + 2 + chunk.text.length <= maxChars
+    ) {
+      last.text += '\n\n' + chunk.text;
+    } else {
+      chunks.push({
+        index: chunks.length,
+        text: chunk.text,
+        tone: chunk.tone,
+      });
+    }
+  }
+
+  // Re-index chunks
+  chunks.forEach((c, i) => {
+    c.index = i;
+  });
 
   return {
     chunks,

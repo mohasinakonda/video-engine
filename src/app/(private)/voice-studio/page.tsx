@@ -219,11 +219,11 @@ export default function VoicePage() {
       .then((d) => {
         if (d.success && Array.isArray(d.models) && d.models.length > 0) {
           const found =
+            d.models.find((m: VoiceEngine) => m.isDefault) ||
             d.models.find(
               (m: VoiceEngine) =>
-                m.id.includes('voicedesign') || m.modelId.includes('voicedesign')
+                m.id.includes('chatterbox') || m.modelId.includes('chatterbox')
             ) ||
-            d.models.find((m: VoiceEngine) => m.isDefault) ||
             d.models[0];
           if (found) setEngine(found);
         }
@@ -440,9 +440,11 @@ export default function VoicePage() {
 
     try {
       const activeCustomVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
-      const targetModelId = activeCustomVoice
-        ? 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone'
-        : (engine?.id || 'voice-mimo-v25-voicedesign');
+      // For custom voices and default narration, route to high-capacity Chatterbox Multilingual (5,000-char single pass)
+      // so scripts up to 4,800 characters are never split into multiple chunks.
+      let targetModelId = activeCustomVoice
+        ? 'ResembleAI/chatterbox-multilingual'
+        : (engine?.modelId || engine?.id || 'ResembleAI/chatterbox-multilingual');
 
       const planRes = await fetch('/api/voice/plan', {
         method: 'POST',

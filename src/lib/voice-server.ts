@@ -68,10 +68,10 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     id: 'voice-chatterbox-multilingual',
     name: 'Chatterbox Multilingual',
     modelId: 'ResembleAI/chatterbox-multilingual',
-    description: 'Flagship expressive engine. 23 languages, emotion control.',
+    description: 'Flagship expressive engine. 5,000-char single pass, 23 languages, emotion control.',
     charsPerCredit: 2000,
     allowedPlans: [],
-    isDefault: false,
+    isDefault: true,
     isActive: true,
   },
   {
@@ -101,7 +101,7 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     description: 'Design any voice via text description. Supports multi-emotion mixing and director mode.',
     charsPerCredit: 10000,
     allowedPlans: [],
-    isDefault: true,
+    isDefault: false,
     isActive: true,
   },
 ];
@@ -303,11 +303,14 @@ export async function synthesizeVoiceChunk(params: {
 
   const rawText = params.text.trim();
   if (!rawText) throw new Error('Chunk text is empty.');
-  if (rawText.length > MAX_CHUNK_CHARS + 200) {
-    throw new Error(`Chunk too long (${rawText.length} chars).`);
+
+  const isChatterbox = params.modelId.toLowerCase().includes('chatterbox');
+  const maxAllowed = isChatterbox ? 5000 : 1050;
+  if (rawText.length > maxAllowed) {
+    throw new Error(`Chunk too long (${rawText.length} chars, max ${maxAllowed}).`);
   }
 
-  // Server-side Human Speech Engine: Seamlessly adds respiratory breathing & biological acoustics
+  // Server-side Human Speech Engine: Seamlessly adds natural acoustics & prosody
   const { text: humanizedText, voicePrompt } = humanizeSpeechPayload({
     text: rawText,
     voicePrompt: params.voicePrompt,
@@ -315,11 +318,12 @@ export async function synthesizeVoiceChunk(params: {
     chunkIndex: params.index ?? 0,
   });
 
-  // DeepInfra hard limit is 1000 characters. If humanization ever exceeds 950,
-  // safely clamp or revert to rawText to guarantee 100% API acceptance.
+  // Clamp safely within provider thresholds
   let text = humanizedText;
-  if (text.length > 980) {
+  if (!isChatterbox && text.length > 980) {
     text = rawText.length <= 980 ? rawText : rawText.slice(0, 980);
+  } else if (isChatterbox && text.length > 5000) {
+    text = text.slice(0, 5000);
   }
 
   const isVoiceDesign = params.modelId.toLowerCase().includes('voicedesign');
@@ -363,8 +367,31 @@ export async function synthesizeVoiceChunk(params: {
   };
   const defaultInstruct = voicePrompt || 'A natural, clear, and engaging voice.';
 
-  if (isSavedVoice) {
-    // User selected a persistent custom voice: route directly to voiceclone for ALL chunks!
+  if (isChatterbox) {
+    targetModelId = params.modelId;
+    const expr = typeof params.expressiveness === 'number'
+      ? Math.min(100, Math.max(0, params.expressiveness))
+      : 50;
+    const exaggeration = Math.round((expr / 100) * 100) / 100;
+
+    const chatterboxPayload: Record<string, unknown> = {
+      text,
+      language_id: params.languageId || toLanguageId(params.language) || 'en',
+      exaggeration,
+      temperature: 0.7,
+    };
+
+    if (isSavedVoice && params.voiceId) {
+      chatterboxPayload.voice_id = params.voiceId.trim();
+    }
+
+    if (typeof params.seed === 'number' && Number.isFinite(params.seed)) {
+      chatterboxPayload.seed = Math.floor(params.seed);
+    }
+
+    body = chatterboxPayload;
+  } else if (isSavedVoice) {
+    // User selected a persistent custom voice with MiMo: route directly to voiceclone for ALL chunks!
     targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
     const vid = params.voiceId!.trim();
     body = mimoBody(defaultInstruct, vid, vid);
@@ -373,17 +400,12 @@ export async function synthesizeVoiceChunk(params: {
       // Continuation chunk in multi-chunk job: use voiceclone with session anchor voice
       targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
       body = mimoBody(defaultInstruct, anchorVoiceId, anchorVoiceId);
-
     } else {
       // Chunk 0 or standalone single chunk: use voicedesign.
-      // VoiceDesign generates from the text description — the description
-      // itself is the top-level voice; no audio.voice ID exists yet.
       body = mimoBody(defaultInstruct, defaultInstruct);
-
     }
   } else if (isMimo) {
     // Base MiMo-V2.5-TTS: same messages format; built-in voice via audio.voice.
-    // Per-section tone becomes a natural-language style cue (user message).
     const tone = (params.tone || '').toLowerCase();
     const styleCue = tone ? `Narrate in a ${tone} tone. ` : '';
     body = mimoBody(`${styleCue}${defaultInstruct}`, 'mimo_default', 'mimo_default');
@@ -393,12 +415,10 @@ export async function synthesizeVoiceChunk(params: {
       : 50;
     let exaggeration = expr / 100;
 
-    // Per-section tone nudges delivery intensity (tags themselves stay inline).
     const tone = (params.tone || '').toLowerCase();
     if (HIGH_ENERGY_TONES.has(tone)) exaggeration = Math.min(1, exaggeration + 0.15);
     else if (LOW_ENERGY_TONES.has(tone)) exaggeration = Math.max(0, exaggeration - 0.15);
 
-    // Resemble AI guidance: dramatic delivery → lower cfg for better pacing.
     const cfgWeight = exaggeration >= 0.65 ? 0.3 : 0.5;
 
     body = {

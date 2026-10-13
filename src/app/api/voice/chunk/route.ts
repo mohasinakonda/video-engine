@@ -95,14 +95,17 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!text.trim() || text.length > MAX_CHUNK_CHARS + 200) {
-      return NextResponse.json({ error: 'Invalid chunk text.' }, { status: 400 });
-    }
-
     const model = await resolveVoiceModel(
       typeof body.modelId === 'string' ? body.modelId : undefined,
       auth.serverSupabase
     );
+
+    const isChatterbox = model.modelId.toLowerCase().includes('chatterbox');
+    const maxChunkLimit = isChatterbox ? 5000 : MAX_CHUNK_CHARS + 200;
+
+    if (!text.trim() || text.length > maxChunkLimit) {
+      return NextResponse.json({ error: `Invalid chunk text (max ${maxChunkLimit} chars).` }, { status: 400 });
+    }
 
     const voicePrompt =
       typeof body.voicePrompt === 'string' && body.voicePrompt.trim()
