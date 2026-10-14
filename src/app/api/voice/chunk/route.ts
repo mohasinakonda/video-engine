@@ -123,6 +123,9 @@ export async function POST(req: Request) {
       languageId: typeof body.languageId === 'string' ? body.languageId : undefined,
       tone: typeof body.tone === 'string' && body.tone ? body.tone : undefined,
       expressiveness: typeof body.expressiveness === 'number' ? body.expressiveness : 50,
+      // Voice-style drawer overrides (optional — absent = existing behaviour).
+      cfgWeight: typeof body.cfgWeight === 'number' ? body.cfgWeight : undefined,
+      temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
       planId: isPreview ? undefined : planId,
       index,
       totalChunks,

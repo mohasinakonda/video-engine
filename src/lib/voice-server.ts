@@ -281,6 +281,13 @@ export async function synthesizeVoiceChunk(params: {
   tone?: string;
   /** 0-100, maps to Chatterbox exaggeration (0-1). */
   expressiveness?: number;
+  /**
+   * Optional delivery overrides from the voice-style drawer. When absent,
+   * the existing auto behaviour (tone nudges + default temperature) applies
+   * unchanged, so requests without style settings are byte-identical.
+   */
+  cfgWeight?: number;
+  temperature?: number;
   planId?: string;
   index?: number;
   totalChunks?: number;
@@ -378,8 +385,15 @@ export async function synthesizeVoiceChunk(params: {
       text,
       language_id: params.languageId || toLanguageId(params.language) || 'en',
       exaggeration,
-      temperature: 0.7,
+      temperature: typeof params.temperature === 'number' && Number.isFinite(params.temperature)
+        ? Math.min(1, Math.max(0, params.temperature))
+        : 0.7,
     };
+
+    // Style-drawer override: only sent when the user picked a style / moved a slider.
+    if (typeof params.cfgWeight === 'number' && Number.isFinite(params.cfgWeight)) {
+      chatterboxPayload.cfg_weight = Math.min(1, Math.max(0.1, params.cfgWeight));
+    }
 
     if (isSavedVoice && params.voiceId) {
       chatterboxPayload.voice_id = params.voiceId.trim();
@@ -419,14 +433,22 @@ export async function synthesizeVoiceChunk(params: {
     if (HIGH_ENERGY_TONES.has(tone)) exaggeration = Math.min(1, exaggeration + 0.15);
     else if (LOW_ENERGY_TONES.has(tone)) exaggeration = Math.max(0, exaggeration - 0.15);
 
-    const cfgWeight = exaggeration >= 0.65 ? 0.3 : 0.5;
+    // Style-drawer overrides win over the auto cfg/temperature when provided.
+    const cfgWeight = typeof params.cfgWeight === 'number' && Number.isFinite(params.cfgWeight)
+      ? Math.min(1, Math.max(0.1, params.cfgWeight))
+      : exaggeration >= 0.65 ? 0.3 : 0.5;
 
-    body = {
+    const fallbackBody: Record<string, unknown> = {
       text,
       language_id: params.languageId || toLanguageId(params.language),
       exaggeration: Math.round(exaggeration * 100) / 100,
       cfg_weight: cfgWeight,
     };
+    // temperature was never sent on this path before — only add when overridden.
+    if (typeof params.temperature === 'number' && Number.isFinite(params.temperature)) {
+      fallbackBody.temperature = Math.min(1, Math.max(0, params.temperature));
+    }
+    body = fallbackBody;
   }
 
   const res = await fetch(

@@ -15,6 +15,7 @@ import {
   Bookmark,
   Lock,
   Upload,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { getAudioDuration } from '@/lib/media-storage';
@@ -22,10 +23,17 @@ import {
   MIMO_STYLE_TAGS,
   MIMO_INLINE_TAGS,
 } from '@/lib/voice-catalog';
+import {
+  getVoiceStyle,
+  getUseCase,
+  styleToParams,
+  type StyleParams,
+} from '@/lib/voice-styles';
 import { concatenateAudioParts } from '@/lib/audio-concat';
 import { VoiceDesignModal } from './_components/voice-design-modal';
 import { VoiceCloneModal } from './_components/voice-clone-modal';
 import { SidebarContent } from './_components/sidebar-content';
+import StyleDrawer from './_components/style-drawer';
 
 interface VoiceConfig {
   language: string;
@@ -197,6 +205,113 @@ export default function VoicePage() {
   const [resultChars, setResultChars] = useState<number>(0);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [isLooping, setIsLooping] = useState<boolean>(false);
+
+  // ─── Delivery style drawer (additive: null = existing behaviour) ───
+  const [styleDrawerOpen, setStyleDrawerOpen] = useState(false);
+  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
+  const [selectedUseCaseId, setSelectedUseCaseId] = useState<string | null>(null);
+  // Slider values shown in the drawer; only sent when styleTouched is true.
+  const [styleParams, setStyleParams] = useState<StyleParams>({ expressiveness: 50, cfgWeight: 0.5, temperature: 0.7 });
+  const [styleTouched, setStyleTouched] = useState(false);
+  const [previewingStyle, setPreviewingStyle] = useState(false);
+  // Reuses the existing previewAudioRef declared below (voice audition previews).
+  // Refs mirror style state for the async chunk loop (same pattern as sessionVoiceIdRef).
+  const styleTouchedRef = useRef(false);
+  const styleParamsRef = useRef<StyleParams>({ expressiveness: 50, cfgWeight: 0.5, temperature: 0.7 });
+  styleTouchedRef.current = styleTouched;
+  styleParamsRef.current = styleParams;
+
+  const activeStyle = getVoiceStyle(selectedStyleId);
+  // True when sliders were dragged away from the selected preset.
+  const isStyleCustom = styleTouched && !!activeStyle && (
+    styleParams.expressiveness !== Math.round(activeStyle.exaggeration * 100) ||
+    styleParams.cfgWeight !== activeStyle.cfgWeight ||
+    styleParams.temperature !== activeStyle.temperature
+  );
+
+  const handleSelectStyle = useCallback((id: string | null) => {
+    setSelectedStyleId(id);
+    setSelectedUseCaseId(null); // manual style pick clears the use-case shortcut
+    const style = getVoiceStyle(id);
+    if (style) {
+      setStyleParams(styleToParams(style));
+      setStyleTouched(true);
+    } else {
+      setStyleTouched(false);
+    }
+  }, []);
+
+  const handleSelectUseCase = useCallback((id: string | null) => {
+    setSelectedUseCaseId(id);
+    const useCase = getUseCase(id);
+    if (useCase) {
+      const style = getVoiceStyle(useCase.styleId);
+      setSelectedStyleId(useCase.styleId);
+      if (style) {
+        setStyleParams(styleToParams(style));
+        setStyleTouched(true);
+      }
+    } else {
+      setSelectedStyleId(null);
+      setStyleTouched(false);
+    }
+  }, []);
+
+  const handleStyleParamsChange = useCallback((p: StyleParams) => {
+    setStyleParams(p);
+    setStyleTouched(true);
+  }, []);
+
+  const handleResetStyle = useCallback(() => {
+    setSelectedStyleId(null);
+    setSelectedUseCaseId(null);
+    setStyleParams({ expressiveness: 50, cfgWeight: 0.5, temperature: 0.7 });
+    setStyleTouched(false);
+  }, []);
+
+  // Free style preview: short sample through the preview path with current drawer params.
+  const handlePreviewStyle = useCallback(async () => {
+    if (previewingStyle) return;
+    const currentVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
+    setPreviewingStyle(true);
+    try {
+      const res = await fetch('/api/voice/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preview: true,
+          text: 'The city never truly sleeps — it only changes its rhythm, trading daylight noise for midnight whispers.',
+          modelId: currentVoice
+            ? 'ResembleAI/chatterbox-multilingual'
+            : (engine?.modelId || engine?.id || 'ResembleAI/chatterbox-multilingual'),
+          voicePrompt: currentVoice
+            ? (currentVoice.voice_prompt || voiceDescription.trim())
+            : voiceDescription.trim(),
+          voiceId: currentVoice ? currentVoice.deepinfra_voice_id : undefined,
+          expressiveness: styleParams.expressiveness,
+          cfgWeight: styleParams.cfgWeight,
+          temperature: styleParams.temperature,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Preview failed.');
+      const bytes = Uint8Array.from(atob(data.audioBase64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: data.mimeType || 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        URL.revokeObjectURL(previewAudioRef.current.src);
+      }
+      const audio = new Audio(url);
+      previewAudioRef.current = audio;
+      audio.onended = () => URL.revokeObjectURL(url);
+      await audio.play();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Preview failed.', 'error');
+    } finally {
+      setPreviewingStyle(false);
+    }
+  }, [previewingStyle, selectedCustomVoice, engine, voiceDescription, styleParams]);
   const cancelRef = useRef(false);
   const planRef = useRef<{ planId: string; charsDone: number } | null>(null);
   /** Session anchor voice ID (chunk 0's clone) — echoed to the server on later chunks for voice consistency. */
@@ -498,6 +613,13 @@ export default function VoicePage() {
                 // Echo the session anchor voice so all chunks share chunk 0's voice,
                 // even if requests land on different serverless instances.
                 sessionVoiceId: sessionVoiceIdRef.current || undefined,
+                // Delivery-style overrides — only when the user touched the style
+                // drawer; otherwise the request is identical to before.
+                ...(styleTouchedRef.current ? {
+                  expressiveness: styleParamsRef.current.expressiveness,
+                  cfgWeight: styleParamsRef.current.cfgWeight,
+                  temperature: styleParamsRef.current.temperature,
+                } : {}),
               }),
             });
             const data: any = await response.json();
@@ -696,6 +818,21 @@ export default function VoicePage() {
                   <span className="text-xxs text-zinc-400 hidden sm:inline">
                     Deterministic speaker consistency enabled
                   </span>
+                  {/* Delivery style: badge shows active style, button opens the drawer */}
+                  {activeStyle && (
+                    <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      Style: {activeStyle.label}{isStyleCustom ? ' · Custom' : ''}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setStyleDrawerOpen(true)}
+                    title="Delivery style settings"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white transition-colors text-xxs font-medium"
+                  >
+                    <SlidersHorizontal size={12} />
+                    Style
+                  </button>
                   <button
                     type="button"
                     onClick={() => setSelectedCustomVoice(null)}
@@ -974,6 +1111,21 @@ export default function VoicePage() {
           setCustomVoices((prev) => [newVoice, ...prev]);
           setSelectedCustomVoice(newVoice);
         }}
+      />
+      {/* ─── Delivery Style Drawer ─── */}
+      <StyleDrawer
+        open={styleDrawerOpen}
+        onClose={() => setStyleDrawerOpen(false)}
+        selectedStyleId={selectedStyleId}
+        onSelectStyle={handleSelectStyle}
+        selectedUseCaseId={selectedUseCaseId}
+        onSelectUseCase={handleSelectUseCase}
+        params={styleParams}
+        onParamsChange={handleStyleParamsChange}
+        isCustom={isStyleCustom}
+        onReset={handleResetStyle}
+        onPreview={handlePreviewStyle}
+        previewing={previewingStyle}
       />
     </div>
   );
