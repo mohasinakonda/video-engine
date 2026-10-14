@@ -1107,6 +1107,7 @@ export default function VoicePage() {
       <VoiceCloneModal
         isOpen={cloneModalOpen}
         onClose={() => setCloneModalOpen(false)}
+        existingCount={customVoices.length}
         onVoiceCreated={(newVoice) => {
           setCustomVoices((prev) => [newVoice, ...prev]);
           setSelectedCustomVoice(newVoice);
