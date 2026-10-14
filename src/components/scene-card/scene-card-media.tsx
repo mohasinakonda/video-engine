@@ -143,7 +143,7 @@ export default function SceneCardMedia({
       )}
 
       {/* Ambient Subtle Vignette for crisp header contrast while keeping artwork vibrant */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none opacity-40 group-hover:opacity-65 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none opacity-0 group-hover:opacity-70 transition-opacity duration-300" />
     </div>
   );
 }

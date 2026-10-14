@@ -17,6 +17,7 @@ interface SceneCardHeaderProps {
   duration: string;
   visualType?: VisualSceneType;
   cameraMotion?: CameraMotionEffect;
+  hovering?: boolean;
   onUpdateDuration?: (sceneId: number, deltaSec: number) => void;
   disabled?: boolean;
 }
@@ -26,6 +27,7 @@ export default function SceneCardHeader({
   duration,
   visualType,
   cameraMotion,
+  hovering,
   onUpdateDuration,
   disabled,
 }: SceneCardHeaderProps) {
@@ -41,70 +43,69 @@ export default function SceneCardHeader({
 
   return (
     <div
-      className="absolute top-2.5 left-2.5 z-20 flex items-center pointer-events-auto select-none"
+      className="absolute top-2 left-2 z-20 flex items-center pointer-events-auto select-none"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Unified Compact Glass Capsule */}
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md border border-white/10 hover:border-white/20 text-white shadow-md transition-all duration-200">
-        {/* Visual Type Icon Indicator */}
-        {visualTypeConfig && (
-          <span title={visualTypeConfig.label} className="flex items-center justify-center">
-            <visualTypeConfig.icon size={11} className={visualTypeConfig.color} />
-          </span>
-        )}
+      {/* Idle: just the scene number. Hover: expands into the full control capsule. */}
+      <div
+        className={`flex items-center gap-1.5 rounded-full text-white transition-all duration-200 ${
+          hovering
+            ? 'px-2.5 py-1 bg-black/75 backdrop-blur-md border border-white/15 shadow-md'
+            : 'px-2 py-0.5 bg-black/40 border border-transparent'
+        }`}
+      >
+        <span className="text-2xs font-bold text-zinc-200 font-mono tracking-tight">#{sceneId}</span>
 
-        {/* Scene Index */}
-        <span className="text-2xs font-bold text-zinc-300 font-mono tracking-tight">#{sceneId}</span>
-
-        <span className="text-2xs text-white/30 select-none">·</span>
-
-        {/* Duration with Stepper */}
-        {onUpdateDuration ? (
-          <div className="flex items-center gap-0.5 text-2xs font-mono select-none">
-            <button
-              type="button"
-              onClick={() => onUpdateDuration(sceneId, -0.5)}
-              disabled={disabled || durationNum <= 1.0}
-              title="Shorten scene (-0.5s)"
-              className="w-4 h-4 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/20 text-white/80 hover:text-white disabled:opacity-20 transition-all font-semibold active:scale-90"
-            >
-              −
-            </button>
-            <span className="font-semibold min-w-[28px] text-center text-zinc-200">
-              {duration}s
-            </span>
-            <button
-              type="button"
-              onClick={() => onUpdateDuration(sceneId, 0.5)}
-              disabled={disabled || durationNum >= 30.0}
-              title="Lengthen scene (+0.5s)"
-              className="w-4 h-4 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/20 text-white/80 hover:text-white disabled:opacity-20 transition-all font-semibold active:scale-90"
-            >
-              +
-            </button>
-          </div>
-        ) : (
-          <span className="text-2xs font-mono text-zinc-200">{duration}s</span>
-        )}
-
-        {/* Camera Motion Mini Indicator (if active) */}
-        {cameraMotion && cameraMotion !== 'STATIC' && (
+        {hovering && (
           <>
-            <span className="text-2xs text-white/30 select-none">·</span>
-            <span
-              title={`Camera Motion: ${cameraMotion.replace('_', ' ')}`}
-              className="flex items-center text-zinc-400"
-            >
-              {cameraMotion === 'ZOOM_IN' && <ZoomIn size={10} className="text-zinc-300" />}
-              {cameraMotion === 'ZOOM_OUT' && <ZoomOut size={10} className="text-zinc-300" />}
-              {cameraMotion === 'PAN_LEFT' && <ArrowLeft size={10} className="text-zinc-300" />}
-              {cameraMotion === 'PAN_RIGHT' && <ArrowRight size={10} className="text-zinc-300" />}
-            </span>
+            {visualTypeConfig && (
+              <span title={visualTypeConfig.label} className="flex items-center justify-center">
+                <visualTypeConfig.icon size={11} className={visualTypeConfig.color} />
+              </span>
+            )}
+
+            <span className="text-2xs text-white/30">·</span>
+
+            {onUpdateDuration ? (
+              <div className="flex items-center gap-0.5 text-2xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => onUpdateDuration(sceneId, -0.5)}
+                  disabled={disabled || durationNum <= 1.0}
+                  title="Shorten scene (-0.5s)"
+                  className="w-4 h-4 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/20 text-white/80 hover:text-white disabled:opacity-20 transition-all font-semibold active:scale-90"
+                >
+                  −
+                </button>
+                <span className="font-semibold min-w-[28px] text-center text-zinc-200">{duration}s</span>
+                <button
+                  type="button"
+                  onClick={() => onUpdateDuration(sceneId, 0.5)}
+                  disabled={disabled || durationNum >= 30.0}
+                  title="Lengthen scene (+0.5s)"
+                  className="w-4 h-4 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/20 text-white/80 hover:text-white disabled:opacity-20 transition-all font-semibold active:scale-90"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <span className="text-2xs font-mono text-zinc-200">{duration}s</span>
+            )}
+
+            {cameraMotion && cameraMotion !== 'STATIC' && (
+              <>
+                <span className="text-2xs text-white/30">·</span>
+                <span title={`Camera Motion: ${cameraMotion.replace('_', ' ')}`} className="flex items-center">
+                  {cameraMotion === 'ZOOM_IN' && <ZoomIn size={10} className="text-zinc-300" />}
+                  {cameraMotion === 'ZOOM_OUT' && <ZoomOut size={10} className="text-zinc-300" />}
+                  {cameraMotion === 'PAN_LEFT' && <ArrowLeft size={10} className="text-zinc-300" />}
+                  {cameraMotion === 'PAN_RIGHT' && <ArrowRight size={10} className="text-zinc-300" />}
+                </span>
+              </>
+            )}
           </>
         )}
       </div>
     </div>
   );
 }
-
-
