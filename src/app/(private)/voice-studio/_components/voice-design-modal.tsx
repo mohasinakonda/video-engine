@@ -784,7 +784,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             ) : (
                                 <>
                                     <Bookmark size={13} />
-                                    <span>Save & Lock Voice</span>
+                                    <span>Save & Lock Voice · 15 credits</span>
                                 </>
                             )}
                         </button>

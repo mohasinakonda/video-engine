@@ -30,6 +30,8 @@ interface VoiceCloneModalProps {
   isOpen: boolean;
   onClose: () => void;
   onVoiceCreated: (voice: CustomVoice) => void;
+  /** Current number of saved voices — shown as X/5 (server enforces the cap). */
+  existingCount?: number;
 }
 
 const LANGUAGE_OPTIONS = [
@@ -53,6 +55,7 @@ export function VoiceCloneModal({
   isOpen,
   onClose,
   onVoiceCreated,
+  existingCount = 0,
 }: VoiceCloneModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
@@ -212,9 +215,13 @@ export function VoiceCloneModal({
                 <span className="px-2 py-0.5 rounded-full text-2xs font-mono font-medium bg-emerald-950/60 text-emerald-400 border border-emerald-800/60">
                   Instant Clone
                 </span>
+                {/* Server enforces max 5 voices + 15 credit charge */}
+                <span className="px-2 py-0.5 rounded-full text-2xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  {existingCount}/5 voices
+                </span>
               </div>
               <p className="text-xs text-zinc-400">
-                Upload a 5–30s clean voice sample to clone any voice
+                Upload a 5–30s clean voice sample to clone any voice · Costs 15 credits
               </p>
             </div>
           </div>
@@ -421,7 +428,7 @@ export function VoiceCloneModal({
             ) : (
               <>
                 <Volume2 size={14} />
-                <span>Clone Voice</span>
+                <span>Clone Voice · 15 credits</span>
               </>
             )}
           </button>
