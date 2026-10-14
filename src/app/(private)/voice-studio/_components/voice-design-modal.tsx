@@ -393,6 +393,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    type: 'design',
                     name: modalVoiceName.trim(),
                     audioBase64: modalAudioBase64,
                     voicePrompt: modalPrompt.trim(),
@@ -784,7 +785,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             ) : (
                                 <>
                                     <Bookmark size={13} />
-                                    <span>Save & Lock Voice · 15 credits</span>
+                                    <span>Save & Lock Voice</span>
                                 </>
                             )}
                         </button>

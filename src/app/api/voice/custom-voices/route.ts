@@ -71,6 +71,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
+    const type = typeof body.type === 'string' ? body.type.toLowerCase().trim() : '';
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const audioBase64 = typeof body.audioBase64 === 'string' ? body.audioBase64 : '';
     const voicePrompt = typeof body.voicePrompt === 'string' ? body.voicePrompt.trim() : '';
@@ -100,20 +101,27 @@ export async function POST(req: Request) {
       console.warn('[custom-voices POST] count check failed:', countErr.message);
     } else if ((existingCount ?? 0) >= MAX_CUSTOM_VOICES_PER_USER) {
       return NextResponse.json(
-        { error: `Voice limit reached — you can keep up to ${MAX_CUSTOM_VOICES_PER_USER} cloned voices. Delete one to clone another.` },
+        { error: `Voice limit reached — you can keep up to ${MAX_CUSTOM_VOICES_PER_USER} custom voices. Delete one to save another.` },
         { status: 400 }
       );
     }
 
-    // Charge 15 credits upfront; refunded automatically if cloning fails below.
-    const charge = await chargeVoiceCredits(auth, CLONE_COST_CREDITS);
-    if (!charge.ok) {
-      return NextResponse.json(
-        { error: `Insufficient credits. Cloning a voice costs ${CLONE_COST_CREDITS} credits.` },
-        { status: 402 }
-      );
+    // Voice Clone costs 15 credits; Voice Design is FREE (0 credits).
+    const isClone = type === 'clone' || (!type && !voicePrompt);
+    const creditsToCharge = isClone ? CLONE_COST_CREDITS : 0;
+    let remainingCredits = auth.creditsRemaining;
+
+    if (creditsToCharge > 0) {
+      const charge = await chargeVoiceCredits(auth, creditsToCharge);
+      if (!charge.ok) {
+        return NextResponse.json(
+          { error: `Insufficient credits. Cloning a voice costs ${creditsToCharge} credits.` },
+          { status: 402 }
+        );
+      }
+      chargedCredits = creditsToCharge;
+      remainingCredits = charge.remaining;
     }
-    chargedCredits = CLONE_COST_CREDITS;
 
     // Cost & storage optimization: Trim to max ~10 seconds of 24kHz 16-bit mono WAV (~512KB)
     let anchorBuf = fullAudioBuf;
@@ -179,8 +187,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       voice: savedVoice,
-      creditsCharged: CLONE_COST_CREDITS,
-      creditsRemaining: charge.remaining,
+      creditsCharged: chargedCredits,
+      creditsRemaining: remainingCredits,
     });
   } catch (err: any) {
     // Refund the clone charge if anything failed after charging.

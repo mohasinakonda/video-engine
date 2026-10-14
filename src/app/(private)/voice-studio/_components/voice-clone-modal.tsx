@@ -174,6 +174,7 @@ export function VoiceCloneModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          type: 'clone',
           name: voiceName.trim(),
           audioBase64,
           voicePrompt: voicePrompt.trim(),
