@@ -616,11 +616,15 @@ function getVoiceStore(): GlobalVoiceStore {
 }
 
 function getSecret(): string {
-  return (
+  // No hard-coded fallback: a source-visible secret would let anyone forge plan tokens.
+  const secret =
+    process.env.VOICE_PLAN_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.DEEPINFRA_API_KEY ||
-    'video-engine-voice-secret-key-32b'
-  );
+    process.env.DEEPINFRA_API_KEY;
+  if (!secret) {
+    throw new Error('Voice plan signing secret is not configured (set VOICE_PLAN_SECRET).');
+  }
+  return secret;
 }
 
 function signPayload(dataStr: string): string {

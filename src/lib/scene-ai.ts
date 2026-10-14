@@ -1,6 +1,6 @@
 "use client";
 
-import OpenAI from "openai";
+import { getLLMClient, type LLMClient } from "@/lib/llm-client";
 import type { ShotType, PacingProfile, VisualSceneType, CameraMotionEffect, VisualWorldBible, CharacterVisualAnchor } from "@/types";
 
 /**
@@ -16,110 +16,17 @@ export interface ScriptSceneBreakdown {
   camera_motion?: CameraMotionEffect;
 }
 
-export type SupportedTtsVoice =
-  | "alloy"
-  | "echo"
-  | "fable"
-  | "onyx"
-  | "nova"
-  | "shimmer";
-
 export interface GenerateImageOptions {
   width?: number;
   height?: number;
   seed?: number;
   model?: string;
   nologo?: boolean;
-  apiKey?: string;
   negativePrompt?: string;
   aspectRatio?: '16:9' | '9:16' | '1:1';
   creditCost?: number;
   inferenceSteps?: number;
   guidanceScale?: number;
-}
-
-export interface PollinationsImageModelOption {
-  id: string;
-  name: string;
-  description: string;
-  isFree: boolean;
-}
-
-export const POPULAR_POLLINATIONS_MODELS: PollinationsImageModelOption[] = [
-  {
-    id: 'flux',
-    name: 'FLUX.1 Schnell (Recommended)',
-    description: 'Ultra fast, crisp 1080p cinematic frames with exceptional realism',
-    isFree: true,
-  },
-  {
-    id: 'z-image-turbo',
-    name: 'Z-Image Turbo',
-    description: 'High-speed photorealistic generation with sharp detail',
-    isFree: true,
-  },
-  {
-    id: 'lykon/dreamshaper-8-lcm',
-    name: 'DreamShaper 8 LCM (API Key Required)',
-    description: '300 RPM • Quest • 0.0001 pollen/gen • Ultra-fast LCM diffusion (enter.pollinations.ai/keys)',
-    isFree: false,
-  },
-  {
-    id: 'dreamshaper',
-    name: 'DreamShaper (Legacy alias - API Key Required)',
-    description: 'Artistic stylized fantasy & sci-fi art (enter.pollinations.ai/keys)',
-    isFree: false,
-  },
-  {
-    id: 'nanobanana-2-lite',
-    name: 'Nano Banana 2 Lite (Gemini 3.1)',
-    description: 'Google Gemini 3.1 Flash Lite multimodal image generator',
-    isFree: true,
-  },
-  {
-    id: 'gpt-image-2',
-    name: 'GPT Image 2',
-    description: 'OpenAI realistic composition with clean lighting and framing',
-    isFree: true,
-  },
-  {
-    id: 'flux-2-klein-4b',
-    name: 'FLUX.2 Klein 4B',
-    description: 'Compact next-generation Black Forest Labs diffusion model',
-    isFree: true,
-  },
-  {
-    id: 'flux-2-pro',
-    name: 'FLUX.2 Pro (API Key Required)',
-    description: 'State of the art high-fidelity generation with maximum prompt adherence',
-    isFree: false,
-  },
-];
-
-const DEFAULT_BASE_URL = "https://gen.pollinations.ai/v1";
-
-
-export function getStoredPollinationsKey(): string {
-  if (typeof process !== "undefined" && process.env?.POLLINATIONS_API_KEY) {
-    return process.env.POLLINATIONS_API_KEY.trim();
-  }
-  // Security: never fall back to NEXT_PUBLIC_POLLINATIONS_API_KEY here.
-  // NEXT_PUBLIC_ values are inlined into the client JS bundle and this
-  // function runs in the browser (BYOK via localStorage instead).
-  if (typeof window === "undefined") return "";
-  try {
-    const raw = localStorage.getItem("pollinations-api-key");
-    if (!raw) return "";
-    try {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed === "string") return parsed.trim();
-    } catch {
-      return raw.trim();
-    }
-  } catch {
-    return "";
-  }
-  return "";
 }
 
 export function getStoredGlobalBaseStyle(): string {
@@ -156,67 +63,13 @@ export function getStoredGlobalNegativePrompt(): string {
   return "";
 }
 
-export function getStoredPollinationsImageModel(): string {
-  if (typeof window === "undefined") return "flux";
-  try {
-    const raw = localStorage.getItem("pollinations-image-model");
-    if (!raw) return "flux";
-    try {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed === "string") return parsed.trim() || "flux";
-    } catch {
-      return raw.trim() || "flux";
-    }
-  } catch {
-    return "flux";
-  }
-  return "flux";
-}
-
-/**
- * 1. getPollinationsClient
- * Returns an OpenAI client instance pointing to Pollinations Unified Endpoint
- */
-export function getPollinationsClient(apiKey?: string): OpenAI {
-  let resolvedKey = apiKey && apiKey.trim().length > 0 ? apiKey.trim() : "";
-
-  // If a legacy Gemini key or placeholder was passed, discard it
-  if (resolvedKey.startsWith("AIza") || resolvedKey.toLowerCase() === "pollinations") {
-    resolvedKey = "";
-  }
-
-  if (!resolvedKey) {
-    resolvedKey = getStoredPollinationsKey();
-  }
-
-  if (resolvedKey.startsWith("AIza") || resolvedKey.toLowerCase() === "pollinations") {
-    resolvedKey = "";
-  }
-
-  if (resolvedKey) {
-    return new OpenAI({
-      baseURL: DEFAULT_BASE_URL,
-      apiKey: resolvedKey,
-      dangerouslyAllowBrowser: true,
-    });
-  }
-
-  // When no key is available, explicitly omit Authorization header so Pollinations allows free-tier requests!
-  return new OpenAI({
-    baseURL: DEFAULT_BASE_URL,
-    apiKey: "dummy",
-    defaultHeaders: { Authorization: null as unknown as string },
-    dangerouslyAllowBrowser: true,
-  });
-}
-
 /**
  * 2. breakdownScriptToScenes
- * Uses Pollinations text completion to break down scripts into dynamic sequential visual scenes (2.0s - 6.5s variable).
+ * Uses the AI text model to break down scripts into dynamic sequential visual scenes (2.0s - 6.5s variable).
  */
 export async function breakdownScriptToScenes(
   script: string,
-  client?: OpenAI,
+  client?: LLMClient,
   targetDurationSec?: number,
   options?: {
     pacingProfile?: PacingProfile;
@@ -228,7 +81,7 @@ export async function breakdownScriptToScenes(
     throw new Error("Cannot break down an empty script.");
   }
 
-  const aiClient = client || getPollinationsClient();
+  const aiClient = client || getLLMClient();
 
   const VALID_SHOT_TYPES: ShotType[] = [
     'AERIAL_GEOMETRY',
@@ -311,7 +164,6 @@ Do not include any explanation, intro text, or conversational markdown outside t
 
   try {
     const response = await aiClient.chat.completions.create({
-      model: "openai",
       messages: [
         { role: "system", content: systemInstruction },
         { role: "user", content: userPrompt },
@@ -321,7 +173,7 @@ Do not include any explanation, intro text, or conversational markdown outside t
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
-      throw new Error("No response returned from Pollinations text model.");
+      throw new Error("No response returned from text model.");
     }
 
     // Strip markdown code fences if present (e.g. ```json ... ```)
@@ -418,125 +270,6 @@ Do not include any explanation, intro text, or conversational markdown outside t
 }
 
 /**
- * Helper: fetchFreeWebTts
- * Reliable, free web-based TTS fallback (returns MP3 ArrayBuffer) with sentence chunking.
- */
-export async function fetchFreeWebTts(text: string): Promise<ArrayBuffer> {
-  const words = text.split(/\s+/);
-  const chunks: string[] = [];
-  let currentWords: string[] = [];
-  let currentLen = 0;
-
-  for (const w of words) {
-    if (currentLen + w.length + 1 > 150 && currentWords.length > 0) {
-      chunks.push(currentWords.join(" "));
-      currentWords = [];
-      currentLen = 0;
-    }
-    currentWords.push(w);
-    currentLen += w.length + 1;
-  }
-  if (currentWords.length > 0) chunks.push(currentWords.join(" "));
-
-  const uint8Buffers: Uint8Array[] = [];
-
-  for (const chunk of chunks) {
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(chunk)}`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
-    if (!res.ok) {
-      throw new Error(`Free web TTS HTTP error ${res.status}: ${res.statusText}`);
-    }
-    const buf = await res.arrayBuffer();
-    uint8Buffers.push(new Uint8Array(buf));
-  }
-
-  const totalLength = uint8Buffers.reduce((acc, b) => acc + b.length, 0);
-  const merged = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const b of uint8Buffers) {
-    merged.set(b, offset);
-    offset += b.length;
-  }
-  return merged.buffer;
-}
-
-/**
- * 3. generateVoiceChunk
- * Generates audio buffer via Pollinations TTS using model `openai-audio` (chat completions text endpoint),
- * falling back to dedicated speech models, and then free web TTS.
- */
-export async function generateVoiceChunk(
-  text: string,
-  voice: SupportedTtsVoice | string = "alloy",
-  apiKey?: string
-): Promise<ArrayBuffer> {
-  if (!text || !text.trim()) {
-    throw new Error("TTS text cannot be empty.");
-  }
-
-  const client = getPollinationsClient(apiKey);
-  const selectedVoice = (voice || "alloy") as SupportedTtsVoice;
-
-  // 1. First attempt: Chat completions endpoint with modalities: ["text", "audio"]
-  // Note: Pollinations "openai-audio" is an omni chat model handled on the text/chat completions endpoint.
-  try {
-    const completion = await client.chat.completions.create({
-      model: "openai-audio",
-      modalities: ["text", "audio"],
-      audio: {
-        voice: selectedVoice,
-        format: "mp3",
-      },
-      messages: [
-        {
-          role: "user",
-          content: text.trim(),
-        },
-      ],
-    });
-
-    const audioBase64 = completion.choices[0]?.message?.audio?.data;
-    if (audioBase64) {
-      const binary = atob(audioBase64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      return bytes.buffer;
-    }
-  } catch (chatAudioErr) {
-    console.warn("Pollinations openai-audio completion failed, attempting fallbacks:", chatAudioErr);
-  }
-
-  // 2. Second attempt: dedicated audio models on /v1/audio/speech
-  const speechModels = ["hexgrad/kokoro-82m", "tts-1"];
-  for (const model of speechModels) {
-    try {
-      const response = await client.audio.speech.create({
-        model,
-        voice: selectedVoice,
-        input: text.trim(),
-        response_format: "mp3",
-      });
-
-      return await response.arrayBuffer();
-    } catch {
-      // Continue to next fallback
-    }
-  }
-
-  // 3. Third attempt: Free web TTS endpoint (100% free, zero cost, no key required)
-  try {
-    return await fetchFreeWebTts(text.trim());
-  } catch (freeErr) {
-    const message = freeErr instanceof Error ? freeErr.message : String(freeErr);
-    throw new Error(`Audio generation failed across all available TTS providers: ${message}`);
-  }
-}
-
-/**
  * Strips legacy `(avoid: ...)`, `avoid: ...`, and `(negative prompt: ...)`
  * from a prompt string so diffusion models receive only pure positive tokens.
  */
@@ -609,9 +342,7 @@ export function assembleFinalImagePrompt(
 
 /**
  * 4. generateSceneImage
- * Fetches an image generated with Pollinations image API.
- * Follows docs: https://gen.pollinations.ai/docs#tag/image/GET/image/{prompt}
- * Uses gen.pollinations.ai with API key if available, falling back to image.pollinations.ai.
+ * Generates an image through the authenticated /api/generate-image route (DeepInfra FLUX).
  */
 export async function generateSceneImage(
   prompt: string,
@@ -631,153 +362,60 @@ export async function generateSceneImage(
     || getStoredGlobalNegativePrompt()
     || "blurry, low resolution, distorted faces, bad anatomy, deformed limbs, pixelated, noisy, artifacts, amateur, watermark, low quality, cartoon, anime";
 
-  const encodedPrompt = encodeURIComponent(finalPrompt);
-
   const resolvedSeed = typeof seed === "number" && !isNaN(seed)
     ? seed
     : (typeof options?.seed === "number" && !isNaN(options.seed) ? options.seed : Math.floor(Math.random() * 1000000));
 
   const model = options?.model || 'black-forest-labs/FLUX-1-schnell';
-  // MANDATORY MINIMUM RESOLUTION: Full HD (1920x1080 landscape, or 1080x1920 vertical)
-  // Never generate images below 1920x1080.
-  const isVertical = options?.aspectRatio === '9:16';
-  const isSquare = options?.aspectRatio === '1:1';
-  const minWidth = isVertical ? 1080 : isSquare ? 1080 : 1920;
-  const minHeight = isVertical ? 1920 : isSquare ? 1080 : 1080;
-  const width = Math.max(minWidth, options?.width || minWidth);
-  const height = Math.max(minHeight, options?.height || minHeight);
-  const nologo = options?.nologo !== false;
 
-  // ─── 1. Primary: DeepInfra FLUX-1-schnell (Ultra-Fast ~200ms) ─────────────
+  // ─── DeepInfra FLUX via authenticated server route ─────────────
   if (typeof window !== "undefined") {
-    try {
-      const apiRes = await fetch("/api/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: finalPrompt,
-          stylePrompt: baseStyle,
-          negativePrompt: resolvedNegative,
-          aspectRatio: options?.aspectRatio || '16:9',
-          seed: resolvedSeed,
-          model,
-          creditCost: options?.creditCost,
-          inferenceSteps: options?.inferenceSteps,
-          guidanceScale: options?.guidanceScale,
-        }),
-      });
-
-      if (apiRes.ok) {
-        const data = await apiRes.json();
-        if (data.base64Image) {
-          const raw = data.base64Image as string;
-          const base64Pure = raw.includes(",") ? raw.split(",")[1] : raw;
-          const binStr = atob(base64Pure);
-          const bytes = new Uint8Array(binStr.length);
-          for (let i = 0; i < binStr.length; i++) {
-            bytes[i] = binStr.charCodeAt(i);
-          }
-          return bytes.buffer;
-        }
-      }
-    } catch (err) {
-      console.warn("[generateSceneImage] DeepInfra /api/generate-image error, using Pollinations fallback:", err);
-    }
-  } else if (typeof process !== "undefined" && process.env?.DEEPINFRA_API_KEY) {
-    try {
-      const { generateDeepInfraFluxImage } = await import('@/lib/deepinfra');
-      const diRes = await generateDeepInfraFluxImage(finalPrompt, {
-        model,
+    const apiRes = await fetch("/api/generate-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: finalPrompt,
         stylePrompt: baseStyle,
-        negativePrompt: options?.negativePrompt,
+        negativePrompt: resolvedNegative,
         aspectRatio: options?.aspectRatio || '16:9',
         seed: resolvedSeed,
-      });
-      return diRes.arrayBuffer;
-    } catch (err) {
-      console.warn("[generateSceneImage] Server DeepInfra call failed:", err);
-    }
-  }
-
-  // Resolve API key if available for fallback
-  let apiKey = options?.apiKey && typeof options.apiKey === 'string' && options.apiKey.trim().length > 0 ? options.apiKey.trim() : undefined;
-
-  // If the passed apiKey is an old Gemini key (AIza...) or placeholder, discard it
-  if (apiKey && (apiKey.startsWith("AIza") || apiKey.toLowerCase() === "pollinations")) {
-    apiKey = undefined;
-  }
-
-  if (!apiKey) {
-    const stored = getStoredPollinationsKey();
-    if (stored && !stored.startsWith("AIza") && stored.toLowerCase() !== "pollinations") {
-      apiKey = stored;
-    }
-  }
-
-  // If still no apiKey on client-side, retrieve server-configured key
-  if (!apiKey && typeof window !== "undefined") {
-    try {
-      const res = await fetch("/api/pollinations-key");
-      if (res.ok) {
-        const data = await res.json();
-        if (data.apiKey && !data.apiKey.startsWith("AIza") && data.apiKey.toLowerCase() !== "pollinations") {
-          apiKey = data.apiKey.trim();
-        }
-      }
-    } catch {
-      // ignore network errors
-    }
-  }
-
-  const headers: Record<string, string> = {};
-
-  let primaryUrl = "";
-  if (apiKey && apiKey.trim().length > 0) {
-    const cleanKey = apiKey.trim();
-    headers["Authorization"] = `Bearer ${cleanKey}`;
-    primaryUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${encodeURIComponent(model)}&nologo=${nologo}&seed=${resolvedSeed}&quality=hd&key=${encodeURIComponent(cleanKey)}`;
-  } else {
-    // Official free endpoint that works without any authorization
-    primaryUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&model=${encodeURIComponent(model)}&nologo=${nologo}&seed=${resolvedSeed}`;
-  }
-
-  try {
-    const response = await fetch(primaryUrl, {
-      method: "GET",
-      headers,
+        model,
+        creditCost: options?.creditCost,
+        inferenceSteps: options?.inferenceSteps,
+        guidanceScale: options?.guidanceScale,
+      }),
     });
 
-    if (response.ok) {
-      return await response.arrayBuffer();
+    const data = await apiRes.json().catch(() => ({}));
+    if (!apiRes.ok) {
+      throw new Error(data?.error || `Image generation failed (HTTP ${apiRes.status})`);
     }
-
-    const errorStatus = response.status;
-    const errorText = await response.text().catch(() => "");
-
-
-    const fallbackUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=${nologo}&seed=${resolvedSeed}`;
-    const fallbackRes = await fetch(fallbackUrl, { method: "GET", headers });
-    if (fallbackRes.ok) {
-      return await fallbackRes.arrayBuffer();
+    if (!data.base64Image) {
+      throw new Error("Image generation returned no image.");
     }
-
-    throw new Error(`HTTP ${errorStatus} ${response.statusText}: ${errorText.slice(0, 200)}`);
-  } catch (error) {
-    // Last-resort fallback to free public endpoint with standard dimensions
-    try {
-
-      const lastResortUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true`;
-      const lastResortRes = await fetch(lastResortUrl, { method: "GET", headers });
-      if (lastResortRes.ok) {
-        return await lastResortRes.arrayBuffer();
-      }
-    } catch {
-      // ignore and let original error throw
+    const raw = data.base64Image as string;
+    const base64Pure = raw.includes(",") ? raw.split(",")[1] : raw;
+    const binStr = atob(base64Pure);
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) {
+      bytes[i] = binStr.charCodeAt(i);
     }
-
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to generate scene image from Pollinations: ${message}`);
+    return bytes.buffer;
   }
+
+  if (typeof process !== "undefined" && process.env?.DEEPINFRA_API_KEY) {
+    const { generateDeepInfraFluxImage } = await import('@/lib/deepinfra');
+    const diRes = await generateDeepInfraFluxImage(finalPrompt, {
+      model,
+      stylePrompt: baseStyle,
+      negativePrompt: options?.negativePrompt,
+      aspectRatio: options?.aspectRatio || '16:9',
+      seed: resolvedSeed,
+    });
+    return diRes.arrayBuffer;
+  }
+
+  throw new Error("Image generation is not available.");
 }
 
 /**
@@ -824,7 +462,6 @@ export function splitIntoPacingChunks(text: string, targetWords = 400): string[]
 export async function generateStoryWorldBible(
   script: string,
   options?: {
-    apiKey?: string;
     stylePrompt?: string;
     onProgress?: (msg: string) => void;
   }
@@ -863,58 +500,9 @@ You must return ONLY a JSON object matching this schema:
 
   const userPrompt = `Analyze this video script and output the complete VISUAL STORY WORLD BIBLE in strict JSON format:\n\n"""\n${cleanScript.slice(0, 4500)}\n"""`;
 
-  // 1. Try DeepInfra Primary LLM (Meta-Llama-3.1-70B-Instruct)
-  const deepinfraKey = process.env.DEEPINFRA_API_KEY;
-  if (deepinfraKey && deepinfraKey.trim()) {
-    try {
-      const response = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${deepinfraKey.trim()}`,
-        },
-        body: JSON.stringify({
-          model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.2,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (content) {
-          const startIdx = content.indexOf('{');
-          const endIdx = content.lastIndexOf('}');
-          if (startIdx !== -1 && endIdx !== -1) {
-            const parsed = JSON.parse(content.slice(startIdx, endIdx + 1));
-            return {
-              summary: parsed.summary || cleanScript.slice(0, 120),
-              videoTopicAndMotive: parsed.videoTopicAndMotive || "Cinematic video narrative",
-              coreSubjectOrProtagonist: parsed.coreSubjectOrProtagonist || "Central narrative subject",
-              eraAndSetting: parsed.eraAndSetting || "Contemporary / Documentary setting",
-              geographyAndEnvironment: parsed.geographyAndEnvironment || "Cinematic landscapes",
-              culturalContextAndCostumes: parsed.culturalContextAndCostumes || "Authentic materials and props",
-              characters: Array.isArray(parsed.characters) ? parsed.characters : [],
-              colorPaletteAndLighting: parsed.colorPaletteAndLighting || "Cinematic chiaroscuro lighting",
-              strictAnachronismBans: parsed.strictAnachronismBans || "no cartoon, no flat vectors",
-            };
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("DeepInfra World Bible error, checking fallbacks:", err);
-    }
-  }
-
-  // 2. Fallback: Pollinations OpenAI client
   try {
-    const aiClient = getPollinationsClient(options?.apiKey);
+    const aiClient = getLLMClient();
     const response = await aiClient.chat.completions.create({
-      model: "openai",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -968,7 +556,6 @@ export async function breakdownRequirementToImageScenes(
     sceneCount?: number;
     targetDurationSec?: number;
     stylePrompt?: string;
-    apiKey?: string;
     pacingProfile?: PacingProfile;
     onProgress?: (msg: string) => void;
     worldBible?: VisualWorldBible;
@@ -984,7 +571,6 @@ export async function breakdownRequirementToImageScenes(
   if (!worldBible) {
     try {
       worldBible = await generateStoryWorldBible(requirement, {
-        apiKey: options?.apiKey,
         stylePrompt: options?.stylePrompt,
         onProgress: options?.onProgress,
       });
@@ -1272,12 +858,11 @@ async function breakdownRequirementToImageScenesSingle(
     sceneCount?: number;
     targetDurationSec?: number;
     stylePrompt?: string;
-    apiKey?: string;
     pacingProfile?: PacingProfile;
     worldBible?: VisualWorldBible;
   }
 ): Promise<ScriptSceneBreakdown[]> {
-  const aiClient = getPollinationsClient(options?.apiKey);
+  const aiClient = getLLMClient();
   const targetDurationSec = options?.targetDurationSec;
 
   const rawStyle = options?.stylePrompt?.trim();
@@ -1435,55 +1020,17 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
   const userPrompt = `Break down this requirement into sequential visual scenes matching the project art style with diverse B-roll perspectives${targetDurationSec && targetDurationSec > 0 ? ` covering approximately ${Math.round(targetDurationSec)} seconds total` : ''}:\n\n"""\n${requirement.trim()}\n"""`;
 
   try {
-    let rawContent = '';
+    const response = await aiClient.chat.completions.create({
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.35,
+    });
 
-    // 1. Try DeepInfra Primary LLM (Meta-Llama-3.1-70B-Instruct) first
-    const deepinfraKey = process.env.DEEPINFRA_API_KEY;
-    if (deepinfraKey && deepinfraKey.trim()) {
-      try {
-        const diRes = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${deepinfraKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
-            messages: [
-              { role: 'system', content: systemInstruction },
-              { role: 'user', content: userPrompt },
-            ],
-            temperature: 0.3,
-          }),
-        });
-
-        if (diRes.ok) {
-          const diData = await diRes.json();
-          rawContent = diData.choices?.[0]?.message?.content || '';
-        } else {
-          const errData = await diRes.text().catch(() => '');
-          console.warn(`DeepInfra returned HTTP ${diRes.status}, falling back to Pollinations:`, errData);
-        }
-      } catch (err) {
-        console.warn('DeepInfra scene breakdown network error, falling back to Pollinations:', err);
-      }
-    }
-
-    // 2. Fallback to Pollinations OpenAI client if DeepInfra was not configured or failed
+    const rawContent = response.choices[0]?.message?.content || '';
     if (!rawContent) {
-      const response = await aiClient.chat.completions.create({
-        model: "openai",
-        messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.35,
-      });
-
-      rawContent = response.choices[0]?.message?.content || '';
-      if (!rawContent) {
-        throw new Error("No response returned from Pollinations text model.");
-      }
+      throw new Error("No response returned from text model.");
     }
 
     const cleanedJson = extractJsonArray(rawContent);
@@ -1627,10 +1174,9 @@ No conversational text, markdown introduction, or backticks outside the JSON.`;
 export async function generateBRollPrompt(
   context: string,
   targetShotType: ShotType,
-  apiKey?: string,
   stylePrompt?: string
 ): Promise<{ visual_prompt: string; b_roll_focus: string }> {
-  const aiClient = getPollinationsClient(apiKey);
+  const aiClient = getLLMClient();
 
   const shotDescriptions: Record<ShotType, string> = {
     AERIAL_GEOMETRY: "Top-down 90° bird's-eye drone or satellite perspective capturing grand geometric patterns, natural contours, and vast topological scale of the environment",
@@ -1654,7 +1200,6 @@ Return ONLY a valid JSON object with:
 
   try {
     const response = await aiClient.chat.completions.create({
-      model: "openai",
       messages: [
         { role: "system", content: systemInstruction },
         { role: "user", content: userPrompt },
@@ -1720,7 +1265,6 @@ export async function generatePromptsForTimedSegments(
   scenes: { sceneId: number; audioStartSec: number; audioEndSec: number; narrationLine: string }[],
   options?: {
     stylePrompt?: string;
-    apiKey?: string;
     creativeContext?: string;
     onProgress?: (msg: string) => void;
   }
@@ -1764,7 +1308,7 @@ STRICT DIRECTORIAL MANDATES (NON-NEGOTIABLE):
 ================================================================================`
     : `VISUAL STYLE: Studio-grade cinematic documentary, photorealistic 8k, atmospheric volumetric lighting.`;
 
-  const aiClient = getPollinationsClient(options?.apiKey);
+  const aiClient = getLLMClient();
   const results: {
     sceneId: number;
     audioStartSec: number;
@@ -1824,7 +1368,6 @@ ${JSON.stringify(
 
     try {
       const response = await aiClient.chat.completions.create({
-        model: "openai",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
@@ -1925,7 +1468,6 @@ export async function enhanceScenePrompt(
     stylePrompt?: string;
     lightingModifier?: string;
     cameraLens?: string;
-    apiKey?: string;
   }
 ): Promise<EnhancedScenePromptResult> {
   const text = (rawText || "").trim();
@@ -1950,7 +1492,7 @@ export async function enhanceScenePrompt(
   const lightingPref = options?.lightingModifier || "cinematic golden hour with soft volumetric rim light";
   const styleMandate = options?.stylePrompt ? `Project Base Style (Strict Mandate): "${options.stylePrompt.trim()}"` : "Style: Photorealistic 8k, masterwork documentary cinematography";
 
-  const aiClient = getPollinationsClient(options?.apiKey);
+  const aiClient = getLLMClient();
 
   const systemInstruction = `You are a world-class visual director and elite AI prompt engineer for FLUX.1.
 Your task is to take a simple narrative scene concept and expand it into a studio-grade, 60-100 word visual prompt.
@@ -1976,7 +1518,6 @@ Output format: Return ONLY a valid JSON object matching:
 
   try {
     const response = await aiClient.chat.completions.create({
-      model: "openai",
       messages: [
         { role: "system", content: systemInstruction },
         { role: "user", content: userPrompt },

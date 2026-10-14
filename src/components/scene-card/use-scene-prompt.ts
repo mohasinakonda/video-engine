@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ShotType } from '@/types';
-import { enhanceScenePrompt } from '@/lib/pollinations';
+import { enhanceScenePrompt } from '@/lib/scene-ai';
 
 interface UseScenePromptProps {
   initialPrompt: string;

@@ -217,7 +217,7 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
 
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
-    const pollinationsKey = process.env.POLLINATIONS_API_KEY;
+    const deepinfraKey = process.env.DEEPINFRA_API_KEY;
 
     let parsedResult: any = null;
 
@@ -283,47 +283,39 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
       }
     }
 
-    // ─── 3. Pollinations DeepSeek (High-Reasoning Primary Fallback) ─────────
-    if (!parsedResult) {
-      const pollHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (pollinationsKey && pollinationsKey.trim()) {
-        pollHeaders['Authorization'] = `Bearer ${pollinationsKey.trim()}`;
-      }
+    // ─── 3. DeepInfra (Llama 3.1 70B fallback) ───────────────────────────────
+    if (!parsedResult && deepinfraKey && deepinfraKey.trim()) {
+      try {
+        const diRes = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${deepinfraKey.trim()}`,
+          },
+          body: JSON.stringify({
+            model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.4,
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
 
-      // Try deepseek high reasoning first
-      const candidateModels = ['deepseek', 'qwen', 'openai'];
-      for (const candidateModel of candidateModels) {
-        if (parsedResult) break;
-        try {
-          const pollRes = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: pollHeaders,
-            body: JSON.stringify({
-              model: candidateModel,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-              ],
-              response_format: { type: 'json_object' },
-              temperature: 0.4,
-            }),
-            signal: AbortSignal.timeout(30000),
-          });
-
-          if (pollRes.ok) {
-            const data = await pollRes.json();
-            const content = data.choices?.[0]?.message?.content;
-            if (content) {
-              const jsonMatch = content.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                parsedResult = JSON.parse(jsonMatch[0]);
-                break;
-              }
+        if (diRes.ok) {
+          const data = await diRes.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) {
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              parsedResult = JSON.parse(jsonMatch[0]);
             }
           }
-        } catch (err) {
-          console.warn(`Pollinations ${candidateModel} failed, trying next fallback:`, err);
         }
+      } catch (err) {
+        console.warn('DeepInfra packaging failed:', err);
       }
     }
 

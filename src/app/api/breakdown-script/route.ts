@@ -143,34 +143,6 @@ JSON Schema:
       }
     }
 
-    // ─── 3. Fallback: Pollinations AI Text ────────────────────────────────────
-    const pollRes = await fetch('https://text.pollinations.ai/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Script:\n${script}` },
-        ],
-        model: 'openai',
-      }),
-    });
-
-    if (pollRes.ok) {
-      const text = await pollRes.text();
-      try {
-        const jsonStart = text.indexOf('[');
-        const jsonEnd = text.lastIndexOf(']') + 1;
-        if (jsonStart !== -1 && jsonEnd > jsonStart) {
-          const jsonStr = text.substring(jsonStart, jsonEnd);
-          const scenes = JSON.parse(jsonStr);
-          return NextResponse.json({ scenes, provider: 'pollinations' });
-        }
-      } catch {
-        // fallback parsing below
-      }
-    }
-
     return NextResponse.json({ error: 'Failed to break down script into scenes' }, { status: 500 });
   } catch (error: any) {
     console.error('API /api/breakdown-script error:', error);

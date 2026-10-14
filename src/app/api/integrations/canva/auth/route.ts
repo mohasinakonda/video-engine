@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { randomBytes } from 'crypto';
 import { generatePKCE, getCanvaAuthUrl } from '@/lib/canva/client';
 
 export async function GET(req: NextRequest) {
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { codeVerifier, codeChallenge } = generatePKCE();
-  const state = Math.random().toString(36).substring(2, 15);
+  const state = randomBytes(24).toString('hex');
 
   const cookieStore = cookies();
   cookieStore.set('canva_code_verifier', codeVerifier, {
@@ -37,7 +38,10 @@ export async function GET(req: NextRequest) {
     path: '/',
   });
 
-  const returnTo = req.nextUrl.searchParams.get('return_to') || '/youtube-kit-studio';
+  // Only allow same-site relative paths (blocks open redirects such as //evil.com or /\\evil.com).
+  const requestedReturn = req.nextUrl.searchParams.get('return_to') || '';
+  const returnTo =
+    /^\/(?![/\\])[A-Za-z0-9\-._~/]*$/.test(requestedReturn) ? requestedReturn : '/youtube-kit-studio';
   cookieStore.set('canva_return_to', returnTo, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

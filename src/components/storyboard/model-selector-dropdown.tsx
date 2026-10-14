@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import type { AIImageModel, PlanTier } from '@/types/subscription';
 import { getCurrentUserProfile } from '@/lib/subscription-store';
-import { getPollinationsImageModel, savePollinationsImageModel } from '@/lib/store';
+import { getImageModel, saveImageModel } from '@/lib/store';
 import { useOptionalAuth } from '@/contexts/auth-context';
 
 interface ModelSelectorDropdownProps {
@@ -63,7 +63,7 @@ export default function ModelSelectorDropdown({
         if (liveProfile?.tier) {
           setUserTier(liveProfile.tier);
         }
-        const storedModelId = currentModelId || (await getPollinationsImageModel());
+        const storedModelId = currentModelId || (await getImageModel());
 
         const res = await fetch('/api/models');
         if (res.ok) {
@@ -146,7 +146,7 @@ export default function ModelSelectorDropdown({
 
     setSelectedModel(model);
     setIsOpen(false);
-    await savePollinationsImageModel(model.modelId);
+    await saveImageModel(model.modelId);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('ai_model_updated', { detail: model }));
     }

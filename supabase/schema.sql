@@ -49,6 +49,17 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public;
 
+-- True for the service role (server-side trusted code) or a verified admin user.
+-- Used to gate privileged SECURITY DEFINER functions below.
+create or replace function public.is_service_or_admin()
+returns boolean as $$
+begin
+  return current_user = 'service_role'
+    or coalesce(auth.jwt()->>'role', '') = 'service_role'
+    or public.is_admin();
+end;
+$$ language plpgsql security definer set search_path = public;
+
 -- Row Level Security (RLS)
 alter table public.profiles enable row level security;
 
@@ -333,7 +344,7 @@ create policy "Users can view own payments"
 drop policy if exists "Users can insert payments" on public.payments;
 create policy "Users can insert payments"
   on public.payments for insert
-  with check (auth.uid() = user_id or auth.uid() is null);
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Allow all operations on payments" on public.payments;
 drop policy if exists "Admins can update payments" on public.payments;
@@ -438,6 +449,11 @@ begin
     return false;
   end if;
 
+  -- A user may only spend their own credits; service role / admin may act on anyone.
+  if not (public.is_service_or_admin() or auth.uid() = p_user_id) then
+    return false;
+  end if;
+
   select credits_remaining, is_blocked into current_balance, user_blocked
   from public.profiles where id = p_user_id for update;
 
@@ -454,7 +470,7 @@ begin
 
   return true;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 2. Grant Credits
 create or replace function public.grant_credits(p_user_id uuid, p_amount int)
@@ -464,13 +480,18 @@ begin
     return;
   end if;
 
+  -- Granting credits is privileged: never callable by a regular user for themselves.
+  if not public.is_service_or_admin() then
+    raise exception 'Not authorized to grant credits';
+  end if;
+
   update public.profiles
   set
     credits_remaining = credits_remaining + p_amount,
     updated_at = now()
   where id = p_user_id;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 3. Atomic Promo Code Counter
 create or replace function public.increment_promo_usage(p_code text)
@@ -480,6 +501,10 @@ declare
   v_max_uses int;
   v_curr_uses int;
 begin
+  if not public.is_service_or_admin() then
+    raise exception 'Not authorized to modify promo usage';
+  end if;
+
   select max_uses, current_uses into v_max_uses, v_curr_uses
   from public.promo_codes
   where upper(code) = v_code for update;
@@ -498,7 +523,7 @@ begin
 
   return true;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 4. Atomic Affiliate Commission Crediting
 create or replace function public.credit_affiliate_commission(
@@ -511,7 +536,11 @@ declare
   v_ref_owner uuid;
   v_commission int;
 begin
-  if p_order_amount_bdt <= 0 then
+  if not public.is_service_or_admin() then
+    raise exception 'Not authorized to credit affiliate commission';
+  end if;
+
+  if p_order_amount_bdt <= 0 or p_commission_percent < 0 or p_commission_percent > 50 then
     return false;
   end if;
 
@@ -535,7 +564,18 @@ begin
 
   return true;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+
+-- Lock down who may call the privileged functions (Postgres grants EXECUTE to PUBLIC by default).
+revoke execute on function public.grant_credits(uuid, int) from public, anon;
+revoke execute on function public.deduct_credits(uuid, int) from public, anon;
+revoke execute on function public.increment_promo_usage(text) from public, anon;
+revoke execute on function public.credit_affiliate_commission(text, int, int) from public, anon;
+revoke execute on function public.is_service_or_admin() from public, anon;
+grant execute on function public.grant_credits(uuid, int) to authenticated, service_role;
+grant execute on function public.deduct_credits(uuid, int) to authenticated, service_role;
+grant execute on function public.increment_promo_usage(text) to authenticated, service_role;
+grant execute on function public.credit_affiliate_commission(text, int, int) to authenticated, service_role;
 
 -- ==============================================================================
 -- STORAGE BUCKETS (Audio Voiceovers & Generated Scene Images)
@@ -560,7 +600,10 @@ create policy "Public Access to Audio Voiceovers"
 drop policy if exists "Authenticated users can upload images" on storage.objects;
 create policy "Authenticated users can upload images"
   on storage.objects for insert
-  with check (bucket_id in ('scene-images', 'audio-voiceovers'));
+  with check (
+    bucket_id in ('scene-images', 'audio-voiceovers')
+    and auth.role() = 'authenticated'
+  );
 
 -- ==============================================================================
 -- ART STYLES & PRESETS (Dynamic Catalog Managed by Admin)

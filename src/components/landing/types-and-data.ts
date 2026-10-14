@@ -331,7 +331,7 @@ export const PROCESS_STEPS = [
     label: 'Visuals',
     title: 'Visual generation',
     desc: 'Generates cohesive 8K resolution images adhering to your chosen master style.',
-    badge: 'Pollinations AI',
+    badge: 'FLUX AI',
   },
   {
     num: '05',

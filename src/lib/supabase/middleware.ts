@@ -11,9 +11,23 @@ export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-  // If Supabase is not configured, bypass authentication check
+  // If Supabase is not configured: allow only in local development. In any other
+  // environment fail closed, otherwise a missing env var would disable all auth.
   if (!supabaseUrl || !supabaseKey) {
-    return supabaseResponse;
+    if (process.env.NODE_ENV !== 'production') {
+      return supabaseResponse;
+    }
+    const { pathname } = request.nextUrl;
+    const isPublicPage =
+      !pathname.startsWith('/api/') &&
+      !pathname.startsWith('/admin') &&
+      !['/dashboard', '/project', '/storyboard', '/voice-studio', '/youtube-kit-studio', '/export', '/settings'].some(
+        (p) => pathname.startsWith(p)
+      );
+    if (isPublicPage) return supabaseResponse;
+    return pathname.startsWith('/api/')
+      ? NextResponse.json({ success: false, error: 'Service unavailable.' }, { status: 503 })
+      : new NextResponse('Service unavailable', { status: 503 });
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
@@ -45,12 +59,19 @@ export async function updateSession(request: NextRequest) {
   const isPublicAdminApi = pathname === '/api/admin/plan' && request.method === 'GET';
   const isAdminRoute =
     !isPublicAdminApi && (pathname.startsWith('/admin') || pathname.startsWith('/api/admin'));
+  // Allow-list: every /api route requires a signed-in user unless listed here.
+  // (New routes are therefore protected by default.)
+  const PUBLIC_API_PREFIXES = [
+    '/api/models',
+    '/api/styles',
+    '/api/voice/models',
+    '/api/voice/voices',
+  ];
+  const isPublicApiRoute =
+    isPublicAdminApi ||
+    (request.method === 'GET' && PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/')));
   const isProtectedApiRoute =
-    pathname.startsWith('/api/generate-packaging') ||
-    pathname.startsWith('/api/breakdown-script') ||
-    pathname.startsWith('/api/enhance-thumbnail-prompt') ||
-    pathname.startsWith('/api/search-competitors') ||
-    pathname.startsWith('/api/transcribe-audio');
+    pathname.startsWith('/api/') && !pathname.startsWith('/api/admin') && !isPublicApiRoute;
   const isUserPrivateRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/project') ||

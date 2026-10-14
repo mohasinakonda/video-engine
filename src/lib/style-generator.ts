@@ -1,6 +1,6 @@
 'use client';
 
-import { getPollinationsClient, getStoredPollinationsKey } from '@/lib/pollinations';
+import { getLLMClient } from '@/lib/llm-client';
 
 export interface StyleSynthesisParams {
   genre?: string;
@@ -20,8 +20,7 @@ export async function synthesizeUniqueStylePrompt(
   params: StyleSynthesisParams
 ): Promise<SynthesizedStyleResult> {
   const { genre = 'Documentary & Lore', medium = 'Cinematic Film', userNotes = '', scriptSnippet = '' } = params;
-  const apiKey = getStoredPollinationsKey();
-  const client = getPollinationsClient(apiKey);
+  const client = getLLMClient();
 
   const systemInstruction = `You are a master film director and art concept designer (for BBC, A24, and Criterion Collection).
 Your task is to craft a 100% UNIQUE, award-winning Visual Art Style Prompt for an AI video generation engine.
@@ -58,7 +57,6 @@ Generate a distinct, non-repetitive visual signature that looks human-crafted an
 
   try {
     const response = await client.chat.completions.create({
-      model: 'openai',
       messages: [
         { role: 'system', content: systemInstruction },
         { role: 'user', content: userQuery },

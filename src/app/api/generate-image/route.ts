@@ -66,33 +66,35 @@ export async function POST(req: Request) {
     const {
       prompt,
       aspectRatio = '16:9',
-      width: reqWidth,
-      height: reqHeight,
+      width: rawWidth,
+      height: rawHeight,
       seed,
       model,
       stylePrompt,
       negativePrompt,
-      apiKey,
-      creditCost: reqCreditCost,
-      numInferenceSteps,
-      inferenceSteps: reqInferenceSteps,
-      guidanceScale: reqGuidanceScale,
     } = body;
 
-    if (!prompt) {
+    // Bound requested dimensions so a caller cannot force oversized (costly) renders.
+    const clampDim = (v: unknown) =>
+      typeof v === 'number' && Number.isFinite(v) ? Math.min(Math.max(Math.round(v), 256), 2048) : undefined;
+    const reqWidth = clampDim(rawWidth);
+    const reqHeight = clampDim(rawHeight);
+
+    if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
+    }
+    if (prompt.length > 4000) {
+      return NextResponse.json({ error: 'Prompt is too long.' }, { status: 400 });
     }
 
     // ─── Step 0: Resolve AI Model & Credit Cost dynamically from Supabase / Request ───
     let modelRecord: AIImageModel | null = null;
     let selectedModelId = typeof model === 'string' && model.trim() ? model.trim() : '';
-    let creditsPerImage: number | null = typeof reqCreditCost === 'number' && reqCreditCost > 0 ? reqCreditCost : null;
-    let inferenceSteps: number | null = typeof numInferenceSteps === 'number' && numInferenceSteps > 0
-      ? numInferenceSteps
-      : typeof reqInferenceSteps === 'number' && reqInferenceSteps > 0
-        ? reqInferenceSteps
-        : null;
-    let guidanceScale: number | null = typeof reqGuidanceScale === 'number' ? reqGuidanceScale : null;
+    // Pricing and compute settings come ONLY from the server-side model record,
+    // never from the request body (a client could otherwise set its own price).
+    let creditsPerImage: number | null = null;
+    let inferenceSteps: number | null = null;
+    let guidanceScale: number | null = null;
 
     if (isSupabaseConfigured()) {
       try {
@@ -147,70 +149,72 @@ export async function POST(req: Request) {
     }
 
     // ─── Step 0b: Authenticate Caller, Verify Plan Tier & Atomically Deduct Credits ───
+    // Fails closed: anonymous callers and auth errors never reach a paid provider.
     if (isSupabaseConfigured()) {
-      try {
-        if (!serverSupabase) {
-          try {
-            serverSupabase = createServerClient();
-          } catch { }
-        }
-
-        if (serverSupabase) {
-          const {
-            data: { user },
-          } = await serverSupabase.auth.getUser();
-
-          if (user) {
-            authenticatedUserId = user.id;
-
-            const { data: profile } = await serverSupabase
-              .from('profiles')
-              .select('credits_remaining, is_blocked, block_reason, tier')
-              .eq('id', user.id)
-              .single();
-
-            if (profile?.is_blocked) {
-              return NextResponse.json(
-                { error: profile.block_reason || 'Your account is suspended.' },
-                { status: 403 }
-              );
-            }
-
-            // Check if this model is restricted to specific plans
-            const allowedPlans = modelRecord?.allowedPlans;
-            if (Array.isArray(allowedPlans) && allowedPlans.length > 0) {
-              const userTier = profile?.tier || 'TRIAL';
-              if (!allowedPlans.includes(userTier)) {
-                return NextResponse.json(
-                  {
-                    error: `The "${modelRecord?.name || selectedModelId}" model is exclusive to ${allowedPlans.join(' and ')} plans. Please upgrade your plan to unlock this engine.`,
-                    requiresUpgrade: true,
-                    allowedPlans,
-                  },
-                  { status: 403 }
-                );
-              }
-            }
-
-            if (profile && profile.credits_remaining < creditsPerImage) {
-              return NextResponse.json(
-                {
-                  error: `Insufficient credits. This image generation requires ${creditsPerImage} credits. You currently have ${profile.credits_remaining} credits.`,
-                },
-                { status: 402 }
-              );
-            }
-
-            const deducted = await deductCreditsRemote(user.id, creditsPerImage, serverSupabase);
-            if (deducted && profile) {
-              deductedCreditsCount = creditsPerImage;
-              remainingCredits = profile.credits_remaining - creditsPerImage;
-            }
-          }
-        }
-      } catch (authErr) {
-        console.warn('[generate-image] Supabase auth check bypassed:', authErr);
+      if (!serverSupabase) {
+        serverSupabase = createServerClient();
       }
+
+      const {
+        data: { user },
+      } = await serverSupabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
+      }
+      authenticatedUserId = user.id;
+
+      const { data: profile } = await serverSupabase
+        .from('profiles')
+        .select('credits_remaining, is_blocked, block_reason, tier')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) {
+        return NextResponse.json({ error: 'Profile not found.' }, { status: 403 });
+      }
+
+      if (profile.is_blocked) {
+        return NextResponse.json(
+          { error: profile.block_reason || 'Your account is suspended.' },
+          { status: 403 }
+        );
+      }
+
+      // Check if this model is restricted to specific plans
+      const allowedPlans = modelRecord?.allowedPlans;
+      if (Array.isArray(allowedPlans) && allowedPlans.length > 0) {
+        const userTier = profile.tier || 'TRIAL';
+        if (!allowedPlans.includes(userTier)) {
+          return NextResponse.json(
+            {
+              error: `The "${modelRecord?.name || selectedModelId}" model is exclusive to ${allowedPlans.join(' and ')} plans. Please upgrade your plan to unlock this engine.`,
+              requiresUpgrade: true,
+              allowedPlans,
+            },
+            { status: 403 }
+          );
+        }
+      }
+
+      if (profile.credits_remaining < creditsPerImage) {
+        return NextResponse.json(
+          {
+            error: `Insufficient credits. This image generation requires ${creditsPerImage} credits. You currently have ${profile.credits_remaining} credits.`,
+          },
+          { status: 402 }
+        );
+      }
+
+      const deducted = await deductCreditsRemote(user.id, creditsPerImage, serverSupabase);
+      if (!deducted) {
+        return NextResponse.json(
+          { error: 'Could not charge credits. Please try again.' },
+          { status: 402 }
+        );
+      }
+      deductedCreditsCount = creditsPerImage;
+      remainingCredits = profile.credits_remaining - creditsPerImage;
     }
 
     // ─── Step 1: AI Prompt Editor Layer (T5-XXL Optimization) ───────────
@@ -221,8 +225,6 @@ export async function POST(req: Request) {
     const deepinfraKey = process.env.DEEPINFRA_API_KEY;
     const togetherKey = process.env.TOGETHER_API_KEY || (process.env.AI_PROVIDER_API_KEY && !process.env.AI_PROVIDER_API_KEY.startsWith('di_') ? process.env.AI_PROVIDER_API_KEY : undefined);
     const falKey = process.env.FAL_KEY;
-    const userApiKey = typeof apiKey === 'string' && apiKey.trim().length > 0 ? apiKey.trim() : undefined;
-    const pollinationsKey = userApiKey || process.env.POLLINATIONS_API_KEY;
 
     // ─── 1. DeepInfra Primary Engine ───────────────
     if (deepinfraKey && deepinfraKey.trim()) {
@@ -356,76 +358,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // ─── 4. Pollinations AI Fallback ──────────────────────────────────────
-    const encodedPrompt = encodeURIComponent(finalPrompt);
-    const polSeed = seed || Math.floor(Math.random() * 1000000);
-    const pollHeaders: Record<string, string> = {};
-    const cleanPolKey = pollinationsKey ? pollinationsKey.trim() : '';
-    const encodedModel = encodeURIComponent(selectedModelId);
-
-    if (cleanPolKey) {
-      pollHeaders['Authorization'] = `Bearer ${cleanPolKey}`;
-    }
-
-    let pollUrl = '';
-    if (cleanPolKey) {
-      pollUrl = `https://gen.pollinations.ai/image/${encodedPrompt}?width=${width}&height=${height}&model=${encodedModel}&nologo=true&seed=${polSeed}&quality=hd&key=${encodeURIComponent(cleanPolKey)}`;
-    } else {
-      pollUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodedModel}&nologo=true`;
-    }
-
-    let pollRes = await fetch(pollUrl, {
-      headers: pollHeaders,
-      signal: AbortSignal.timeout(30000),
-    }).catch(() => null);
-
-    // If non-OK, try public image.pollinations.ai with requested model
-    if (!pollRes || !pollRes.ok) {
-      const publicUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=${encodedModel}&nologo=true`;
-      pollRes = await fetch(publicUrl, {
-        headers: pollHeaders,
-        signal: AbortSignal.timeout(30000),
-      }).catch(() => null);
-    }
-
-    // If still non-OK, try free 'sana' model
-    if (!pollRes || !pollRes.ok) {
-      console.warn(`Pollinations returned error for model '${selectedModelId}'. Retrying with free 'sana' model...`);
-      const sanaUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&model=sana&nologo=true`;
-      pollRes = await fetch(sanaUrl, {
-        headers: pollHeaders,
-        signal: AbortSignal.timeout(30000),
-      }).catch(() => null);
-    }
-
-    // Secondary fallback without model parameter if still failing
-    if (!pollRes || !pollRes.ok) {
-      console.warn(`Pollinations still failed, retrying with default public model...`);
-      const defaultUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${polSeed}&nologo=true`;
-      pollRes = await fetch(defaultUrl, {
-        headers: pollHeaders,
-        signal: AbortSignal.timeout(30000),
-      }).catch(() => null);
-    }
-
-    if (!pollRes || !pollRes.ok) {
-      throw new Error(`Pollinations AI error status: ${pollRes?.status || 'network error'}`);
-    }
-
-    const arrayBuffer = await pollRes.arrayBuffer();
-    const base64Image = `data:image/jpeg;base64,${Buffer.from(arrayBuffer).toString('base64')}`;
-    return NextResponse.json({
-      success: true,
-      base64Image,
-      imageUrl: base64Image,
-      url: base64Image,
-      originalPrompt: prompt,
-      optimizedPrompt: finalPrompt,
-      provider: 'pollinations',
-      model: selectedModelId,
-      creditsDeducted: creditsPerImage,
-      remainingCredits,
-    });
+    throw new Error('Image generation is temporarily unavailable. Please try again.');
 
   } catch (error: any) {
     console.error('API /api/generate-image error:', error);

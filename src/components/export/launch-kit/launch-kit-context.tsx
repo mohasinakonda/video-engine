@@ -13,8 +13,7 @@ import {
   getStylePresets,
   getDefaultStylePreset,
   getYouTubeApiKey,
-  getPollinationsApiKey,
-  getPollinationsImageModel,
+  getImageModel,
 } from '@/lib/store';
 import {
   getUserCreditsRemaining,
@@ -211,7 +210,7 @@ export function LaunchKitProvider({
     let isMounted = true;
     async function loadActiveModel() {
       try {
-        const storedModelId = await getPollinationsImageModel();
+        const storedModelId = await getImageModel();
         const res = await fetch('/api/models');
         if (res.ok) {
           const data = await res.json();
@@ -605,7 +604,7 @@ export function LaunchKitProvider({
       return;
     }
 
-    const chosenModel = selectedAIModel?.modelId || (await getPollinationsImageModel()) || 'black-forest-labs/FLUX-1-schnell';
+    const chosenModel = selectedAIModel?.modelId || (await getImageModel()) || 'black-forest-labs/FLUX-1-schnell';
     const unitCost = selectedAIModel?.creditCost ?? 2;
 
     if (!hasEnoughCredits(unitCost)) {
@@ -623,7 +622,6 @@ export function LaunchKitProvider({
     try {
       showToast(`Generating high-res thumbnail with ${selectedAIModel?.name || 'AI Engine'} (${project.aspectRatio || '16:9'})...`);
 
-      const apiKey = (await getPollinationsApiKey()) || '';
       const isVertical = project.aspectRatio === '9:16';
 
       let imageUrl = '';
@@ -631,7 +629,6 @@ export function LaunchKitProvider({
       try {
         // Primary: Direct high-speed client-side generation (same engine as Storyboard)
         const result = await generateImage(
-          apiKey,
           concept.visualPrompt.trim(),
           stylePreset?.negativePrompt,
           {
@@ -660,7 +657,7 @@ export function LaunchKitProvider({
         }
       } catch (clientErr) {
         console.warn('[ThumbnailStudio] Direct generation failed, attempting API route fallback:', clientErr);
-        // Fallback: try server route with apiKey forwarded
+        // Fallback: try server route
         const res = await fetch('/api/generate-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -669,7 +666,6 @@ export function LaunchKitProvider({
             aspectRatio: isVertical ? '9:16' : '16:9',
             stylePrompt: stylePreset?.stylePrompt,
             negativePrompt: stylePreset?.negativePrompt,
-            apiKey,
             model: chosenModel,
           }),
         });

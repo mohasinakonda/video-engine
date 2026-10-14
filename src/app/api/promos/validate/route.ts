@@ -8,7 +8,24 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { code, originalPriceBDT = 1000, userIdentifier, planId } = body;
+    const { code, originalPriceBDT = 1000, planId } = body;
+
+    // Identify the redeemer from the session, not from the request body.
+    let userIdentifier: string | undefined;
+    if (isSupabaseConfigured()) {
+      const {
+        data: { user },
+      } = await createServerClient().auth.getUser();
+      if (!user) {
+        return NextResponse.json(
+          { success: false, valid: false, message: 'Please sign in to apply a promo code.' },
+          { status: 401 }
+        );
+      }
+      userIdentifier = user.id;
+    } else if (typeof body.userIdentifier === 'string') {
+      userIdentifier = body.userIdentifier;
+    }
 
     if (!code || !String(code).trim()) {
       return NextResponse.json({

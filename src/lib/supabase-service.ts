@@ -3,6 +3,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import type {
   UserProfile,
   SubscriptionPlan,
@@ -22,6 +23,24 @@ export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   return Boolean(url && key && url.startsWith('http'));
+}
+
+
+/**
+ * Client for privileged RPCs (grant_credits, promo counters, affiliate commission).
+ * On the server with SUPABASE_SERVICE_ROLE_KEY set it returns a service-role client;
+ * the key is never NEXT_PUBLIC_ so it cannot exist in the browser. Otherwise it falls
+ * back to the given client, and the database guard will reject non-admin callers.
+ */
+function getPrivilegedClient(fallback?: any): any {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (typeof window === 'undefined' && serviceKey && url) {
+    return createSupabaseJsClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return fallback || createClient();
 }
 
 /** Get Supabase Auth User Session */
@@ -146,7 +165,7 @@ export async function deductCreditsRemote(userId: string, amount: number, client
 /** Atomic credit grant via Supabase RPC function */
 export async function grantCreditsRemote(userId: string, amount: number, clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
-  const supabase = clientOverride || createClient();
+  const supabase = getPrivilegedClient(clientOverride);
   const { error } = await supabase.rpc('grant_credits', {
     p_user_id: userId,
     p_amount: amount,
@@ -1035,7 +1054,7 @@ export async function submitPayoutRemote(
 export async function incrementPromoUsageRemote(code: string): Promise<boolean> {
   if (!isSupabaseConfigured() || !code) return false;
   try {
-    const supabase = createClient();
+    const supabase = getPrivilegedClient();
     const { data, error } = await supabase.rpc('increment_promo_usage', {
       p_code: code.trim().toUpperCase(),
     });
@@ -1058,7 +1077,7 @@ export async function creditAffiliateCommissionRemote(
 ): Promise<boolean> {
   if (!isSupabaseConfigured() || !referralCode) return false;
   try {
-    const supabase = createClient();
+    const supabase = getPrivilegedClient();
     const { data, error } = await supabase.rpc('credit_affiliate_commission', {
       p_referral_code: referralCode.trim().toUpperCase(),
       p_order_amount_bdt: orderAmountBDT,

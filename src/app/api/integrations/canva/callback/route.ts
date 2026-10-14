@@ -13,7 +13,9 @@ export async function GET(req: NextRequest) {
   }
 
   const cookieStore = cookies();
-  const returnTo = cookieStore.get('canva_return_to')?.value || '/youtube-kit-studio';
+  const rawReturn = cookieStore.get('canva_return_to')?.value || '';
+  const returnTo =
+    /^\/(?![/\\])[A-Za-z0-9\-._~/]*$/.test(rawReturn) ? rawReturn : '/youtube-kit-studio';
   const redirectTarget = `${origin}${returnTo}?canva=connected`;
 
   if (error) {
@@ -25,6 +27,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${origin}${returnTo}?canva_error=missing_code`);
   }
   const savedState = cookieStore.get('canva_auth_state')?.value;
+  if (!savedState || !state || savedState !== state) {
+    console.error('[Canva OAuth] State mismatch (possible CSRF)');
+    return NextResponse.redirect(`${origin}${returnTo}?canva_error=invalid_state`);
+  }
   const codeVerifier = cookieStore.get('canva_code_verifier')?.value;
 
   if (!codeVerifier) {

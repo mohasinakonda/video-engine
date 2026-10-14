@@ -12,9 +12,8 @@ import {
   ImageIcon,
 } from 'lucide-react';
 import type { BaseStylePreset } from '@/types';
-import { generateSceneImage } from '@/lib/pollinations';
+import { generateSceneImage } from '@/lib/scene-ai';
 import { uploadMediaToSupabaseStorage, isSupabaseConfigured } from '@/lib/supabase-service';
-import { getPollinationsApiKey } from '@/lib/store';
 import { CORE_FAMILIES } from '@/lib/style-taxonomy';
 
 interface StyleEditModalProps {
@@ -169,10 +168,7 @@ export function StyleEditModal({
     }, 1000);
 
     try {
-      // 1. Fetch authenticated Pollinations API key
-      const apiKey = await getPollinationsApiKey();
-
-      // 2. Generate test image using the style prompt & negative prompt directly
+      // Generate test image using the style prompt & negative prompt directly
       const referenceSubject = 'A majestic ancient valley and cinematic temple ruins at golden hour, photorealistic 8k, masterwork composition';
       const arrayBuffer = await generateSceneImage(
         referenceSubject,
@@ -180,9 +176,7 @@ export function StyleEditModal({
         undefined,
         {
           aspectRatio: '16:9',
-          model: 'flux',
           negativePrompt: formNegativePrompt.trim() || undefined,
-          apiKey: apiKey || undefined,
         }
       );
 

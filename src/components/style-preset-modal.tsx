@@ -46,7 +46,7 @@ import {
   StyleFamily,
 } from '@/lib/style-taxonomy';
 import { synthesizeUniqueStylePrompt, SynthesizedStyleResult } from '@/lib/style-generator';
-import { generateSceneImage } from '@/lib/pollinations';
+import { generateSceneImage } from '@/lib/scene-ai';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -281,7 +281,7 @@ export default function StylePresetModal({
     return list;
   }, [catalogStyles, selectedFamilyId, searchQuery]);
 
-  // Handle Image Test using Pollinations AI
+  // Handle Image Test
   const handleTestImageGeneration = async (stylePrompt: string, negativePrompt?: string) => {
     if (!stylePrompt.trim()) return;
     setTesting(true);
@@ -641,7 +641,7 @@ export default function StylePresetModal({
                     ) : (
                       <>
                         <ImageIcon size={13} className="text-zinc-400" />
-                        <span>Test Sample Image (Pollinations AI)</span>
+                        <span>Test Sample Image</span>
                       </>
                     )}
                   </button>

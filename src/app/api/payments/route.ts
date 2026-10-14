@@ -88,9 +88,28 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
+    // Identity comes from the authenticated session, never from the request body.
+    let sessionUserId: string | undefined;
+    let sessionEmail: string | undefined;
+    if (isSupabaseConfigured()) {
+      const serverSupabase = createServerClient();
+      const {
+        data: { user },
+      } = await serverSupabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized. Please sign in.' },
+          { status: 401 }
+        );
+      }
+      sessionUserId = user.id;
+      sessionEmail = user.email || undefined;
+    }
+
     const {
-      userId,
-      userEmail,
+      userId: bodyUserId,
+      userEmail: bodyUserEmail,
       userName,
       itemType,
       planId,
@@ -104,15 +123,18 @@ export async function POST(req: Request) {
       senderNumber,
     } = body;
 
+    const userId: string | undefined = sessionUserId ?? bodyUserId;
+    const userEmail: string | undefined = sessionEmail ?? bodyUserEmail;
+
     // 1. Basic validation
-    if (!userEmail || !userEmail.trim()) {
+    if (!userEmail || typeof userEmail !== 'string' || !userEmail.trim()) {
       return NextResponse.json(
         { success: false, error: 'User email is required' },
         { status: 400 }
       );
     }
 
-    if (!senderNumber || !senderNumber.trim()) {
+    if (!senderNumber || typeof senderNumber !== 'string' || !senderNumber.trim()) {
       return NextResponse.json(
         { success: false, error: 'Sender mobile number is required' },
         { status: 400 }

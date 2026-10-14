@@ -43,7 +43,7 @@ Elevate this prompt now into a masterwork FLUX.1 thumbnail prompt.`;
 
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
-    const pollinationsKey = process.env.POLLINATIONS_API_KEY;
+    const deepinfraKey = process.env.DEEPINFRA_API_KEY;
 
     let enhancedPrompt = '';
 
@@ -115,19 +115,17 @@ Elevate this prompt now into a masterwork FLUX.1 thumbnail prompt.`;
       }
     }
 
-    // ─── 3. Pollinations Fallback ────────────────────────────────────────────
-    if (!enhancedPrompt) {
+    // ─── 3. DeepInfra Fallback ───────────────────────────────────────────────
+    if (!enhancedPrompt && deepinfraKey && deepinfraKey.trim()) {
       try {
-        const pollHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (pollinationsKey && pollinationsKey.trim()) {
-          pollHeaders['Authorization'] = `Bearer ${pollinationsKey.trim()}`;
-        }
-
-        const pollRes = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+        const diRes = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
           method: 'POST',
-          headers: pollHeaders,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${deepinfraKey.trim()}`,
+          },
           body: JSON.stringify({
-            model: 'openai',
+            model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
@@ -138,8 +136,8 @@ Elevate this prompt now into a masterwork FLUX.1 thumbnail prompt.`;
           signal: AbortSignal.timeout(20000),
         });
 
-        if (pollRes.ok) {
-          const data = await pollRes.json();
+        if (diRes.ok) {
+          const data = await diRes.json();
           const content = data.choices?.[0]?.message?.content;
           if (content) {
             const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -150,7 +148,7 @@ Elevate this prompt now into a masterwork FLUX.1 thumbnail prompt.`;
           }
         }
       } catch (err) {
-        console.warn('Pollinations enhance prompt failed:', err);
+        console.warn('DeepInfra enhance prompt failed:', err);
       }
     }
 

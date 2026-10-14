@@ -41,7 +41,6 @@ export async function POST(req: Request) {
 
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
-    const pollinationsKey = process.env.POLLINATIONS_API_KEY;
 
     const rawLanguage = (formData.get('language') as string) || '';
     const rawPrompt = (formData.get('prompt') as string) || '';
@@ -118,37 +117,6 @@ export async function POST(req: Request) {
       } catch (err) {
         console.warn('OpenAI whisper error in route:', err);
       }
-    }
-
-    // ─── 3. Fallback to Pollinations AI Whisper ────────────────────────────────
-    try {
-      const polFormData = new FormData();
-      polFormData.append('file', file, 'audio.mp3');
-      polFormData.append('model', 'openai/whisper-large-v3');
-      polFormData.append('response_format', 'verbose_json');
-      polFormData.append('temperature', '0');
-      polFormData.append('timestamp_granularities[]', 'word');
-      polFormData.append('timestamp_granularities[]', 'segment');
-      if (language) polFormData.append('language', language);
-      if (effectivePrompt) polFormData.append('prompt', effectivePrompt);
-
-      const headers: Record<string, string> = {};
-      if (pollinationsKey && pollinationsKey.trim()) {
-        headers['Authorization'] = `Bearer ${pollinationsKey.trim()}`;
-      }
-
-      const polRes = await fetch('https://gen.pollinations.ai/v1/audio/transcriptions', {
-        method: 'POST',
-        headers,
-        body: polFormData,
-      });
-
-      if (polRes.ok) {
-        const data = await polRes.json();
-        return NextResponse.json({ ...data, provider: 'pollinations' });
-      }
-    } catch (err) {
-      console.warn('Pollinations whisper error in route:', err);
     }
 
     return NextResponse.json(

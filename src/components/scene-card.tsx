@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Video, AlertTriangle } from 'lucide-react';
 import type { SceneItem, ShotType } from '@/types';
-import { generateBRollPrompt } from '@/lib/pollinations';
+import { generateBRollPrompt } from '@/lib/scene-ai';
 
 import {
   SHOT_TYPE_CONFIG,
@@ -113,7 +113,7 @@ export default function SceneCard({
     setIsSwitchingBRoll(true);
     try {
       const context = scene.narrationLine || scene.visualPrompt;
-      const res = await generateBRollPrompt(context, targetType, undefined, stylePrompt);
+      const res = await generateBRollPrompt(context, targetType, stylePrompt);
       const updatedScene: SceneItem = {
         ...scene,
         shotType: targetType,

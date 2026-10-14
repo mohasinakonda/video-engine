@@ -31,8 +31,7 @@ import {
   saveProject,
   getDefaultStylePreset,
   getStylePresets,
-  getPollinationsApiKey,
-  getPollinationsImageModel,
+  getImageModel,
 } from '@/lib/store';
 import { extractScenes } from '@/lib/gemini';
 import JSZip from 'jszip';
@@ -149,8 +148,7 @@ export default function StoryboardInner() {
       return;
     }
 
-    const apiKey = (await getPollinationsApiKey()) || '';
-    const chosenModel = selectedAIModel?.modelId || (await getPollinationsImageModel());
+    const chosenModel = selectedAIModel?.modelId || (await getImageModel());
 
     setGeneratingImages(true);
     setPauseMsg('');
@@ -159,7 +157,6 @@ export default function StoryboardInner() {
     const preset = presetRef.current;
 
     await imageQueueRef.current.run({
-      apiKey,
       projectId,
       scenes: scenesToProcess,
       stylePrompt: preset?.stylePrompt,
@@ -334,7 +331,7 @@ export default function StoryboardInner() {
     let isMounted = true;
     async function loadActiveModel() {
       try {
-        const storedModelId = await getPollinationsImageModel();
+        const storedModelId = await getImageModel();
         const targetModelId = projectRef.current?.imageModel || storedModelId;
         const res = await fetch('/api/models');
         if (res.ok) {
@@ -392,7 +389,6 @@ export default function StoryboardInner() {
     const preset = presetRef.current;
     if (!proj || !preset) return;
 
-    const apiKey = (await getPollinationsApiKey()) || '';
 
     // If project has no audio duration, calculate reasonable fallback based on script words
     const words = proj.rawScript?.trim().split(/\s+/).filter(Boolean).length || 0;
@@ -408,7 +404,6 @@ export default function StoryboardInner() {
     try {
       const pacingProfile = proj.pacingProfile || 'balanced';
       const extracted = await extractScenes(
-        apiKey,
         proj.rawScript,
         totalDurationMs,
         preset.stylePrompt,
@@ -627,8 +622,7 @@ export default function StoryboardInner() {
 
     generatingSceneIdsRef.current.add(scene.sceneId);
 
-    const apiKey = (await getPollinationsApiKey()) || '';
-    const chosenModel = selectedAIModel?.modelId || (await getPollinationsImageModel());
+    const chosenModel = selectedAIModel?.modelId || (await getImageModel());
 
     const preset = presetRef.current;
     const effectiveVisual = newPrompt && newPrompt.trim() ? newPrompt.trim() : scene.visualPrompt;
@@ -647,7 +641,6 @@ export default function StoryboardInner() {
 
     try {
       await imageQueueRef.current.retryScene(targetScene, {
-        apiKey,
         projectId,
         model: chosenModel,
         creditCost: selectedAIModel?.creditCost,

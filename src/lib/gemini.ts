@@ -1,51 +1,30 @@
 /**
- * gemini.ts — AI Engine (Powered 100% by Pollinations AI)
+ * gemini.ts — AI engine helpers
  *
  * Provides:
- *  1. Connection test (Pollinations AI status)
- *  2. Semantic script chunking via Pollinations text & natural paragraph boundaries
- *  3. Voice audio generation via Pollinations Audio TTS
- *  4. Preview audio generation for voice presets
- *  5. Script-to-Scene extraction with visual prompts via Pollinations AI
- *  6. Image generation via Pollinations AI (FLUX, Z-Image, DreamShaper, etc.)
+ *  1. Script-to-Scene extraction with visual prompts (via /api/ai/chat)
+ *  2. Image generation (via /api/generate-image)
+ *  3. Audio/Base64 helpers
  */
 
 import type { VoicePreset, SceneItem, PacingProfile, ShotType } from '@/types';
 import {
-  generateVoiceChunk,
   generateSceneImage,
   breakdownScriptToScenes,
   enhanceScenePrompt,
   splitIntoPacingChunks,
-  getPollinationsClient,
   type ScriptSceneBreakdown,
   type EnhancedScenePromptResult,
-} from '@/lib/pollinations';
+} from '@/lib/scene-ai';
+import { getLLMClient } from '@/lib/llm-client';
 
 export { enhanceScenePrompt, type EnhancedScenePromptResult };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const TEXT_MODEL = 'pollinations-text'; // Script chunking & scene extraction
-export const TTS_MODEL = 'pollinations-audio'; // Voice generation
 export const IMAGE_MODEL = 'black-forest-labs/FLUX-1-schnell'; // Primary DeepInfra image generation engine
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-export interface GeminiError {
-  code: number;
-  message: string;
-  status: string;
-}
-
-export type TestKeyResult =
-  | { ok: true }
-  | { ok: false; reason: 'invalid_key' | 'quota_exceeded' | 'network_error'; message: string };
-
-export interface AudioGenerationResult {
-  base64Audio: string;
-  mimeType: string;
-}
 
 export interface ImageGenerationResult {
   base64Image: string;
@@ -60,170 +39,9 @@ export interface RawSceneData {
   visual_prompt: string;
 }
 
-// ─── Director System Prompt Builder ──────────────────────────────────────────
-
-export function buildDirectorPrompt(preset: VoicePreset): string {
-  const scene = preset.scene.trim() || 'Studio setting';
-  const context = preset.sampleContext.trim() || 'Natural pacing';
-
-  return `Role: Professional Voice Actor
-Director Instructions:
-- Scene: ${scene}
-- Context & Delivery Style: ${context}
-- Voice Persona: ${preset.voiceCharacter}
-- Speaking Pace: ${preset.pace}x
-- Accent: ${preset.accent}
-
-Execution:
-Enter the scene naturally adhering to the Scene and Context provided.
-Read the provided script strictly as written. Do not add introductory remarks, greetings, or meta commentary.`;
-}
-
-function mapToPollinationsVoice(voice: string): string {
-  const v = (voice || '').toLowerCase();
-  if (v.includes('fenrir') || v.includes('charon') || v.includes('deep')) return 'onyx';
-  if (v.includes('aoede') || v.includes('kore') || v.includes('female')) return 'nova';
-  if (v.includes('puck')) return 'echo';
-  if (['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'].includes(v)) return v;
-  return 'alloy';
-}
-
-// ─── 1. Test API Key ──────────────────────────────────────────────────────────
-
-export async function testApiKey(apiKey: string): Promise<TestKeyResult> {
-  const key = (apiKey || '').trim();
-  if (!key) {
-    // Pollinations AI is free and requires no API key by default
-    return { ok: true };
-  }
-
-  try {
-    const client = getPollinationsClient(key);
-    const res = await client.chat.completions.create({
-      model: 'openai',
-      messages: [{ role: 'user', content: 'Say "OK"' }],
-      max_tokens: 5,
-    });
-    if (res.choices?.[0]?.message?.content) {
-      return { ok: true };
-    }
-    return { ok: true };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('401') || msg.includes('UNAUTHORIZED')) {
-      return { ok: false, reason: 'invalid_key', message: 'Invalid Pollinations API Key. Check enter.pollinations.ai/keys' };
-    }
-    // Don't block user on network hiccups for free tier
-    return { ok: true };
-  }
-}
-
-// ─── 2. Semantic Script Chunking (Pollinations AI) ──────────────────────────
-
-export async function chunkScript(
-  apiKey: string,
-  script: string,
-  onProgress?: (msg: string) => void
-): Promise<string[]> {
-  onProgress?.('Analyzing script structure with Pollinations AI…');
-
-  const trimmed = script.trim();
-  if (!trimmed) return [];
-
-  // Try Pollinations LLM if user provided key or client is available
-  try {
-    const client = getPollinationsClient(apiKey);
-    const response = await client.chat.completions.create({
-      model: 'openai',
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a professional script editor. Split the provided narration script into natural narration chunks (~350–450 words each). Never split in the middle of a sentence. Return ONLY a valid JSON array of strings.',
-        },
-        { role: 'user', content: trimmed },
-      ],
-      temperature: 0.2,
-    });
-
-    const content = response.choices?.[0]?.message?.content;
-    if (content) {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      const cleaned = jsonMatch ? jsonMatch[1].trim() : content.trim();
-      const parsed = JSON.parse(cleaned);
-      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
-        onProgress?.(`Script split into ${parsed.length} semantic chunk(s).`);
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.warn('Pollinations LLM chunking skipped, using smart boundary chunker:', err);
-  }
-
-  // Safe fallback chunker: Splits on paragraph and sentence boundaries near 400 words
-  onProgress?.('Splitting script on natural sentence boundaries…');
-  return naiveChunk(trimmed, 400);
-}
-
-/** Fallback chunker that splits on paragraph boundaries near target word count */
-function naiveChunk(script: string, targetWords: number): string[] {
-  const paragraphs = script.split(/\n\s*\n/).filter(Boolean);
-  const chunks: string[] = [];
-  let current: string[] = [];
-  let wordCount = 0;
-
-  for (const para of paragraphs) {
-    const words = para.split(/\s+/).length;
-    if (wordCount + words > targetWords && current.length > 0) {
-      chunks.push(current.join('\n\n'));
-      current = [];
-      wordCount = 0;
-    }
-    current.push(para);
-    wordCount += words;
-  }
-  if (current.length > 0) chunks.push(current.join('\n\n'));
-  if (chunks.length === 0 && script.trim()) chunks.push(script.trim());
-  return chunks;
-}
-
-// ─── 3. TTS Audio Generation (Pollinations AI) ───────────────────────────────
-
-export async function generateAudio(
-  apiKey: string,
-  chunkText: string,
-  preset: VoicePreset
-): Promise<AudioGenerationResult> {
-  const voice = mapToPollinationsVoice(preset.voiceCharacter);
-
-  try {
-    const audioBuffer = await generateVoiceChunk(chunkText, voice, apiKey);
-    return {
-      base64Audio: arrayBufferToBase64(audioBuffer),
-      mimeType: 'audio/mp3',
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Pollinations Audio generation failed: ${msg}`);
-  }
-}
-
-// ─── 4. Preview Audio Generation ─────────────────────────────────────────────
-
-const PREVIEW_TEXT =
-  'Welcome to AI Video Studio. This is a preview of your selected voice and delivery settings.';
-
-export async function generatePreviewAudio(
-  apiKey: string,
-  preset: VoicePreset
-): Promise<AudioGenerationResult> {
-  return generateAudio(apiKey, PREVIEW_TEXT, preset);
-}
-
-// ─── 5. Script-to-Scene Breakdown (Pollinations AI) ─────────────────────────
+// ─── Script-to-Scene Breakdown ─────────────────────────
 
 export async function extractScenes(
-  apiKey: string,
   script: string,
   totalAudioDurationMs: number,
   stylePrompt: string,
@@ -246,9 +64,9 @@ export async function extractScenes(
 
   const targetScenes = Math.max(1, Math.round(totalSec / targetPace));
 
-  onProgress?.(`Extracting visual scenes via Pollinations AI (${pacingProfile} pacing)…`);
+  onProgress?.(`Extracting visual scenes via AI (${pacingProfile} pacing)…`);
 
-  const client = getPollinationsClient(apiKey);
+  const client = getLLMClient();
 
   // Multi-chunk batching for long scripts (e.g. 23 min scripts)
   if (words > 180 || totalSec > 90) {
@@ -297,7 +115,7 @@ export async function extractScenes(
       return convertBreakdownToScenes(breakdown, totalSec, stylePrompt, onProgress);
     }
   } catch (err) {
-    console.warn('Pollinations scene breakdown error, using dynamic sentence partition:', err);
+    console.warn('AI scene breakdown error, using dynamic sentence partition:', err);
   }
 
   // Graceful content-aware sentence partition with variable durations
@@ -384,10 +202,9 @@ function convertBreakdownToScenes(
   return items;
 }
 
-// ─── 6. Image Generation (Pollinations AI) ──────────────────────────────────
+// ─── Image Generation ──────────────────────────────────
 
 export async function generateImage(
-  apiKey: string,
   prompt: string,
   negativePrompt?: string,
   options?: {
@@ -412,7 +229,6 @@ export async function generateImage(
     model: options?.model || IMAGE_MODEL,
     width: options?.width || defaultWidth,
     height: options?.height || defaultHeight,
-    apiKey,
     aspectRatio: options?.aspectRatio,
     creditCost: options?.creditCost,
     inferenceSteps: options?.inferenceSteps,

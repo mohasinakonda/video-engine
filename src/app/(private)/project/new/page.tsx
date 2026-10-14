@@ -38,15 +38,14 @@ import StylePresetModal from '@/components/style-preset-modal';
 import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 import type { AIImageModel } from '@/types/subscription';
 import {
-  getPollinationsApiKey,
   getProject,
   saveProject,
   getDefaultStylePreset,
   getStylePresets,
   saveUserPreferredStyleId,
-  savePollinationsImageModel,
+  saveImageModel,
 } from '@/lib/store';
-import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
+import { breakdownRequirementToImageScenes } from '@/lib/scene-ai';
 import {
   alignAudioWithScript,
   transcribeAudioWithWhisper,
@@ -260,7 +259,6 @@ function ProjectPageInner() {
     setGeneratingMsg('AI Director reading script narrative & deciding scenes…');
 
     try {
-      const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
       const effectiveStylePrompt = activeStylePrompt;
 
@@ -278,7 +276,6 @@ function ProjectPageInner() {
       const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
         sceneCount: userSceneCount,
         stylePrompt: effectiveStylePrompt,
-        apiKey,
         pacingProfile,
         targetDurationSec: scriptAnalytics.estSec > 0 ? scriptAnalytics.estSec : undefined,
         onProgress: (msg) => setGeneratingMsg(msg),
@@ -314,7 +311,7 @@ function ProjectPageInner() {
       if (projectId !== activeProjectId) setProjectId(activeProjectId);
 
       if (selectedAIModel) {
-        await savePollinationsImageModel(selectedAIModel.modelId);
+        await saveImageModel(selectedAIModel.modelId);
       }
 
       const manifest: ProjectManifest = {
@@ -371,7 +368,6 @@ function ProjectPageInner() {
     setGeneratingMsg('Saving custom voiceover…');
 
     try {
-      const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
       const effectiveStylePrompt = activeStylePrompt;
       const activeProjectId = projectId || existingProjectRef.current?.projectId || generateId();
@@ -388,7 +384,6 @@ function ProjectPageInner() {
       const detectedLang = /[\u0980-\u09FF]/.test(script) ? 'bn' : 'en';
       setGeneratingMsg('Aligning audio with script (zero hallucination)…');
       const alignResult = await alignAudioWithScript(customAudioFile, script.trim(), {
-        pollinationsApiKey: apiKey,
         language: detectedLang,
         scriptPrompt: script.trim(),
         onProgress: (msg) => setGeneratingMsg(msg),
@@ -413,7 +408,6 @@ function ProjectPageInner() {
         totalAudioDurationSec: targetDurationSec,
         pacingProfile,
         stylePrompt: effectiveStylePrompt,
-        apiKey,
         words: timedWords,
         onProgress: (msg) => setGeneratingMsg(msg),
       });
@@ -443,7 +437,7 @@ function ProjectPageInner() {
       };
 
       if (selectedAIModel) {
-        await savePollinationsImageModel(selectedAIModel.modelId);
+        await saveImageModel(selectedAIModel.modelId);
       }
 
       const manifest: ProjectManifest = {
