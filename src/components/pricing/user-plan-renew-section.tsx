@@ -20,7 +20,7 @@ export function UserPlanRenewSection({
   onSelectPlan,
 }: UserPlanRenewSectionProps) {
   return (
-    <div id="plans-section" className="space-y-4 pt-6 border-t border-zinc-800">
+    <div id="plans-section" className="space-y-4 pt-6 border-t border-bg-border">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -32,10 +32,10 @@ export function UserPlanRenewSection({
           </p>
         </div>
 
-        <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-900 border border-zinc-800">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-bg-surface border border-bg-border">
           <button
             onClick={() => setBillingCycle('monthly')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               billingCycle === 'monthly'
                 ? 'bg-white text-zinc-950 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -45,14 +45,14 @@ export function UserPlanRenewSection({
           </button>
           <button
             onClick={() => setBillingCycle('quarterly')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
               billingCycle === 'quarterly'
                 ? 'bg-white text-zinc-950 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
             <span>3 Months</span>
-            <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-zinc-950 text-[9px] font-bold">
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-zinc-950 text-3xs font-bold">
               SAVE
             </span>
           </button>
@@ -72,18 +72,18 @@ export function UserPlanRenewSection({
           return (
             <div
               key={plan.id}
-              className={`p-6 rounded-3xl border transition-all flex flex-col shadow-xl ${
+              className={`p-6 rounded-xl border transition-all flex flex-col shadow-xl card-interactive ${
                 isCurrent
-                  ? 'bg-zinc-850/60 border-2 border-emerald-500 ring-1 ring-emerald-500/30'
+                  ? 'bg-bg-elevated border-2 border-emerald-500 ring-1 ring-emerald-500/30'
                   : plan.popular
-                  ? 'bg-zinc-900/90 border-2 border-emerald-500/60'
-                  : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-700'
+                  ? 'bg-bg-surface border-2 border-emerald-500/60'
+                  : 'bg-bg-surface border-bg-border hover:border-bg-border-strong'
               }`}
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="font-bold text-white text-base">{plan.name}</span>
                 {isCurrent && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     Active Plan
                   </span>
                 )}
@@ -108,7 +108,7 @@ export function UserPlanRenewSection({
 
               <button
                 onClick={() => onSelectPlan(plan)}
-                className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all ${
+                className={`w-full py-2.5 rounded-lg font-bold text-xs transition-all ${
                   isCurrent
                     ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 shadow-sm'
                     : 'bg-white hover:bg-zinc-200 text-zinc-950 shadow-md'

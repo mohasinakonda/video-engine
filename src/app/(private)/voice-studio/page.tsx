@@ -14,6 +14,8 @@ import {
   FastForward,
   Bookmark,
   Lock,
+  Upload,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { getAudioDuration } from '@/lib/media-storage';
@@ -21,9 +23,17 @@ import {
   MIMO_STYLE_TAGS,
   MIMO_INLINE_TAGS,
 } from '@/lib/voice-catalog';
+import {
+  getVoiceStyle,
+  getUseCase,
+  styleToParams,
+  type StyleParams,
+} from '@/lib/voice-styles';
 import { concatenateAudioParts } from '@/lib/audio-concat';
 import { VoiceDesignModal } from './_components/voice-design-modal';
+import { VoiceCloneModal } from './_components/voice-clone-modal';
 import { SidebarContent } from './_components/sidebar-content';
+import StyleDrawer from './_components/style-drawer';
 
 interface VoiceConfig {
   language: string;
@@ -170,12 +180,15 @@ export default function VoicePage() {
   // Custom Voices Library
   const [customVoices, setCustomVoices] = useState<CustomVoice[]>([]);
   const [selectedCustomVoice, setSelectedCustomVoice] = useState<CustomVoice | null>(null);
+  const selectedCustomVoiceRef = useRef<CustomVoice | null>(null);
+  selectedCustomVoiceRef.current = selectedCustomVoice;
   const [loadingCustomVoices, setLoadingCustomVoices] = useState(false);
   const [auditionPlayingId, setAuditionPlayingId] = useState<string | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [modalAudioUrl, setModalAudioUrl] = useState<string | null>(null);
-  // Dedicated Voice Design Studio Modal States
+  // Dedicated Voice Design & Clone Modal States
   const [designModalOpen, setDesignModalOpen] = useState(false);
+  const [cloneModalOpen, setCloneModalOpen] = useState(false);
 
   // AI Assistant States
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
@@ -192,8 +205,117 @@ export default function VoicePage() {
   const [resultChars, setResultChars] = useState<number>(0);
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [isLooping, setIsLooping] = useState<boolean>(false);
+
+  // ─── Delivery style drawer (additive: null = existing behaviour) ───
+  const [styleDrawerOpen, setStyleDrawerOpen] = useState(false);
+  const [selectedStyleId, setSelectedStyleId] = useState<string | null>(null);
+  const [selectedUseCaseId, setSelectedUseCaseId] = useState<string | null>(null);
+  // Slider values shown in the drawer; only sent when styleTouched is true.
+  const [styleParams, setStyleParams] = useState<StyleParams>({ expressiveness: 50, cfgWeight: 0.5, temperature: 0.7 });
+  const [styleTouched, setStyleTouched] = useState(false);
+  const [previewingStyle, setPreviewingStyle] = useState(false);
+  // Reuses the existing previewAudioRef declared below (voice audition previews).
+  // Refs mirror style state for the async chunk loop (same pattern as sessionVoiceIdRef).
+  const styleTouchedRef = useRef(false);
+  const styleParamsRef = useRef<StyleParams>({ expressiveness: 50, cfgWeight: 0.5, temperature: 0.7 });
+  styleTouchedRef.current = styleTouched;
+  styleParamsRef.current = styleParams;
+
+  const activeStyle = getVoiceStyle(selectedStyleId);
+  // True when sliders were dragged away from the selected preset.
+  const isStyleCustom = styleTouched && !!activeStyle && (
+    styleParams.expressiveness !== Math.round(activeStyle.exaggeration * 100) ||
+    styleParams.cfgWeight !== activeStyle.cfgWeight ||
+    styleParams.temperature !== activeStyle.temperature
+  );
+
+  const handleSelectStyle = useCallback((id: string | null) => {
+    setSelectedStyleId(id);
+    setSelectedUseCaseId(null); // manual style pick clears the use-case shortcut
+    const style = getVoiceStyle(id);
+    if (style) {
+      setStyleParams(styleToParams(style));
+      setStyleTouched(true);
+    } else {
+      setStyleTouched(false);
+    }
+  }, []);
+
+  const handleSelectUseCase = useCallback((id: string | null) => {
+    setSelectedUseCaseId(id);
+    const useCase = getUseCase(id);
+    if (useCase) {
+      const style = getVoiceStyle(useCase.styleId);
+      setSelectedStyleId(useCase.styleId);
+      if (style) {
+        setStyleParams(styleToParams(style));
+        setStyleTouched(true);
+      }
+    } else {
+      setSelectedStyleId(null);
+      setStyleTouched(false);
+    }
+  }, []);
+
+  const handleStyleParamsChange = useCallback((p: StyleParams) => {
+    setStyleParams(p);
+    setStyleTouched(true);
+  }, []);
+
+  const handleResetStyle = useCallback(() => {
+    setSelectedStyleId(null);
+    setSelectedUseCaseId(null);
+    setStyleParams({ expressiveness: 50, cfgWeight: 0.5, temperature: 0.7 });
+    setStyleTouched(false);
+  }, []);
+
+  // Free style preview: short sample through the preview path with current drawer params.
+  const handlePreviewStyle = useCallback(async () => {
+    if (previewingStyle) return;
+    const currentVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
+    setPreviewingStyle(true);
+    try {
+      const res = await fetch('/api/voice/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preview: true,
+          text: 'The city never truly sleeps — it only changes its rhythm, trading daylight noise for midnight whispers.',
+          modelId: currentVoice
+            ? 'ResembleAI/chatterbox-multilingual'
+            : (engine?.modelId || engine?.id || 'ResembleAI/chatterbox-multilingual'),
+          voicePrompt: currentVoice
+            ? (currentVoice.voice_prompt || voiceDescription.trim())
+            : voiceDescription.trim(),
+          voiceId: currentVoice ? currentVoice.deepinfra_voice_id : undefined,
+          expressiveness: styleParams.expressiveness,
+          cfgWeight: styleParams.cfgWeight,
+          temperature: styleParams.temperature,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Preview failed.');
+      const bytes = Uint8Array.from(atob(data.audioBase64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: data.mimeType || 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        URL.revokeObjectURL(previewAudioRef.current.src);
+      }
+      const audio = new Audio(url);
+      previewAudioRef.current = audio;
+      audio.onended = () => URL.revokeObjectURL(url);
+      await audio.play();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Preview failed.', 'error');
+    } finally {
+      setPreviewingStyle(false);
+    }
+  }, [previewingStyle, selectedCustomVoice, engine, voiceDescription, styleParams]);
   const cancelRef = useRef(false);
   const planRef = useRef<{ planId: string; charsDone: number } | null>(null);
+  /** Session anchor voice ID (chunk 0's clone) — echoed to the server on later chunks for voice consistency. */
+  const sessionVoiceIdRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Dynamic Credits
@@ -212,11 +334,11 @@ export default function VoicePage() {
       .then((d) => {
         if (d.success && Array.isArray(d.models) && d.models.length > 0) {
           const found =
+            d.models.find((m: VoiceEngine) => m.isDefault) ||
             d.models.find(
               (m: VoiceEngine) =>
-                m.id.includes('voicedesign') || m.modelId.includes('voicedesign')
+                m.id.includes('chatterbox') || m.modelId.includes('chatterbox')
             ) ||
-            d.models.find((m: VoiceEngine) => m.isDefault) ||
             d.models[0];
           if (found) setEngine(found);
         }
@@ -429,9 +551,15 @@ export default function VoicePage() {
     setProgress(0);
     setPhase('planning');
     cancelRef.current = false;
+    sessionVoiceIdRef.current = null;
 
     try {
-      const targetModelId = engine?.id || 'voice-mimo-v25-voicedesign';
+      const activeCustomVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
+      // For custom voices and default narration, route to high-capacity Chatterbox Multilingual (5,000-char single pass)
+      // so scripts up to 4,800 characters are never split into multiple chunks.
+      let targetModelId = activeCustomVoice
+        ? 'ResembleAI/chatterbox-multilingual'
+        : (engine?.modelId || engine?.id || 'ResembleAI/chatterbox-multilingual');
 
       const planRes = await fetch('/api/voice/plan', {
         method: 'POST',
@@ -453,6 +581,9 @@ export default function VoicePage() {
       const parts: Uint8Array[] = [];
       let charsDone = 0;
       let resultMimeType = 'audio/wav';
+      // Deterministic neural seed for this entire generation session —
+      // locks timbre, pitch contour, and pacing so chunk 1, 2, 3 never drift in tone.
+      const sessionSeed = Math.floor(Math.random() * 900000) + 100000;
 
       for (let i = 0; i < chunks.length; i++) {
         if (cancelRef.current) throw new Error('cancelled');
@@ -463,7 +594,8 @@ export default function VoicePage() {
         let mimeType = 'audio/wav';
         while (attempt < 3 && !audioB64) {
           try {
-            const response = await fetch('/api/voice/chunk', {
+            const currentVoice = selectedCustomVoiceRef.current || selectedCustomVoice;
+            const response: Response = await fetch('/api/voice/chunk', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -472,15 +604,29 @@ export default function VoicePage() {
                 totalChunks: chunks.length,
                 text: chunk.text,
                 tone: chunk.tone,
+                seed: sessionSeed,
                 modelId: targetModelId,
-                voicePrompt: selectedCustomVoice
-                  ? (selectedCustomVoice.voice_prompt || voiceDescription.trim())
+                voicePrompt: currentVoice
+                  ? (currentVoice.voice_prompt || voiceDescription.trim())
                   : voiceDescription.trim(),
-                voiceId: selectedCustomVoice ? selectedCustomVoice.deepinfra_voice_id : undefined,
+                voiceId: currentVoice ? currentVoice.deepinfra_voice_id : undefined,
+                // Echo the session anchor voice so all chunks share chunk 0's voice,
+                // even if requests land on different serverless instances.
+                sessionVoiceId: sessionVoiceIdRef.current || undefined,
+                // Delivery-style overrides — only when the user touched the style
+                // drawer; otherwise the request is identical to before.
+                ...(styleTouchedRef.current ? {
+                  expressiveness: styleParamsRef.current.expressiveness,
+                  cfgWeight: styleParamsRef.current.cfgWeight,
+                  temperature: styleParamsRef.current.temperature,
+                } : {}),
               }),
             });
-            const data = await response.json();
+            const data: any = await response.json();
             if (!response.ok) throw new Error(data.error || `Chunk ${chunk.index + 1} failed.`);
+            if (typeof data.sessionVoiceId === 'string' && data.sessionVoiceId) {
+              sessionVoiceIdRef.current = data.sessionVoiceId;
+            }
             audioB64 = data.audioBase64;
             mimeType = data.mimeType || mimeType;
           } catch (err) {
@@ -531,6 +677,7 @@ export default function VoicePage() {
     charLimit,
     engine,
     cancelGeneration,
+    selectedCustomVoice,
   ]);
 
   useEffect(() => {
@@ -610,26 +757,35 @@ export default function VoicePage() {
   const canGenerate = text.trim().length > 0 && !busy;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0a0b0e] text-slate-100 font-sans selection:bg-blue-600/30 selection:text-white">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-bg-base text-zinc-100 font-sans selection:bg-white/20 selection:text-white">
       {/* ─── Google AI Studio Header ─── */}
-      <header className="h-14 flex-shrink-0 px-6 border-b border-[#1b1e26] bg-[#0e1015]/90 backdrop-blur-md flex items-center justify-between">
+      <header className="h-14 flex-shrink-0 px-6 border-b border-bg-border bg-bg-surface/90 backdrop-blur-md flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold tracking-tight text-white">Voice Studio</span>
-            <span className="text-[#3b4252]">/</span>
-            <span className="text-xs text-slate-400 font-medium">Playground</span>
+            <span className="text-zinc-600">/</span>
+            <span className="text-xs text-zinc-400 font-medium">Playground</span>
           </div>
         </div>
 
-        {/* Top Right Header: My Voices counter + Flagship Design Voice Button */}
+        {/* Top Right Header: Clone Voice + Flagship Design Voice Button */}
         <div className="flex items-center gap-2.5">
           <button
             type="button"
+            onClick={() => setCloneModalOpen(true)}
+            className="px-3 py-1.5 rounded-lg border border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 text-xs text-white font-medium flex items-center gap-1.5 transition-colors shadow-sm"
+            title="Upload audio sample to clone a voice"
+          >
+            <Upload size={13} className="text-emerald-400" />
+            <span>Clone Voice</span>
+          </button>
+          <button
+            type="button"
             onClick={() => handleOpenDesignModal()}
-            className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white text-xs font-semibold shadow-lg shadow-blue-500/25 border border-blue-400/30 flex items-center gap-2 transition-all active:scale-95"
+            className="btn-primary text-xs py-1.5 px-3.5 flex items-center gap-2"
             title="Design a custom voice, preview it, and lock its timbre"
           >
-            <Sparkles size={14} className="text-amber-300 animate-pulse" />
+            <Sparkles size={14} />
             <span>Design Voice</span>
           </button>
         </div>
@@ -638,34 +794,49 @@ export default function VoicePage() {
       {/* ─── Main 2-Pane Workspace ─── */}
       <div className="flex-1 flex overflow-hidden">
         {/* ─── Center: Studio Prompt & Speech Canvas ─── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#0a0b0e] overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-bg-base overflow-hidden relative">
           <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 space-y-5 pb-28">
 
             {/* Active Saved Custom Voice Banner */}
             {selectedCustomVoice && (
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-blue-950/40 border border-blue-500/40 text-xs shadow-md">
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs shadow-sm">
                 <div className="flex items-center gap-2.5">
-                  <span className="p-1 rounded-md bg-blue-500/20 text-blue-400">
+                  <span className="p-1 rounded-md bg-zinc-800 text-zinc-300">
                     <Lock size={13} />
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-200">
+                    <span className="text-zinc-200">
                       Active Voice: <strong className="text-white font-semibold">{selectedCustomVoice.name}</strong>
                     </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                    <span className="px-1.5 py-0.5 rounded text-2xs font-mono font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
                       Locked Timbre
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] text-slate-400 hidden sm:inline">
+                  <span className="text-xxs text-zinc-400 hidden sm:inline">
                     Deterministic speaker consistency enabled
                   </span>
+                  {/* Delivery style: badge shows active style, button opens the drawer */}
+                  {activeStyle && (
+                    <span className="px-1.5 py-0.5 rounded text-2xs font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      Style: {activeStyle.label}{isStyleCustom ? ' · Custom' : ''}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setStyleDrawerOpen(true)}
+                    title="Delivery style settings"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white transition-colors text-xxs font-medium"
+                  >
+                    <SlidersHorizontal size={12} />
+                    Style
+                  </button>
                   <button
                     type="button"
                     onClick={() => setSelectedCustomVoice(null)}
-                    className="px-2.5 py-1 rounded-lg bg-[#141b29] hover:bg-[#1d273b] border border-blue-500/30 text-blue-300 hover:text-white transition-colors text-[11px] font-medium"
+                    className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white transition-colors text-xxs font-medium"
                   >
                     Switch to Designer
                   </button>
@@ -674,13 +845,13 @@ export default function VoicePage() {
             )}
 
             {/* Frame 1: System Instructions / Voice Persona (Google AI Studio Style) */}
-            <div className="rounded-xl border border-[#1e222d] bg-[#0e1017] transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20">
-              <div className="px-4 py-2.5 border-b border-[#181c26] flex items-center justify-between bg-[#11141d]/60 rounded-t-xl">
+            <div className="rounded-xl border border-bg-border bg-bg-surface transition-all focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-white/10">
+              <div className="px-4 py-2.5 border-b border-bg-border flex items-center justify-between bg-bg-elevated/60 rounded-t-xl">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
                     System Instructions
                   </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
+                  <span className="text-xxs text-zinc-500 font-normal">
                     · Voice description & acoustic persona
                   </span>
                 </div>
@@ -690,7 +861,7 @@ export default function VoicePage() {
                     type="button"
                     onClick={() => handleEnhanceVoicePrompt(false)}
                     disabled={isEnhancingPrompt}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-950/40 border border-blue-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                     title="Calibrate voice description with AI"
                   >
                     {isEnhancingPrompt ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
@@ -700,7 +871,7 @@ export default function VoicePage() {
                     type="button"
                     onClick={() => handleEnhanceVoicePrompt(true)}
                     disabled={isEnhancingPrompt}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-purple-400 hover:text-purple-300 hover:bg-purple-950/40 border border-purple-900/40 transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 border border-zinc-700 transition-colors flex items-center gap-1 disabled:opacity-50"
                     title="Expand into Director Mode script directions"
                   >
                     <Film size={11} /> Director Mode
@@ -709,7 +880,7 @@ export default function VoicePage() {
                     type="button"
                     onClick={handleMatchVoiceToScript}
                     disabled={isMatchingVoice || !text.trim()}
-                    className="px-2.5 py-1 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-[#1a1f2b] transition-colors flex items-center gap-1 disabled:opacity-50"
+                    className="px-2.5 py-1 rounded-md text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors flex items-center gap-1 disabled:opacity-50"
                     title="Design voice to match script content"
                   >
                     {isMatchingVoice ? <Loader2 size={11} className="animate-spin" /> : <Wand2 size={11} />}
@@ -726,24 +897,22 @@ export default function VoicePage() {
                   disabled={busy}
                   rows={3}
                   placeholder="e.g. Heavy Russian accent, gruff middle-aged male, blunt and matter-of-fact."
-                  className="w-full bg-transparent text-[14px] leading-relaxed text-slate-100 placeholder:text-slate-600 focus:outline-none resize-none font-mono"
+                  className="w-full bg-transparent text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none font-mono"
                 />
               </div>
             </div>
 
             {/* Frame 2: Content / Spoken Dialogue Input (Google AI Studio Style) */}
-            <div className="rounded-xl border border-[#1e222d] bg-[#0e1017] transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20">
-              <div className="px-4 py-2.5 border-b border-[#181c26] flex items-center justify-between bg-[#11141d]/60 rounded-t-xl">
+            <div className="rounded-xl border border-bg-border bg-bg-surface transition-all focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-white/10">
+              <div className="px-4 py-2.5 border-b border-bg-border flex items-center justify-between bg-bg-elevated/60 rounded-t-xl">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
                     Input Text
                   </span>
-                  <span className="text-[11px] text-slate-500 font-normal">
+                  <span className="text-xxs text-zinc-500 font-normal">
                     · Dialogue to convert to speech
                   </span>
                 </div>
-
-
               </div>
 
               <div className="p-4">
@@ -754,20 +923,20 @@ export default function VoicePage() {
                   disabled={busy}
                   rows={5}
                   placeholder="Type or paste text to synthesize into natural speech…"
-                  className="w-full bg-transparent text-[15px] leading-relaxed text-slate-100 placeholder:text-slate-600 focus:outline-none resize-none"
+                  className="w-full bg-transparent text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none"
                 />
               </div>
 
-              {/* Expression Tags Bar (Compact, Google-style pills) */}
-              <div className="px-4 py-2.5 border-t border-[#161922] bg-[#0b0c10]/40 flex items-center gap-2 flex-wrap rounded-b-xl">
-                <span className="text-[11px] text-slate-500 font-medium">Insert tags:</span>
+              {/* Expression Tags Bar (Compact pills) */}
+              <div className="px-4 py-2.5 border-t border-bg-border bg-bg-base/40 flex items-center gap-2 flex-wrap rounded-b-xl">
+                <span className="text-xxs text-zinc-500 font-medium">Insert tags:</span>
                 <div className="flex items-center gap-1 flex-wrap">
                   {MIMO_STYLE_TAGS.slice(0, 6).map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => insertTagIntoText(tag)}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-blue-300 hover:bg-blue-950/30 border border-[#202533] transition-colors"
+                      className="px-2 py-0.5 rounded text-xxs font-mono text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border border-zinc-800 transition-colors"
                     >
                       {tag}
                     </button>
@@ -777,7 +946,7 @@ export default function VoicePage() {
                       key={tag}
                       type="button"
                       onClick={() => insertTagIntoText(tag)}
-                      className="px-2 py-0.5 rounded text-[11px] font-mono text-slate-400 hover:text-purple-300 hover:bg-purple-950/30 border border-[#202533] transition-colors"
+                      className="px-2 py-0.5 rounded text-xxs font-mono text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 border border-zinc-800 transition-colors"
                     >
                       {tag}
                     </button>
@@ -786,25 +955,25 @@ export default function VoicePage() {
               </div>
             </div>
 
-            {/* Synthesis Progress Bar (Google AI Studio pulse line) */}
+            {/* Synthesis Progress Bar */}
             {busy && (
-              <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4 space-y-2.5">
+              <div className="rounded-xl border border-zinc-700 bg-zinc-900/60 p-4 space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-blue-300 flex items-center gap-2">
-                    <Loader2 size={13} className="animate-spin text-blue-400" />
+                  <span className="text-zinc-300 flex items-center gap-2">
+                    <Loader2 size={13} className="animate-spin text-zinc-400" />
                     {phase === 'planning' ? 'Preparing acoustic plan…' : 'Synthesizing voice audio…'}
                   </span>
-                  <span className="text-blue-200 font-mono font-medium">{progress}%</span>
+                  <span className="text-zinc-200 font-mono font-medium">{progress}%</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-[#161a26] overflow-hidden">
+                <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-300"
+                    className="h-full rounded-full bg-white transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
                 <button
                   onClick={cancelGeneration}
-                  className="text-[11px] text-slate-400 hover:text-red-400 transition-colors"
+                  className="text-xxs text-zinc-400 hover:text-red-400 transition-colors"
                 >
                   Cancel synthesis
                 </button>
@@ -820,7 +989,7 @@ export default function VoicePage() {
 
             {/* Output Stage: Enhanced Native Audio Player & Power Control Suite */}
             {phase === 'done' && resultUrl && (
-              <div className="rounded-2xl border border-emerald-500/30 bg-[#0c1218]/90 backdrop-blur-md p-5 shadow-2xl space-y-4">
+              <div className="rounded-2xl border border-bg-border bg-bg-surface/90 backdrop-blur-md p-5 shadow-2xl space-y-4">
                 {/* Header bar: Info & Download */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -829,19 +998,15 @@ export default function VoicePage() {
                         <span className="text-xs font-semibold text-white tracking-wide">
                           Voice Output
                         </span>
-
                       </div>
-
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-
-
                     <button
                       type="button"
                       onClick={handleDownloadResult}
-                      className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                      className="btn-secondary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
                     >
                       <Download size={13} className="stroke-[2.5]" />
                       <span>Download WAV</span>
@@ -850,7 +1015,7 @@ export default function VoicePage() {
                 </div>
 
                 {/* Native HTML5 Audio Element with Native Controls & Dark Styling */}
-                <div className="rounded-xl bg-[#070b0e] p-2.5 border border-[#1b2631] shadow-inner">
+                <div className="rounded-xl bg-bg-base p-2.5 border border-bg-border shadow-inner">
                   <audio
                     ref={audioRef}
                     controls
@@ -859,15 +1024,13 @@ export default function VoicePage() {
                     style={{ colorScheme: 'dark' }}
                   />
                 </div>
-
-
               </div>
             )}
           </div>
 
           {/* ─── Google AI Studio Docked Action Bar ─── */}
-          <div className="absolute bottom-0 left-0 right-0 h-16 px-6 lg:px-8 border-t border-[#1c202b] bg-[#0c0d12]/95 backdrop-blur-md flex items-center justify-between z-10">
-            <div className="flex items-center gap-3 text-xs text-slate-400">
+          <div className="absolute bottom-0 left-0 right-0 h-16 px-6 lg:px-8 border-t border-bg-border bg-bg-surface/95 backdrop-blur-md flex items-center justify-between z-10">
+            <div className="flex items-center gap-3 text-xs text-zinc-400">
               <button
                 type="button"
                 onClick={() => {
@@ -875,21 +1038,17 @@ export default function VoicePage() {
                   setVoiceDescription('');
                 }}
                 disabled={busy}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-[#161a24] transition-colors"
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
                 title="Clear inputs"
               >
                 <RotateCcw size={14} />
               </button>
 
-              <span className="text-slate-500">|</span>
+              <span className="text-zinc-600">|</span>
 
-              <span className="text-slate-400 font-mono">
+              <span className="text-zinc-400 font-mono">
                 {text.length.toLocaleString()} / {charLimit.toLocaleString()} chars
               </span>
-
-
-
-
             </div>
 
             <div className="flex items-center gap-2">
@@ -897,7 +1056,7 @@ export default function VoicePage() {
                 type="button"
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-850 disabled:text-slate-600 text-white font-semibold text-xs tracking-wide transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 disabled:shadow-none"
+                className="btn-primary px-6 py-2 rounded-xl text-xs font-semibold tracking-wide flex items-center gap-2"
               >
                 {busy ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -911,7 +1070,7 @@ export default function VoicePage() {
                       ? `Run (${creditEstimate} credit)`
                       : 'Run'}
                 </span>
-                <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-[10px] bg-black/30 rounded border border-white/10 font-mono text-slate-300 font-normal">
+                <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-2xs bg-black/30 rounded border border-white/10 font-mono text-zinc-300 font-normal">
                   ⌘↵
                 </kbd>
               </button>
@@ -933,6 +1092,7 @@ export default function VoicePage() {
           setCustomVoices={setCustomVoices}
           charsPerCredit={charsPerCredit}
           insertTagIntoVoice={insertTagIntoVoice}
+          onOpenCloneModal={() => setCloneModalOpen(true)}
         />
       </div>
       {/* ─── Voice Design Studio Modal ─── */}
@@ -943,6 +1103,31 @@ export default function VoicePage() {
           setDesignModalOpen={setDesignModalOpen}
         />
       )}
+      {/* ─── Voice Clone Modal ─── */}
+      <VoiceCloneModal
+        isOpen={cloneModalOpen}
+        onClose={() => setCloneModalOpen(false)}
+        existingCount={customVoices.length}
+        onVoiceCreated={(newVoice) => {
+          setCustomVoices((prev) => [newVoice, ...prev]);
+          setSelectedCustomVoice(newVoice);
+        }}
+      />
+      {/* ─── Delivery Style Drawer ─── */}
+      <StyleDrawer
+        open={styleDrawerOpen}
+        onClose={() => setStyleDrawerOpen(false)}
+        selectedStyleId={selectedStyleId}
+        onSelectStyle={handleSelectStyle}
+        selectedUseCaseId={selectedUseCaseId}
+        onSelectUseCase={handleSelectUseCase}
+        params={styleParams}
+        onParamsChange={handleStyleParamsChange}
+        isCustom={isStyleCustom}
+        onReset={handleResetStyle}
+        onPreview={handlePreviewStyle}
+        previewing={previewingStyle}
+      />
     </div>
   );
 }

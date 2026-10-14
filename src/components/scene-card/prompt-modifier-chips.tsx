@@ -22,7 +22,7 @@ export default function PromptModifierChips({
           type="button"
           onClick={() => onAppend(mod.text)}
           className={`rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition-colors ${mod.colorClass} ${
-            isXs ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-0.5'
+            isXs ? 'text-3xs px-1.5 py-0.5' : 'text-2xs px-2 py-0.5'
           }`}
         >
           {mod.label}

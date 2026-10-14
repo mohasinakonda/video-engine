@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import tailwindcssAnimate from 'tailwindcss-animate'
 
 const config: Config = {
   content: [
@@ -10,12 +11,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Intermediate zinc steps (merged into default zinc palette)
+        zinc: {
+          750: '#323238',
+          850: '#1f1f23',
+        },
         bg: {
           base: '#09090b',
           surface: '#121215',
           elevated: '#18181b',
+          hover: '#1f1f23',
           border: '#27272a',
           'border-subtle': '#1f1f23',
+          'border-strong': '#3f3f46',
         },
         accent: {
           primary: '#ffffff',
@@ -33,6 +41,12 @@ const config: Config = {
           warning: '#f59e0b',
           info: '#a1a1aa',
         },
+      },
+      // Exact equivalents of text-[9px]/[10px]/[11px] (no line-height override)
+      fontSize: {
+        '3xs': '9px',
+        '2xs': '10px',
+        xxs: '11px',
       },
       fontFamily: {
         sans: ['var(--font-dm-sans)', 'Inter', 'system-ui', 'sans-serif'],
@@ -65,7 +79,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 }
 
 export default config

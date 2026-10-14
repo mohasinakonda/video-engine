@@ -139,7 +139,7 @@ export default function SceneCard({
             : aspectRatio === '1:1'
               ? 'aspect-square'
               : 'aspect-video'
-          } ${hovering ? 'border-zinc-500/70' : 'border-white/10'} ${isGenerating ? 'ring-2 ring-emerald-500/50 animate-pulse' : ''
+          } ${hovering ? 'border-zinc-500/70' : 'border-white/10'} ${isGenerating ? 'ring-2 ring-white/50 animate-pulse' : ''
           }`}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => {
@@ -219,11 +219,11 @@ export default function SceneCard({
         {/* ── 6. Motion Clip Status Pill (Idle micro-badge) ────────────────────── */}
         {scene.status === 'MOTION_READY' && !hovering && !moreMenuOpen && !editingPrompt && (
           <div
-            className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/30 text-emerald-300 shadow-sm transition-all duration-200 select-none"
+            className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-zinc-700/80 text-zinc-300 shadow-sm transition-all duration-200 select-none"
             title="Motion clip rendered and ready"
           >
-            <Video size={9} className="text-emerald-400" />
-            <span className="text-[9px] font-mono font-medium">Motion</span>
+            <Video size={9} className="text-zinc-300" />
+            <span className="text-3xs font-mono font-medium">Motion</span>
           </div>
         )}
 
@@ -231,7 +231,7 @@ export default function SceneCard({
         {scene.error && scene.status === 'FAILED' && (
           <div className="absolute inset-x-3 bottom-3 z-20 flex items-start gap-1.5 p-2 rounded-xl bg-red-950/90 border border-red-800/60 shadow-lg backdrop-blur-md animate-fade-in">
             <AlertTriangle size={12} className="text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-[10px] text-red-200 line-clamp-2 leading-tight flex-1">
+            <p className="text-2xs text-red-200 line-clamp-2 leading-tight flex-1">
               {scene.error}
             </p>
           </div>

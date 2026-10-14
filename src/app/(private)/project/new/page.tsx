@@ -480,7 +480,7 @@ function ProjectPageInner() {
       {/* Header */}
       <header className="px-6 py-3.5 border-b border-bg-border bg-bg-surface/80 backdrop-blur-md flex items-center justify-between z-10">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300">
+          <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-bg-border flex items-center justify-center text-zinc-300">
             <Film size={16} />
           </div>
           <div className="min-w-0">
@@ -492,7 +492,7 @@ function ProjectPageInner() {
               onChange={(e) => setProjectTitle(e.target.value)}
               placeholder="Project name…"
             />
-            <p className="text-[11px] text-slate-500 ml-2">
+            <p className="text-xxs text-zinc-400 ml-2">
               Visual Storyboard Studio · {aspectRatio}
             </p>
           </div>
@@ -511,11 +511,11 @@ function ProjectPageInner() {
             {/* Script Input */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="text-xxs font-semibold text-zinc-400 uppercase tracking-wider">
                   Script / Story Concept
                 </label>
                 {scriptAnalytics.words > 0 && (
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                  <div className="flex items-center gap-2 text-2xs text-zinc-400 font-mono">
                     <span>{scriptAnalytics.words} words</span>
                     <span>·</span>
                     <span>~{scriptAnalytics.estSec}s duration</span>
@@ -535,11 +535,11 @@ function ProjectPageInner() {
             {/* ─── Aspect Ratio Selector ────────────────────────────────────── */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sliders size={12} className="text-blue-400" />
+                <label className="text-xxs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders size={12} className="text-zinc-400" />
                   Aspect Ratio
                 </label>
-                <span className="text-[10px] text-slate-500">
+                <span className="text-2xs text-zinc-400">
                   {aspectRatio === '16:9' ? 'Widescreen (1920×1080)' : aspectRatio === '9:16' ? 'Vertical (1080×1920)' : 'Square (1080×1080)'}
                 </span>
               </div>
@@ -550,12 +550,12 @@ function ProjectPageInner() {
                   onClick={() => setAspectRatio('16:9')}
                   className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${aspectRatio === '16:9'
                     ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                    : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                    : 'bg-bg-surface border-bg-border text-zinc-400 hover:text-zinc-200 hover:bg-bg-elevated'
                     }`}
                 >
                   <Monitor size={18} className={aspectRatio === '16:9' ? 'text-white' : 'text-zinc-400'} />
                   <span className="text-xs font-semibold mt-1.5">16:9</span>
-                  <span className="text-[10px] text-zinc-400">YouTube</span>
+                  <span className="text-2xs text-zinc-400">YouTube</span>
                 </button>
 
                 {/* 9:16 */}
@@ -564,12 +564,12 @@ function ProjectPageInner() {
                   onClick={() => setAspectRatio('9:16')}
                   className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${aspectRatio === '9:16'
                     ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                    : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                    : 'bg-bg-surface border-bg-border text-zinc-400 hover:text-zinc-200 hover:bg-bg-elevated'
                     }`}
                 >
                   <Smartphone size={18} className={aspectRatio === '9:16' ? 'text-white' : 'text-zinc-400'} />
                   <span className="text-xs font-semibold mt-1.5">9:16</span>
-                  <span className="text-[10px] text-zinc-400">Reels / Shorts</span>
+                  <span className="text-2xs text-zinc-400">Reels / Shorts</span>
                 </button>
 
                 {/* 1:1 */}
@@ -578,12 +578,12 @@ function ProjectPageInner() {
                   onClick={() => setAspectRatio('1:1')}
                   className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${aspectRatio === '1:1'
                     ? 'bg-zinc-800 border-white/40 text-white shadow-md'
-                    : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                    : 'bg-bg-surface border-bg-border text-zinc-400 hover:text-zinc-200 hover:bg-bg-elevated'
                     }`}
                 >
                   <Square size={18} className={aspectRatio === '1:1' ? 'text-white' : 'text-zinc-400'} />
                   <span className="text-xs font-semibold mt-1.5">1:1</span>
-                  <span className="text-[10px] text-zinc-400">Instagram Feed</span>
+                  <span className="text-2xs text-zinc-400">Instagram Feed</span>
                 </button>
               </div>
             </div>
@@ -591,22 +591,22 @@ function ProjectPageInner() {
             {/* ─── Visual Art Style Preset ──────────────────────────────────── */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Palette size={12} className="text-emerald-400" />
+                <label className="text-xxs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Palette size={12} className="text-zinc-400" />
                   Visual Art Style
                 </label>
                 {isPromptCustomized && (
-                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="text-3xs font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     Prompt Modified
                   </span>
                 )}
               </div>
 
               {/* Active Selected Style Display Card */}
-              <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700/80 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-sm">
+              <div className="p-3.5 rounded-xl bg-bg-surface border border-bg-border hover:border-bg-border-strong transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 shadow-sm">
                 <div className="flex items-center gap-3.5 min-w-0 flex-1">
                   {activeStyle.thumbnailUrl ? (
-                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-zinc-950 flex-shrink-0 border border-zinc-700/60 shadow-inner">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-zinc-950 flex-shrink-0 border border-bg-border shadow-inner">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={activeStyle.thumbnailUrl}
@@ -614,13 +614,13 @@ function ProjectPageInner() {
                         className="w-full h-full object-cover"
                       />
                       {activeStyle.tag && (
-                        <span className="absolute bottom-1 left-1 text-[8px] font-mono uppercase px-1 py-0.5 rounded bg-black/80 text-zinc-300">
+                        <span className="absolute bottom-1 left-1 text-3xs font-mono uppercase px-1 py-0.5 rounded bg-black/80 text-zinc-300">
                           {activeStyle.tag}
                         </span>
                       )}
                     </div>
                   ) : (
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center flex-shrink-0 text-emerald-400">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-bg-elevated border border-bg-border flex items-center justify-center flex-shrink-0 text-zinc-300">
                       <Palette size={22} />
                     </div>
                   )}
@@ -630,11 +630,11 @@ function ProjectPageInner() {
                       <span className="text-sm font-bold text-white truncate">
                         {activeStyle.name}
                       </span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 flex-shrink-0">
+                      <span className="text-3xs font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 flex-shrink-0">
                         <CheckCircle2 size={10} /> Active
                       </span>
                     </div>
-                    <p className="text-[11px] text-zinc-400 font-mono line-clamp-2 leading-relaxed">
+                    <p className="text-xxs text-zinc-400 font-mono line-clamp-2 leading-relaxed">
                       {isPromptCustomized ? customPrompt : activeStyle.stylePrompt}
                     </p>
                   </div>
@@ -646,9 +646,9 @@ function ProjectPageInner() {
                     setModalInitialTab('catalog');
                     setShowStyleModal(true);
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white border border-zinc-700/80 font-semibold text-xs transition-colors flex items-center justify-center gap-2 flex-shrink-0 shadow-sm"
+                  className="btn-secondary w-full sm:w-auto px-4 py-2 rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-2 flex-shrink-0 shadow-sm"
                 >
-                  <Wand2 size={13} className="text-amber-400" />
+                  <Wand2 size={13} className="text-zinc-400" />
                   <span>Change Style</span>
                 </button>
               </div>
@@ -657,15 +657,15 @@ function ProjectPageInner() {
             {/* ─── AI Image Generation Engine & Automatic Pacing ─────────────────── */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <label className="text-xxs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
                   Select Image Model
                 </label>
 
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-zinc-900/90 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm hover:border-zinc-700 transition-colors">
+              <div className="p-3.5 rounded-xl bg-bg-surface border border-bg-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm hover:border-bg-border-strong transition-colors">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400 flex-shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-bg-border flex items-center justify-center text-zinc-300 flex-shrink-0">
                     <Cpu size={18} />
                   </div>
                   <div className="min-w-0 space-y-0.5 flex-1">
@@ -675,7 +675,7 @@ function ProjectPageInner() {
                       </span>
 
                     </div>
-                    <p className="text-[11px] text-zinc-400 line-clamp-1 leading-snug">
+                    <p className="text-xxs text-zinc-400 line-clamp-1 leading-snug">
                       {selectedAIModel?.description || 'DeepInfra high-fidelity image synthesis engine'}
                     </p>
                   </div>
@@ -707,8 +707,8 @@ function ProjectPageInner() {
               </button>
 
 
-              <div className="mt-2 p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3 animate-fade-in">
-                <p className="text-[11px] text-slate-400">
+              <div className="mt-2 p-3 rounded-xl bg-bg-surface border border-bg-border space-y-3 animate-fade-in">
+                <p className="text-xxs text-zinc-400">
                   Upload your recorded MP3 or WAV file. Whisper AI will extract word timestamps to align every scene automatically.
                 </p>
 
@@ -722,13 +722,13 @@ function ProjectPageInner() {
                 />
 
                 {customAudioFile ? (
-                  <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-700/40 space-y-2">
+                  <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-700/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
                         <FileAudio size={16} className="text-emerald-400 flex-shrink-0" />
                         <div className="truncate">
                           <p className="text-xs font-medium text-white truncate">{customAudioFile.name}</p>
-                          <p className="text-[10px] text-emerald-400 font-mono">
+                          <p className="text-2xs text-emerald-400 font-mono">
                             {formatDuration(customAudioDurationMs)} · Uploaded
                           </p>
                         </div>
@@ -739,7 +739,7 @@ function ProjectPageInner() {
                           setCustomAudioFile(null);
                           setCustomAudioDurationMs(0);
                         }}
-                        className="text-slate-400 hover:text-red-400 p-1"
+                        className="text-zinc-400 hover:text-rose-400 p-1"
                       >
                         <X size={14} />
                       </button>
@@ -749,7 +749,7 @@ function ProjectPageInner() {
                       type="button"
                       onClick={handleCreateWithCustomVoice}
                       disabled={generating}
-                      className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-zinc-950 bg-emerald-400 hover:bg-emerald-300 flex items-center justify-center gap-2"
+                      className="btn-accent w-full py-2 text-xs font-semibold flex items-center justify-center gap-2"
                     >
                       {generating ? (
                         <>
@@ -767,7 +767,7 @@ function ProjectPageInner() {
                 ) : (
                   <label
                     htmlFor="voicefileinput"
-                    className="btn-secondary w-full justify-center text-xs text-emerald-300 border-emerald-800/40 hover:border-emerald-600/60 cursor-pointer py-2"
+                    className="btn-secondary w-full justify-center text-xs text-zinc-200 cursor-pointer py-2"
                   >
                     {readingAudioDuration ? (
                       <>
@@ -788,9 +788,9 @@ function ProjectPageInner() {
 
             {/* Error Message */}
             {generationError && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-red-950/40 border border-red-800/40 animate-fade-in">
-                <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-red-400">{generationError}</p>
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-950/30 border border-rose-800/40 animate-fade-in">
+                <AlertTriangle size={14} className="text-rose-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-rose-400">{generationError}</p>
               </div>
             )}
           </div>
@@ -802,7 +802,7 @@ function ProjectPageInner() {
               type="button"
               onClick={handleGenerateVisualStoryboard}
               disabled={generating || !script.trim()}
-              className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]"
+              className="btn-primary w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]"
             >
               {generating ? (
                 <>
@@ -811,13 +811,13 @@ function ProjectPageInner() {
                 </>
               ) : hasVoice ? (
                 <>
-                  <Mic size={16} className="text-emerald-600" />
+                  <Mic size={16} className="text-zinc-950" />
                   <span>Sync Voiceover &amp; Generate Storyboard</span>
                   <ArrowRight size={15} />
                 </>
               ) : (
                 <>
-                  <Sparkles size={16} className="text-amber-500" />
+                  <Sparkles size={16} className="text-zinc-950" />
                   <span>
                     Generate Visual Storyboard (AI Decides Scenes)
                   </span>
@@ -825,7 +825,7 @@ function ProjectPageInner() {
                 </>
               )}
             </button>
-            <p className="text-[10px] text-center text-zinc-400">
+            <p className="text-2xs text-center text-zinc-400">
               {hasVoice
                 ? '🎙️ Whisper AI extracts word timecodes for 100% accurate scene durations & speech sync.'
                 : '📝 AI Director reads your script, decides scene cuts & assigns natural durations without voice.'}
@@ -849,7 +849,7 @@ function ProjectPageInner() {
 
               {/* Dynamic Frame Display */}
               <div
-                className={`relative border-2 border-zinc-700/80 rounded-2xl bg-zinc-950 overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between p-5 group ${aspectRatio === '16:9'
+                className={`relative border border-bg-border rounded-xl bg-zinc-950 overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between p-5 group ${aspectRatio === '16:9'
                   ? 'w-full aspect-video max-h-[360px]'
                   : aspectRatio === '9:16'
                     ? 'w-[260px] aspect-[9/16] max-h-[460px]'
@@ -859,22 +859,22 @@ function ProjectPageInner() {
                 {/* Background visual atmosphere */}
                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/80 via-zinc-950 to-black pointer-events-none" />
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-zinc-700/10 rounded-full blur-3xl pointer-events-none" />
 
                 {/* Top Overlay */}
                 <div className="relative z-10 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/60 border border-white/10 text-zinc-300 font-mono text-[10px]">
-                    <Layers size={10} className="text-emerald-400" />
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/60 border border-white/10 text-zinc-300 font-mono text-2xs">
+                    <Layers size={10} className="text-zinc-300" />
                     Scene #1 Preview
                   </span>
-                  <span className="px-2 py-0.5 rounded-full bg-black/60 border border-white/10 text-zinc-400 text-[10px]">
+                  <span className="px-2 py-0.5 rounded-full bg-black/60 border border-white/10 text-zinc-400 text-2xs">
                     {pacingProfile}
                   </span>
                 </div>
 
                 {/* Center Cinematic Art Motif */}
                 <div className="relative z-10 text-center my-auto px-4">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-800/80 border border-zinc-700 flex items-center justify-center mx-auto mb-3 shadow-inner text-emerald-400">
+                  <div className="w-12 h-12 rounded-xl bg-zinc-800/80 border border-bg-border flex items-center justify-center mx-auto mb-3 shadow-inner text-zinc-300">
                     <Images size={22} />
                   </div>
                   <div className="flex items-center justify-center gap-1.5 mb-1">
@@ -882,19 +882,19 @@ function ProjectPageInner() {
                       {activeStyle.name}
                     </h4>
                     {isPromptCustomized && (
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      <span className="text-3xs font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                         Customized
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-zinc-400 line-clamp-2 max-w-xs mx-auto">
+                  <p className="text-2xs text-zinc-400 line-clamp-2 max-w-xs mx-auto">
                     {activeStylePrompt}
                   </p>
                 </div>
 
                 {/* Bottom Subtitle / Script Excerpt */}
                 <div className="relative z-10 bg-black/75 backdrop-blur-md rounded-xl p-2.5 border border-white/10 text-left">
-                  <p className="text-[11px] text-zinc-200 line-clamp-2 italic leading-relaxed">
+                  <p className="text-xxs text-zinc-200 line-clamp-2 italic leading-relaxed">
                     {script.trim()
                       ? `"${script.trim().slice(0, 120)}…"`
                       : '"Paste or write your script on the left to simulate scene breakdowns…"'}
@@ -905,21 +905,21 @@ function ProjectPageInner() {
 
             {/* Quick Metrics Bar */}
             <div className="w-full grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-center">
-                <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500">Scenes</span>
+              <div className="p-3 rounded-xl bg-bg-surface border border-bg-border text-center">
+                <span className="text-2xs uppercase font-semibold tracking-wider text-zinc-400">Scenes</span>
                 <p className="text-sm font-bold text-white mt-0.5 truncate px-1">
                   {scriptAnalytics.estScenes > 0 ? scriptAnalytics.estScenesDisplay : '0'}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-center">
-                <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500">Est. Video</span>
+              <div className="p-3 rounded-xl bg-bg-surface border border-bg-border text-center">
+                <span className="text-2xs uppercase font-semibold tracking-wider text-zinc-400">Est. Video</span>
                 <p className="text-base font-bold text-white mt-0.5">
                   {scriptAnalytics.estSec > 0 ? `~${scriptAnalytics.estSec}s` : '0s'}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-center">
-                <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500">AI Model</span>
-                <p className="text-sm font-bold text-cyan-400 mt-0.5 truncate" title={selectedAIModel?.name}>
+              <div className="p-3 rounded-xl bg-bg-surface border border-bg-border text-center">
+                <span className="text-2xs uppercase font-semibold tracking-wider text-zinc-400">AI Model</span>
+                <p className="text-sm font-bold text-zinc-100 mt-0.5 truncate" title={selectedAIModel?.name}>
                   {selectedAIModel?.name || 'FLUX.1'}
                 </p>
               </div>

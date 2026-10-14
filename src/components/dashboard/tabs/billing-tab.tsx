@@ -35,12 +35,12 @@ export default function BillingTab({
     <div className="space-y-6">
       {/* Subscription & Credit Pack Quick Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
+        <div className="p-6 rounded-xl bg-bg-surface border border-bg-border space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Current Plan
             </span>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
               {sub.status}
             </span>
           </div>
@@ -61,7 +61,7 @@ export default function BillingTab({
           </Link>
         </div>
 
-        <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3">
+        <div className="p-6 rounded-xl bg-bg-surface border border-bg-border space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Local Device Storage & Security
@@ -76,7 +76,7 @@ export default function BillingTab({
               IndexedDB storage allocated by browser ({storageInfo.quotaMB > 0 ? `${storageInfo.quotaMB} MB available` : 'Safe & Private'}).
             </p>
           </div>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-xxs text-zinc-500">
             Audio & generated scenes remain on your device disk and are never lost on crash or credit exhaustion.
           </p>
         </div>
@@ -94,7 +94,7 @@ export default function BillingTab({
           </p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-bg-surface border border-bg-border rounded-xl overflow-hidden shadow-sm">
           {submissions.length === 0 ? (
             <div className="p-8 text-center text-xs text-zinc-500">
               No recent payment submissions. You are currently on the {profile.tier} tier.
@@ -102,7 +102,7 @@ export default function BillingTab({
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                <thead className="bg-bg-elevated border-b border-bg-border text-zinc-400 uppercase font-semibold">
                   <tr>
                     <th className="py-3 px-4">Item</th>
                     <th className="py-3 px-4">Sender Phone</th>
@@ -123,10 +123,10 @@ export default function BillingTab({
                     );
 
                     return (
-                      <tr key={item.id} className="hover:bg-zinc-850/40 transition-colors">
+                      <tr key={item.id} className="hover:bg-bg-hover transition-colors">
                         <td className="py-3.5 px-4 font-semibold text-white">
                           {item.planId ? `Plan: ${item.planId}` : `Credit Pack (+${item.creditsToGrant})`}
-                          <span className="text-[10px] text-zinc-500 block font-normal">
+                          <span className="text-2xs text-zinc-500 block font-normal">
                             via {item.paymentMethod.toUpperCase()}
                           </span>
                         </td>
@@ -137,7 +137,7 @@ export default function BillingTab({
                         <td className="py-3.5 px-4 text-zinc-200">+{item.creditsToGrant}</td>
                         <td className="py-3.5 px-4">
                           <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            className={`px-2.5 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wider ${
                               item.status === 'APPROVED'
                                 ? 'bg-emerald-500/20 text-emerald-400'
                                 : item.status === 'REJECTED'
@@ -154,13 +154,13 @@ export default function BillingTab({
                               href={waUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-[11px] transition-colors"
+                              className="btn-accent btn-xs"
                             >
                               <MessageCircle size={13} />
                               Confirm on WhatsApp
                             </a>
                           ) : (
-                            <span className="text-zinc-500 text-[11px] italic">Verified</span>
+                            <span className="text-zinc-500 text-xxs italic">Verified</span>
                           )}
                         </td>
                       </tr>

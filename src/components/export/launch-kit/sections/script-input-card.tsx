@@ -33,10 +33,10 @@ export function ScriptInputCard() {
   } = useLaunchKit();
 
   return (
-    <div className="card p-5 bg-gradient-to-r from-zinc-900 via-zinc-900 to-zinc-850 border-zinc-800 space-y-4 shadow-xl">
+    <div className="card p-5 bg-bg-surface border-bg-border space-y-4 shadow-xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
             <Flame size={18} />
           </div>
           <div>
@@ -58,7 +58,7 @@ export function ScriptInputCard() {
             type="button"
             onClick={handleGeneratePackaging}
             disabled={isGenerating}
-            className="btn-primary text-xs px-4 py-2 flex items-center gap-2 shadow-lg shadow-red-500/20 hover:shadow-red-500/30 transition-all font-bold flex-shrink-0"
+            className="btn-primary text-xs px-4 py-2 flex items-center gap-2 font-bold flex-shrink-0"
           >
             {isGenerating ? (
               <>
@@ -67,7 +67,7 @@ export function ScriptInputCard() {
               </>
             ) : (
               <>
-                <Sparkles size={15} className="text-amber-200" />
+                <Sparkles size={15} className="text-zinc-950" />
                 <span>{packaging ? 'Regenerate Launch Kit' : 'Analyze Script & Launch Kit'}</span>
               </>
             )}
@@ -79,17 +79,17 @@ export function ScriptInputCard() {
       <div className="space-y-2 pt-2 border-t border-zinc-800">
         <div className="flex items-center justify-between text-xs">
           <label className="font-semibold text-white flex items-center gap-1.5">
-            <BookOpen size={14} className="text-blue-400" />
+            <BookOpen size={14} className="text-zinc-300" />
             <span>Voiceover Narration Script</span>
           </label>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] font-mono text-zinc-400">
+            <span className="text-xxs font-mono text-zinc-400">
               {scriptWordCount} words · {scriptCharCount} chars
             </span>
             <button
               type="button"
               onClick={handleSaveScriptOnly}
-              className="text-[11px] font-bold text-white flex items-center gap-1 transition-colors"
+              className="text-xxs font-bold text-white flex items-center gap-1 transition-colors"
               title="Save script edits to project manifest"
             >
               {isScriptSaved ? (
@@ -112,15 +112,15 @@ export function ScriptInputCard() {
           value={voiceScript}
           onChange={(e) => setVoiceScript(e.target.value)}
           placeholder="Paste or write your full voiceover script here. The AI will analyze this exact text to evaluate retention risk, generate high-CTR titles, and build style-matched thumbnails."
-          className="input text-xs font-mono leading-relaxed bg-zinc-950/80 border-zinc-800 focus:border-red-500/60 focus:ring-1 focus:ring-red-500/40 text-zinc-200 resize-y min-h-[110px]"
+          className="input text-xs font-mono leading-relaxed bg-zinc-950/80 border-zinc-800 focus:border-zinc-500 text-zinc-200 resize-y min-h-[110px]"
         />
       </div>
 
       {/* Custom Direction & Style Meta Bar */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
-            <Target size={12} className="text-amber-400" />
+          <label className="text-xxs font-semibold text-zinc-300 flex items-center gap-1">
+            <Target size={12} className="text-zinc-300" />
             <span>Custom Angle / Director Note (Optional)</span>
           </label>
           <input
@@ -133,13 +133,13 @@ export function ScriptInputCard() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
-            <Palette size={12} className="text-purple-400" />
+          <label className="text-xxs font-semibold text-zinc-300 flex items-center gap-1">
+            <Palette size={12} className="text-zinc-300" />
             <span>Project Visual Style &amp; Frame</span>
           </label>
-          <div className="p-2 rounded-lg bg-zinc-950/80 border border-zinc-800 text-[11px] text-zinc-300 flex items-center justify-between">
+          <div className="p-2 rounded-lg bg-zinc-950/80 border border-zinc-800 text-xxs text-zinc-300 flex items-center justify-between">
             <span className="truncate">{stylePreset?.name || 'Cinematic Documentary'}</span>
-            <span className="font-mono text-white text-[10px] bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
+            <span className="font-mono text-white text-2xs bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
               {project.aspectRatio || '16:9'}
             </span>
           </div>

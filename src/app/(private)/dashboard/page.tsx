@@ -90,8 +90,8 @@ export default function UserDashboardPage() {
   const totalMinutesProduced = (totalDurationMs / (1000 * 60)).toFixed(1);
 
   return (
-    <div className="min-h-screen bg-bg-base text-zinc-100 py-8 px-4 sm:px-8">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="page-shell">
+      <div className="page-container">
         {/* Modular Header */}
         <DashboardHeader
           profile={profile}
@@ -116,7 +116,7 @@ export default function UserDashboardPage() {
         <QuickLaunchSection />
 
         {/* Tab Navigation Bar */}
-        <div className="border-b border-zinc-800 flex items-center gap-2 sm:gap-6 overflow-x-auto text-xs font-semibold">
+        <div className="border-b border-bg-border flex items-center gap-2 sm:gap-6 overflow-x-auto text-xs font-semibold">
           <button
             onClick={() => setActiveTab('projects')}
             className={`pb-3 pt-1 px-1 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors ${
@@ -127,7 +127,7 @@ export default function UserDashboardPage() {
           >
             <FolderKanban size={15} />
             <span>My Projects & Library</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-zinc-800 text-zinc-300">
+            <span className="px-1.5 py-0.5 rounded-full text-2xs bg-zinc-800 text-zinc-300">
               {projects.length}
             </span>
           </button>
@@ -143,7 +143,7 @@ export default function UserDashboardPage() {
             <Share2 size={15} />
             <span>Affiliate & Earnings</span>
             {profile.referralPendingBDT >= 100 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <span className="px-1.5 py-0.5 rounded-full text-2xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 ৳{profile.referralPendingBDT} Available
               </span>
             )}

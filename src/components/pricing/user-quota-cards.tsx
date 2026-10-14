@@ -30,10 +30,10 @@ export function UserQuotaCards({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+        <h1 className="page-title text-3xl sm:text-4xl">
           Credits & Subscription Usage
         </h1>
-        <p className="text-xs text-zinc-400 mt-1">
+        <p className="page-subtitle">
           Monitor your image rendering quotas, plan renewals, and top-up balances
         </p>
       </div>
@@ -41,13 +41,13 @@ export function UserQuotaCards({
       {/* Top 3 Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Card 1: Subscription Status & Renewal */}
-        <div className="p-6 rounded-3xl bg-zinc-900/90 border border-zinc-800 space-y-4 relative overflow-hidden shadow-xl hover:border-zinc-700 transition-colors">
+        <div className="p-6 rounded-xl bg-bg-surface border border-bg-border space-y-4 relative overflow-hidden shadow-xl card-interactive">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Current Plan
             </span>
             <span
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+              className={`px-2.5 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wider ${
                 isExpired
                   ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                   : isExpiringSoon
@@ -84,7 +84,7 @@ export function UserQuotaCards({
         </div>
 
         {/* Card 2: Live Credit Balance Meter */}
-        <div className="p-6 rounded-3xl bg-zinc-900/90 border border-zinc-800 space-y-4 shadow-xl hover:border-zinc-700 transition-colors">
+        <div className="p-6 rounded-xl bg-bg-surface border border-bg-border space-y-4 shadow-xl card-interactive">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Available AI Credits
@@ -94,7 +94,7 @@ export function UserQuotaCards({
 
           <div>
             <p className="text-2xl font-black text-emerald-400">{creditsRemaining.toLocaleString()} Credits</p>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
+            <p className="text-xxs text-zinc-400 mt-0.5">
               2 credits / image · 15 credits / YouTube Launch Kit
             </p>
           </div>
@@ -108,7 +108,7 @@ export function UserQuotaCards({
                 style={{ width: `${Math.max(5, creditsPercent)}%` }}
               />
             </div>
-            <div className="flex justify-between items-center text-[11px]">
+            <div className="flex justify-between items-center text-xxs">
               <span
                 className={`font-semibold ${
                   creditsRemaining > 30 ? 'text-emerald-400' : 'text-rose-400'
@@ -128,12 +128,12 @@ export function UserQuotaCards({
         </div>
 
         {/* Card 3: Account & Support */}
-        <div className="p-6 rounded-3xl bg-zinc-900/90 border border-zinc-800 space-y-4 shadow-xl hover:border-zinc-700 transition-colors">
+        <div className="p-6 rounded-xl bg-bg-surface border border-bg-border space-y-4 shadow-xl card-interactive">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Account & Support
             </span>
-            <Smartphone size={18} className="text-blue-400" />
+            <Smartphone size={18} className="text-zinc-400" />
           </div>
 
           <div>

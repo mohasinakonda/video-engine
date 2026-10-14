@@ -498,24 +498,24 @@ export default function AdminModelsPage() {
   const defaultPreset = isPresetView ? voicePresets.find((p) => p.isDefault) : null;
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-zinc-950 text-white min-h-screen">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-bg-base text-white min-h-screen">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-bg-border">
           <div>
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+              <div className="p-2.5 rounded-2xl bg-zinc-800 border border-zinc-700 text-zinc-300">
                 <Cpu size={22} />
               </div>
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                   AI Model Hub
                   {isLiveSupabase ? (
-                    <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span className="text-2xs font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       Live Database
                     </span>
                   ) : (
-                    <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <span className="text-2xs font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                       Local Config
                     </span>
                   )}
@@ -531,19 +531,19 @@ export default function AdminModelsPage() {
           <div className="flex items-center gap-2.5 flex-wrap">
             <Link
               href="/admin/styles"
-              className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               <Palette size={14} /> Art Styles
             </Link>
             <Link
               href="/admin/plan"
-              className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               <Layers size={14} /> Plans &amp; Pricing
             </Link>
             <Link
               href="/admin/users"
-              className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               Users
             </Link>
@@ -554,7 +554,7 @@ export default function AdminModelsPage() {
                 loadPresets();
               }}
               disabled={loading || presetsLoading}
-              className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="btn-secondary text-xs flex items-center gap-1.5"
             >
               <RefreshCw size={14} className={loading || presetsLoading ? 'animate-spin' : ''} /> Refresh
             </button>
@@ -563,13 +563,13 @@ export default function AdminModelsPage() {
               <>
                 <button
                   onClick={handleSeedVoicePresets}
-                  className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-cyan-500/20"
+                  className="btn-secondary text-xs flex items-center gap-1.5"
                 >
                   <Zap size={14} /> Seed Default Presets
                 </button>
                 <button
                   onClick={openCreatePresetModal}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-semibold text-white shadow-lg transition-all"
+                  className="btn-primary text-xs py-2 px-4 flex items-center gap-2"
                 >
                   <Plus size={15} /> Add Voice Preset
                 </button>
@@ -578,14 +578,14 @@ export default function AdminModelsPage() {
               <>
                 <button
                   onClick={modelKind === 'voice' ? handleSeedVoiceModels : handleSeedDefaults}
-                  className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-cyan-400 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-cyan-500/20"
+                  className="btn-secondary text-xs flex items-center gap-1.5"
                 >
                   <Zap size={14} />
                   {modelKind === 'voice' ? 'Sync Voice Models' : 'Sync Standard Models'}
                 </button>
                 <button
                   onClick={openCreateModal}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-xs font-semibold text-white shadow-lg shadow-cyan-950/40 transition-all"
+                  className="btn-primary text-xs py-2 px-4 flex items-center gap-2"
                 >
                   <Plus size={15} /> {modelKind === 'voice' ? 'Add Voice Engine' : 'Add DeepInfra Model'}
                 </button>
@@ -596,20 +596,20 @@ export default function AdminModelsPage() {
 
         {/* Analytics & Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+          <div className="p-4 rounded-2xl bg-bg-surface border border-bg-border">
             <div className="flex items-center justify-between text-zinc-400 mb-1">
               <span className="text-xs font-medium uppercase tracking-wider">
                 {isPresetView ? 'Total Presets' : 'Total Models'}
               </span>
-              <Cpu size={16} className="text-cyan-400" />
+              <Cpu size={16} className="text-zinc-400" />
             </div>
             <div className="text-2xl font-bold text-white">
               {isPresetView ? voicePresets.length : kindModels.length}
             </div>
-            <p className="text-[11px] text-zinc-500 mt-1">Configured in database</p>
+            <p className="text-xxs text-zinc-500 mt-1">Configured in database</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+          <div className="p-4 rounded-2xl bg-bg-surface border border-bg-border">
             <div className="flex items-center justify-between text-zinc-400 mb-1">
               <span className="text-xs font-medium uppercase tracking-wider">
                 {isPresetView ? 'Active Presets' : 'Active Engines'}
@@ -617,23 +617,23 @@ export default function AdminModelsPage() {
               <CheckCircle2 size={16} className="text-emerald-400" />
             </div>
             <div className="text-2xl font-bold text-emerald-400">{totalActive}</div>
-            <p className="text-[11px] text-zinc-500 mt-1">Ready for generation</p>
+            <p className="text-xxs text-zinc-500 mt-1">Ready for generation</p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+          <div className="p-4 rounded-2xl bg-bg-surface border border-bg-border">
             <div className="flex items-center justify-between text-zinc-400 mb-1">
               <span className="text-xs font-medium uppercase tracking-wider">
                 {isPresetView ? 'Languages' : 'Tier Restricted'}
               </span>
-              {isPresetView ? <Globe size={16} className="text-indigo-400" /> : <Lock size={16} className="text-amber-400" />}
+              {isPresetView ? <Globe size={16} className="text-zinc-400" /> : <Lock size={16} className="text-amber-400" />}
             </div>
             <div className="text-2xl font-bold text-amber-400">{totalRestricted}</div>
-            <p className="text-[11px] text-zinc-500 mt-1">
+            <p className="text-xxs text-zinc-500 mt-1">
               {isPresetView ? 'Supported language codes' : 'Exclusive to paid plans'}
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800/80">
+          <div className="p-4 rounded-2xl bg-bg-surface border border-bg-border">
             <div className="flex items-center justify-between text-zinc-400 mb-1">
               <span className="text-xs font-medium uppercase tracking-wider">Default Selection</span>
               <Star size={16} className="text-yellow-400" />
@@ -643,7 +643,7 @@ export default function AdminModelsPage() {
                 ? defaultPreset?.name || 'None Set'
                 : defaultModel?.name || 'None Set'}
             </div>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
+            <p className="text-xxs text-zinc-500 mt-0.5">
               {isPresetView
                 ? `${defaultPreset?.language || 'English'} (${defaultPreset?.languageId || 'en'})`
                 : modelKind === 'voice'
@@ -666,8 +666,8 @@ export default function AdminModelsPage() {
               onClick={() => setModelKind(t.id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-colors ${
                 modelKind === t.id
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'bg-zinc-900/50 text-zinc-400 border border-zinc-800 hover:text-white'
+                  ? 'bg-zinc-800 text-white border border-zinc-700'
+                  : 'bg-bg-surface text-zinc-400 border border-bg-border hover:text-white'
               }`}
             >
               <t.icon size={14} />
@@ -678,7 +678,7 @@ export default function AdminModelsPage() {
 
         {/* Voice Sub-Tabs: Voice Engines vs Voice Presets & Languages */}
         {modelKind === 'voice' && (
-          <div className="flex items-center justify-between gap-4 border-b border-zinc-800 pb-3 flex-wrap">
+          <div className="flex items-center justify-between gap-4 border-b border-bg-border pb-3 flex-wrap">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setVoiceSubTab('engines')}
@@ -697,17 +697,17 @@ export default function AdminModelsPage() {
                 }}
                 className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
                   voiceSubTab === 'presets'
-                    ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40'
+                    ? 'bg-zinc-800 text-white border border-zinc-700'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
                 <Volume2 size={13} /> Voice Presets &amp; Languages
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
+                <span className="text-2xs px-1.5 py-0.2 rounded-full bg-zinc-700 text-zinc-300 font-mono">
                   {voicePresets.length}
                 </span>
               </button>
             </div>
-            <span className="text-[11px] text-zinc-500">
+            <span className="text-xxs text-zinc-500">
               {voiceSubTab === 'engines'
                 ? 'Credit rate = characters per 1 credit (e.g. 2,000 chars = 1 credit)'
                 : 'Manage voice personas, delivery exaggeration & supported languages in Supabase'}
@@ -716,7 +716,7 @@ export default function AdminModelsPage() {
         )}
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800/80">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-bg-surface border border-bg-border">
           {!isPresetView ? (
             <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
               {[
@@ -731,8 +731,8 @@ export default function AdminModelsPage() {
                   onClick={() => setTierFilter(f.id)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${
                     tierFilter === f.id
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                      : 'bg-zinc-800/50 text-zinc-400 hover:text-white border border-transparent'
+                      ? 'bg-zinc-800 text-white border border-zinc-700'
+                      : 'bg-bg-base text-zinc-400 hover:text-white border border-transparent'
                   }`}
                 >
                   {f.label}
@@ -741,7 +741,7 @@ export default function AdminModelsPage() {
             </div>
           ) : (
             <div className="text-xs text-zinc-400 flex items-center gap-2">
-              <Globe size={14} className="text-indigo-400" />
+              <Globe size={14} className="text-zinc-400" />
               <span>Showing {filteredPresets.length} voice personas saved in Supabase database</span>
             </div>
           )}
@@ -753,7 +753,7 @@ export default function AdminModelsPage() {
               placeholder={isPresetView ? "Search voice presets, languages, tags..." : "Search models or paths..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500 transition-colors"
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-bg-base border border-bg-border text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
             />
           </div>
         </div>
@@ -763,7 +763,7 @@ export default function AdminModelsPage() {
           /* Voice Presets Grid */
           presetsLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-3">
-              <Loader2 size={30} className="animate-spin text-indigo-400" />
+              <Loader2 size={30} className="animate-spin text-zinc-400" />
               <p className="text-xs">Loading voice presets from Supabase...</p>
             </div>
           ) : filteredPresets.length === 0 ? (
@@ -781,7 +781,7 @@ export default function AdminModelsPage() {
                   key={preset.id}
                   className={`relative flex flex-col justify-between p-5 rounded-2xl border transition-all ${
                     preset.isActive !== false
-                      ? 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 shadow-lg'
+                      ? 'bg-bg-surface border-bg-border hover:border-zinc-700 shadow-lg'
                       : 'bg-zinc-950/40 border-zinc-900 opacity-60'
                   }`}
                 >
@@ -790,15 +790,15 @@ export default function AdminModelsPage() {
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {preset.isDefault && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-2xs font-bold bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
                             <Star size={10} /> Default
                           </span>
                         )}
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-mono">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xxs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono">
                           <Globe size={11} /> {preset.language} ({preset.languageId})
                         </span>
                         {preset.gender && (
-                          <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400">
+                          <span className="text-2xs uppercase font-semibold px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400">
                             {preset.gender}
                           </span>
                         )}
@@ -818,14 +818,14 @@ export default function AdminModelsPage() {
                         </button>
                         <button
                           onClick={() => openEditPresetModal(preset)}
-                          className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                          className="p-1.5 rounded-lg border border-bg-border bg-bg-surface text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
                           title="Edit Preset"
                         >
                           <Edit3 size={13} />
                         </button>
                         <button
                           onClick={() => handleDeletePreset(preset)}
-                          className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          className="p-1.5 rounded-lg border border-bg-border bg-bg-surface text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                           title="Delete Preset"
                         >
                           <Trash2 size={13} />
@@ -836,7 +836,7 @@ export default function AdminModelsPage() {
                     {/* Preset Name */}
                     <div>
                       <h3 className="text-base font-bold text-white tracking-tight">{preset.name}</h3>
-                      <p className="text-[11px] font-mono text-zinc-500 truncate mt-0.5">ID: {preset.id}</p>
+                      <p className="text-xxs font-mono text-zinc-500 truncate mt-0.5">ID: {preset.id}</p>
                     </div>
 
                     {/* Description */}
@@ -847,20 +847,20 @@ export default function AdminModelsPage() {
                     )}
 
                     {/* Delivery & Exaggeration */}
-                    <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1">
-                      <span className="flex items-center gap-1 font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
-                        <Sliders size={11} className="text-indigo-400" />
+                    <div className="flex items-center justify-between text-xxs text-zinc-400 pt-1">
+                      <span className="flex items-center gap-1 font-mono bg-bg-base px-2 py-0.5 rounded border border-bg-border">
+                        <Sliders size={11} className="text-zinc-400" />
                         {Math.round((preset.exaggeration ?? 0.5) * 100)}% Expression
                       </span>
                     </div>
 
                     {/* Category Tags */}
                     {preset.tags && preset.tags.length > 0 && (
-                      <div className="pt-2 border-t border-zinc-800/80 flex items-center gap-1.5 flex-wrap">
+                      <div className="pt-2 border-t border-bg-border/80 flex items-center gap-1.5 flex-wrap">
                         {preset.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800/70 text-zinc-300"
+                            className="px-2 py-0.5 rounded text-2xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700"
                           >
                             #{tag}
                           </span>
@@ -900,7 +900,7 @@ export default function AdminModelsPage() {
                     key={model.id}
                     className={`relative flex flex-col justify-between p-5 rounded-2xl border transition-all ${
                       model.isActive
-                        ? 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 shadow-lg'
+                        ? 'bg-bg-surface border-bg-border hover:border-zinc-700 shadow-lg'
                         : 'bg-zinc-950/40 border-zinc-900 opacity-60'
                     }`}
                   >
@@ -909,11 +909,11 @@ export default function AdminModelsPage() {
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {model.isDefault && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-2xs font-bold bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
                               <Star size={10} /> Default
                             </span>
                           )}
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xxs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono">
                             <Zap size={11} /> {modelKind === 'voice' ? `${model.creditCost.toLocaleString()} Chars / Credit` : `${model.creditCost} Credits / Img`}
                           </span>
                         </div>
@@ -932,14 +932,14 @@ export default function AdminModelsPage() {
                           </button>
                           <button
                             onClick={() => openEditModal(model)}
-                            className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                            className="p-1.5 rounded-lg border border-bg-border bg-bg-surface text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
                             title="Edit Model"
                           >
                             <Edit3 size={13} />
                           </button>
                           <button
                             onClick={() => handleDeleteModel(model)}
-                            className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            className="p-1.5 rounded-lg border border-bg-border bg-bg-surface text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                             title="Delete Model"
                           >
                             <Trash2 size={13} />
@@ -950,7 +950,7 @@ export default function AdminModelsPage() {
                       {/* Model Name & Path */}
                       <div>
                         <h3 className="text-base font-bold text-white tracking-tight">{model.name}</h3>
-                        <p className="text-[11px] font-mono text-zinc-500 truncate mt-0.5">{model.modelId}</p>
+                        <p className="text-xxs font-mono text-zinc-500 truncate mt-0.5">{model.modelId}</p>
                       </div>
 
                       {/* Description */}
@@ -961,17 +961,17 @@ export default function AdminModelsPage() {
                       )}
 
                       {/* Hyperparameters */}
-                      <div className="flex items-center gap-3 text-[11px] text-zinc-400 pt-1">
+                      <div className="flex items-center gap-3 text-xxs text-zinc-400 pt-1">
                         {modelKind === 'voice' ? (
-                          <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                          <span className="font-mono bg-bg-base px-2 py-0.5 rounded border border-bg-border">
                             {model.creditCost.toLocaleString()} chars / 1 credit
                           </span>
                         ) : (
                           <>
-                            <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                            <span className="font-mono bg-bg-base px-2 py-0.5 rounded border border-bg-border">
                               {model.inferenceSteps ?? 4} Steps
                             </span>
-                            <span className="font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                            <span className="font-mono bg-bg-base px-2 py-0.5 rounded border border-bg-border">
                               Guidance: {model.guidanceScale ?? 1.0}x
                             </span>
                           </>
@@ -979,8 +979,8 @@ export default function AdminModelsPage() {
                       </div>
 
                       {/* Allowed Plans Badges */}
-                      <div className="pt-2 border-t border-zinc-800/80">
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1.5 flex items-center gap-1">
+                      <div className="pt-2 border-t border-bg-border/80">
+                        <div className="text-2xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5 flex items-center gap-1">
                           {isExclusive ? <Lock size={10} className="text-amber-400" /> : <ShieldCheck size={10} />}
                           Access Authorization:
                         </div>
@@ -988,15 +988,7 @@ export default function AdminModelsPage() {
                           {model.allowedPlans?.map((plan) => (
                             <span
                               key={plan}
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                plan === 'STUDIO'
-                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                                  : plan === 'CREATOR'
-                                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                                  : plan === 'STARTER'
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                  : 'bg-zinc-800 text-zinc-400'
-                              }`}
+                              className="px-2 py-0.5 rounded text-2xs font-bold bg-zinc-800 text-zinc-300 border border-zinc-700"
                             >
                               {plan}
                             </span>
@@ -1013,11 +1005,11 @@ export default function AdminModelsPage() {
 
         {/* Modal for Creating / Editing AI Model */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-zinc-900 border border-zinc-800 p-6 sm:p-8 shadow-2xl text-left space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+          <div className="modal-overlay p-4">
+            <div className="modal-panel max-w-xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-4 border-b border-bg-border">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-cyan-500/15 border border-cyan-500/25 text-cyan-400">
+                  <div className="p-2 rounded-xl bg-bg-surface border border-bg-border text-white">
                     <Sparkles size={18} />
                   </div>
                   <div>
@@ -1029,7 +1021,7 @@ export default function AdminModelsPage() {
                 </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
                 >
                   ✕
                 </button>
@@ -1045,7 +1037,7 @@ export default function AdminModelsPage() {
                     placeholder="e.g. FLUX.1 Dev (Ultra Pro)"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
 
@@ -1061,7 +1053,7 @@ export default function AdminModelsPage() {
                     placeholder="e.g. black-forest-labs/FLUX-1-dev"
                     value={formModelId}
                     onChange={(e) => setFormModelId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white font-mono focus:outline-none focus:border-zinc-500"
                   />
                   <div className="flex gap-2 pt-1 flex-wrap">
                     {modelKind === 'voice'
@@ -1091,7 +1083,7 @@ export default function AdminModelsPage() {
                               setFormCreditCost(preset.charsPerCredit);
                               setFormAllowedPlans(['CREATOR', 'STUDIO']);
                             }}
-                            className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono"
+                            className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono transition-colors"
                           >
                             {preset.path.split('/')[1] || preset.path}
                           </button>
@@ -1126,7 +1118,7 @@ export default function AdminModelsPage() {
                             setFormGuidanceScale(1.0);
                           }
                         }}
-                        className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono"
+                        className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono transition-colors"
                       >
                         {preset.split('/')[1] || preset}
                       </button>
@@ -1147,7 +1139,7 @@ export default function AdminModelsPage() {
                       required
                       value={formCreditCost}
                       onChange={(e) => setFormCreditCost(parseInt(e.target.value) || 0)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                     />
                     {modelKind === 'voice' && (
                       <p className="text-[10px] text-zinc-500">
@@ -1166,7 +1158,7 @@ export default function AdminModelsPage() {
                           max={50}
                           value={formInferenceSteps}
                           onChange={(e) => setFormInferenceSteps(parseInt(e.target.value) || 4)}
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-cyan-500"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                         />
                       </div>
 
@@ -1179,7 +1171,7 @@ export default function AdminModelsPage() {
                           max={20}
                           value={formGuidanceScale}
                           onChange={(e) => setFormGuidanceScale(parseFloat(e.target.value) || 1.0)}
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-cyan-500"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                         />
                       </div>
                     </>
@@ -1187,7 +1179,7 @@ export default function AdminModelsPage() {
                 </div>
 
                 {/* Plan Access Control */}
-                <div className="space-y-2 pt-2 border-t border-zinc-800">
+                <div className="space-y-2 pt-2 border-t border-bg-border">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                       <Lock size={13} className="text-amber-400" /> Authorized Plans
@@ -1196,7 +1188,7 @@ export default function AdminModelsPage() {
                       <button
                         type="button"
                         onClick={() => setFormAllowedPlans(['CREATOR', 'STUDIO'])}
-                        className="text-[10px] text-cyan-400 hover:underline"
+                        className="text-[10px] text-zinc-300 hover:text-white hover:underline transition-colors"
                       >
                         Creator &amp; Studio Pro Only
                       </button>
@@ -1204,7 +1196,7 @@ export default function AdminModelsPage() {
                       <button
                         type="button"
                         onClick={() => setFormAllowedPlans(['TRIAL', 'STARTER', 'CREATOR', 'STUDIO'])}
-                        className="text-[10px] text-zinc-400 hover:underline"
+                        className="text-[10px] text-zinc-400 hover:text-white hover:underline transition-colors"
                       >
                         All Plans
                       </button>
@@ -1220,8 +1212,8 @@ export default function AdminModelsPage() {
                           onClick={() => handleTogglePlan(tier.id)}
                           className={`cursor-pointer p-3 rounded-xl border flex items-center justify-between transition-all ${
                             isSelected
-                              ? 'bg-cyan-950/20 border-cyan-500/50 text-white'
-                              : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                              ? 'bg-zinc-800 border-zinc-600 text-white'
+                              : 'bg-bg-surface border-bg-border text-zinc-400 hover:border-zinc-700'
                           }`}
                         >
                           <div>
@@ -1230,7 +1222,7 @@ export default function AdminModelsPage() {
                           </div>
                           <div
                             className={`w-5 h-5 rounded-md flex items-center justify-center border ${
-                              isSelected ? 'bg-cyan-500 border-cyan-400 text-black' : 'border-zinc-700'
+                              isSelected ? 'bg-white border-white text-black' : 'border-zinc-700'
                             }`}
                           >
                             {isSelected && <Check size={12} strokeWidth={3} />}
@@ -1249,7 +1241,7 @@ export default function AdminModelsPage() {
                     placeholder="Short summary highlighting quality, latency, or best use cases..."
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
 
@@ -1260,7 +1252,7 @@ export default function AdminModelsPage() {
                       type="checkbox"
                       checked={formIsDefault}
                       onChange={(e) => setFormIsDefault(e.target.checked)}
-                      className="w-4 h-4 rounded bg-zinc-950 border-zinc-700 text-cyan-500 focus:ring-0"
+                      className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-white accent-white focus:ring-0"
                     />
                     Set as Default Model
                   </label>
@@ -1270,25 +1262,25 @@ export default function AdminModelsPage() {
                       type="checkbox"
                       checked={formIsActive}
                       onChange={(e) => setFormIsActive(e.target.checked)}
-                      className="w-4 h-4 rounded bg-zinc-950 border-zinc-700 text-cyan-500 focus:ring-0"
+                      className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-white accent-white focus:ring-0"
                     />
                     Active / Enabled
                   </label>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-bg-border">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition-colors"
+                    className="btn-secondary text-xs py-2 px-4"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={modalLoading}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-xs font-semibold text-white shadow-lg transition-all flex items-center gap-2"
+                    className="btn-primary text-xs py-2 px-5 flex items-center gap-2"
                   >
                     {modalLoading && <Loader2 size={13} className="animate-spin" />}
                     {isEditing ? 'Update Model' : 'Create Model'}
@@ -1301,11 +1293,11 @@ export default function AdminModelsPage() {
 
         {/* Modal for Creating / Editing Voice Preset */}
         {isPresetModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-zinc-900 border border-zinc-800 p-6 sm:p-8 shadow-2xl text-left space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+          <div className="modal-overlay p-4">
+            <div className="modal-panel max-w-xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-4 border-b border-bg-border">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400">
+                  <div className="p-2 rounded-xl bg-bg-surface border border-bg-border text-white">
                     <Volume2 size={18} />
                   </div>
                   <div>
@@ -1317,7 +1309,7 @@ export default function AdminModelsPage() {
                 </div>
                 <button
                   onClick={() => setIsPresetModalOpen(false)}
-                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
                 >
                   ✕
                 </button>
@@ -1333,7 +1325,7 @@ export default function AdminModelsPage() {
                     placeholder="e.g. Storyteller (UK), Documentary Host"
                     value={presetFormName}
                     onChange={(e) => setPresetFormName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
 
@@ -1349,7 +1341,7 @@ export default function AdminModelsPage() {
                         setPresetFormLanguageId(code);
                         if (found) setPresetFormLanguage(found.name);
                       }}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                     >
                       {VOICE_LANGUAGES.map((lang) => (
                         <option key={lang.code} value={lang.code}>
@@ -1364,7 +1356,7 @@ export default function AdminModelsPage() {
                     <select
                       value={presetFormGender}
                       onChange={(e) => setPresetFormGender(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                     >
                       <option value="neutral">Neutral</option>
                       <option value="male">Male</option>
@@ -1374,10 +1366,10 @@ export default function AdminModelsPage() {
                 </div>
 
                 {/* Delivery Exaggeration Slider */}
-                <div className="space-y-2 p-3.5 rounded-xl bg-zinc-950 border border-zinc-800">
+                <div className="space-y-2 p-3.5 rounded-xl bg-bg-surface border border-bg-border">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-                      <Sliders size={13} className="text-indigo-400" /> Expressiveness &amp; Emotion: {presetFormExaggeration}%
+                      <Sliders size={13} className="text-zinc-300" /> Expressiveness &amp; Emotion: {presetFormExaggeration}%
                     </label>
                     <span className="text-[10px] text-zinc-500 font-mono">Chatterbox Exaggeration</span>
                   </div>
@@ -1387,7 +1379,7 @@ export default function AdminModelsPage() {
                     max={100}
                     value={presetFormExaggeration}
                     onChange={(e) => setPresetFormExaggeration(parseInt(e.target.value) || 50)}
-                    className="w-full accent-indigo-500 cursor-pointer"
+                    className="w-full accent-white cursor-pointer"
                   />
                   <div className="flex justify-between text-[10px] text-zinc-500">
                     <span>30% Calm/Documentary</span>
@@ -1416,8 +1408,8 @@ export default function AdminModelsPage() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                             isChecked
-                              ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                              : 'bg-zinc-950 text-zinc-400 border border-zinc-800 hover:text-white'
+                              ? 'bg-white text-black border border-white font-semibold'
+                              : 'bg-bg-surface text-zinc-400 border border-bg-border hover:text-white hover:border-zinc-700'
                           }`}
                         >
                           #{tag}
@@ -1435,7 +1427,7 @@ export default function AdminModelsPage() {
                     placeholder="Short description of delivery style, intended tone, or ideal use cases..."
                     value={presetFormDescription}
                     onChange={(e) => setPresetFormDescription(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-white focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-xs text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
 
@@ -1446,7 +1438,7 @@ export default function AdminModelsPage() {
                       type="checkbox"
                       checked={presetFormIsDefault}
                       onChange={(e) => setPresetFormIsDefault(e.target.checked)}
-                      className="w-4 h-4 rounded bg-zinc-950 border-zinc-700 text-indigo-500 focus:ring-0"
+                      className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-white accent-white focus:ring-0"
                     />
                     Set as Default Preset
                   </label>
@@ -1456,25 +1448,25 @@ export default function AdminModelsPage() {
                       type="checkbox"
                       checked={presetFormIsActive}
                       onChange={(e) => setPresetFormIsActive(e.target.checked)}
-                      className="w-4 h-4 rounded bg-zinc-950 border-zinc-700 text-indigo-500 focus:ring-0"
+                      className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-white accent-white focus:ring-0"
                     />
                     Active / Enabled
                   </label>
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-bg-border">
                   <button
                     type="button"
                     onClick={() => setIsPresetModalOpen(false)}
-                    className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition-colors"
+                    className="btn-secondary text-xs py-2 px-4"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={presetModalLoading}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-semibold text-white shadow-lg transition-all flex items-center gap-2"
+                    className="btn-primary text-xs py-2 px-5 flex items-center gap-2"
                   >
                     {presetModalLoading && <Loader2 size={13} className="animate-spin" />}
                     {isEditingPreset ? 'Update Preset' : 'Create Preset'}

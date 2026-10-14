@@ -165,7 +165,7 @@ export default function ModelSelectorDropdown({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex items-center gap-1.5 rounded-xl bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-750 hover:border-cyan-500/50 shadow-sm transition-all font-medium text-white group ${size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs'
+        className={`flex items-center gap-1.5 rounded-xl bg-bg-surface hover:bg-bg-hover border border-bg-border hover:border-bg-border-strong shadow-sm transition-all font-medium text-white group ${size === 'sm' ? 'px-2.5 py-1 text-xxs' : 'px-3 py-1.5 text-xs'
           }`}
         title="Select AI Image Generation Engine"
       >
@@ -188,11 +188,11 @@ export default function ModelSelectorDropdown({
           className={`absolute ${align === 'left' ? 'left-0' : 'right-0'} ${direction === 'up'
             ? 'bottom-full mb-2 slide-in-from-bottom-2'
             : 'top-full mt-2 slide-in-from-top-2'
-            } w-72 sm:w-80 rounded-2xl bg-zinc-900/98 border border-zinc-700/80 shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in text-left`}
+            } w-72 sm:w-80 rounded-xl bg-bg-surface border border-bg-border shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in text-left`}
         >
-          <div className="px-3 py-2 border-b border-zinc-800/80 flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-              <Sparkles size={12} className="text-cyan-400" />Image Models
+          <div className="px-3 py-2 border-b border-bg-border flex items-center justify-between">
+            <span className="text-xxs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <Sparkles size={12} className="text-zinc-400" />Image Models
             </span>
 
           </div>
@@ -210,7 +210,7 @@ export default function ModelSelectorDropdown({
                   key={model.id}
                   onClick={() => handleSelect(model)}
                   className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-start justify-between gap-2.5 ${isSelected
-                    ? 'bg-cyan-950/40 border border-cyan-500/40'
+                    ? 'bg-zinc-800 border border-zinc-600'
                     : isAllowed
                       ? 'hover:bg-zinc-800/60 border border-transparent'
                       : 'hover:bg-zinc-800/40 border border-transparent opacity-75'
@@ -221,20 +221,20 @@ export default function ModelSelectorDropdown({
                       <span className="text-xs font-bold text-white truncate">
                         {model.name}
                       </span>
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-800/50 font-mono flex items-center gap-0.5">
+                      <span className="px-1.5 py-0.5 rounded text-2xs font-bold bg-zinc-800 text-zinc-200 border border-zinc-700 font-mono flex items-center gap-0.5">
                         {model.creditCost} credit/image
                       </span>
                     </div>
 
                     {model.description && (
-                      <p className="text-[11px] text-zinc-400 line-clamp-2 leading-snug">
+                      <p className="text-xxs text-zinc-400 line-clamp-2 leading-snug">
                         {model.description}
                       </p>
                     )}
 
                     <div className="flex items-center gap-1.5 pt-0.5">
                       {!isAllowed && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/30">
+                        <span className="inline-flex items-center gap-1 text-2xs font-semibold text-amber-400 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/30">
                           <Lock size={9} /> {model.allowedPlans.join(' & ')} only
                         </span>
                       )}
@@ -243,7 +243,7 @@ export default function ModelSelectorDropdown({
 
                   <div className="flex-shrink-0 pt-0.5">
                     {isSelected ? (
-                      <div className="w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center text-black">
+                      <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-zinc-950">
                         <Check size={12} strokeWidth={3} />
                       </div>
                     ) : !isAllowed ? (
@@ -261,14 +261,14 @@ export default function ModelSelectorDropdown({
 
       {/* Upgrade Required Modal */}
       {upgradeModalModel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in">
-          <div className="relative w-full max-w-md rounded-3xl bg-zinc-900 border border-amber-500/30 p-6 sm:p-7 shadow-2xl text-center space-y-5">
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-md border-amber-500/30 p-6 sm:p-7 text-center space-y-5">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
               <Lock size={28} />
             </div>
 
             <div className="space-y-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
+              <span className="px-2.5 py-0.5 rounded-full text-2xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30">
                 Exclusive High-End AI Model
               </span>
               <h3 className="text-lg font-bold text-white">
@@ -280,14 +280,14 @@ export default function ModelSelectorDropdown({
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between text-xs text-left">
+            <div className="p-3.5 rounded-xl bg-bg-base border border-bg-border flex items-center justify-between text-xs text-left">
               <div>
                 <div className="font-semibold text-white">Your Current Plan</div>
-                <div className="text-[11px] text-zinc-400">Tier: {userTier}</div>
+                <div className="text-xxs text-zinc-400">Tier: {userTier}</div>
               </div>
               <div className="text-right">
                 <div className="font-semibold text-amber-400">Upgrade Required</div>
-                <div className="text-[11px] text-zinc-400">{upgradeModalModel.creditCost} credits/image</div>
+                <div className="text-xxs text-zinc-400">{upgradeModalModel.creditCost} credits/image</div>
               </div>
             </div>
 
@@ -295,14 +295,14 @@ export default function ModelSelectorDropdown({
               <button
                 type="button"
                 onClick={() => setUpgradeModalModel(null)}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition-colors"
+                className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
               >
                 Close
               </button>
               <Link
                 href="/plan"
                 onClick={() => setUpgradeModalModel(null)}
-                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-xs font-bold text-black shadow-lg shadow-amber-950/50 flex items-center justify-center gap-1.5 transition-all"
+                className="btn-primary flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5"
               >
                 Upgrade Plan <ArrowRight size={13} />
               </Link>

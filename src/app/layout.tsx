@@ -73,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <JsonLd />
       </head>
-      <body className="min-h-screen bg-bg-base text-slate-100 antialiased font-sans">
+      <body className="min-h-screen bg-bg-base text-zinc-100 antialiased font-sans">
 
         {children}
 

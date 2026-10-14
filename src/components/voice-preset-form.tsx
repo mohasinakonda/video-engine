@@ -203,10 +203,10 @@ export default function VoicePresetForm({
             <span className="text-sm font-semibold text-white tabular-nums">
               {(preset.pace ?? 1.0).toFixed(2)}x
             </span>
-            <span className="text-[10px] text-slate-500">{paceLabel(preset.pace ?? 1.0)}</span>
+            <span className="text-2xs text-zinc-500">{paceLabel(preset.pace ?? 1.0)}</span>
           </div>
         </div>
-        <div className="flex justify-between text-[10px] text-slate-600 mt-1">
+        <div className="flex justify-between text-2xs text-zinc-600 mt-1">
           <span>0.75×</span><span>1.5×</span>
         </div>
       </div>
@@ -251,7 +251,7 @@ export default function VoicePresetForm({
             ) : previewState === 'playing' ? (
               <StopCircle size={14} className="text-red-400" />
             ) : (
-              <PlayCircle size={14} className="text-accent-cyan" />
+              <PlayCircle size={14} className="text-zinc-300" />
             )}
             {previewState === 'loading'
               ? 'Generating…'

@@ -26,48 +26,20 @@ const COMMON_ABBREVIATIONS = /\b(?:mr|mrs|ms|dr|prof|sr|jr|vs|etc|inc|ltd|co|cor
  */
 export function humanizeSpeechText(
   rawText: string,
-  options?: { isMimo?: boolean }
+  _options?: { isMimo?: boolean; isContinuation?: boolean }
 ): string {
   if (!rawText) return rawText;
-  let text = rawText.trim();
+  const text = rawText.trim();
   if (!text) return text;
 
-  // If text already contains explicit breath or action tags, respect user input
-  if (/\((?:takes a breath|breathes|sighs|soft inhale|inhale|exhale)\)/i.test(text) ||
-      /\[(?:takes a breath|breathes|sighs|gasp)\]/i.test(text)) {
-    return text;
-  }
+  // Clean out any lingering artificial breath tags so the AI never produces weird 'huh' sounds
+  const cleaned = text
+    .replace(/\s*\((?:breath|breathes|takes a breath|soft inhale|inhale|exhale)\)\s*/gi, ' ')
+    .replace(/\s*\[(?:breath|breathes|takes a breath|sigh|gasp)\]\s*/gi, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 
-  // 1. Initial breath: A living human begins speech with a soft inspiratory breath
-  let result = `(takes a breath) ${text}`;
-
-  // 2. Paragraph transitions: New paragraphs represent new thoughts
-  result = result.replace(/(\n\s*\n\s*)([A-Za-z0-9"'])/g, (_match, breaks, nextChar) => {
-    return `${breaks}(takes a breath) ${nextChar}`;
-  });
-
-  // 3. Sentence boundary respiratory cadence
-  // Matches punctuation (. ! ?) followed by whitespace and an uppercase letter or quote
-  result = result.replace(/([.!?])(\s+)([A-Z0-9"'])/g, (match, punct, spaces, nextChar, offset) => {
-    // Check preceding 15 characters to avoid breaking on abbreviations (Dr., Mr., etc.)
-    const preWindow = result.slice(Math.max(0, offset - 15), offset + 1);
-    if (COMMON_ABBREVIATIONS.test(preWindow.trim())) {
-      return match;
-    }
-
-    // Check if it's already an ellipsis
-    const isEllipsis = offset >= 2 && result.slice(offset - 2, offset + 1) === '...';
-
-    if (punct === '.' || isEllipsis) {
-      // Natural trailing pause with subtle breath
-      return `... (breathes) ${nextChar}`;
-    }
-
-    // Exclamations and questions retain their punctuation
-    return `${punct} (breathes) ${nextChar}`;
-  });
-
-  return result;
+  return cleaned;
 }
 
 /**
@@ -100,24 +72,41 @@ export function injectHumanAcoustics(rawPrompt?: string): string {
   return `${base}${separator}${HUMAN_ACOUSTIC_DIRECTIVE}`;
 }
 
+const CONTINUATION_DIRECTIVE =
+  'Unbroken continuous monologue: maintain the exact same vocal warmth, pitch register, emotional delivery, and natural pacing.';
+
 /**
  * Complete server-side pipeline: Transforms both text and voice prompt
- * for maximum human authenticity.
+ * for maximum human authenticity with smooth multi-chunk continuity.
  */
 export function humanizeSpeechPayload(params: {
   text: string;
   voicePrompt?: string;
   modelId?: string;
+  chunkIndex?: number;
 }): {
   text: string;
   voicePrompt?: string;
 } {
   const isMimo = !params.modelId || params.modelId.toLowerCase().includes('mimo');
+  const isContinuation = (params.chunkIndex ?? 0) > 0;
 
-  const humanizedText = humanizeSpeechText(params.text, { isMimo });
-  const humanizedPrompt = isMimo
+  const humanizedText = humanizeSpeechText(params.text, {
+    isMimo,
+    isContinuation,
+  });
+
+  // Always inject human bio-acoustics into the prompt for all MiMo models (including voiceclone)
+  // to prevent flat robotic monotone and guarantee warm, emotional delivery
+  let humanizedPrompt = isMimo
     ? injectHumanAcoustics(params.voicePrompt)
     : params.voicePrompt;
+
+  // For continuation chunks (chunkIndex > 0), instruct the model to maintain unbroken tone & warmth
+  if (isContinuation && humanizedPrompt) {
+    const separator = /[.!?]$/.test(humanizedPrompt) ? ' ' : '. ';
+    humanizedPrompt = `${humanizedPrompt}${separator}${CONTINUATION_DIRECTIVE}`;
+  }
 
   return {
     text: humanizedText,

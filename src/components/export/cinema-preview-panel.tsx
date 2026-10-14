@@ -111,7 +111,7 @@ export function CinemaPreviewPanel({
               {finalVideoUrl ? 'Rendered Master Video' : 'Cinema Stage Preview'}
             </h3>
           </div>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+          <span className="text-2xs font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
             {aspectRatio} · {resolution.toUpperCase()}
           </span>
         </div>
@@ -146,7 +146,7 @@ export function CinemaPreviewPanel({
                 <p className="text-xs font-semibold text-white truncate">
                   {project?.title}
                 </p>
-                <p className="text-[10px] text-zinc-300">
+                <p className="text-2xs text-zinc-300">
                   {totalScenes} scenes · {formatDuration(totalDurationMs)}
                 </p>
               </div>
@@ -206,7 +206,7 @@ export function CinemaPreviewPanel({
                 <h4 className="text-xs font-bold text-white">
                   {progress.stage === 'failed' ? 'Export Failed' : 'Rendering MP4 Video...'}
                 </h4>
-                <p className="text-[10px] text-zinc-400 truncate max-w-[200px]">
+                <p className="text-2xs text-zinc-400 truncate max-w-[200px]">
                   {progress.currentStepMessage}
                 </p>
               </div>
@@ -216,7 +216,7 @@ export function CinemaPreviewPanel({
               <button
                 type="button"
                 onClick={onCancelExport}
-                className="btn-danger text-[11px] px-2.5 py-1"
+                className="btn-danger text-xxs px-2.5 py-1"
               >
                 <StopCircle size={13} />
                 Cancel
@@ -226,7 +226,7 @@ export function CinemaPreviewPanel({
 
           {/* Progress Bar */}
           <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px] text-zinc-400">
+            <div className="flex justify-between text-xxs text-zinc-400">
               <span className="font-mono text-white font-semibold">{progress.percentage}%</span>
               {progress.fps > 0 && <span>{progress.fps} FPS</span>}
               {progress.etaSeconds > 0 && (
@@ -242,7 +242,7 @@ export function CinemaPreviewPanel({
           </div>
 
           {errorMsg && (
-            <div className="p-2.5 rounded-lg bg-red-950/40 border border-red-800/40 text-[11px] text-red-300">
+            <div className="p-2.5 rounded-lg bg-red-950/40 border border-red-800/40 text-xxs text-red-300">
               {errorMsg}
             </div>
           )}
@@ -285,14 +285,12 @@ export function CinemaPreviewPanel({
           <button
             type="button"
             onClick={onStartExport}
-            className="w-full py-3.5 rounded-xl font-semibold text-sm text-zinc-950
-                       bg-white hover:bg-zinc-200 transition-all
-                       flex items-center justify-center gap-2 shadow-lg active:scale-[0.99]"
+            className="btn-primary w-full py-3.5 text-sm flex items-center justify-center gap-2"
           >
             <Sparkles size={18} className="text-zinc-950" />
             <span>Render Final Video (.mp4)</span>
           </button>
-          <p className="text-[10px] text-center text-zinc-500">
+          <p className="text-2xs text-center text-zinc-500">
             Hardware-accelerated single-pass render with Ken Burns & audio ducking
           </p>
         </div>
@@ -309,21 +307,21 @@ export function CinemaPreviewPanel({
               <h4 className="text-xs font-bold text-white leading-tight">
                 Universal Timeline Package
               </h4>
-              <p className="text-[10px] text-zinc-400">CapCut · Premiere · DaVinci · FCP</p>
+              <p className="text-2xs text-zinc-400">CapCut · Premiere · DaVinci · FCP</p>
             </div>
           </div>
-          <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+          <span className="text-3xs font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
             ZIP Bundle
           </span>
         </div>
 
-        <p className="text-[11px] text-zinc-400 leading-relaxed">
+        <p className="text-xxs text-zinc-400 leading-relaxed">
           Multi-track package with <strong>FCP 7 XML</strong>, <strong>CapCut SRT subtitles</strong>, CMX 3600 EDL, master WAV, and numbered scenes.
         </p>
 
         {isExportingTimeline && timelineProgress && (
           <div className="space-y-1.5 pt-2 border-t border-zinc-800">
-            <div className="flex justify-between text-[11px] text-zinc-300">
+            <div className="flex justify-between text-xxs text-zinc-300">
               <span className="truncate pr-2">{timelineProgress.message}</span>
               <span className="font-mono text-zinc-300">{timelineProgress.percentage}%</span>
             </div>
@@ -370,7 +368,7 @@ export function CinemaPreviewPanel({
           <button
             type="button"
             onClick={() => setShowImportGuide(!showImportGuide)}
-            className="w-full flex items-center justify-between text-[11px] text-zinc-400 hover:text-white py-1 transition-colors"
+            className="w-full flex items-center justify-between text-xxs text-zinc-400 hover:text-white py-1 transition-colors"
           >
             <span className="flex items-center gap-1.5">
               <HelpCircle size={12} className="text-zinc-400" />
@@ -380,23 +378,23 @@ export function CinemaPreviewPanel({
           </button>
 
           {showImportGuide && (
-            <div className="mt-2 p-3 rounded-lg bg-zinc-950 border border-zinc-800 text-[11px] space-y-2 text-zinc-300 animate-slide-up">
+            <div className="mt-2 p-3 rounded-lg bg-zinc-950 border border-zinc-800 text-xxs space-y-2 text-zinc-300 animate-slide-up">
               <div>
                 <strong className="text-white block mb-0.5">🎬 In CapCut (Desktop/Mobile):</strong>
-                <p className="text-zinc-400 text-[10px] leading-relaxed">
+                <p className="text-zinc-400 text-2xs leading-relaxed">
                   1. Drag all images and <code className="text-zinc-200">master_voice.wav</code> to timeline.<br />
-                  2. Go to <strong>Text &gt; Local Captions &gt; Import</strong> and select <code className="text-emerald-400">subtitles.srt</code>.
+                  2. Go to <strong>Text &gt; Local Captions &gt; Import</strong> and select <code className="text-zinc-300">subtitles.srt</code>.
                 </p>
               </div>
               <div className="pt-1.5 border-t border-zinc-800">
                 <strong className="text-white block mb-0.5">⚡ In Adobe Premiere Pro:</strong>
-                <p className="text-zinc-400 text-[10px] leading-relaxed">
+                <p className="text-zinc-400 text-2xs leading-relaxed">
                   Import <code className="text-zinc-200">timeline.xml</code> via <strong>File &gt; Import</strong>.
                 </p>
               </div>
               <div className="pt-1.5 border-t border-zinc-800">
                 <strong className="text-white block mb-0.5">🎨 In DaVinci Resolve:</strong>
-                <p className="text-zinc-400 text-[10px] leading-relaxed">
+                <p className="text-zinc-400 text-2xs leading-relaxed">
                   Import via <strong>File &gt; Import Timeline &gt; Import AAF, EDL, XML...</strong>
                 </p>
               </div>
@@ -408,16 +406,16 @@ export function CinemaPreviewPanel({
       {/* ─── 6. Cache Cleaner ────────────────────────────────────────────── */}
       <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <HardDrive size={18} className="text-amber-400 flex-shrink-0" />
+          <HardDrive size={18} className="text-zinc-400 flex-shrink-0" />
           <div>
             <p className="text-xs font-semibold text-white">Clean Project Cache?</p>
-            <p className="text-[10px] text-zinc-400">
+            <p className="text-2xs text-zinc-400">
               Frees intermediate scene images and cache.
             </p>
           </div>
         </div>
         {cleanedCache ? (
-          <span className="text-[11px] text-emerald-400 font-medium px-2.5 py-1 bg-emerald-950/40 rounded-lg border border-emerald-800/40 flex items-center gap-1">
+          <span className="text-xxs text-emerald-400 font-medium px-2.5 py-1 bg-emerald-950/40 rounded-lg border border-emerald-800/40 flex items-center gap-1">
             <Check size={12} />
             Freed {freedSpaceMB > 0 ? `${(freedSpaceMB / 1024).toFixed(1)} GB` : 'Space'}
           </span>
@@ -425,9 +423,9 @@ export function CinemaPreviewPanel({
           <button
             type="button"
             onClick={onCleanCache}
-            className="btn-secondary text-[11px] py-1.5 px-2.5"
+            className="btn-secondary text-xxs py-1.5 px-2.5"
           >
-            <Trash2 size={12} className="text-amber-400" />
+            <Trash2 size={12} className="text-zinc-400" />
             <span>Clean</span>
           </button>
         )}

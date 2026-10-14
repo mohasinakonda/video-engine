@@ -25,15 +25,15 @@ export function StyleCard({
 
   return (
     <div
-      className={`rounded-2xl border transition-all flex flex-col justify-between overflow-hidden bg-zinc-900/40 ${
+      className={`rounded-2xl border transition-all flex flex-col justify-between overflow-hidden bg-bg-surface ${
         isItemActive
-          ? 'border-zinc-800/80 hover:border-zinc-700/80'
-          : 'border-zinc-800/40 opacity-60'
+          ? 'border-bg-border hover:border-zinc-700'
+          : 'border-bg-border/40 opacity-60'
       }`}
     >
       <div>
         {/* Visual Thumbnail */}
-        <div className="relative aspect-video w-full overflow-hidden bg-zinc-950">
+        <div className="relative aspect-video w-full overflow-hidden bg-bg-base">
           {s.thumbnailUrl ? (
             <img
               src={s.thumbnailUrl}
@@ -46,7 +46,7 @@ export function StyleCard({
               <ImageIcon size={32} />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-bg-base via-bg-base/20 to-transparent" />
 
           {/* Family & Tag Badges */}
           <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
@@ -54,7 +54,7 @@ export function StyleCard({
               {s.familyId}
             </span>
             {s.tag && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/30 backdrop-blur-md text-purple-200 border border-purple-400/20">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 backdrop-blur-md text-zinc-200 border border-white/20">
                 {s.tag}
               </span>
             )}
@@ -88,7 +88,7 @@ export function StyleCard({
           )}
 
           {/* Prompt Snippet */}
-          <div className="p-2.5 rounded-xl bg-zinc-950/80 border border-zinc-800/80 relative group">
+          <div className="p-2.5 rounded-xl bg-bg-base border border-bg-border relative group">
             <div className="flex items-center justify-between text-[10px] font-mono uppercase text-zinc-500 mb-1">
               <span>Style DNA Prompt</span>
               <button
@@ -111,7 +111,7 @@ export function StyleCard({
       </div>
 
       {/* Actions Footer */}
-      <div className="px-4 py-3 bg-zinc-950/40 border-t border-zinc-800/60 flex items-center justify-between gap-2">
+      <div className="px-4 py-3 bg-bg-base/40 border-t border-bg-border flex items-center justify-between gap-2">
         <span className="text-[10px] font-mono text-zinc-500">
           Sort #{s.sortOrder ?? 100}
         </span>
@@ -119,7 +119,7 @@ export function StyleCard({
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => onOpenEdit(s)}
-            className="p-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors text-xs font-semibold flex items-center gap-1 px-2.5"
+            className="btn-secondary text-xs py-1 px-2.5 flex items-center gap-1"
           >
             <Edit3 size={12} /> Edit
           </button>

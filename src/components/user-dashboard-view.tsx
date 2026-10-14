@@ -119,16 +119,13 @@ export default function UserDashboardView({ user }: UserDashboardViewProps) {
       <header className="px-8 py-5 border-b border-bg-border bg-bg-surface/50 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Studio Projects</h1>
-
+            <h1 className="page-title">Studio Projects</h1>
           </div>
           <div className="flex items-center gap-3">
-
             <Link href="/project/new" className="btn-primary">
               <PlusCircle size={15} />
               New Project
             </Link>
-
           </div>
         </div>
       </header>
@@ -268,7 +265,7 @@ export default function UserDashboardView({ user }: UserDashboardViewProps) {
                         onClick={(e) => handleDelete(e, project.projectId)}
                         disabled={deletingId === project.projectId}
                         className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400
-                                     hover:text-red-400 hover:bg-red-950/40 transition-colors duration-150
+                                     hover:text-rose-400 hover:bg-rose-950/40 transition-colors duration-150
                                      opacity-0 group-hover:opacity-100"
                         title="Delete project"
                       >

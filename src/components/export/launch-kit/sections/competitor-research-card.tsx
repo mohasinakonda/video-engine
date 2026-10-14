@@ -23,21 +23,21 @@ export function CompetitorResearchCard() {
   const { marketInsights } = packaging;
 
   return (
-    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-4 shadow-xl">
+    <div className="card p-5 bg-bg-surface border-bg-border space-y-4 shadow-xl">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
+          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
             <Search size={17} />
           </div>
           <div>
             <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <span>YouTube Market Intelligence &amp; Benchmarks</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">
+              <span className="text-2xs font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
                 Live Data
               </span>
             </h3>
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-xxs text-zinc-400">
               Live top-ranking competitor videos on this video&apos;s exact topic
             </p>
           </div>
@@ -48,9 +48,9 @@ export function CompetitorResearchCard() {
           <button
             type="button"
             onClick={() => setStandoutMode(!standoutMode)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all border ${standoutMode
-              ? 'bg-amber-400 text-zinc-950 border-amber-300 shadow-lg shadow-amber-500/20'
-              : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border ${standoutMode
+              ? 'bg-white text-zinc-950 border-white shadow-md'
+              : 'btn-secondary text-xs'
               }`}
             title="Inject your planned video into this competitor grid to see if it stands out"
           >
@@ -97,7 +97,7 @@ export function CompetitorResearchCard() {
       {/* Suggested Angle Chips */}
       {marketInsights.alternativeSearchQueries && marketInsights.alternativeSearchQueries.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-          <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider flex items-center gap-1">
+          <span className="text-2xs uppercase font-bold text-zinc-400 tracking-wider flex items-center gap-1">
             <Sparkles size={11} className="text-amber-400" />
             Explore Angles:
           </span>
@@ -107,9 +107,9 @@ export function CompetitorResearchCard() {
               type="button"
               onClick={() => handleSearchCompetitors(query)}
               disabled={isSearchingCompetitors}
-              className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-800/80 hover:bg-red-950/40 text-zinc-300 hover:text-red-200 border border-zinc-700 hover:border-red-700/50 transition-colors flex items-center gap-1 disabled:opacity-50"
+              className="px-2.5 py-1 rounded-full text-xxs font-medium bg-zinc-800/80 hover:bg-rose-950/40 text-zinc-300 hover:text-rose-200 border border-zinc-700 hover:border-rose-700/50 transition-colors flex items-center gap-1 disabled:opacity-50"
             >
-              <Search size={10} className="text-red-400" />
+              <Search size={10} className="text-rose-400" />
               <span>{query}</span>
             </button>
           ))}
@@ -147,15 +147,15 @@ export function CompetitorResearchCard() {
                     No Thumbnail Yet
                   </div>
                 )}
-                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/85 text-[10px] font-mono font-bold text-white">
+                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/85 text-2xs font-mono font-bold text-white">
                   {durationStr}
                 </span>
-                <span className="absolute top-1 left-1 px-2 py-0.5 rounded bg-amber-400 text-zinc-950 font-black text-[9px] uppercase tracking-wider shadow-md">
+                <span className="absolute top-1 left-1 px-2 py-0.5 rounded bg-amber-400 text-zinc-950 font-black text-3xs uppercase tracking-wider shadow-md">
                   ★ YOUR VIDEO
                 </span>
               </div>
               <div className="p-2.5 space-y-1">
-                <p className="text-[11px] font-bold text-white line-clamp-2 leading-snug">
+                <p className="text-xxs font-bold text-white line-clamp-2 leading-snug">
                   {selectedTitle}
                 </p>
                 <p className="text-[10px] text-amber-300 font-semibold truncate">

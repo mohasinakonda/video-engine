@@ -26,8 +26,8 @@ export function StyleFilters({
             onClick={() => onSelectFamily(fam.id)}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeFamily === fam.id
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-900/20'
-                : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                ? 'bg-white text-black font-semibold'
+                : 'bg-bg-surface hover:bg-zinc-800 text-zinc-400 hover:text-white border border-bg-border'
             }`}
           >
             {fam.name}
@@ -42,7 +42,7 @@ export function StyleFilters({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search style, tag or prompt..."
-          className="w-full pl-9 pr-4 py-2 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors"
+          className="w-full pl-9 pr-4 py-2 rounded-xl bg-bg-surface border border-bg-border text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
         />
       </div>
     </div>

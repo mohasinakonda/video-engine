@@ -225,34 +225,32 @@ export default function AdminPlanSettingsPage() {
     <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
       <div className="max-w-6xl mx-auto space-y-10">
         {/* Navigation & Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-bg-border">
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-2 mb-3">
               <Link
                 href="/admin"
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
+                className="btn-secondary text-xs py-1 px-2.5 flex items-center gap-1.5"
               >
-                <ArrowLeft size={13} /> Back to Admin Hub
+                <ArrowLeft size={13} /> Back to Hub
               </Link>
-              <span className="text-zinc-600 text-xs">•</span>
               <Link
                 href="/admin/styles"
-                className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                className="btn-secondary text-xs py-1 px-2.5"
               >
                 Art Styles Studio
               </Link>
-              <span className="text-zinc-600 text-xs">•</span>
               <Link
                 href="/admin/models"
-                className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+                className="btn-secondary text-xs py-1 px-2.5"
               >
                 AI Models
               </Link>
             </div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
-                <Settings size={26} className="text-emerald-400" />
-                Plans, Pricing & Global Offers Control
+                <Settings size={26} className="text-zinc-200" />
+                Plans, Pricing &amp; Global Offers Control
               </h1>
               <div
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border ${
@@ -274,7 +272,7 @@ export default function AdminPlanSettingsPage() {
             <button
               onClick={handleSaveAll}
               disabled={saving}
-              className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-bold text-xs flex items-center gap-2 transition-colors shadow-lg shadow-emerald-500/20"
+              className="btn-primary text-xs py-2.5 px-5 flex items-center gap-2 shadow-lg"
             >
               {saving ? (
                 <>
@@ -312,10 +310,10 @@ export default function AdminPlanSettingsPage() {
 
         {/* Section 1: WhatsApp & Payment Receiver Settings */}
         {settings && (
-          <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
+          <div className="p-6 rounded-2xl bg-bg-surface border border-bg-border space-y-4">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Smartphone size={18} className="text-emerald-400" />
-              WhatsApp & Payment Receiver Numbers
+              WhatsApp &amp; Payment Receiver Numbers
             </h2>
             <p className="text-xs text-zinc-400">
               Users will send money to these accounts and reach you directly on your WhatsApp to confirm their payments.
@@ -331,7 +329,7 @@ export default function AdminPlanSettingsPage() {
                   value={settings.whatsappNumber}
                   onChange={(e) => setSettings({ ...settings, whatsappNumber: e.target.value })}
                   placeholder="e.g. 01315055532"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-zinc-500"
                 />
                 <span className="text-[10px] text-zinc-500 mt-1 block">
                   Accepts 01XXXXXXXXX or with country code 8801XXXXXXXXX
@@ -339,7 +337,7 @@ export default function AdminPlanSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-pink-400 mb-1">
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
                   bKash Personal / Merchant Number
                 </label>
                 <input
@@ -347,12 +345,12 @@ export default function AdminPlanSettingsPage() {
                   value={settings.bkashNumber}
                   onChange={(e) => setSettings({ ...settings, bkashNumber: e.target.value })}
                   placeholder="e.g. 01617420663"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-orange-400 mb-1">
+                <label className="block text-xs font-semibold text-zinc-300 mb-1">
                   Nagad Personal Number
                 </label>
                 <input
@@ -360,20 +358,20 @@ export default function AdminPlanSettingsPage() {
                   value={settings.nagadNumber}
                   onChange={(e) => setSettings({ ...settings, nagadNumber: e.target.value })}
                   placeholder="e.g. 01617420663"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
+                  className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-zinc-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-blue-400 mb-1">
-                Bank Transfer Instructions & Account Details
+              <label className="block text-xs font-semibold text-zinc-300 mb-1">
+                Bank Transfer Instructions &amp; Account Details
               </label>
               <input
                 type="text"
                 value={settings.bankDetails}
                 onChange={(e) => setSettings({ ...settings, bankDetails: e.target.value })}
-                className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white"
+                className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-zinc-500"
               />
             </div>
           </div>
@@ -381,15 +379,15 @@ export default function AdminPlanSettingsPage() {
 
         {/* Section 2: Global Offers & Announcement Banner */}
         {settings && (
-          <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4">
+          <div className="p-6 rounded-2xl bg-bg-surface border border-bg-border space-y-4">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Megaphone size={18} className="text-amber-400" />
-              Global Site-wide Offers & Banner (All Users)
+              <Megaphone size={18} className="text-zinc-300" />
+              Global Site-wide Offers &amp; Banner (All Users)
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Global Discount */}
-              <div className="space-y-3 p-4 rounded-xl bg-zinc-950 border border-zinc-800">
+              <div className="space-y-3 p-4 rounded-xl bg-bg-base border border-bg-border">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-zinc-200">Global Site-wide Discount</span>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -399,7 +397,7 @@ export default function AdminPlanSettingsPage() {
                       onChange={(e) => setSettings({ ...settings, globalDiscountActive: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500" />
+                    <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-white" />
                   </label>
                 </div>
                 <div>
@@ -410,7 +408,7 @@ export default function AdminPlanSettingsPage() {
                     max="100"
                     value={settings.globalDiscountPercent}
                     onChange={(e) => setSettings({ ...settings, globalDiscountPercent: Number(e.target.value) })}
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
                 <p className="text-[10px] text-zinc-500">
@@ -419,7 +417,7 @@ export default function AdminPlanSettingsPage() {
               </div>
 
               {/* Announcement Banner */}
-              <div className="space-y-3 p-4 rounded-xl bg-zinc-950 border border-zinc-800">
+              <div className="space-y-3 p-4 rounded-xl bg-bg-base border border-bg-border">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-zinc-200">Announcement Banner</span>
                   <label className="relative inline-flex items-center cursor-pointer">
@@ -429,7 +427,7 @@ export default function AdminPlanSettingsPage() {
                       onChange={(e) => setSettings({ ...settings, globalBannerActive: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
+                    <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-white" />
                   </label>
                 </div>
                 <div>
@@ -438,7 +436,7 @@ export default function AdminPlanSettingsPage() {
                     type="text"
                     value={settings.globalBannerText}
                     onChange={(e) => setSettings({ ...settings, globalBannerText: e.target.value })}
-                    className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
               </div>
@@ -451,7 +449,7 @@ export default function AdminPlanSettingsPage() {
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <DollarSign size={20} className="text-emerald-400" />
-              Monthly & Yearly Subscription Plans
+              Monthly &amp; Yearly Subscription Plans
             </h2>
             <p className="text-xs text-zinc-400">
               Customize the monthly price, 3-month (quarterly) bundle price, and monthly credit allowance for each tier
@@ -462,7 +460,7 @@ export default function AdminPlanSettingsPage() {
             {plans.map((plan, idx) => (
               <div
                 key={plan.id}
-                className="p-5 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-4"
+                className="p-5 rounded-2xl bg-bg-surface border border-bg-border space-y-4"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -474,7 +472,7 @@ export default function AdminPlanSettingsPage() {
                     value={plan.badge || ''}
                     onChange={(e) => handleUpdatePlan(idx, 'badge', e.target.value)}
                     placeholder="Badge (e.g. Popular)"
-                    className="w-32 bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1 text-[11px] text-zinc-300"
+                    className="w-32 bg-bg-base border border-bg-border rounded-lg px-2 py-1 text-[11px] text-zinc-300 focus:outline-none focus:border-zinc-500"
                   />
                 </div>
 
@@ -485,7 +483,7 @@ export default function AdminPlanSettingsPage() {
                       type="number"
                       value={plan.priceMonthly}
                       onChange={(e) => handleUpdatePlan(idx, 'priceMonthly', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 text-white font-mono"
+                      className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-1.5 text-white font-mono focus:outline-none focus:border-zinc-500"
                     />
                   </div>
                   <div>
@@ -498,7 +496,7 @@ export default function AdminPlanSettingsPage() {
                         handleUpdatePlan(idx, 'priceQuarterly', val);
                         handleUpdatePlan(idx, 'priceYearly', val * 4);
                       }}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 text-white font-mono"
+                      className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-1.5 text-white font-mono focus:outline-none focus:border-zinc-500"
                     />
                   </div>
                   <div>
@@ -507,7 +505,7 @@ export default function AdminPlanSettingsPage() {
                       type="number"
                       value={plan.creditsPerMonth}
                       onChange={(e) => handleUpdatePlan(idx, 'creditsPerMonth', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 text-emerald-400 font-bold font-mono"
+                      className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-1.5 text-emerald-400 font-bold font-mono focus:outline-none focus:border-zinc-500"
                     />
                   </div>
                   <div>
@@ -516,7 +514,7 @@ export default function AdminPlanSettingsPage() {
                       type="number"
                       value={plan.maxVideoDurationSec}
                       onChange={(e) => handleUpdatePlan(idx, 'maxVideoDurationSec', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-1.5 text-white font-mono"
+                      className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-1.5 text-white font-mono focus:outline-none focus:border-zinc-500"
                     />
                   </div>
                 </div>
@@ -543,7 +541,7 @@ export default function AdminPlanSettingsPage() {
             {topupPacks.map((pack, idx) => (
               <div
                 key={pack.id}
-                className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-3 relative group"
+                className="p-4 rounded-2xl bg-bg-surface border border-bg-border space-y-3 relative group"
               >
                 <div className="flex items-center justify-between">
                   <input
@@ -567,7 +565,7 @@ export default function AdminPlanSettingsPage() {
                       type="number"
                       value={pack.credits}
                       onChange={(e) => handleUpdateTopup(idx, 'credits', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1 text-emerald-400 font-mono"
+                      className="w-full bg-bg-base border border-bg-border rounded-lg px-2 py-1 text-emerald-400 font-mono focus:outline-none focus:border-zinc-500"
                     />
                   </div>
                   <div>
@@ -576,7 +574,7 @@ export default function AdminPlanSettingsPage() {
                       type="number"
                       value={pack.priceBDT}
                       onChange={(e) => handleUpdateTopup(idx, 'priceBDT', Number(e.target.value))}
-                      className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1 text-white font-mono font-bold"
+                      className="w-full bg-bg-base border border-bg-border rounded-lg px-2 py-1 text-white font-mono font-bold focus:outline-none focus:border-zinc-500"
                     />
                   </div>
                 </div>
@@ -587,7 +585,7 @@ export default function AdminPlanSettingsPage() {
           {/* Add New Topup Form */}
           <form
             onSubmit={handleAddTopupPack}
-            className="p-4 rounded-xl bg-zinc-900/40 border border-dashed border-zinc-800 flex flex-wrap items-center gap-3 text-xs"
+            className="p-4 rounded-xl bg-bg-surface/50 border border-dashed border-bg-border flex flex-wrap items-center gap-3 text-xs"
           >
             <span className="font-semibold text-zinc-300">Add New Pack:</span>
             <input
@@ -595,25 +593,25 @@ export default function AdminPlanSettingsPage() {
               placeholder="Pack Name (e.g. Mega Bundle)"
               value={newPackName}
               onChange={(e) => setNewPackName(e.target.value)}
-              className="bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-white"
+              className="bg-bg-base border border-bg-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-zinc-500"
             />
             <input
               type="number"
               placeholder="Credits"
               value={newPackCredits}
               onChange={(e) => setNewPackCredits(Number(e.target.value))}
-              className="w-24 bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-white"
+              className="w-24 bg-bg-base border border-bg-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-zinc-500"
             />
             <input
               type="number"
               placeholder="Price BDT"
               value={newPackPriceBDT}
               onChange={(e) => setNewPackPriceBDT(Number(e.target.value))}
-              className="w-28 bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-1.5 text-white"
+              className="w-28 bg-bg-base border border-bg-border rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-zinc-500"
             />
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-semibold transition-colors flex items-center gap-1"
+              className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1"
             >
               <Plus size={13} /> Add Pack
             </button>
@@ -625,7 +623,7 @@ export default function AdminPlanSettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Tag size={20} className="text-purple-400" />
+                <Tag size={20} className="text-zinc-300" />
                 Global Promo Codes
               </h2>
               <p className="text-xs text-zinc-400">
@@ -634,7 +632,7 @@ export default function AdminPlanSettingsPage() {
             </div>
             <button
               onClick={() => setShowPromoModal(true)}
-              className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-semibold text-xs flex items-center gap-1.5 transition-colors"
+              className="btn-primary text-xs py-2 px-3.5 flex items-center gap-1.5"
             >
               <Plus size={14} /> Create Promo Code
             </button>
@@ -644,10 +642,10 @@ export default function AdminPlanSettingsPage() {
             {promoCodes.map((promo) => (
               <div
                 key={promo.code}
-                className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 space-y-2.5 relative group"
+                className="p-4 rounded-2xl bg-bg-surface border border-bg-border space-y-2.5 relative group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-base text-white bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                  <span className="font-mono font-bold text-base text-white bg-bg-base px-2 py-0.5 rounded border border-bg-border">
                     {promo.code}
                   </span>
                   <button
@@ -658,7 +656,7 @@ export default function AdminPlanSettingsPage() {
                   </button>
                 </div>
                 <p className="text-xs text-zinc-400">{promo.description}</p>
-                <div className="flex items-center justify-between text-xs pt-1 border-t border-zinc-800 text-purple-400 font-semibold">
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-bg-border text-zinc-200 font-semibold">
                   <span>
                     {promo.type === 'PERCENTAGE'
                       ? `${promo.discountValue}% OFF`
@@ -678,10 +676,10 @@ export default function AdminPlanSettingsPage() {
 
       {/* Promo Code Modal */}
       {showPromoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div className="modal-overlay p-4">
+          <div className="modal-panel max-w-md w-full p-6 space-y-4">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Tag size={16} className="text-purple-400" />
+              <Tag size={16} className="text-zinc-300" />
               Create Global Promo Code
             </h3>
             <form onSubmit={handleCreatePromo} className="space-y-3 text-xs">
@@ -693,7 +691,7 @@ export default function AdminPlanSettingsPage() {
                   value={newPromoCode}
                   onChange={(e) => setNewPromoCode(e.target.value.toUpperCase())}
                   placeholder="e.g. FLASH30"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono uppercase"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
@@ -702,7 +700,7 @@ export default function AdminPlanSettingsPage() {
                 <select
                   value={newPromoType}
                   onChange={(e) => setNewPromoType(e.target.value as PromoDiscountType)}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
                 >
                   <option value="PERCENTAGE">Percentage Discount (%)</option>
                   <option value="FIXED">Fixed Amount Discount (BDT)</option>
@@ -715,11 +713,11 @@ export default function AdminPlanSettingsPage() {
                   <label className="block text-zinc-400 mb-1">Percentage Off (%)</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="100"
                     value={newPromoValue}
                     onChange={(e) => setNewPromoValue(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
               )}
@@ -729,10 +727,10 @@ export default function AdminPlanSettingsPage() {
                   <label className="block text-zinc-400 mb-1">Discount Amount (BDT)</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={newPromoValue}
                     onChange={(e) => setNewPromoValue(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
               )}
@@ -742,10 +740,10 @@ export default function AdminPlanSettingsPage() {
                   <label className="block text-zinc-400 mb-1">Bonus Credits</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={newPromoBonusCredits}
                     onChange={(e) => setNewPromoBonusCredits(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
               )}
@@ -757,7 +755,7 @@ export default function AdminPlanSettingsPage() {
                     type="number"
                     value={newPromoMaxUses}
                     onChange={(e) => setNewPromoMaxUses(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
                 <div>
@@ -766,7 +764,7 @@ export default function AdminPlanSettingsPage() {
                     type="number"
                     value={newPromoDays}
                     onChange={(e) => setNewPromoDays(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
                   />
                 </div>
               </div>
@@ -778,7 +776,7 @@ export default function AdminPlanSettingsPage() {
                   value={newPromoDesc}
                   onChange={(e) => setNewPromoDesc(e.target.value)}
                   placeholder="e.g. Flash sale discount"
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
@@ -786,13 +784,13 @@ export default function AdminPlanSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setShowPromoModal(false)}
-                  className="flex-1 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-semibold"
+                  className="btn-secondary flex-1 py-2 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold"
+                  className="btn-primary flex-1 py-2 text-xs"
                 >
                   Save Code
                 </button>

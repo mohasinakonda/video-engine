@@ -29,21 +29,21 @@ export function ThumbnailStudioCard() {
   const showImage = hasImage && !isEditing;
 
   return (
-    <div className="card p-5 bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800 space-y-4 shadow-xl">
+    <div className="card p-5 bg-bg-surface border-bg-border space-y-4 shadow-xl">
       {/* Header: Title + Aspect Ratio + Credits Badge */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/80">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+          <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-200">
             <ImageIcon size={18} />
           </div>
           <div>
             <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <span>Style-Consistent Thumbnail Studio</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
+              <span className="text-2xs font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300">
                 {project.aspectRatio || '16:9'}
               </span>
             </h3>
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-xxs text-zinc-400">
               Verify prompt, customize text overlays, and render high-impact thumbnails in place
             </p>
           </div>

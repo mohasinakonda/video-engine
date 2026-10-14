@@ -64,10 +64,10 @@ export default function StoryboardGrid({
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
         <div className="w-16 h-16 rounded-2xl bg-bg-elevated border border-bg-border flex items-center justify-center mb-4">
-          <Images size={28} className="text-slate-600" />
+          <Images size={28} className="text-zinc-600" />
         </div>
-        <h3 className="text-base font-semibold text-slate-400 mb-1">No scenes yet</h3>
-        <p className="text-sm text-slate-600 max-w-xs">
+        <h3 className="text-base font-semibold text-zinc-300 mb-1">No scenes yet</h3>
+        <p className="text-sm text-zinc-500 max-w-xs">
           Generate scenes from your script to populate the storyboard.
         </p>
       </div>
@@ -79,14 +79,14 @@ export default function StoryboardGrid({
       {/* ── Progress Header ─────────────────────────────────────────────────── */}
       <div className="bg-bg-surface border border-bg-border rounded-xl p-4 space-y-3">
         {/* Stats row */}
-        <div className="flex items-center gap-6 text-xs text-slate-400">
+        <div className="flex items-center gap-6 text-xs text-zinc-400">
           <StatBadge
-            icon={<Images size={12} className="text-emerald-400" />}
+            icon={<Images size={12} className="text-zinc-300" />}
             label={`${stats.imageReady} / ${stats.total} Images Ready`}
             color="emerald"
           />
           <StatBadge
-            icon={<Video size={12} className="text-cyan-400" />}
+            icon={<Video size={12} className="text-zinc-400" />}
             label={`${stats.motionReady} Motion Clips Rendered`}
             color="cyan"
           />
@@ -99,7 +99,7 @@ export default function StoryboardGrid({
           )}
           {stats.generating > 0 && (
             <StatBadge
-              icon={<Clock size={12} className="text-blue-400" />}
+              icon={<Clock size={12} className="text-zinc-400" />}
               label={`${stats.generating} Generating…`}
               color="blue"
             />
@@ -110,7 +110,7 @@ export default function StoryboardGrid({
         <div className='flex w-full gap-5'>
 
           <div className='shrink-0 flex-1'>
-            <div className="flex shrink-0 items-center justify-between text-[10px] text-zinc-400 mb-1">
+            <div className="flex shrink-0 items-center justify-between text-2xs text-zinc-400 mb-1">
               <span>Images</span>
               <span>{stats.imagePercent}%</span>
             </div>
@@ -124,7 +124,7 @@ export default function StoryboardGrid({
 
           {/* Motion progress bar */}
           <div className='shrink-0 flex-1'>
-            <div className="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+            <div className="flex items-center justify-between text-2xs text-zinc-400 mb-1">
               <span>Motion Clips</span>
               <span>{stats.motionPercent}%</span>
             </div>
@@ -166,7 +166,7 @@ export default function StoryboardGrid({
             <ChevronUp size={13} />
             Previous {PAGE_SIZE}
           </button>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-zinc-500">
             Page {page + 1} / {totalPages} · Scenes {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, scenes.length)}
           </span>
           <button
@@ -195,15 +195,15 @@ function StatBadge({
   color: 'emerald' | 'cyan' | 'red' | 'blue';
 }) {
   const colorMap = {
-    emerald: 'text-emerald-400',
-    cyan: 'text-cyan-400',
+    emerald: 'text-zinc-200',
+    cyan: 'text-zinc-400',
     red: 'text-red-400',
-    blue: 'text-blue-400',
+    blue: 'text-zinc-400',
   };
   return (
     <span className={`flex items-center gap-1.5 ${colorMap[color]}`}>
       {icon}
-      <span className="text-slate-300">{label}</span>
+      <span className="text-zinc-300">{label}</span>
     </span>
   );
 }

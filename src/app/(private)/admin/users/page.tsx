@@ -207,43 +207,42 @@ export default function AdminUsersPage() {
     <div className="min-h-screen bg-bg-base text-zinc-100 py-10 px-4 sm:px-8">
       <div className="max-w-7xl mx-auto space-y-10">
         {/* Navigation & Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-bg-border">
           <div>
             <Link
               href="/admin"
-              className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white mb-2 transition-colors"
+              className="btn-secondary text-xs py-1 px-2.5 inline-flex items-center gap-1.5 mb-3"
             >
-              <ArrowLeft size={13} /> Back to Admin Hub
+              <ArrowLeft size={13} /> Back to Hub
             </Link>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
-                <Users size={26} className="text-blue-400" />
-                User Directory & Anti-Abuse Manager
+                <Users size={26} className="text-zinc-200" />
+                User Directory &amp; Anti-Abuse Manager
               </h1>
-
             </div>
             <p className="text-xs text-zinc-400 mt-1">
               Monitor active users, block fraudulent accounts, grant credits, and manage affiliate payouts
             </p>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <Link
               href="/admin/models"
-              className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-cyan-500/30 text-xs font-semibold text-cyan-400 transition-colors"
+              className="btn-secondary text-xs py-1.5 px-3"
             >
               AI Models
             </Link>
             <Link
               href="/admin/plan"
-              className="px-4 py-2 rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-700/80 text-xs font-semibold text-zinc-200 transition-colors"
+              className="btn-secondary text-xs py-1.5 px-3"
             >
-              Edit Plans & Pricing
+              Edit Plans &amp; Pricing
             </Link>
             <button
               onClick={refreshData}
               disabled={isLoading}
-              className="px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 disabled:opacity-50"
             >
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               Refresh
@@ -264,25 +263,25 @@ export default function AdminUsersPage() {
                 placeholder="Search user by name, email, phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-400"
+                className="w-full bg-bg-surface border border-bg-border rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
               />
             </div>
           </div>
 
-          <div className="bg-zinc-900/80 border border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-bg-surface border border-bg-border rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                <thead className="bg-bg-base border-b border-bg-border text-zinc-400 uppercase font-semibold">
                   <tr>
                     <th className="py-3 px-4">User</th>
-                    <th className="py-3 px-4">Plan & Status</th>
+                    <th className="py-3 px-4">Plan &amp; Status</th>
                     <th className="py-3 px-4">Credits</th>
                     <th className="py-3 px-4">Total Spent</th>
-                    <th className="py-3 px-4">Referral Code & Earnings</th>
+                    <th className="py-3 px-4">Referral Code &amp; Earnings</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/60">
+                <tbody className="divide-y divide-bg-border">
                   {filteredUsers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-12 text-center text-zinc-500">
@@ -301,7 +300,7 @@ export default function AdminUsersPage() {
                     filteredUsers.map((user) => (
                       <tr
                         key={user.id}
-                        className={`hover:bg-zinc-850/40 transition-colors ${user.isBlocked ? 'bg-rose-950/20' : ''
+                        className={`hover:bg-zinc-800/40 transition-colors ${user.isBlocked ? 'bg-rose-950/20' : ''
                           }`}
                       >
                         <td className="py-3.5 px-4">
@@ -313,7 +312,7 @@ export default function AdminUsersPage() {
                                 className="w-8 h-8 rounded-full border border-zinc-700 object-cover shrink-0"
                               />
                             ) : (
-                              <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-xs shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center justify-center font-bold text-xs shrink-0">
                                 {(user.name || 'C').charAt(0).toUpperCase()}
                               </div>
                             )}
@@ -340,7 +339,7 @@ export default function AdminUsersPage() {
                             </span>
                           )}
                           {user.role === 'admin' && (
-                            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-700 text-zinc-200 border border-zinc-600">
                               ADMIN
                             </span>
                           )}
@@ -357,13 +356,13 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-[11px] font-bold text-amber-400 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                            <span className="font-mono text-[11px] font-bold text-amber-400 bg-bg-base px-2 py-0.5 rounded border border-bg-border">
                               {user.referralCode}
                             </span>
                             <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-medium">
                               {user.referralDiscountPercent ?? 20}% off
                             </span>
-                            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 font-medium">
+                            <span className="text-[10px] text-zinc-300 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700 font-medium">
                               {user.referralCommissionPercent ?? 15}% comm
                             </span>
                           </div>
@@ -371,7 +370,7 @@ export default function AdminUsersPage() {
                             {user.referralCount} users · ৳{user.referralEarningsBDT} earned
                           </span>
                           {user.assignedPromoCode && (
-                            <span className="text-[10px] text-purple-400 block mt-0.5">
+                            <span className="text-[10px] text-zinc-300 block mt-0.5">
                               Special Code: {user.assignedPromoCode}
                             </span>
                           )}
@@ -383,7 +382,7 @@ export default function AdminUsersPage() {
                                 setSelectedUser(user);
                                 setCreditModalOpen(true);
                               }}
-                              className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium flex items-center gap-1"
+                              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1"
                               title="Adjust Credits"
                             >
                               <Coins size={12} className="text-amber-400" />
@@ -394,15 +393,15 @@ export default function AdminUsersPage() {
                                 setSelectedUser(user);
                                 setPromoModalOpen(true);
                               }}
-                              className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-[11px] font-medium flex items-center gap-1"
+                              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1"
                               title="Assign Promo Code"
                             >
-                              <Tag size={12} className="text-purple-400" />
+                              <Tag size={12} className="text-zinc-300" />
                               Promo
                             </button>
                             <button
                               onClick={() => handleOpenRatesModal(user)}
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 text-[11px] font-medium flex items-center gap-1"
+                              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1"
                               title="Custom Influencer Rates"
                             >
                               <Percent size={12} className="text-emerald-400" />
@@ -410,9 +409,9 @@ export default function AdminUsersPage() {
                             </button>
                             <button
                               onClick={() => handleToggleBlock(user)}
-                              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors ${user.isBlocked
-                                  ? 'bg-emerald-500 hover:bg-emerald-400 text-zinc-950'
-                                  : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-400'
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors ${user.isBlocked
+                                  ? 'btn-accent'
+                                  : 'bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300'
                                 }`}
                             >
                               {user.isBlocked ? (
@@ -437,7 +436,7 @@ export default function AdminUsersPage() {
         </div>
 
         {/* Section 2: Affiliate & Creator Payout Requests */}
-        <div className="space-y-4 pt-6 border-t border-zinc-800">
+        <div className="space-y-4 pt-6 border-t border-bg-border">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <DollarSign size={20} className="text-emerald-400" />
@@ -448,23 +447,23 @@ export default function AdminUsersPage() {
             </p>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+          <div className="bg-bg-surface border border-bg-border rounded-2xl overflow-hidden">
             {payouts.length === 0 ? (
               <div className="p-8 text-center text-xs text-zinc-500">
                 No affiliate payout requests at the moment.
               </div>
             ) : (
               <table className="w-full text-left text-xs">
-                <thead className="bg-zinc-950 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                <thead className="bg-bg-base border-b border-bg-border text-zinc-400 uppercase font-semibold">
                   <tr>
                     <th className="py-3 px-4">User</th>
                     <th className="py-3 px-4">Amount</th>
-                    <th className="py-3 px-4">Method & Account</th>
+                    <th className="py-3 px-4">Method &amp; Account</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800">
+                <tbody className="divide-y divide-bg-border">
                   {payouts.map((req) => (
                     <tr key={req.id}>
                       <td className="py-3 px-4 text-white font-medium">{req.userEmail}</td>
@@ -478,8 +477,8 @@ export default function AdminUsersPage() {
                       <td className="py-3 px-4">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${req.status === 'PAID'
-                              ? 'bg-emerald-500/20 text-emerald-400'
-                              : 'bg-amber-500/20 text-amber-400'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             }`}
                         >
                           {req.status}
@@ -489,7 +488,7 @@ export default function AdminUsersPage() {
                         {req.status === 'PENDING' ? (
                           <button
                             onClick={() => handleApprovePayout(req.id)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-[11px]"
+                            className="btn-accent text-[11px] py-1 px-3"
                           >
                             Mark as Paid
                           </button>
@@ -508,8 +507,8 @@ export default function AdminUsersPage() {
 
       {/* Credit Adjustment Modal */}
       {creditModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+        <div className="modal-overlay p-4">
+          <div className="modal-panel max-w-sm w-full p-6 space-y-4">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <Coins size={16} className="text-amber-400" />
               Adjust Credits for {selectedUser.name}
@@ -524,20 +523,20 @@ export default function AdminUsersPage() {
                   type="number"
                   value={creditAmount}
                   onChange={(e) => setCreditAmount(Number(e.target.value))}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-zinc-500"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setCreditModalOpen(false)}
-                  className="flex-1 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-semibold"
+                  className="btn-secondary flex-1 py-2 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold"
+                  className="btn-accent flex-1 py-2 text-xs font-bold"
                 >
                   Confirm
                 </button>
@@ -549,10 +548,10 @@ export default function AdminUsersPage() {
 
       {/* Assign Promo Modal */}
       {promoModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+        <div className="modal-overlay p-4">
+          <div className="modal-panel max-w-sm w-full p-6 space-y-4">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Tag size={16} className="text-purple-400" />
+              <Tag size={16} className="text-zinc-300" />
               Assign Promo Code to {selectedUser.name}
             </h3>
             <form onSubmit={handleAssignPromo} className="space-y-4 text-xs">
@@ -564,20 +563,20 @@ export default function AdminUsersPage() {
                   placeholder="e.g. VIP50"
                   value={assignedCode}
                   onChange={(e) => setAssignedCode(e.target.value.toUpperCase())}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono uppercase"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-zinc-500"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setPromoModalOpen(false)}
-                  className="flex-1 py-2 rounded-xl bg-zinc-800 text-zinc-300 font-semibold"
+                  className="btn-secondary flex-1 py-2 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold"
+                  className="btn-primary flex-1 py-2 text-xs"
                 >
                   Assign Code
                 </button>
@@ -586,14 +585,15 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+
       {/* Influencer Custom Rates Modal */}
       {ratesModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+        <div className="modal-overlay p-4">
+          <div className="modal-panel max-w-sm w-full p-6 space-y-4">
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Percent size={16} className="text-emerald-400" />
-                Influencer Rates & Referral Code
+                Influencer Rates &amp; Referral Code
               </h3>
               <p className="text-xs text-zinc-400 mt-1">
                 Customize negotiated terms for {selectedUser.name} ({selectedUser.email})
@@ -608,7 +608,7 @@ export default function AdminUsersPage() {
                   placeholder="e.g. HAZRAT15 or REF-BBD2D"
                   value={customRefCode}
                   onChange={(e) => setCustomRefCode(e.target.value.toUpperCase())}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono uppercase"
+                  className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-zinc-500"
                 />
               </div>
 
@@ -624,7 +624,7 @@ export default function AdminUsersPage() {
                     required
                     value={customDiscountPct}
                     onChange={(e) => setCustomDiscountPct(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono text-sm"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-zinc-500"
                   />
                   <span className="text-zinc-400 font-bold">%</span>
                 </div>
@@ -645,7 +645,7 @@ export default function AdminUsersPage() {
                     required
                     value={customCommissionPct}
                     onChange={(e) => setCustomCommissionPct(Number(e.target.value))}
-                    className="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-white font-mono text-sm"
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-zinc-500"
                   />
                   <span className="text-zinc-400 font-bold">%</span>
                 </div>
@@ -658,13 +658,13 @@ export default function AdminUsersPage() {
                 <button
                   type="button"
                   onClick={() => setRatesModalOpen(false)}
-                  className="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold"
+                  className="btn-secondary flex-1 py-2 text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold"
+                  className="btn-primary flex-1 py-2 text-xs"
                 >
                   Save Rates
                 </button>

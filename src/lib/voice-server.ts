@@ -68,10 +68,10 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     id: 'voice-chatterbox-multilingual',
     name: 'Chatterbox Multilingual',
     modelId: 'ResembleAI/chatterbox-multilingual',
-    description: 'Flagship expressive engine. 23 languages, emotion control.',
+    description: 'Flagship expressive engine. 5,000-char single pass, 23 languages, emotion control.',
     charsPerCredit: 2000,
     allowedPlans: [],
-    isDefault: false,
+    isDefault: true,
     isActive: true,
   },
   {
@@ -101,7 +101,7 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     description: 'Design any voice via text description. Supports multi-emotion mixing and director mode.',
     charsPerCredit: 10000,
     allowedPlans: [],
-    isDefault: true,
+    isDefault: false,
     isActive: true,
   },
 ];
@@ -281,25 +281,57 @@ export async function synthesizeVoiceChunk(params: {
   tone?: string;
   /** 0-100, maps to Chatterbox exaggeration (0-1). */
   expressiveness?: number;
+  /**
+   * Optional delivery overrides from the voice-style drawer. When absent,
+   * the existing auto behaviour (tone nudges + default temperature) applies
+   * unchanged, so requests without style settings are byte-identical.
+   */
+  cfgWeight?: number;
+  temperature?: number;
   planId?: string;
   index?: number;
   totalChunks?: number;
-}): Promise<{ audio: ArrayBuffer; mimeType: string }> {
+  /**
+   * Deterministic sampling seed across chunks to eliminate voice drift,
+   * pitch wandering, and tone variance.
+   */
+  seed?: number;
+  /**
+   * Session anchor voice ID echoed back by the client (from chunk 0's
+   * response). The plan store is in-memory per server instance; on serverless
+   * hosting chunk N+1 can land on a different instance than chunk 0 and lose
+   * the anchor — so it must travel with the request. Without it, every chunk
+   * after the first gets a freshly generated (different) voice.
+   */
+  sessionVoiceId?: string;
+}): Promise<{ audio: ArrayBuffer; mimeType: string; sessionVoiceId?: string }> {
   const apiKey = deepinfraKey();
   if (!apiKey) throw new Error('DEEPINFRA_API_KEY is not configured.');
 
   const rawText = params.text.trim();
   if (!rawText) throw new Error('Chunk text is empty.');
-  if (rawText.length > MAX_CHUNK_CHARS + 200) {
-    throw new Error(`Chunk too long (${rawText.length} chars).`);
+
+  const isChatterbox = params.modelId.toLowerCase().includes('chatterbox');
+  const maxAllowed = isChatterbox ? 5000 : 1050;
+  if (rawText.length > maxAllowed) {
+    throw new Error(`Chunk too long (${rawText.length} chars, max ${maxAllowed}).`);
   }
 
-  // Server-side Human Speech Engine: Seamlessly adds respiratory breathing & biological acoustics
-  const { text, voicePrompt } = humanizeSpeechPayload({
+  // Server-side Human Speech Engine: Seamlessly adds natural acoustics & prosody
+  const { text: humanizedText, voicePrompt } = humanizeSpeechPayload({
     text: rawText,
     voicePrompt: params.voicePrompt,
     modelId: params.modelId,
+    chunkIndex: params.index ?? 0,
   });
+
+  // Clamp safely within provider thresholds
+  let text = humanizedText;
+  if (!isChatterbox && text.length > 980) {
+    text = rawText.length <= 980 ? rawText : rawText.slice(0, 980);
+  } else if (isChatterbox && text.length > 5000) {
+    text = text.slice(0, 5000);
+  }
 
   const isVoiceDesign = params.modelId.toLowerCase().includes('voicedesign');
   const isMimo = params.modelId.toLowerCase().includes('mimo');
@@ -311,60 +343,112 @@ export async function synthesizeVoiceChunk(params: {
   const chunkIndex = params.index ?? 0;
   const totalChunks = params.totalChunks ?? 1;
 
+  // Anchor voice for this session: prefer the client-echoed ID (survives
+  // serverless instance hops), fall back to the in-memory plan record.
+  const anchorVoiceId = params.sessionVoiceId || plan?.sessionVoiceId;
+
   const isSavedVoice = Boolean(params.voiceId && params.voiceId.trim());
 
-  if (isSavedVoice) {
-    // User selected a persistent custom voice: route directly to voiceclone for ALL chunks!
-    targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
-    body = {
+  // DeepInfra MiMo-V2.5-TTS docs: the style/voice instruction goes in the
+  // user message, the text (with (style)/[audio] tags) in the assistant
+  // message, and the voice is selected via audio.voice. The endpoint
+  // additionally requires top-level `text` and `voice` (422s otherwise).
+  const mimoBody = (
+    userContent: string,
+    voice: string,
+    audioVoice?: string
+  ): Record<string, unknown> => {
+    const payload: Record<string, unknown> = {
       text,
-      voice: params.voiceId!.trim(),
-      instruct: voicePrompt || 'A natural, clear, and engaging voice.',
+      voice,
+      messages: [
+        { role: 'user', content: userContent },
+        { role: 'assistant', content: text },
+      ],
+      audio: audioVoice ? { format: 'wav', voice: audioVoice } : { format: 'wav' },
     };
-    console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via persistent saved voiceclone (${params.voiceId})`);
+    if (typeof params.seed === 'number' && Number.isFinite(params.seed)) {
+      payload.seed = Math.floor(params.seed);
+    }
+    return payload;
+  };
+  const defaultInstruct = voicePrompt || 'A natural, clear, and engaging voice.';
+
+  if (isChatterbox) {
+    targetModelId = params.modelId;
+    const expr = typeof params.expressiveness === 'number'
+      ? Math.min(100, Math.max(0, params.expressiveness))
+      : 50;
+    const exaggeration = Math.round((expr / 100) * 100) / 100;
+
+    const chatterboxPayload: Record<string, unknown> = {
+      text,
+      language_id: params.languageId || toLanguageId(params.language) || 'en',
+      exaggeration,
+      temperature: typeof params.temperature === 'number' && Number.isFinite(params.temperature)
+        ? Math.min(1, Math.max(0, params.temperature))
+        : 0.7,
+    };
+
+    // Style-drawer override: only sent when the user picked a style / moved a slider.
+    if (typeof params.cfgWeight === 'number' && Number.isFinite(params.cfgWeight)) {
+      chatterboxPayload.cfg_weight = Math.min(1, Math.max(0.1, params.cfgWeight));
+    }
+
+    if (isSavedVoice && params.voiceId) {
+      chatterboxPayload.voice_id = params.voiceId.trim();
+    }
+
+    if (typeof params.seed === 'number' && Number.isFinite(params.seed)) {
+      chatterboxPayload.seed = Math.floor(params.seed);
+    }
+
+    body = chatterboxPayload;
+  } else if (isSavedVoice) {
+    // User selected a persistent custom voice with MiMo: route directly to voiceclone for ALL chunks!
+    targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
+    const vid = params.voiceId!.trim();
+    body = mimoBody(defaultInstruct, vid, vid);
   } else if (isVoiceDesign) {
-    if (isMultiChunk && chunkIndex > 0 && plan?.sessionVoiceId) {
+    if (isMultiChunk && chunkIndex > 0 && anchorVoiceId) {
       // Continuation chunk in multi-chunk job: use voiceclone with session anchor voice
       targetModelId = 'XiaomiMiMo/MiMo-V2.5-tts-voiceclone';
-      body = {
-        text,
-        voice: plan.sessionVoiceId,
-        instruct: voicePrompt || 'A natural, clear, and engaging voice.',
-      };
-      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voiceclone (${plan.sessionVoiceId})`);
+      body = mimoBody(defaultInstruct, anchorVoiceId, anchorVoiceId);
     } else {
-      // Chunk 0 or standalone single chunk: use voicedesign
-      body = {
-        text,
-        voice: voicePrompt || 'A natural, clear, and engaging voice.',
-      };
-      console.log(`[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized via voicedesign`);
+      // Chunk 0 or standalone single chunk: use voicedesign.
+      body = mimoBody(defaultInstruct, defaultInstruct);
     }
   } else if (isMimo) {
-    body = {
-      text,
-      voice: voicePrompt || 'mimo_default',
-    };
+    // Base MiMo-V2.5-TTS: same messages format; built-in voice via audio.voice.
+    const tone = (params.tone || '').toLowerCase();
+    const styleCue = tone ? `Narrate in a ${tone} tone. ` : '';
+    body = mimoBody(`${styleCue}${defaultInstruct}`, 'mimo_default', 'mimo_default');
   } else {
     const expr = typeof params.expressiveness === 'number'
       ? Math.min(100, Math.max(0, params.expressiveness))
       : 50;
     let exaggeration = expr / 100;
 
-    // Per-section tone nudges delivery intensity (tags themselves stay inline).
     const tone = (params.tone || '').toLowerCase();
     if (HIGH_ENERGY_TONES.has(tone)) exaggeration = Math.min(1, exaggeration + 0.15);
     else if (LOW_ENERGY_TONES.has(tone)) exaggeration = Math.max(0, exaggeration - 0.15);
 
-    // Resemble AI guidance: dramatic delivery → lower cfg for better pacing.
-    const cfgWeight = exaggeration >= 0.65 ? 0.3 : 0.5;
+    // Style-drawer overrides win over the auto cfg/temperature when provided.
+    const cfgWeight = typeof params.cfgWeight === 'number' && Number.isFinite(params.cfgWeight)
+      ? Math.min(1, Math.max(0.1, params.cfgWeight))
+      : exaggeration >= 0.65 ? 0.3 : 0.5;
 
-    body = {
+    const fallbackBody: Record<string, unknown> = {
       text,
       language_id: params.languageId || toLanguageId(params.language),
       exaggeration: Math.round(exaggeration * 100) / 100,
       cfg_weight: cfgWeight,
     };
+    // temperature was never sent on this path before — only add when overridden.
+    if (typeof params.temperature === 'number' && Number.isFinite(params.temperature)) {
+      fallbackBody.temperature = Math.min(1, Math.max(0, params.temperature));
+    }
+    body = fallbackBody;
   }
 
   const res = await fetch(
@@ -432,35 +516,36 @@ export async function synthesizeVoiceChunk(params: {
     }
   }
 
-  console.log(
-    `[voice] chunk ${chunkIndex + 1}/${totalChunks} synthesized: ${audio.byteLength} bytes, ${mimeType} (${targetModelId})`
-  );
 
-  // If this was Chunk 0 of a multi-chunk dynamic VoiceDesign session (not a persistent saved voice), register anchor audio clone
+  // If this was Chunk 0 of a multi-chunk dynamic VoiceDesign session (not a persistent saved voice), register anchor audio clone.
+  // The new anchor ID is returned to the client, which echoes it back on
+  // later chunks — the in-memory plan record alone is not reliable on
+  // serverless hosting (chunk N+1 may hit a different instance than chunk 0).
+  let newSessionVoiceId: string | undefined;
   if (!isSavedVoice && isVoiceDesign && isMultiChunk && chunkIndex === 0 && params.planId) {
     try {
-      const sessionVoiceId = await createDeepinfraVoice(
+      newSessionVoiceId = await createDeepinfraVoice(
         `session_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         audio,
         apiKey
       );
-      updateVoicePlanSessionVoice(params.planId, sessionVoiceId);
-      console.log(`[voice] Anchor voice clone registered: ${sessionVoiceId} for plan ${params.planId}`);
+      updateVoicePlanSessionVoice(params.planId, newSessionVoiceId);
+      console.log(`[voice] Anchor voice clone registered: ${newSessionVoiceId} for plan ${params.planId}`);
     } catch (cloneErr) {
       console.warn('[voice] Failed to register session voice clone (will fallback to voicedesign):', cloneErr);
     }
   }
 
   // If this was the last chunk of a temporary session, clean up the temporary session voice
-  if (!isSavedVoice && isMultiChunk && chunkIndex === totalChunks - 1 && plan?.sessionVoiceId) {
-    const toDelete = plan.sessionVoiceId;
-    plan.sessionVoiceId = undefined;
+  if (!isSavedVoice && isMultiChunk && chunkIndex === totalChunks - 1 && anchorVoiceId) {
+    const toDelete = anchorVoiceId;
+    if (plan?.sessionVoiceId) plan.sessionVoiceId = undefined;
     deleteDeepinfraVoice(toDelete, apiKey).catch((err) => {
       console.warn('[voice] Failed to delete session voice clone on completion:', err);
     });
   }
 
-  return { audio, mimeType };
+  return { audio, mimeType, sessionVoiceId: newSessionVoiceId };
 }
 
 /**
@@ -549,7 +634,7 @@ function sweepPlans() {
   store.plans.forEach((p, id) => {
     if (now - p.createdAt > PLAN_TTL_MS) {
       if (p.sessionVoiceId && apiKey) {
-        deleteDeepinfraVoice(p.sessionVoiceId, apiKey).catch(() => {});
+        deleteDeepinfraVoice(p.sessionVoiceId, apiKey).catch(() => { });
       }
       store.plans.delete(id);
     }
@@ -656,7 +741,7 @@ export function deleteVoicePlan(planId: string): void {
   if (plan?.sessionVoiceId) {
     const apiKey = deepinfraKey();
     if (apiKey) {
-      deleteDeepinfraVoice(plan.sessionVoiceId, apiKey).catch(() => {});
+      deleteDeepinfraVoice(plan.sessionVoiceId, apiKey).catch(() => { });
     }
   }
   store.plans.delete(planId);
@@ -664,6 +749,11 @@ export function deleteVoicePlan(planId: string): void {
 }
 
 // ─── Credits ─────────────────────────────────────────────────────────────────
+
+/** Max cloned/designed voices a user may keep. Delete one to free a slot. */
+export const MAX_CUSTOM_VOICES_PER_USER = 5;
+/** Credits charged each time a voice is cloned. Refunded if cloning fails. */
+export const CLONE_COST_CREDITS = 15;
 
 export function priceVoiceGeneration(totalChars: number, charsPerCredit: number): number {
   return calculateVoiceCredits(totalChars, charsPerCredit);

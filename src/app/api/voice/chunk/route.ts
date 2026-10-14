@@ -73,8 +73,8 @@ export async function POST(req: Request) {
         typeof body.languageId === 'string'
           ? body.languageId
           : typeof body.language === 'string'
-          ? body.language
-          : 'en'
+            ? body.language
+            : 'en'
       )
         .toLowerCase()
         .trim();
@@ -95,23 +95,26 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!text.trim() || text.length > MAX_CHUNK_CHARS + 200) {
-      return NextResponse.json({ error: 'Invalid chunk text.' }, { status: 400 });
-    }
-
     const model = await resolveVoiceModel(
       typeof body.modelId === 'string' ? body.modelId : undefined,
       auth.serverSupabase
     );
 
+    const isChatterbox = model.modelId.toLowerCase().includes('chatterbox');
+    const maxChunkLimit = isChatterbox ? 5000 : MAX_CHUNK_CHARS + 200;
+
+    if (!text.trim() || text.length > maxChunkLimit) {
+      return NextResponse.json({ error: `Invalid chunk text (max ${maxChunkLimit} chars).` }, { status: 400 });
+    }
+
     const voicePrompt =
       typeof body.voicePrompt === 'string' && body.voicePrompt.trim()
         ? body.voicePrompt.trim()
         : typeof body.voiceDescription === 'string' && body.voiceDescription.trim()
-        ? body.voiceDescription.trim()
-        : undefined;
+          ? body.voiceDescription.trim()
+          : undefined;
 
-    const { audio, mimeType } = await synthesizeVoiceChunk({
+    const { audio, mimeType, sessionVoiceId } = await synthesizeVoiceChunk({
       modelId: model.modelId,
       text,
       voiceId: typeof body.voiceId === 'string' ? body.voiceId : undefined,
@@ -120,9 +123,17 @@ export async function POST(req: Request) {
       languageId: typeof body.languageId === 'string' ? body.languageId : undefined,
       tone: typeof body.tone === 'string' && body.tone ? body.tone : undefined,
       expressiveness: typeof body.expressiveness === 'number' ? body.expressiveness : 50,
+      // Voice-style drawer overrides (optional — absent = existing behaviour).
+      cfgWeight: typeof body.cfgWeight === 'number' ? body.cfgWeight : undefined,
+      temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
       planId: isPreview ? undefined : planId,
       index,
       totalChunks,
+      seed: typeof body.seed === 'number' && Number.isFinite(body.seed) ? body.seed : undefined,
+      sessionVoiceId:
+        typeof body.sessionVoiceId === 'string' && body.sessionVoiceId.trim()
+          ? body.sessionVoiceId.trim()
+          : undefined,
     });
 
     const base64 = Buffer.from(audio).toString('base64');
@@ -133,6 +144,9 @@ export async function POST(req: Request) {
       audioBase64: base64,
       mimeType,
       bytes: audio.byteLength,
+      // Session anchor voice (created on chunk 0 of voice-design jobs) —
+      // the client echoes this back on later chunks for voice consistency.
+      ...(sessionVoiceId ? { sessionVoiceId } : {}),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Chunk synthesis failed.';

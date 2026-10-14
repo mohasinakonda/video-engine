@@ -44,7 +44,7 @@ export default function ScenePromptEditorOverlay({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Edit2 size={12} className="text-white" />
-            <span className="text-[11px] font-semibold text-white">Edit Scene #{sceneId} Prompt</span>
+            <span className="text-xxs font-semibold text-white">Edit Scene #{sceneId} Prompt</span>
           </div>
           <button
             type="button"
@@ -56,18 +56,18 @@ export default function ScenePromptEditorOverlay({
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-[9px] uppercase tracking-wider font-semibold text-zinc-400">
+          <span className="text-3xs uppercase tracking-wider font-semibold text-zinc-400">
             Visual Prompt
           </span>
           <button
             type="button"
             onClick={onEnhancePrompt}
             disabled={isEnhancingPrompt}
-            className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-semibold transition-colors disabled:opacity-50"
+            className="text-2xs text-zinc-300 hover:text-white flex items-center gap-1 font-semibold transition-colors disabled:opacity-50"
             title="Expand into a studio-grade cinematic prompt using AI Director"
           >
             {isEnhancingPrompt ? (
-              <Loader2 size={10} className="animate-spin text-cyan-400" />
+              <Loader2 size={10} className="animate-spin text-zinc-300" />
             ) : (
               <Wand2 size={10} />
             )}
@@ -76,7 +76,7 @@ export default function ScenePromptEditorOverlay({
         </div>
 
         <textarea
-          className="w-full text-[11px] h-20 leading-relaxed font-mono bg-zinc-900/90 border border-zinc-700/80 rounded-xl p-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors resize-none"
+          className="w-full text-xxs h-20 leading-relaxed font-mono bg-zinc-900/90 border border-zinc-700/80 rounded-xl p-2 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors resize-none"
           value={promptDraft}
           onChange={(e) => setPromptDraft(e.target.value)}
           placeholder="Describe scene visual details, camera optics, and lighting..."
@@ -101,7 +101,7 @@ export default function ScenePromptEditorOverlay({
             type="button"
             onClick={onRegenerate}
             disabled={isSubmitDisabled}
-            className="py-1.5 px-3 rounded-lg text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-[0.98]"
+            className="btn-primary btn-xs flex items-center justify-center gap-1.5"
           >
             <RefreshCw size={11} className={isSubmittingRegenerate ? 'animate-spin' : ''} />
             <span>Regenerate</span>

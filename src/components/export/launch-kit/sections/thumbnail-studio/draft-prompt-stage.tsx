@@ -89,7 +89,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
       <div className="p-4 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <label className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+            <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
               <Edit3 size={13} />
               <span>Cinematic Visual Prompt</span>
             </label>
@@ -101,17 +101,17 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
               type="button"
               onClick={() => handleEnhanceConceptPrompt(concept)}
               disabled={isEnhancingThis || Boolean(generatingThumbId)}
-              className="text-xs text-purple-300 hover:text-purple-100 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 transition-all font-medium disabled:opacity-50"
+              className="text-xs text-zinc-300 hover:text-white flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 transition-all font-medium disabled:opacity-50"
               title="Elevate this prompt with cinematic optics, chiaroscuro lighting, and micro-textures"
             >
               {isEnhancingThis ? (
                 <>
-                  <Loader2 size={12} className="animate-spin text-purple-300" />
+                  <Loader2 size={12} className="animate-spin text-zinc-300" />
                   <span>Enhancing...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles size={12} className="text-purple-400" />
+                  <Sparkles size={12} className="text-zinc-300" />
                   <span>✨ AI Enhance Prompt</span>
                 </>
               )}
@@ -121,7 +121,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
               <button
                 type="button"
                 onClick={() => handleResetConceptPrompt(concept.id)}
-                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 transition-colors"
+                className="text-xs text-zinc-300 hover:text-white flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-800 border border-zinc-700 transition-colors"
                 title="Reset prompt back to AI generated baseline"
               >
                 <Undo2 size={12} />
@@ -146,7 +146,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
           value={concept.visualPrompt}
           onChange={(e) => handleUpdateConceptPrompt(concept.id, e.target.value)}
           placeholder="Describe the concrete visual subjects, composition, and rim lighting..."
-          className="w-full text-xs font-mono leading-relaxed bg-zinc-950 border border-zinc-700/80 focus:border-purple-500 rounded-xl text-zinc-100 p-3.5 focus:outline-none resize-y min-h-[110px]"
+          className="w-full text-xs font-mono leading-relaxed bg-zinc-950 border border-zinc-700/80 focus:border-zinc-500 rounded-xl text-zinc-100 p-3.5 focus:outline-none resize-y min-h-[110px]"
         />
 
 
@@ -155,10 +155,10 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
 
       {/* Action Bar: Generate Button */}
       <div className=" pt-2">
-        <div className="text-[11px] text-zinc-400 flex items-center gap-2">
+        <div className="text-xxs text-zinc-400 flex items-center gap-2">
           <span>
             Renders in <strong className="text-white">{project.aspectRatio || '16:9'}</strong> matching{' '}
-            <strong className="text-purple-300">{stylePreset?.name || 'Cinematic'}</strong>
+            <strong className="text-zinc-200">{stylePreset?.name || 'Cinematic'}</strong>
           </span>
         </div>
 
@@ -168,7 +168,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
             type="button"
             onClick={() => handleGenerateThumbnail(concept)}
             disabled={isGeneratingThis || Boolean(generatingThumbId)}
-            className="btn-primary text-xs px-6 py-2.5 flex items-center justify-center gap-2 shadow-xl shadow-purple-500/20 w-full sm:w-auto font-bold"
+            className="btn-primary text-xs px-6 py-2.5 flex items-center justify-center gap-2 w-full sm:w-auto font-bold"
           >
             {isGeneratingThis ? (
               <>
@@ -177,7 +177,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
               </>
             ) : (
               <>
-                <Sparkles size={15} className="text-amber-300" />
+                <Sparkles size={15} className="text-zinc-950" />
                 <span>
                   {hasImage
                     ? `Re-render (${selectedAIModel?.creditCost ?? 2} cr)`

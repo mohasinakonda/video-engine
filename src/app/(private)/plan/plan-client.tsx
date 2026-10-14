@@ -311,8 +311,8 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
   const isExpired = userSub?.status === 'EXPIRED';
 
   return (
-    <div className="w-full py-8 px-4 sm:px-8 text-zinc-100">
-      <div className="max-w-6xl mx-auto space-y-10">
+    <div className="page-shell">
+      <div className="page-container space-y-10">
         <UserQuotaCards
           userSub={userSub}
           userProfile={userProfile}

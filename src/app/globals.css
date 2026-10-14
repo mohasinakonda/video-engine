@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+/* DM Sans is loaded via next/font in layout.tsx; only the mono face is needed here */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -67,12 +68,21 @@ body {
   .card-elevated {
     @apply bg-bg-elevated border border-bg-border rounded-xl p-5 shadow-sm;
   }
+  .card-interactive {
+    @apply transition-colors duration-150 hover:border-bg-border-strong hover:bg-bg-hover;
+  }
 
-  /* Buttons */
+  /* Buttons — primary = white (brand), accent = emerald (credits / money / success only) */
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
            bg-white text-zinc-950 transition-colors duration-150
            hover:bg-zinc-200 shadow-sm
+           active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm
+           bg-emerald-500 text-zinc-950 transition-colors duration-150
+           hover:bg-emerald-400 shadow-sm
            active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-secondary {
@@ -83,14 +93,21 @@ body {
   }
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm
-           bg-red-950/40 border border-red-900/50 text-red-400 transition-colors duration-150
-           hover:bg-red-900/60 hover:text-red-200
+           bg-rose-950/40 border border-rose-900/50 text-rose-400 transition-colors duration-150
+           hover:bg-rose-900/60 hover:text-rose-200
            active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm text-zinc-400
            transition-colors duration-150 hover:text-white hover:bg-zinc-800/60
            active:scale-[0.98];
+  }
+  /* Size modifiers — combine with any .btn-* */
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-xs {
+    @apply px-2.5 py-1 text-xxs gap-1.5;
   }
 
   /* Form inputs */
@@ -108,6 +125,48 @@ body {
   }
   .label {
     @apply block text-xs font-medium text-zinc-400 mb-1.5 uppercase tracking-wide;
+  }
+  .select {
+    @apply bg-zinc-900/90 border border-zinc-800 rounded-lg px-3 py-2
+           text-sm text-zinc-100
+           focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500
+           transition-colors duration-150;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4
+           bg-black/80 backdrop-blur-sm animate-in fade-in duration-150;
+  }
+  .modal-panel {
+    @apply w-full bg-bg-elevated border border-bg-border rounded-2xl shadow-2xl
+           animate-in fade-in zoom-in-95 duration-150;
+  }
+
+  /* Page layout (scroll pages: dashboard, plan, settings, projects, admin) */
+  .page-shell {
+    @apply min-h-screen bg-bg-base text-zinc-100 py-8 px-4 sm:px-8;
+  }
+  .page-container {
+    @apply max-w-6xl mx-auto space-y-8;
+  }
+  .page-header {
+    @apply flex flex-col sm:flex-row sm:items-end justify-between gap-4;
+  }
+  .page-title {
+    @apply text-2xl font-bold text-white tracking-tight flex items-center gap-2.5;
+  }
+  .page-subtitle {
+    @apply text-sm text-zinc-400 mt-1;
+  }
+
+  /* Workspace toolbar (storyboard, export, YT kit, new project, voice studio) */
+  .workspace-header {
+    @apply sticky top-0 z-20 flex-shrink-0 px-6 py-3 flex items-center justify-between gap-4
+           border-b border-bg-border bg-bg-surface/80 backdrop-blur-md;
+  }
+  .workspace-title {
+    @apply text-sm font-bold text-white leading-tight truncate;
   }
 
   /* Status badges */
