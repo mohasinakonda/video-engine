@@ -179,6 +179,56 @@ function smoothJunctions(
 }
 
 /**
+ * Master loudness normalization: raises (or lowers) the whole file so its
+ * peak hits TARGET_PEAK_DB (-3 dBFS). Chunk-level RMS matching keeps chunks
+ * consistent with each other, but if every chunk is quiet the entire file
+ * stays quiet (measured -13.9 dB peak in the wild) — this fixes that.
+ * Upward gain is capped at +12 dB so near-silent/noise-floor audio is never
+ * blown up; silent input is left untouched.
+ */
+const TARGET_PEAK_DB = -3.0;
+const MAX_UPWARD_GAIN_DB = 12.0;
+
+function normalizeMasterPeak(pcm: Uint8Array): void {
+  const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+  const totalSamples = Math.floor(pcm.byteLength / 2);
+  let peak = 0;
+  for (let i = 0; i < totalSamples; i++) {
+    const abs = Math.abs(view.getInt16(i * 2, true));
+    if (abs > peak) peak = abs;
+  }
+  if (peak <= 0) return; // silent — nothing to normalize
+
+  const peakDb = 20 * Math.log10(peak / 32768);
+  let gainDb = TARGET_PEAK_DB - peakDb;
+  if (gainDb > MAX_UPWARD_GAIN_DB) gainDb = MAX_UPWARD_GAIN_DB;
+  const gain = Math.pow(10, gainDb / 20);
+  if (gain >= 0.999 && gain <= 1.001) return; // already on target
+
+  for (let i = 0; i < totalSamples; i++) {
+    const s = view.getInt16(i * 2, true);
+    view.setInt16(i * 2, Math.round(Math.max(-32768, Math.min(32767, s * gain))), true);
+  }
+}
+
+/**
+ * Rebuild a valid WAV Blob from a fmt chunk + PCM payload.
+ */
+function buildWavBlob(fmtChunk: Uint8Array, pcm: Uint8Array): Blob {
+  const totalPcm = pcm.byteLength;
+  const out = new Uint8Array(12 + fmtChunk.length + 8 + totalPcm);
+  const view = new DataView(out.buffer);
+  out.set([0x52, 0x49, 0x46, 0x46], 0); // 'RIFF'
+  view.setUint32(4, 4 + fmtChunk.length + 8 + totalPcm, true); // file size - 8
+  out.set([0x57, 0x41, 0x56, 0x45], 8); // 'WAVE'
+  out.set(fmtChunk, 12);
+  const dataHeaderAt = 12 + fmtChunk.length;
+  out.set([0x64, 0x61, 0x74, 0x61], dataHeaderAt); // 'data'
+  view.setUint32(dataHeaderAt + 4, totalPcm, true);
+  out.set(pcm, dataHeaderAt + 8);
+  return new Blob([out], { type: 'audio/wav' });
+}
+/**
  * Transparent soft-knee master peak limiter: Prevents sudden phonetic transient bursts
  * from jarring the listener while leaving 100% of vocal dynamic range untouched.
  */
@@ -203,11 +253,23 @@ function applyMasterSoftLimiter(pcm: Uint8Array): void {
 /**
  * Combine chunk audio parts into a single seamless, playable Blob.
  * Performs RMS level matching, 220ms natural inter-chunk respiratory pauses,
- * 35ms soft-knee onset transient taming, and transparent master peak limiting.
+ * 35ms soft-knee onset transient taming, master loudness normalization to
+ * -3 dBFS peak, and transparent master peak limiting.
  */
 export function concatenateAudioParts(parts: Uint8Array[], mimeType: string): Blob {
   if (parts.length === 0) return new Blob([], { type: mimeType });
-  if (parts.length === 1 || !isWav(parts[0])) {
+  if (parts.length === 1 && isWav(parts[0])) {
+    // Single chunk (the common case with 5k-char single-pass models):
+    // still normalize master loudness so quiet generations are audible.
+    const parsed = parseWav(parts[0]);
+    if (parsed) {
+      normalizeMasterPeak(parsed.pcm);
+      applyMasterSoftLimiter(parsed.pcm);
+      return buildWavBlob(parsed.fmtChunk, parsed.pcm);
+    }
+    return new Blob(parts as BlobPart[], { type: mimeType });
+  }
+  if (!isWav(parts[0])) {
     return new Blob(parts as BlobPart[], { type: mimeType });
   }
 
@@ -250,20 +312,9 @@ export function concatenateAudioParts(parts: Uint8Array[], mimeType: string): Bl
     at += p.length;
   }
 
-  // Final master pass: transparent soft-knee peak limiting
+  // Final master pass: loudness normalization, then transparent soft-knee peak limiting
+  normalizeMasterPeak(pcm);
   applyMasterSoftLimiter(pcm);
 
-  // Layout: RIFF header (12) + fmt chunk + data header (8) + PCM.
-  const out = new Uint8Array(12 + fmtChunk.length + 8 + totalPcm);
-  const view = new DataView(out.buffer);
-  out.set([0x52, 0x49, 0x46, 0x46], 0); // 'RIFF'
-  view.setUint32(4, 4 + fmtChunk.length + 8 + totalPcm, true); // file size - 8
-  out.set([0x57, 0x41, 0x56, 0x45], 8); // 'WAVE'
-  out.set(fmtChunk, 12);
-  const dataHeaderAt = 12 + fmtChunk.length;
-  out.set([0x64, 0x61, 0x74, 0x61], dataHeaderAt); // 'data'
-  view.setUint32(dataHeaderAt + 4, totalPcm, true);
-  out.set(pcm, dataHeaderAt + 8);
-
-  return new Blob([out], { type: 'audio/wav' });
+  return buildWavBlob(fmtChunk, pcm);
 }
