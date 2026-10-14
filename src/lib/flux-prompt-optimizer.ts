@@ -11,13 +11,13 @@ Rules:
 2. The very first phrase MUST define the medium and camera setup (e.g., "A 35mm cinematic film still of...", "A clean vector illustration of...", "A macro editorial photograph of...").
 3. Explicitly describe spatial arrangement (foreground, center, background).
 4. Specify physical textures, surfaces, and tangible light sources (direction, color, shadows).
-5. STRICTLY REMOVE all buzzwords: "photorealistic", "hyperrealistic", "8k", "4k", "masterpiece", "ultra-detailed", "unreal engine".
+5. STRICTLY REMOVE empty hype buzzwords: "8k", "4k", "masterpiece", "ultra-detailed", "unreal engine". Keep medium words like "photograph" or "photorealistic" when the style calls for them.
 6. Target word count: 50 to 75 words. Write in 100% positive visual descriptions.`;
 
 /**
  * Regex to purge legacy SD/CLIP buzzwords that degrade FLUX T5-XXL embeddings
  */
-const BUZZWORD_REGEX = /\b(8k(?: resolution)?|4k(?: resolution)?|photorealistic|hyperrealistic|masterpiece|ultra-detailed|unreal engine|trending on artstation)\b/gi;
+const BUZZWORD_REGEX = /\b(8k(?: resolution)?|4k(?: resolution)?|masterpiece|ultra-detailed|unreal engine|trending on artstation)\b/gi;
 
 /**
  * Clean raw text from quotes, code fences, and lingering hype buzzwords

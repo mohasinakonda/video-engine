@@ -218,8 +218,16 @@ export async function POST(req: Request) {
     }
 
     // ─── Step 1: AI Prompt Editor Layer (T5-XXL Optimization) ───────────
-    const optimizedPrompt = await optimizeFluxPrompt(prompt, { stylePrompt });
-    const { positive: finalPrompt, negative: finalNegative } = buildFinalPrompt(optimizedPrompt, undefined, negativePrompt);
+    // The scene-director LLM already writes FLUX-optimised prompts, so we skip a second
+    // (lossy) LLM rewrite and only do a light cleanup.
+    const optimizedPrompt = await optimizeFluxPrompt(prompt, { stylePrompt, skipLlm: true });
+    const built = buildFinalPrompt(optimizedPrompt, undefined, negativePrompt);
+    const finalNegative = built.negative;
+    // schnell ignores negative prompts, so state the quality constraints positively.
+    const finalPrompt =
+      /schnell/i.test(selectedModelId) && !/sharp focus/i.test(built.positive)
+        ? `${built.positive}, sharp focus, crisp natural detail, clean frame with no text or watermark`
+        : built.positive;
     const { width, height } = getFluxDimensions(aspectRatio, reqWidth, reqHeight);
 
     const deepinfraKey = process.env.DEEPINFRA_API_KEY;

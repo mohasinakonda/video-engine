@@ -23,7 +23,7 @@ STILL IMAGE PROMPT MANDATES (FLUX.1 OPTIMIZED):
 4. STATIC DECISIVE MOMENT: Describe the resulting visual state. NEVER write "in the moment just after the switch is flipped" or "a second before".
 5. ZERO NEGATIVE STRINGS: NEVER output "(avoid: ...)", "avoid:", or negative exclusion lists in visual_prompt. Output 100% PURE positive visual tokens.
 6. ABSTRACT PHYSICS TRANSLATOR: Translate abstract/quantum phenomena (photons, molecules, redshift, spacetime) into tangible cinematic visuals (e.g. razor-sharp coherent laser beams in deep space void, volumetric Tyndall dust motes, period chalkboard tensor equations, prismatic spectrum dispersion).
-7. SPATIAL & OPTICAL ANCHORS: Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. Strictly avoid hype buzzwords like "8k", "photorealistic", "masterpiece", or "hyperrealistic".
+7. SPATIAL & OPTICAL ANCHORS: Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. Strictly avoid empty hype buzzwords like "8k", "masterpiece", or "ultra-detailed".
 
 JSON Schema:
 [

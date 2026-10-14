@@ -145,7 +145,7 @@ The visual_prompt field must be concise (30-50 words max), sharp, and directly v
 5. ABSTRACT & QUANTUM PHYSICS TRANSLATOR:
    - Translate invisible concepts into tangible cinematic visuals (e.g., coherent razor-sharp laser beam piercing deep space void, volumetric Tyndall dust motes, chalkboard tensor equations).
 6. STRICT BUZZWORD & ZERO-NEGATIVE BAN:
-   - STRICTLY REMOVE all buzzwords: "photorealistic", "hyperrealistic", "8k", "4k", "masterpiece", "ultra-detailed", "unreal engine".
+   - STRICTLY REMOVE empty hype buzzwords: "8k", "4k", "masterpiece", "ultra-detailed", "unreal engine". Keep "photograph"/"photorealistic" if the project style is photographic.
    - NEVER output "(avoid: ...)", "avoid:", or negative exclusion lists in visual_prompt. Output 100% PURE positive visual descriptions.
 7. SPATIAL & OPTICAL ANCHORS:
    - Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. End with shallow optical depth of field.
@@ -329,10 +329,11 @@ export function assembleFinalImagePrompt(
   let finalPrompt = cleanPrompt;
 
   // Only append base style if it is not already present in the prompt
+  // Style/medium goes FIRST: FLUX's T5 encoder weights early tokens most.
   if (resolvedBaseStyle) {
     const styleSnippet = resolvedBaseStyle.toLowerCase().slice(0, 30);
     if (!cleanPrompt.toLowerCase().includes(styleSnippet)) {
-      finalPrompt = `${cleanPrompt}. ${resolvedBaseStyle}`;
+      finalPrompt = `${resolvedBaseStyle}. ${cleanPrompt}`;
     }
   }
 
@@ -1005,7 +1006,7 @@ The visual_prompt field must be focused, sharp, and descriptive (around 40-75 wo
    - Translate into tangible cinematic visuals: coherent razor-sharp laser beams, volumetric Tyndall dust motes, chalkboard tensor equations, prismatic spectral dispersion.
 7. STRICT ZERO-NEGATIVE BAN (CRITICAL):
    - NEVER output "(avoid: ...)", "avoid:", "no ...", "zero text", or negative exclusion lists in visual_prompt. Output 100% PURE positive visual tokens.
-8. SPATIAL & OPTICAL ANCHORS: Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. Strictly avoid buzzwords like "8k", "photorealistic", "masterpiece".
+8. SPATIAL & OPTICAL ANCHORS: Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. Strictly avoid empty buzzwords like "8k", "masterpiece", "ultra-detailed".
 
 For every scene, output:
 - narration: The EXACT verbatim spoken line(s) from the user script corresponding to this scene. STRICT MANDATE: Keep ONLY the verbatim spoken script words. NEVER summarize, and NEVER append visual descriptions, editorial comments, or dashes (—).

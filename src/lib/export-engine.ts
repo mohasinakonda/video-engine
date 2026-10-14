@@ -821,5 +821,7 @@ function drawKenBurnsImage(
   const x = (canvasWidth - drawW) / 2 + offsetX;
   const y = (canvasHeight - drawH) / 2 + offsetY;
 
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, x, y, drawW, drawH);
 }
