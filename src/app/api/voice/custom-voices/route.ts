@@ -3,6 +3,11 @@ import {
   authenticateVoiceRequest,
   createDeepinfraVoice,
   deleteDeepinfraVoice,
+  chargeVoiceCredits,
+  refundVoiceCredits,
+  MAX_CUSTOM_VOICES_PER_USER,
+  CLONE_COST_CREDITS,
+  type VoiceAuth,
 } from '@/lib/voice-server';
 
 export const dynamic = 'force-dynamic';
@@ -52,10 +57,13 @@ export async function GET() {
  * Registers anchor audio with DeepInfra and saves persistent voice record in Supabase.
  */
 export async function POST(req: Request) {
+  let chargedCredits = 0;
+  let authForRefund: VoiceAuth | null = null;
   try {
     const gate = await authenticateVoiceRequest();
     if ('error' in gate) return gate.error;
     const { auth } = gate;
+    authForRefund = auth;
 
     const apiKey = getDeepinfraKey();
     if (!apiKey) {
@@ -82,6 +90,30 @@ export async function POST(req: Request) {
     if (fullAudioBuf.byteLength < 1024) {
       return NextResponse.json({ error: 'Audio sample is too short or invalid.' }, { status: 400 });
     }
+
+    // Per-user voice cap: max 5 cloned voices (delete one to free a slot).
+    const { count: existingCount, error: countErr } = await auth.serverSupabase
+      .from('user_custom_voices')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', auth.userId);
+    if (countErr) {
+      console.warn('[custom-voices POST] count check failed:', countErr.message);
+    } else if ((existingCount ?? 0) >= MAX_CUSTOM_VOICES_PER_USER) {
+      return NextResponse.json(
+        { error: `Voice limit reached — you can keep up to ${MAX_CUSTOM_VOICES_PER_USER} cloned voices. Delete one to clone another.` },
+        { status: 400 }
+      );
+    }
+
+    // Charge 15 credits upfront; refunded automatically if cloning fails below.
+    const charge = await chargeVoiceCredits(auth, CLONE_COST_CREDITS);
+    if (!charge.ok) {
+      return NextResponse.json(
+        { error: `Insufficient credits. Cloning a voice costs ${CLONE_COST_CREDITS} credits.` },
+        { status: 402 }
+      );
+    }
+    chargedCredits = CLONE_COST_CREDITS;
 
     // Cost & storage optimization: Trim to max ~10 seconds of 24kHz 16-bit mono WAV (~512KB)
     let anchorBuf = fullAudioBuf;
@@ -131,8 +163,13 @@ export async function POST(req: Request) {
 
     if (dbError) {
       console.error('[custom-voices POST] DB Insert failed:', dbError);
-      // Clean up the created DeepInfra voice so we don't leave an orphan
+      // Clean up the created DeepInfra voice so we don't leave an orphan,
+      // and refund the clone charge.
       await deleteDeepinfraVoice(voiceId, apiKey).catch(() => { });
+      if (chargedCredits > 0) {
+        await refundVoiceCredits(auth, chargedCredits).catch(() => { });
+        chargedCredits = 0;
+      }
       return NextResponse.json(
         { error: `Database error: ${dbError.message}. Please ensure the user_custom_voices table is created.` },
         { status: 500 }
@@ -142,8 +179,14 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       voice: savedVoice,
+      creditsCharged: CLONE_COST_CREDITS,
+      creditsRemaining: charge.remaining,
     });
   } catch (err: any) {
+    // Refund the clone charge if anything failed after charging.
+    if (authForRefund && chargedCredits > 0) {
+      await refundVoiceCredits(authForRefund, chargedCredits).catch(() => { });
+    }
     console.error('[custom-voices POST] error:', err);
     return NextResponse.json({ error: err.message || 'Failed to save custom voice' }, { status: 500 });
   }

@@ -750,6 +750,11 @@ export function deleteVoicePlan(planId: string): void {
 
 // ─── Credits ─────────────────────────────────────────────────────────────────
 
+/** Max cloned/designed voices a user may keep. Delete one to free a slot. */
+export const MAX_CUSTOM_VOICES_PER_USER = 5;
+/** Credits charged each time a voice is cloned. Refunded if cloning fails. */
+export const CLONE_COST_CREDITS = 15;
+
 export function priceVoiceGeneration(totalChars: number, charsPerCredit: number): number {
   return calculateVoiceCredits(totalChars, charsPerCredit);
 }
