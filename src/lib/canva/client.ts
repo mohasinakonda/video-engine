@@ -182,8 +182,24 @@ export async function uploadAssetToCanva(
     } else {
       throw new Error('Invalid base64 image data URL format');
     }
-  } else if (imageData.startsWith('http://') || imageData.startsWith('https://')) {
-    const fetchRes = await fetch(imageData);
+  } else if (imageData.startsWith('https://')) {
+    // SSRF guard: only fetch from our own Supabase storage, never arbitrary/internal hosts.
+    let host = '';
+    try {
+      host = new URL(imageData).hostname.toLowerCase();
+    } catch {
+      throw new Error('Invalid image URL');
+    }
+    let ownHost = '';
+    try {
+      ownHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || '').hostname.toLowerCase();
+    } catch {
+      /* not configured */
+    }
+    if (!(ownHost && host === ownHost) && !host.endsWith('.supabase.co')) {
+      throw new Error('Image URL host is not allowed');
+    }
+    const fetchRes = await fetch(imageData, { redirect: 'error' });
     if (!fetchRes.ok) {
       throw new Error(`Failed to fetch image from URL: ${fetchRes.statusText}`);
     }

@@ -21,6 +21,8 @@ import {
   getAdminSettings,
 } from '@/lib/subscription-store';
 import type { PaymentSubmission, PlanTier, BillingCycle } from '@/types/subscription';
+import { getPlanPrice, getPlanCredits, isBillingCycle } from '@/lib/plan-pricing';
+import { effectiveTier } from '@/lib/input-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,9 +90,28 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
+    // Identity comes from the authenticated session, never from the request body.
+    let sessionUserId: string | undefined;
+    let sessionEmail: string | undefined;
+    if (isSupabaseConfigured()) {
+      const serverSupabase = createServerClient();
+      const {
+        data: { user },
+      } = await serverSupabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized. Please sign in.' },
+          { status: 401 }
+        );
+      }
+      sessionUserId = user.id;
+      sessionEmail = user.email || undefined;
+    }
+
     const {
-      userId,
-      userEmail,
+      userId: bodyUserId,
+      userEmail: bodyUserEmail,
       userName,
       itemType,
       planId,
@@ -104,15 +125,18 @@ export async function POST(req: Request) {
       senderNumber,
     } = body;
 
+    const userId: string | undefined = sessionUserId ?? bodyUserId;
+    const userEmail: string | undefined = sessionEmail ?? bodyUserEmail;
+
     // 1. Basic validation
-    if (!userEmail || !userEmail.trim()) {
+    if (!userEmail || typeof userEmail !== 'string' || !userEmail.trim()) {
       return NextResponse.json(
         { success: false, error: 'User email is required' },
         { status: 400 }
       );
     }
 
-    if (!senderNumber || !senderNumber.trim()) {
+    if (!senderNumber || typeof senderNumber !== 'string' || !senderNumber.trim()) {
       return NextResponse.json(
         { success: false, error: 'Sender mobile number is required' },
         { status: 400 }
@@ -139,7 +163,16 @@ export async function POST(req: Request) {
 
       if (isSupabaseConfigured() && userId && UUID_REGEX.test(userId)) {
         const profile = await fetchSupabaseProfile(userId);
-        if (profile && profile.tier && profile.tier !== 'TRIAL') {
+        // An expired plan counts as TRIAL here too, so lapsed users must renew before topping up.
+        const tier = profile
+          ? effectiveTier({
+              tier: profile.tier,
+              subscription_expires_at: profile.subscriptionExpiresAt
+                ? new Date(profile.subscriptionExpiresAt).toISOString()
+                : null,
+            })
+          : 'TRIAL';
+        if (tier !== 'TRIAL') {
           isSubscriber = true;
         }
       }
@@ -169,18 +202,14 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      officialOriginalPrice =
-        billingCycle === 'quarterly'
-          ? (plan.priceQuarterly ?? Math.round(plan.priceMonthly * 2.7))
-          : billingCycle === 'yearly'
-          ? (plan.priceYearly ?? plan.priceMonthly * 10)
-          : plan.priceMonthly;
-      baseCredits =
-        billingCycle === 'quarterly'
-          ? plan.creditsPerMonth * 3
-          : billingCycle === 'yearly'
-          ? plan.creditsPerMonth * 12
-          : plan.creditsPerMonth;
+      if (!isBillingCycle(billingCycle)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid billing cycle. Choose monthly or 3 months.' },
+          { status: 400 }
+        );
+      }
+      officialOriginalPrice = getPlanPrice(plan, billingCycle);
+      baseCredits = getPlanCredits(plan, billingCycle);
     } else if (itemType === 'topup') {
       const dbTopups = await fetchTopupPacksRemote();
       const allTopups = (dbTopups && dbTopups.length > 0) ? dbTopups : (getTopupPacks() || DEFAULT_TOPUP_PACKS);
@@ -292,7 +321,8 @@ export async function POST(req: Request) {
     let recordedInSupabase = false;
     if (isSupabaseConfigured()) {
       try {
-        const remoteResult = await submitPaymentRemote(submissionData);
+        // Signed-in session client: the submit RPC is not executable by anon.
+        const remoteResult = await submitPaymentRemote(submissionData, createServerClient());
         if (remoteResult) {
           recordedInSupabase = true;
         }

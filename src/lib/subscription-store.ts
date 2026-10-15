@@ -16,7 +16,7 @@ import type {
   PlanTier,
   BillingCycle,
 } from '@/types/subscription';
-import { deductCreditsRemote, grantCreditsRemote, isSupabaseConfigured } from '@/lib/supabase-service';
+import { grantCreditsRemote, isSupabaseConfigured } from '@/lib/supabase-service';
 
 // ─── Default Admin Settings ──────────────────────────────────────────────────
 
@@ -190,26 +190,41 @@ export function getUserCreditsRemaining(): number {
   return profile.creditsRemaining ?? 0;
 }
 
-export function deductUserCredits(amount: number, reason = 'image_generation'): boolean {
+/**
+ * UI-only credit hold for work the server will charge for (e.g. /api/generate-image).
+ * Never writes to the database — the server route deducts the real credits and
+ * refunds them on failure, so charging here too would bill the user twice.
+ */
+export function holdLocalCredits(amount: number): boolean {
   const profile = getCurrentUserProfile();
   if (!profile || profile.isBlocked || profile.creditsRemaining < amount) {
     return false;
   }
   profile.creditsRemaining = Math.max(0, profile.creditsRemaining - amount);
   profile.creditsUsed += amount;
-  setActiveUserProfile(profile);
+  setActiveUserProfile(profile, false);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('subscription_credits_updated', {
       detail: { creditsRemaining: profile.creditsRemaining, creditsUsed: profile.creditsUsed },
     }));
   }
-
-  if (isSupabaseConfigured() && profile.id && profile.id !== 'guest') {
-    deductCreditsRemote(profile.id, amount).catch(console.error);
-  }
-
   return true;
+}
+
+let creditSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Reload the real balance from the database (debounced), replacing any local
+ * holds. Call after server-charged work finishes, succeeds or fails.
+ */
+export function syncCreditsFromServer(): void {
+  if (typeof window === 'undefined') return;
+  if (creditSyncTimer) clearTimeout(creditSyncTimer);
+  creditSyncTimer = setTimeout(() => {
+    creditSyncTimer = null;
+    window.dispatchEvent(new CustomEvent('credits_updated'));
+  }, 600);
 }
 
 export function grantUserCredits(amount: number, reason = 'credit_grant'): void {

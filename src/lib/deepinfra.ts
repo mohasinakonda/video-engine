@@ -30,20 +30,33 @@ export interface DeepInfraImageResult {
 }
 
 /**
- * Standard optimal resolutions for FLUX and diffusion models
+ * Native generation sizes for FLUX. FLUX is trained around ~1MP: going well above
+ * that (e.g. 1920x1080 = 2MP) makes images soft and causes duplicated/odd detail.
+ * We generate at ~1MP and let the export/preview step scale up with high-quality smoothing.
+ * Custom sizes are rounded to multiples of 64 and capped at ~1.1MP.
  */
+const MAX_NATIVE_PIXELS = 1_150_000;
+
 export function getFluxDimensions(aspectRatio?: '16:9' | '9:16' | '1:1', customW?: number, customH?: number) {
   if (customW && customH) {
-    return { width: customW, height: customH };
+    let w = customW;
+    let h = customH;
+    const scale = Math.sqrt(MAX_NATIVE_PIXELS / (w * h));
+    if (scale < 1) {
+      w *= scale;
+      h *= scale;
+    }
+    const snap = (v: number) => Math.max(256, Math.round(v / 64) * 64);
+    return { width: snap(w), height: snap(h) };
   }
   if (aspectRatio === '9:16') {
-    return { width: 1080, height: 1920 };
+    return { width: 720, height: 1280 };
   }
   if (aspectRatio === '1:1') {
-    return { width: 1080, height: 1080 };
+    return { width: 1024, height: 1024 };
   }
-  // Default: 16:9 widescreen Full HD
-  return { width: 1920, height: 1080 };
+  // Default: 16:9 at 1280x720 (exact aspect, ~0.9MP)
+  return { width: 1280, height: 720 };
 }
 
 /**
@@ -55,7 +68,7 @@ export async function generateDeepInfraFluxImage(
 ): Promise<DeepInfraImageResult> {
   // Security: the DeepInfra key must NEVER be exposed via a NEXT_PUBLIC_ variable.
   // NEXT_PUBLIC_ values are inlined into the client JS bundle, and this module
-  // is reachable from client components through lib/pollinations.ts.
+  // is reachable from client components through lib/scene-ai.ts.
   const apiKey =
     options.apiKey?.trim() ||
     process.env.DEEPINFRA_API_KEY?.trim() ||
@@ -105,7 +118,10 @@ export async function generateDeepInfraFluxImage(
     payload.seed = options.seed;
   }
 
-  if (options.negativePrompt && options.negativePrompt.trim()) {
+  // FLUX.1-schnell is guidance-distilled and has no negative-prompt support (it is ignored),
+  // so only send it for models that honour it.
+  const supportsNegative = !modelId.toLowerCase().includes('schnell');
+  if (supportsNegative && options.negativePrompt && options.negativePrompt.trim()) {
     payload.negative_prompt = options.negativePrompt.trim();
   }
 

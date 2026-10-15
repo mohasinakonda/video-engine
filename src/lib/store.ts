@@ -41,52 +41,12 @@ function storeSet(key: string, value: unknown): void {
 
 // ─── API Key & Settings Accessors ─────────────────────────────────────────────
 
-let cachedEnvPollinationsKey: string | null = null;
-
-export async function getApiKey(): Promise<string> {
-  return getPollinationsApiKey();
+export async function getImageModel(): Promise<string> {
+  return storeGet<string>('image-model') || 'black-forest-labs/FLUX-1-schnell';
 }
 
-export async function saveApiKey(apiKey: string): Promise<void> {
-  storeSet('pollinations-api-key', apiKey);
-}
-
-export async function getPollinationsApiKey(): Promise<string> {
-  if (typeof process !== 'undefined' && process.env?.POLLINATIONS_API_KEY) {
-    return process.env.POLLINATIONS_API_KEY.trim();
-  }
-  // Security: never fall back to NEXT_PUBLIC_POLLINATIONS_API_KEY here.
-  // NEXT_PUBLIC_ values are inlined into the client JS bundle.
-  if (cachedEnvPollinationsKey !== null) {
-    return cachedEnvPollinationsKey;
-  }
-  if (typeof window !== 'undefined') {
-    try {
-      const res = await fetch('/api/pollinations-key');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.key) {
-          cachedEnvPollinationsKey = data.key;
-          return data.key;
-        }
-      }
-    } catch {
-      // fallback
-    }
-  }
-  return storeGet<string>('pollinations-api-key') || '';
-}
-
-export async function savePollinationsApiKey(apiKey: string): Promise<void> {
-  storeSet('pollinations-api-key', apiKey);
-}
-
-export async function getPollinationsImageModel(): Promise<string> {
-  return storeGet<string>('pollinations-image-model') || 'flux';
-}
-
-export async function savePollinationsImageModel(model: string): Promise<void> {
-  storeSet('pollinations-image-model', model);
+export async function saveImageModel(model: string): Promise<void> {
+  storeSet('image-model', model);
 }
 
 export async function getYouTubeApiKey(): Promise<string> {

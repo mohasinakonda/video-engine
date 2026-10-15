@@ -1,6 +1,6 @@
 export type PlanTier = 'TRIAL' | 'STARTER' | 'CREATOR' | 'STUDIO';
 
-export type BillingCycle = 'monthly' | 'quarterly' | 'yearly';
+export type BillingCycle = 'monthly' | 'quarterly';
 
 export interface SubscriptionPlan {
   id: PlanTier;
@@ -9,7 +9,6 @@ export interface SubscriptionPlan {
   popular?: boolean;
   priceMonthly: number;
   priceQuarterly?: number; // 3-month bundle price
-  priceYearly?: number;
   creditsPerMonth: number;
   maxVideoDurationSec: number;
   maxResolution: '1080p' | '4k';

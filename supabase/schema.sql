@@ -49,6 +49,17 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public;
 
+-- True for the service role (server-side trusted code) or a verified admin user.
+-- Used to gate privileged SECURITY DEFINER functions below.
+create or replace function public.is_service_or_admin()
+returns boolean as $$
+begin
+  return current_user = 'service_role'
+    or coalesce(auth.jwt()->>'role', '') = 'service_role'
+    or public.is_admin();
+end;
+$$ language plpgsql security definer set search_path = public;
+
 -- Row Level Security (RLS)
 alter table public.profiles enable row level security;
 
@@ -75,11 +86,13 @@ create policy "Admins can manage all profiles"
   with check (public.is_admin());
 
 -- Anti-tampering trigger: prevents standard users from escalating role, credits, tier, or affiliate funds
+-- SECURITY INVOKER on purpose: in a SECURITY DEFINER function current_user is the
+-- owner (postgres), which would make the bypass below match every caller.
 create or replace function public.protect_profile_fields()
 returns trigger as $$
 begin
-  -- If service role or verified admin, permit changes
-  if current_user = 'service_role' or (auth.jwt()->>'role' = 'service_role') then
+  -- Service role and trusted server-side code (SECURITY DEFINER RPCs owned by postgres) may change anything.
+  if current_user in ('service_role', 'postgres', 'supabase_admin') or (auth.jwt()->>'role' = 'service_role') then
     return new;
   end if;
 
@@ -121,7 +134,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security invoker set search_path = public;
 
 drop trigger if exists trg_protect_profile_fields on public.profiles;
 create trigger trg_protect_profile_fields
@@ -190,7 +203,8 @@ create table if not exists public.plans (
   badge text,
   popular boolean default false,
   price_monthly int not null,
-  price_yearly int not null,
+  price_quarterly int,
+  price_yearly int, -- legacy: yearly billing is discontinued
   credits_per_month int not null,
   max_video_duration_sec int not null,
   max_resolution text default '1080p',
@@ -213,14 +227,18 @@ create policy "Admins can manage plans" on public.plans for all
   );
 
 -- Seed Default Plans
-insert into public.plans (id, name, badge, popular, price_monthly, price_yearly, credits_per_month, max_video_duration_sec, max_resolution, features)
+-- Mirrors production pricing (Starter = 1 BDT per credit; bigger plans are cheaper per credit).
+alter table public.plans add column if not exists price_quarterly int;
+alter table public.plans alter column price_yearly drop not null;
+
+insert into public.plans (id, name, badge, popular, price_monthly, price_quarterly, credits_per_month, max_video_duration_sec, max_resolution, features)
 values
-  ('STARTER', 'Starter', 'Popular for Beginners', false, 500, 5000, 200, 180, '1080p',
-   '["200 Image Credits / month (~12-15 videos)", "Up to 3-minute video duration", "1080p Full HD rendering", "AI Script-to-Scenes Director", "Standard customer support"]'::jsonb),
-  ('CREATOR', 'Creator', 'Most Popular', true, 1200, 12000, 600, 480, '1080p',
-   '["600 Image Credits / month (~35-45 videos)", "Up to 8-minute video duration", "1080p Full HD rendering", "Custom visual art style presets", "Commercial usage license", "Priority WhatsApp support"]'::jsonb),
-  ('STUDIO', 'Studio Pro', 'Full Power', false, 2500, 25000, 1500, 1200, '4k',
-   '["1,500 Image Credits / month (~100+ videos)", "Up to 20-minute video duration", "4K Ultra HD crisp rendering", "VIP rendering speed queue", "Commercial usage license", "Direct WhatsApp VIP support"]'::jsonb)
+  ('STARTER', 'Starter', 'Popular for Beginners', false, 1200, 3200, 1200, 180, '1080p',
+   '["1,200 Credits / month", "YouTube Launch Kit & SEO Kit", "Up to 3-minute video duration per project", "1080p Full HD crisp rendering", "100% Watermark-Free Export", "Bangla & English AI Voiceovers included", "AI Script-to-Scenes Director", "Standard customer support"]'::jsonb),
+  ('CREATOR', 'Creator', 'Most Popular', true, 1650, 4500, 2000, 600, '1080p',
+   '["2,000 Credits / month", "Complete YouTube Launch Kit & SEO Director", "Up to 10-minute video duration per project", "1080p Full HD crisp rendering", "100% Watermark-Free Export", "Bangla & English AI Voiceovers included", "Custom visual styles & character consistency", "Commercial monetization license (YouTube & FB)", "Fast rendering priority queue", "Priority WhatsApp VIP support"]'::jsonb),
+  ('STUDIO', 'Studio Pro', 'Full Power', false, 2500, 6800, 3500, 1200, '4k',
+   '["3,500 Credits / month", "YouTube Launch Kit & SEO Director", "Up to 20-minute video duration", "4K Ultra HD pristine rendering", "100% Watermark-Free Export", "All AI Voiceovers & Audio FX included", "Instant VIP rendering queue", "Full commercial & agency monetization rights", "Dedicated 1-on-1 WhatsApp VIP manager"]'::jsonb)
 on conflict (id) do nothing;
 
 -- ==============================================================================
@@ -306,7 +324,7 @@ create table if not exists public.payments (
   plan_id text,
   topup_id text,
   item_type text not null check (item_type in ('subscription', 'topup')),
-  billing_cycle text check (billing_cycle in ('monthly', 'yearly')),
+  billing_cycle text check (billing_cycle in ('monthly', 'quarterly')),
   original_price_bdt int not null,
   discounted_price_bdt int not null,
   promo_code_applied text,
@@ -319,6 +337,10 @@ create table if not exists public.payments (
   reviewed_at timestamptz,
   admin_note text
 );
+
+alter table public.payments drop constraint if exists payments_billing_cycle_check;
+alter table public.payments add constraint payments_billing_cycle_check
+  check (billing_cycle in ('monthly', 'quarterly'));
 
 alter table public.payments enable row level security;
 
@@ -333,7 +355,7 @@ create policy "Users can view own payments"
 drop policy if exists "Users can insert payments" on public.payments;
 create policy "Users can insert payments"
   on public.payments for insert
-  with check (auth.uid() = user_id or auth.uid() is null);
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Allow all operations on payments" on public.payments;
 drop policy if exists "Admins can update payments" on public.payments;
@@ -345,6 +367,170 @@ create policy "Admins can update payments"
   with check (
     public.is_admin()
   );
+
+-- Payment submission: callers may only file a request for themselves.
+create or replace function public.submit_payment_request(
+  p_id text, p_user_id uuid, p_user_email text, p_plan_id text, p_topup_id text,
+  p_item_type text, p_billing_cycle text, p_original_price_bdt integer,
+  p_discounted_price_bdt integer, p_promo_code_applied text, p_credits_to_grant integer,
+  p_payment_method text, p_sender_number text, p_trx_id text default null
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_result json;
+begin
+  if p_user_id is distinct from auth.uid() and not public.is_service_or_admin() then
+    raise exception 'Not allowed to submit a payment for another user';
+  end if;
+
+  insert into public.payments (
+    id, user_id, user_email, plan_id, topup_id, item_type, billing_cycle,
+    original_price_bdt, discounted_price_bdt, promo_code_applied, credits_to_grant,
+    payment_method, sender_number, trx_id, status, submitted_at
+  ) values (
+    p_id, p_user_id, p_user_email, p_plan_id, p_topup_id, p_item_type, p_billing_cycle,
+    p_original_price_bdt, p_discounted_price_bdt, p_promo_code_applied, p_credits_to_grant,
+    p_payment_method, p_sender_number, p_trx_id, 'PENDING', now()
+  );
+
+  select row_to_json(p) into v_result from public.payments p where p.id = p_id;
+  return v_result;
+end;
+$$;
+
+-- Payment approval: admins / service role only (grants credits and plan tier).
+create or replace function public.approve_payment_admin(
+  p_submission_id text,
+  p_admin_note text default 'Approved by admin'
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sub record;
+  v_period interval;
+begin
+  if not public.is_service_or_admin() then
+    raise exception 'Only admins can approve payments';
+  end if;
+
+  select * into v_sub from public.payments where id = p_submission_id;
+  if not found then
+    return false;
+  end if;
+  -- Never credit the same payment twice.
+  if v_sub.status = 'APPROVED' then
+    return false;
+  end if;
+
+  v_period := case when v_sub.billing_cycle = 'quarterly' then interval '90 days' else interval '30 days' end;
+
+  update public.payments
+  set status = 'APPROVED', reviewed_at = now(), admin_note = p_admin_note
+  where id = p_submission_id;
+
+  if v_sub.user_id is not null then
+    update public.profiles
+    set credits_remaining = coalesce(credits_remaining, 0) + coalesce(v_sub.credits_to_grant, 0),
+        total_spent_bdt = coalesce(total_spent_bdt, 0) + coalesce(v_sub.discounted_price_bdt, 0),
+        tier = case
+          when v_sub.item_type = 'subscription' and v_sub.plan_id is not null then v_sub.plan_id
+          else tier
+        end,
+        -- Renewals stack: early renewals never lose paid days.
+        subscription_expires_at = case
+          when v_sub.item_type = 'subscription'
+            then greatest(now(), coalesce(subscription_expires_at, now())) + v_period
+          else subscription_expires_at
+        end,
+        updated_at = now()
+    where id = v_sub.user_id;
+  end if;
+
+  if v_sub.promo_code_applied is not null and v_sub.promo_code_applied <> '' then
+    perform public.credit_affiliate_commission(
+      v_sub.promo_code_applied,
+      coalesce(v_sub.discounted_price_bdt, 0),
+      15
+    );
+  end if;
+
+  return true;
+end;
+$$;
+
+revoke execute on function public.submit_payment_request(text, uuid, text, text, text, text, text, integer, integer, text, integer, text, text, text) from public, anon;
+grant execute on function public.submit_payment_request(text, uuid, text, text, text, text, text, integer, integer, text, integer, text, text, text) to authenticated, service_role;
+revoke execute on function public.approve_payment_admin(text, text) from public, anon;
+grant execute on function public.approve_payment_admin(text, text) to authenticated, service_role;
+
+-- ==============================================================================
+-- PLAN EXPIRY: 24h grace, then TRIAL with 0 credits (plan + top-up share one balance)
+-- ==============================================================================
+create table if not exists public.credit_expirations (
+  id bigint generated always as identity primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  tier_before text not null,
+  credits_expired int not null,
+  plan_expired_at timestamptz,
+  created_at timestamptz default now() not null
+);
+
+alter table public.credit_expirations enable row level security;
+drop policy if exists "Users can view own credit expirations" on public.credit_expirations;
+create policy "Users can view own credit expirations"
+  on public.credit_expirations for select
+  using (auth.uid() = user_id or public.is_admin());
+
+create or replace function public.expire_lapsed_subscriptions()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+begin
+  with lapsed as (
+    select id, tier, credits_remaining, subscription_expires_at
+    from public.profiles
+    where tier <> 'TRIAL'
+      and subscription_expires_at is not null
+      and subscription_expires_at < now() - interval '24 hours'
+    for update
+  ), logged as (
+    insert into public.credit_expirations (user_id, tier_before, credits_expired, plan_expired_at)
+    select id, tier, credits_remaining, subscription_expires_at from lapsed
+  )
+  update public.profiles p
+  set tier = 'TRIAL',
+      credits_remaining = 0,
+      subscription_expires_at = null,
+      updated_at = now()
+  from lapsed
+  where p.id = lapsed.id;
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+revoke execute on function public.expire_lapsed_subscriptions() from public, anon, authenticated;
+grant execute on function public.expire_lapsed_subscriptions() to service_role;
+
+-- Hourly job (requires the pg_cron extension).
+create extension if not exists pg_cron;
+select cron.schedule(
+  'expire-lapsed-subscriptions',
+  '5 * * * *',
+  $cron$select public.expire_lapsed_subscriptions()$cron$
+);
 
 -- ==============================================================================
 -- AFFILIATE PAYOUT REQUESTS
@@ -438,6 +624,11 @@ begin
     return false;
   end if;
 
+  -- A user may only spend their own credits; service role / admin may act on anyone.
+  if not (public.is_service_or_admin() or auth.uid() = p_user_id) then
+    return false;
+  end if;
+
   select credits_remaining, is_blocked into current_balance, user_blocked
   from public.profiles where id = p_user_id for update;
 
@@ -454,7 +645,7 @@ begin
 
   return true;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 2. Grant Credits
 create or replace function public.grant_credits(p_user_id uuid, p_amount int)
@@ -464,13 +655,18 @@ begin
     return;
   end if;
 
+  -- Granting credits is privileged: never callable by a regular user for themselves.
+  if not public.is_service_or_admin() then
+    raise exception 'Not authorized to grant credits';
+  end if;
+
   update public.profiles
   set
     credits_remaining = credits_remaining + p_amount,
     updated_at = now()
   where id = p_user_id;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 3. Atomic Promo Code Counter
 create or replace function public.increment_promo_usage(p_code text)
@@ -480,6 +676,10 @@ declare
   v_max_uses int;
   v_curr_uses int;
 begin
+  if not public.is_service_or_admin() then
+    raise exception 'Not authorized to modify promo usage';
+  end if;
+
   select max_uses, current_uses into v_max_uses, v_curr_uses
   from public.promo_codes
   where upper(code) = v_code for update;
@@ -498,7 +698,7 @@ begin
 
   return true;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 -- 4. Atomic Affiliate Commission Crediting
 create or replace function public.credit_affiliate_commission(
@@ -511,7 +711,11 @@ declare
   v_ref_owner uuid;
   v_commission int;
 begin
-  if p_order_amount_bdt <= 0 then
+  if not public.is_service_or_admin() then
+    raise exception 'Not authorized to credit affiliate commission';
+  end if;
+
+  if p_order_amount_bdt <= 0 or p_commission_percent < 0 or p_commission_percent > 50 then
     return false;
   end if;
 
@@ -535,7 +739,18 @@ begin
 
   return true;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+
+-- Lock down who may call the privileged functions (Postgres grants EXECUTE to PUBLIC by default).
+revoke execute on function public.grant_credits(uuid, int) from public, anon;
+revoke execute on function public.deduct_credits(uuid, int) from public, anon;
+revoke execute on function public.increment_promo_usage(text) from public, anon;
+revoke execute on function public.credit_affiliate_commission(text, int, int) from public, anon;
+revoke execute on function public.is_service_or_admin() from public, anon;
+grant execute on function public.grant_credits(uuid, int) to authenticated, service_role;
+grant execute on function public.deduct_credits(uuid, int) to authenticated, service_role;
+grant execute on function public.increment_promo_usage(text) to authenticated, service_role;
+grant execute on function public.credit_affiliate_commission(text, int, int) to authenticated, service_role;
 
 -- ==============================================================================
 -- STORAGE BUCKETS (Audio Voiceovers & Generated Scene Images)
@@ -560,7 +775,10 @@ create policy "Public Access to Audio Voiceovers"
 drop policy if exists "Authenticated users can upload images" on storage.objects;
 create policy "Authenticated users can upload images"
   on storage.objects for insert
-  with check (bucket_id in ('scene-images', 'audio-voiceovers'));
+  with check (
+    bucket_id in ('scene-images', 'audio-voiceovers')
+    and auth.role() = 'authenticated'
+  );
 
 -- ==============================================================================
 -- ART STYLES & PRESETS (Dynamic Catalog Managed by Admin)

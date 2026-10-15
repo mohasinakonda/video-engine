@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import CharCounter from '@/components/char-counter';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 import {
   X,
   Upload,
@@ -56,7 +58,11 @@ export default function SceneStudioModal({
   const shotConfig = scene.shotType ? SHOT_TYPE_CONFIG[scene.shotType] : null;
   const ShotIcon = shotConfig?.icon;
   const isSubmitDisabled =
-    !promptDraft.trim() || isGenerating || isSubmittingRegenerate || disabled;
+    !promptDraft.trim() ||
+    promptDraft.trim().length > TEXT_LIMITS.scenePrompt ||
+    isGenerating ||
+    isSubmittingRegenerate ||
+    disabled;
 
 
   return (
@@ -185,6 +191,7 @@ export default function SceneStudioModal({
                 className="w-full text-xs bg-zinc-900 border border-zinc-700/80 rounded-xl p-2.5 text-zinc-200 focus:outline-none focus:border-zinc-500 transition-colors resize-none leading-relaxed"
                 placeholder="Enter visual prompt instructions for this scene…"
               />
+              <CharCounter length={promptDraft.trim().length} limit={TEXT_LIMITS.scenePrompt} className="mt-1" />
             </div>
 
             {/* Quick Modifiers */}

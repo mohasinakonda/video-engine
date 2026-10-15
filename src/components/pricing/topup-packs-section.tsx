@@ -25,7 +25,7 @@ export function TopupPacksSection({
           </h2>
           <p className="text-xs text-zinc-400">
             {hasActiveSubscription
-              ? 'Add image credits immediately via bKash or Nagad. Credits never expire!'
+              ? 'Add credits instantly via bKash or Nagad. Credits stay valid while your plan is active.'
               : 'Credit top-up packs are exclusively available for active plan subscribers. Subscribe to a plan below to unlock top-ups!'}
           </p>
         </div>

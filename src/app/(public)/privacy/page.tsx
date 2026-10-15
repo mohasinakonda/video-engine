@@ -52,7 +52,7 @@ export default function PrivacyPage() {
             </p>
             <ul className="list-disc pl-5 space-y-1.5 text-zinc-600">
               <li>Your scripts and private video projects are never sold to data brokers or third-party advertisers.</li>
-              <li>AI inference requests to Pollinations AI and speech synthesis APIs are processed securely over encrypted HTTPS connections.</li>
+              <li>AI inference requests to our AI providers and speech synthesis APIs are processed securely over encrypted HTTPS connections.</li>
               <li>Rendered video outputs and intermediate image frames are stored in secure cloud storage and are only accessible by your authenticated account.</li>
             </ul>
           </section>

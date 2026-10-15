@@ -10,15 +10,15 @@ import {
   Flame,
 } from 'lucide-react';
 import {
-  getPollinationsImageModel,
-  savePollinationsImageModel,
+  getImageModel,
+  saveImageModel,
   getYouTubeApiKey,
   saveYouTubeApiKey,
 } from '@/lib/store';
 import {
   enhanceScenePrompt,
   type EnhancedScenePromptResult,
-} from '@/lib/pollinations';
+} from '@/lib/scene-ai';
 import type { ShotType } from '@/types';
 import type { AIImageModel, PlanTier } from '@/types/subscription';
 import { getCurrentUserProfile } from '@/lib/subscription-store';
@@ -76,7 +76,7 @@ export default function SettingsPage() {
       })
       .catch(console.error);
 
-    getPollinationsImageModel().then((m) => {
+    getImageModel().then((m) => {
       setImageModel(m);
     });
     getYouTubeApiKey().then((k) => {
@@ -94,7 +94,7 @@ export default function SettingsPage() {
 
   async function handleImageModelChange(newModel: string) {
     setImageModel(newModel);
-    await savePollinationsImageModel(newModel);
+    await saveImageModel(newModel);
     setSavedModelToast(true);
     setTimeout(() => setSavedModelToast(false), 2000);
   }

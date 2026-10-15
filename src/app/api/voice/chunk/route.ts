@@ -6,6 +6,7 @@ import {
   synthesizeVoiceChunk,
   getVoicePlan,
 } from '@/lib/voice-server';
+import { TEXT_LIMITS, clampText } from '@/lib/input-limits';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -107,12 +108,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Invalid chunk text (max ${maxChunkLimit} chars).` }, { status: 400 });
     }
 
-    const voicePrompt =
+    const rawVoicePrompt =
       typeof body.voicePrompt === 'string' && body.voicePrompt.trim()
         ? body.voicePrompt.trim()
         : typeof body.voiceDescription === 'string' && body.voiceDescription.trim()
           ? body.voiceDescription.trim()
           : undefined;
+    // Clamp rather than reject: older saved voices may carry longer prompts.
+    const voicePrompt = rawVoicePrompt ? clampText(rawVoicePrompt, TEXT_LIMITS.voiceDescription) : undefined;
 
     const { audio, mimeType, sessionVoiceId } = await synthesizeVoiceChunk({
       modelId: model.modelId,

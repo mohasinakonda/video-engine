@@ -5,7 +5,7 @@ import { Sparkles, Search, Palette, TrendingUp } from 'lucide-react';
 import { useLaunchKit } from '../launch-kit-context';
 
 export function EmptyState() {
-  const { packaging, isGenerating, errorMessage, stylePreset } = useLaunchKit();
+  const { packaging, isGenerating, errorMessage } = useLaunchKit();
 
   if (packaging || isGenerating || errorMessage) return null;
 
@@ -25,7 +25,7 @@ export function EmptyState() {
           <Search size={12} className="text-zinc-400" /> YouTube Market Search
         </span>
         <span className="text-xxs px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
-          <Palette size={12} className="text-zinc-400" /> Matches {stylePreset?.name || 'Cinematic'}
+          <Palette size={12} className="text-zinc-400" /> Bright, bold thumbnails
         </span>
         <span className="text-xxs px-2.5 py-1 rounded-full bg-zinc-850 border border-zinc-750 text-zinc-300 flex items-center gap-1.5">
           <TrendingUp size={12} className="text-zinc-400" /> High-CTR Viral Titles

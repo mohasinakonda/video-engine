@@ -14,13 +14,26 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
   const isAuthPage = pathname === '/login' || pathname === '/auth/callback';
   const hideSidebar = isGuestHome || isAuthPage;
 
+  // Work-surface pages get a slim icon rail so the content area has more room.
+  const collapseSidebar = ['/storyboard', '/export', '/voice-studio'].some((p) => pathname.startsWith(p));
+
   if (hideSidebar) {
     return <div className="min-h-screen w-full">{children}</div>;
   }
 
   return (
     <div className="flex h-screen w-full bg-bg-base overflow-hidden">
-      <Sidebar />
+      {/* {collapseSidebar ? (
+        <div className="relative w-14 flex-shrink-0 h-full">
+          <Sidebar collapsed />
+        </div>
+      ) : (
+        <Sidebar />
+      )} */}
+
+      <div className="relative w-14 flex-shrink-0 h-full">
+        <Sidebar collapsed />
+      </div>
       <main className="flex-1 min-w-0 flex flex-col h-full overflow-y-auto">
         {children}
       </main>

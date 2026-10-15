@@ -3,6 +3,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import type {
   UserProfile,
   SubscriptionPlan,
@@ -17,11 +18,30 @@ import type { BaseStylePreset } from '@/types';
 import { SUB_STYLES_CATALOG } from '@/lib/style-taxonomy';
 import type { VoicePreset } from '@/lib/voice-catalog';
 import { VOICE_PRESETS } from '@/lib/voice-catalog';
+import { defaultQuarterlyPrice, getPlanPrice } from '@/lib/plan-pricing';
 
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   return Boolean(url && key && url.startsWith('http'));
+}
+
+
+/**
+ * Client for privileged RPCs (grant_credits, promo counters, affiliate commission).
+ * On the server with SUPABASE_SERVICE_ROLE_KEY set it returns a service-role client;
+ * the key is never NEXT_PUBLIC_ so it cannot exist in the browser. Otherwise it falls
+ * back to the given client, and the database guard will reject non-admin callers.
+ */
+function getPrivilegedClient(fallback?: any): any {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (typeof window === 'undefined' && serviceKey && url) {
+    return createSupabaseJsClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return fallback || createClient();
 }
 
 /** Get Supabase Auth User Session */
@@ -146,7 +166,7 @@ export async function deductCreditsRemote(userId: string, amount: number, client
 /** Atomic credit grant via Supabase RPC function */
 export async function grantCreditsRemote(userId: string, amount: number, clientOverride?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
-  const supabase = clientOverride || createClient();
+  const supabase = getPrivilegedClient(clientOverride);
   const { error } = await supabase.rpc('grant_credits', {
     p_user_id: userId,
     p_amount: amount,
@@ -262,8 +282,7 @@ export async function fetchPlansRemote(clientOverride?: any): Promise<Subscripti
       badge: row.badge,
       popular: row.popular,
       priceMonthly: row.price_monthly,
-      priceQuarterly: row.price_quarterly ?? (row.price_yearly ? Math.round(row.price_yearly / 4) : Math.round(row.price_monthly * 3 * 0.9)),
-      priceYearly: row.price_yearly,
+      priceQuarterly: row.price_quarterly ?? defaultQuarterlyPrice(row.price_monthly),
       creditsPerMonth: row.credits_per_month,
       maxVideoDurationSec: row.max_video_duration_sec,
       maxResolution: row.max_resolution,
@@ -287,8 +306,7 @@ export async function savePlansRemote(plans: SubscriptionPlan[], clientOverride?
       badge: p.badge || null,
       popular: Boolean(p.popular),
       price_monthly: p.priceMonthly,
-      price_quarterly: p.priceQuarterly ?? (p.priceYearly ? Math.round(p.priceYearly / 4) : Math.round(p.priceMonthly * 3 * 0.9)),
-      price_yearly: p.priceYearly ?? (p.priceQuarterly ? p.priceQuarterly * 4 : p.priceMonthly * 10),
+      price_quarterly: getPlanPrice(p, 'quarterly'),
       credits_per_month: p.creditsPerMonth,
       max_video_duration_sec: p.maxVideoDurationSec,
       max_resolution: p.maxResolution,
@@ -738,81 +756,25 @@ export async function fetchPaymentsRemote(client?: any): Promise<PaymentSubmissi
   }
 }
 
-/** Approve Payment in Supabase, update status and credit user */
+/**
+ * Approve a payment via the approve_payment_admin RPC, which atomically marks it
+ * APPROVED, credits the user, sets the plan tier/expiry and pays affiliate
+ * commission. The RPC enforces admin/service-role access and refuses to approve
+ * the same payment twice, so there is deliberately no client-side fallback.
+ */
 export async function approvePaymentRemote(submissionId: string, adminNote?: string, client?: any): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
     const supabase = client || createClient();
-
-    // 1. Try atomic admin RPC first
-    try {
-      const { data: rpcData, error: rpcErr } = await supabase.rpc('approve_payment_admin', {
-        p_submission_id: submissionId,
-        p_admin_note: adminNote || 'Approved by admin',
-      });
-      if (!rpcErr && rpcData === true) {
-        return true;
-      }
-    } catch (rpcErr) {
-      console.warn('[Supabase] approve_payment_admin fallback:', rpcErr);
+    const { data, error } = await supabase.rpc('approve_payment_admin', {
+      p_submission_id: submissionId,
+      p_admin_note: adminNote || 'Approved by admin',
+    });
+    if (error) {
+      console.error('[Supabase] approve_payment_admin error:', error);
+      return false;
     }
-
-    // 2. Fallback direct update logic
-    // Fetch the submission details
-    const { data: sub, error: fetchErr } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('id', submissionId)
-      .single();
-
-    if (fetchErr || !sub) return false;
-
-    // 2. Mark submission as APPROVED
-    const { error: updateErr } = await supabase
-      .from('payments')
-      .update({
-        status: 'APPROVED',
-        reviewed_at: new Date().toISOString(),
-        admin_note: adminNote || 'Approved by admin',
-      })
-      .eq('id', submissionId);
-
-    if (updateErr) return false;
-
-    // 3. Credit user in profiles table if userId exists
-    if (sub.user_id) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', sub.user_id)
-        .single();
-
-      if (profile) {
-        const updatePayload: Record<string, unknown> = {
-          credits_remaining: (profile.credits_remaining || 0) + (sub.credits_to_grant || 0),
-          total_spent_bdt: (profile.total_spent_bdt || 0) + (sub.discounted_price_bdt || 0),
-          updated_at: new Date().toISOString(),
-        };
-
-        if (sub.item_type === 'subscription' && sub.plan_id) {
-          updatePayload.tier = sub.plan_id;
-          const durationDays = sub.billing_cycle === 'yearly' ? 365 : 30;
-          updatePayload.subscription_expires_at = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString();
-        }
-
-        await supabase.from('profiles').update(updatePayload).eq('id', sub.user_id);
-      }
-    }
-
-    // 4. Credit affiliate commission if promo code belonged to a referrer
-    if (sub.promo_code_applied) {
-      await creditAffiliateCommissionRemote(
-        sub.promo_code_applied,
-        sub.discounted_price_bdt || 0
-      );
-    }
-
-    return true;
+    return data === true;
   } catch (err) {
     console.error('[Supabase] Error approving payment:', err);
     return false;
@@ -1035,7 +997,7 @@ export async function submitPayoutRemote(
 export async function incrementPromoUsageRemote(code: string): Promise<boolean> {
   if (!isSupabaseConfigured() || !code) return false;
   try {
-    const supabase = createClient();
+    const supabase = getPrivilegedClient();
     const { data, error } = await supabase.rpc('increment_promo_usage', {
       p_code: code.trim().toUpperCase(),
     });
@@ -1058,7 +1020,7 @@ export async function creditAffiliateCommissionRemote(
 ): Promise<boolean> {
   if (!isSupabaseConfigured() || !referralCode) return false;
   try {
-    const supabase = createClient();
+    const supabase = getPrivilegedClient();
     const { data, error } = await supabase.rpc('credit_affiliate_commission', {
       p_referral_code: referralCode.trim().toUpperCase(),
       p_order_amount_bdt: orderAmountBDT,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Trash2,
   Edit3,
@@ -12,10 +12,11 @@ import {
   Upload,
   Loader2,
   Layers,
+  MoreHorizontal,
+  Copy,
 } from 'lucide-react';
 import type { ThumbnailConcept } from '@/types';
 import { useLaunchKit } from '../../launch-kit-context';
-import { CopyButton } from '../../components/copy-button';
 import { saveProject } from '@/lib/store';
 
 interface GeneratedThumbnailStageProps {
@@ -30,7 +31,6 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
     onUpdateProject,
     showToast,
     isVertical,
-    stylePreset,
     setConceptEditMode,
     handleDeleteConcept,
     handleDownloadThumbnail,
@@ -42,6 +42,20 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
   } = useLaunchKit();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpen]);
+
+  const canDelete = !!packaging && packaging.thumbnailConcepts.length > 1;
 
   const isCurrentActiveMockup =
     packaging?.selectedThumbnailUrl === concept.imageUrl && Boolean(concept.imageUrl);
@@ -103,16 +117,6 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
             </span>
           )}
         </div>
-        {packaging && packaging.thumbnailConcepts.length > 1 && (
-          <button
-            type="button"
-            onClick={() => handleDeleteConcept(concept.id)}
-            className="text-zinc-500 hover:text-red-400 p-1.5 rounded hover:bg-zinc-900 transition-colors"
-            title="Delete this thumbnail idea"
-          >
-            <Trash2 size={13} />
-          </button>
-        )}
       </div>
 
       {/* 16:9 or 9:16 Replaced Image Canvas with Live Text Badge Overlay */}
@@ -131,61 +135,22 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
 
         {/* Top-right watermark badge */}
         <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/80 backdrop-blur-md text-2xs font-mono text-zinc-300 border border-white/10 pointer-events-none">
-          {project.aspectRatio || '16:9'} · {stylePreset?.name || 'Cinematic'}
+          {project.aspectRatio || '16:9'}
         </div>
       </div>
 
-      {/* Control & Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800/80">
+      {/* Control & Actions Bar: one primary, a few secondary, the rest in a menu */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
         <div className="flex items-center gap-2 flex-wrap">
           <button
             type="button"
-            onClick={() => setConceptEditMode((prev) => ({ ...prev, [concept.id]: true }))}
-            className="px-3.5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-zinc-700"
-            title="Flip back to the prompt box to edit or re-generate"
+            onClick={() => handleDownloadThumbnail(concept)}
+            className="btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+            title="Download Thumbnail HD 1280x720"
           >
-            <Edit3 size={13} className="text-zinc-300" />
-            <span>Edit Prompt</span>
+            <Download size={13} />
+            <span>Download HD</span>
           </button>
-
-          <CopyButton
-            text={concept.visualPrompt}
-            copyKey={`prompt_${concept.id}`}
-            label="Prompt"
-            className="px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors border border-zinc-800"
-            buttonText="Copy Prompt"
-            copiedText="Copied"
-          />
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors border border-zinc-800"
-            title="Upload and replace with your edited thumbnail image"
-          >
-            <Upload size={12} className="text-zinc-400" />
-            <span>Replace File</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Canva Edit / Sync Button */}
-          {concept.canvaDesignId ? (
-            <button
-              type="button"
-              onClick={() => handleSyncFromCanva(concept)}
-              disabled={canvaSyncingId === concept.id}
-              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50"
-              title="Sync latest high-resolution design from Canva"
-            >
-              {canvaSyncingId === concept.id ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <RefreshCw size={13} />
-              )}
-              <span>Sync from Canva</span>
-            </button>
-          ) : null}
 
           <button
             type="button"
@@ -202,27 +167,128 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
             <span>Edit in Canva</span>
           </button>
 
+          {concept.canvaDesignId && (
+            <button
+              type="button"
+              onClick={() => handleSyncFromCanva(concept)}
+              disabled={canvaSyncingId === concept.id}
+              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50"
+              title="Sync latest high-resolution design from Canva"
+            >
+              {canvaSyncingId === concept.id ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <RefreshCw size={13} />
+              )}
+              <span>Sync from Canva</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setConceptEditMode((prev) => ({ ...prev, [concept.id]: true }))}
+            className="px-3.5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-zinc-700"
+            title="Edit the prompt and generate again"
+          >
+            <Edit3 size={13} className="text-zinc-300" />
+            <span>Edit &amp; Regenerate</span>
+          </button>
+
           <button
             type="button"
             onClick={handleSetAsMockup}
             className={`px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all flex items-center gap-1.5 ${isCurrentActiveMockup
               ? 'bg-white text-zinc-950 font-bold border-white shadow-md'
-              : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+              : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-700 text-zinc-200'
               }`}
           >
             <Eye size={13} />
-            <span>{isCurrentActiveMockup ? '✓ Active Mockup' : 'Use in Feed Mockup'}</span>
+            <span>{isCurrentActiveMockup ? '✓ In Preview' : 'Show in Preview'}</span>
           </button>
+        </div>
 
+        {/* More actions */}
+        <div className="relative" ref={menuRef}>
           <button
             type="button"
-            onClick={() => handleDownloadThumbnail(concept)}
-            className="btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5"
-            title="Download Thumbnail HD 1280x720"
+            onClick={() => {
+              setMenuOpen((v) => !v);
+              setConfirmingDelete(false);
+            }}
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 transition-colors"
+            title="More actions"
+            aria-expanded={menuOpen}
           >
-            <Download size={13} />
-            <span>Download HD</span>
+            <MoreHorizontal size={16} />
           </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 bottom-full mb-2 z-30 w-56 p-1.5 rounded-xl bg-zinc-900/95 border border-zinc-700/80 shadow-2xl backdrop-blur-xl space-y-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  fileInputRef.current?.click();
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                <Upload size={13} />
+                <span>Replace with my file</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(concept.visualPrompt).catch(() => {});
+                  showToast('Prompt copied');
+                  setMenuOpen(false);
+                }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                <Copy size={13} />
+                <span>Copy prompt</span>
+              </button>
+
+              {canDelete && (
+                <div className="pt-1 mt-1 border-t border-zinc-800">
+                  {confirmingDelete ? (
+                    <div className="px-2.5 py-2 space-y-2">
+                      <p className="text-xs text-zinc-300">Delete this idea and its image?</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            setConfirmingDelete(false);
+                            handleDeleteConcept(concept.id);
+                          }}
+                          className="flex-1 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDelete(false)}
+                          className="flex-1 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDelete(true)}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                    >
+                      <Trash2 size={13} />
+                      <span>Delete idea</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

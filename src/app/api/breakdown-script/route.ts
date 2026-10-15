@@ -23,7 +23,7 @@ STILL IMAGE PROMPT MANDATES (FLUX.1 OPTIMIZED):
 4. STATIC DECISIVE MOMENT: Describe the resulting visual state. NEVER write "in the moment just after the switch is flipped" or "a second before".
 5. ZERO NEGATIVE STRINGS: NEVER output "(avoid: ...)", "avoid:", or negative exclusion lists in visual_prompt. Output 100% PURE positive visual tokens.
 6. ABSTRACT PHYSICS TRANSLATOR: Translate abstract/quantum phenomena (photons, molecules, redshift, spacetime) into tangible cinematic visuals (e.g. razor-sharp coherent laser beams in deep space void, volumetric Tyndall dust motes, period chalkboard tensor equations, prismatic spectrum dispersion).
-7. SPATIAL & OPTICAL ANCHORS: Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. Strictly avoid hype buzzwords like "8k", "photorealistic", "masterpiece", or "hyperrealistic".
+7. SPATIAL & OPTICAL ANCHORS: Explicitly describe spatial arrangement (in the foreground, centered in frame, in the background) and tangible light vectors. Strictly avoid empty hype buzzwords like "8k", "masterpiece", or "ultra-detailed".
 
 JSON Schema:
 [
@@ -140,34 +140,6 @@ JSON Schema:
         }
       } catch (err) {
         console.warn('OpenAI script breakdown failed:', err);
-      }
-    }
-
-    // ─── 3. Fallback: Pollinations AI Text ────────────────────────────────────
-    const pollRes = await fetch('https://text.pollinations.ai/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Script:\n${script}` },
-        ],
-        model: 'openai',
-      }),
-    });
-
-    if (pollRes.ok) {
-      const text = await pollRes.text();
-      try {
-        const jsonStart = text.indexOf('[');
-        const jsonEnd = text.lastIndexOf(']') + 1;
-        if (jsonStart !== -1 && jsonEnd > jsonStart) {
-          const jsonStr = text.substring(jsonStart, jsonEnd);
-          const scenes = JSON.parse(jsonStr);
-          return NextResponse.json({ scenes, provider: 'pollinations' });
-        }
-      } catch {
-        // fallback parsing below
       }
     }
 

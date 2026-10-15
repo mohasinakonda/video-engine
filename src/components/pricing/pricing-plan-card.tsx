@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Sparkles, Check, ArrowRight } from 'lucide-react';
 import type { SubscriptionPlan, BillingCycle } from '@/types/subscription';
+import { cycleLabel, cycleMonths, getPlanCredits } from '@/lib/plan-pricing';
 
 export interface PricingPlanCardProps {
   plan: SubscriptionPlan;
@@ -29,13 +30,7 @@ function formatPlanFeature(
 ): string {
   // If this line describes the credit quota, make it dynamic and clean
   if (/\bcredits?\b/i.test(feat) && (/\b(?:month|quarter|year|cycle)\b/i.test(feat) || /\d+[\s,]*credits?/i.test(feat))) {
-    const cycleSuffix =
-      billingCycle === 'quarterly'
-        ? '/ 3 months'
-        : billingCycle === 'yearly'
-          ? '/ year'
-          : '/ month';
-    return `${totalCredits.toLocaleString()} Credits ${cycleSuffix}`;
+    return `${totalCredits.toLocaleString()} Credits / ${cycleLabel(billingCycle)}`;
   }
 
   // Strip any raw model names (FLUX-1-schnell, FLUX, schnell, etc.)
@@ -61,16 +56,8 @@ export function PricingPlanCard({
   actionHref,
   actionLabel,
 }: PricingPlanCardProps) {
-  // Dynamic credits multiplier (3x for quarterly, 12x for yearly, 1x for monthly)
-  const multiplier = billingCycle === 'quarterly' ? 3 : billingCycle === 'yearly' ? 12 : 1;
-  const totalCredits = (plan.creditsPerMonth || 0) * multiplier;
-
-  const cycleDurationLabel =
-    billingCycle === 'quarterly'
-      ? '3 months'
-      : billingCycle === 'yearly'
-        ? 'year'
-        : 'month';
+  const totalCredits = getPlanCredits(plan, billingCycle);
+  const cycleDurationLabel = cycleLabel(billingCycle);
 
   const creditHeaderLabel = `${totalCredits.toLocaleString()} Credits / ${cycleDurationLabel}`;
 
@@ -90,11 +77,7 @@ export function PricingPlanCard({
   const normalizedMonthlyCost =
     estCostPerVid ??
     Math.round(
-      (billingCycle === 'quarterly'
-        ? rawPrice / 3
-        : billingCycle === 'yearly'
-          ? rawPrice / 12
-          : rawPrice) / (plan.id === 'STARTER' ? 15 : plan.id === 'CREATOR' ? 40 : 80)
+      (rawPrice / cycleMonths(billingCycle)) / (plan.id === 'STARTER' ? 15 : plan.id === 'CREATOR' ? 40 : 80)
     );
 
   const buttonText = actionLabel || `Choose ${plan.name}`;

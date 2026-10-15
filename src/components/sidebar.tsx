@@ -32,7 +32,7 @@ const navItems = [
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, subscription: sub, isAdmin, isLoading } = useAuth();
@@ -40,6 +40,7 @@ export default function Sidebar() {
   const [signingOut, setSigningOut] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -75,8 +76,81 @@ export default function Sidebar() {
     ? Math.min(100, Math.round((sub.creditsRemaining / Math.max(1, sub.totalCreditsPurchased || 30)) * 100))
     : 0;
 
+  // In collapsed mode the sidebar is a slim icon rail that expands (as an overlay,
+  // without shifting page content) while hovered or while the profile menu is open.
+  const expanded = !collapsed || hovered || profileMenuOpen;
+
+  if (!expanded) {
+    const visibleNav = navItems.filter(({ href }) => href !== '/admin' || isAdmin);
+    return (
+      <aside
+        className="absolute left-0 top-0 h-full w-14 flex flex-col items-center bg-bg-base border-r border-bg-border z-40 py-4 gap-3"
+        onMouseEnter={() => setHovered(true)}
+      >
+        <div className="w-8 h-8 rounded-lg bg-white text-zinc-950 flex items-center justify-center shadow-sm">
+          <Zap size={16} className="text-zinc-950 fill-zinc-950" />
+        </div>
+
+        <Link
+          href="/project/new"
+          title="New Project"
+          className="w-8 h-8 rounded-lg bg-white text-zinc-950 flex items-center justify-center hover:bg-zinc-200 transition-colors"
+        >
+          <PlusCircle size={15} />
+        </Link>
+
+        <nav className="flex-1 flex flex-col items-center gap-1 pt-2">
+          {visibleNav.map(({ href, label, icon: Icon }) => {
+            const isActive = pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                title={label}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                  isActive ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
+                }`}
+              >
+                <Icon size={15} />
+              </Link>
+            );
+          })}
+        </nav>
+
+        {isLoggedIn && sub && (
+          <Link
+            href="/plan"
+            title={`${sub.creditsRemaining} credits`}
+            className="flex flex-col items-center gap-0.5 text-amber-400"
+          >
+            <Zap size={13} className="fill-amber-400" />
+            <span className="text-3xs font-bold text-zinc-300">{sub.creditsRemaining}</span>
+          </Link>
+        )}
+
+        {isLoggedIn && user && (
+          <div className="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-200 flex items-center justify-center text-xs font-bold font-mono overflow-hidden">
+            {user.user_metadata?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={user.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              (user.user_metadata?.full_name || user.email || 'U')[0].toUpperCase()
+            )}
+          </div>
+        )}
+      </aside>
+    );
+  }
+
   return (
-    <aside className="w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border h-full sticky top-0 self-start z-30">
+    <aside
+      className={
+        collapsed
+          ? 'absolute left-0 top-0 h-full w-56 flex flex-col bg-bg-base border-r border-bg-border z-40 shadow-2xl'
+          : 'w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border h-full sticky top-0 self-start z-30'
+      }
+      onMouseLeave={collapsed ? () => setHovered(false) : undefined}
+    >
       {/* Logo */}
       <div className="px-5 py-5 border-b border-bg-border">
         <div className="flex items-center gap-2.5">

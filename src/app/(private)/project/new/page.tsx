@@ -8,7 +8,6 @@ import {
   Loader2,
   AlertTriangle,
   Mic,
-  Images,
   Gauge,
   Upload,
   X,
@@ -19,7 +18,6 @@ import {
   Sparkles,
   Palette,
   Film,
-  Layers,
   ChevronDown,
   ChevronUp,
   Clock,
@@ -33,20 +31,22 @@ import {
   Cpu,
   Zap,
 } from 'lucide-react';
+import GenerationOverlay from './components/generation-overlay';
 import ScriptInput from '@/components/script-input';
+import { useScriptCharLimit } from '@/hooks/use-script-limit';
+import { scriptTooLongMessage } from '@/lib/input-limits';
 import StylePresetModal from '@/components/style-preset-modal';
 import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 import type { AIImageModel } from '@/types/subscription';
 import {
-  getPollinationsApiKey,
   getProject,
   saveProject,
   getDefaultStylePreset,
   getStylePresets,
   saveUserPreferredStyleId,
-  savePollinationsImageModel,
+  saveImageModel,
 } from '@/lib/store';
-import { breakdownRequirementToImageScenes } from '@/lib/pollinations';
+import { breakdownRequirementToImageScenes } from '@/lib/scene-ai';
 import {
   alignAudioWithScript,
   transcribeAudioWithWhisper,
@@ -88,6 +88,8 @@ function ProjectPageInner() {
   const [projectId, setProjectId] = useState<string>(() => generateId());
   const [projectTitle, setProjectTitle] = useState('');
   const [script, setScript] = useState('');
+  const { limit: scriptLimit, nextTier: nextScriptTier } = useScriptCharLimit();
+  const scriptTooLong = script.trim().length > scriptLimit;
 
   // Aspect Ratio State
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
@@ -111,10 +113,11 @@ function ProjectPageInner() {
   // Generation status
   const [generating, setGenerating] = useState(false);
   const [generatingMsg, setGeneratingMsg] = useState('');
+  const [genStage, setGenStage] = useState(0);
   const [generationError, setGenerationError] = useState('');
 
   // Custom Voiceover Upload state (Optional drawer)
-  const [showVoiceDrawer, setShowVoiceDrawer] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<'script' | 'voice'>('script');
   const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
   const [customAudioDurationMs, setCustomAudioDurationMs] = useState<number>(0);
   const [readingAudioDuration, setReadingAudioDuration] = useState(false);
@@ -161,7 +164,7 @@ function ProjectPageInner() {
         }
         if (existing.pacingProfile) setPacingProfile(existing.pacingProfile);
         if (existing.hasCustomVoice && existing.customAudioFileName) {
-          setShowVoiceDrawer(true);
+          setVoiceMode('voice');
         }
       }
     } else {
@@ -190,6 +193,17 @@ function ProjectPageInner() {
 
   const hasVoice = !!customAudioFile;
 
+  const genStages = hasVoice
+    ? ['Saving your audio', 'Transcribing & aligning voice', 'Directing scenes', 'Saving storyboard']
+    : ['Analyzing script & story world', 'Breaking into scenes', 'Saving storyboard'];
+
+  const SAMPLE_SCRIPT =
+    'Light travels at almost three hundred thousand kilometers every second. ' +
+    'It crosses the distance from the Sun to Earth in just over eight minutes. ' +
+    'Yet the stars we see tonight are sending us light that left them thousands of years ago. ' +
+    'When we look up at the sky, we are not seeing the present. We are looking back in time. ' +
+    'Every glimmer is a message from the past, and every telescope is a time machine.';
+
   const scriptAnalytics = useMemo(() => {
     const trimmed = script.trim();
     const words = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
@@ -217,11 +231,11 @@ function ProjectPageInner() {
     const avgCutSec = (effectiveSec > 0 && targetScenes > 0) ? (effectiveSec / targetScenes).toFixed(1) : '5.2';
 
     const estScenesDisplay = hasVoice
-      ? '🎙️ Whisper Sync (Acoustic Pauses)'
+      ? 'Whisper sync (from voice pauses)'
       : isManualOverride
         ? `${customSceneCount} scenes (Manual Override)`
         : words > 0
-          ? `AI Decides (~${autoScenes} scene beats)`
+          ? `~${autoScenes} scenes (estimate)`
           : '0 scenes';
 
     return { words, chars, estSec: effectiveSec, estScenes: targetScenes, autoScenes, estScenesDisplay, avgCutSec, isManualOverride };
@@ -254,13 +268,17 @@ function ProjectPageInner() {
       return;
     }
     if (!script.trim()) return;
+    if (scriptTooLong) {
+      setGenerationError(scriptTooLongMessage(script.trim().length, scriptLimit));
+      return;
+    }
 
     setGenerating(true);
     setGenerationError('');
+    setGenStage(0);
     setGeneratingMsg('AI Director reading script narrative & deciding scenes…');
 
     try {
-      const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
       const effectiveStylePrompt = activeStylePrompt;
 
@@ -278,12 +296,13 @@ function ProjectPageInner() {
       const breakdown = await breakdownRequirementToImageScenes(script.trim(), {
         sceneCount: userSceneCount,
         stylePrompt: effectiveStylePrompt,
-        apiKey,
         pacingProfile,
         targetDurationSec: scriptAnalytics.estSec > 0 ? scriptAnalytics.estSec : undefined,
         onProgress: (msg) => setGeneratingMsg(msg),
+        onWorldBibleReady: () => setGenStage(1),
       });
-      console.log('breakdown', breakdown)
+      setGenStage(2);
+      setGeneratingMsg('Saving storyboard…');
       // NO mathematical scaling formula!
       // In Script-Only mode, the AI Director determines the natural durationSec for each visual beat.
       // Scene start and end times are simply accumulated from the AI's natural durations.
@@ -314,7 +333,7 @@ function ProjectPageInner() {
       if (projectId !== activeProjectId) setProjectId(activeProjectId);
 
       if (selectedAIModel) {
-        await savePollinationsImageModel(selectedAIModel.modelId);
+        await saveImageModel(selectedAIModel.modelId);
       }
 
       const manifest: ProjectManifest = {
@@ -368,10 +387,10 @@ function ProjectPageInner() {
 
     setGenerating(true);
     setGenerationError('');
+    setGenStage(0);
     setGeneratingMsg('Saving custom voiceover…');
 
     try {
-      const apiKey = (await getPollinationsApiKey()) || '';
       const chosenStyle = activeStyle;
       const effectiveStylePrompt = activeStylePrompt;
       const activeProjectId = projectId || existingProjectRef.current?.projectId || generateId();
@@ -386,9 +405,9 @@ function ProjectPageInner() {
       let timedWords: TimedWord[] = [];
 
       const detectedLang = /[\u0980-\u09FF]/.test(script) ? 'bn' : 'en';
-      setGeneratingMsg('Aligning audio with script (zero hallucination)…');
+      setGenStage(1);
+      setGeneratingMsg('Aligning audio with script…');
       const alignResult = await alignAudioWithScript(customAudioFile, script.trim(), {
-        pollinationsApiKey: apiKey,
         language: detectedLang,
         scriptPrompt: script.trim(),
         onProgress: (msg) => setGeneratingMsg(msg),
@@ -402,18 +421,21 @@ function ProjectPageInner() {
       }
 
       const effectiveScript = script.trim() || transcriptionText;
+      if (effectiveScript.length > scriptLimit) {
+        throw new Error(scriptTooLongMessage(effectiveScript.length, scriptLimit));
+      }
       if (!script.trim()) setScript(effectiveScript);
 
       // Scene count is NOT forced here — the AI Director decides it from the real
       // transcript's narrative beats, topic shifts, and speech pauses. Scene duration
       // comes from Whisper's actual word/sentence timestamps, never a guess.
+      setGenStage(2);
       setGeneratingMsg('AI Director analyzing voice timing & deciding scenes…');
       const visualScenes = await directScenesFromAudioAndScript(spokenSegments, {
         userScript: effectiveScript,
         totalAudioDurationSec: targetDurationSec,
         pacingProfile,
         stylePrompt: effectiveStylePrompt,
-        apiKey,
         words: timedWords,
         onProgress: (msg) => setGeneratingMsg(msg),
       });
@@ -432,7 +454,8 @@ function ProjectPageInner() {
         cameraMotion: item.cameraMotion,
         status: 'PENDING',
       }));
-      console.log('visualScenes', visualScenes);
+      setGenStage(3);
+      setGeneratingMsg('Saving storyboard…');
       const customChunk = {
         index: 0,
         text: `Custom Voice: ${customAudioFile.name}`,
@@ -443,7 +466,7 @@ function ProjectPageInner() {
       };
 
       if (selectedAIModel) {
-        await savePollinationsImageModel(selectedAIModel.modelId);
+        await saveImageModel(selectedAIModel.modelId);
       }
 
       const manifest: ProjectManifest = {
@@ -492,11 +515,32 @@ function ProjectPageInner() {
               onChange={(e) => setProjectTitle(e.target.value)}
               placeholder="Project name…"
             />
-            <p className="text-xxs text-zinc-400 ml-2">
+            <p className="text-xs text-zinc-400 ml-2">
               Visual Storyboard Studio · {aspectRatio}
             </p>
           </div>
         </div>
+
+        {/* Step indicator */}
+        <ol className="hidden md:flex items-center gap-2 text-xs">
+          {['Script', 'Storyboard', 'Export'].map((label, i) => (
+            <li key={label} className="flex items-center gap-2">
+              <span
+                className={`flex items-center gap-1.5 ${i === 0 ? 'text-white font-medium' : 'text-zinc-500'}`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-2xs font-mono border ${
+                    i === 0 ? 'bg-white text-zinc-950 border-white' : 'border-bg-border'
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                {label}
+              </span>
+              {i < 2 && <span className="w-6 h-px bg-bg-border" />}
+            </li>
+          ))}
+        </ol>
 
 
       </header>
@@ -514,6 +558,15 @@ function ProjectPageInner() {
                 <label className="text-xxs font-semibold text-zinc-400 uppercase tracking-wider">
                   Script / Story Concept
                 </label>
+                {scriptAnalytics.words === 0 && !generating && (
+                  <button
+                    type="button"
+                    onClick={() => setScript(SAMPLE_SCRIPT)}
+                    className="text-xs text-zinc-400 hover:text-white underline underline-offset-2 transition-colors"
+                  >
+                    Try a sample script
+                  </button>
+                )}
                 {scriptAnalytics.words > 0 && (
                   <div className="flex items-center gap-2 text-2xs text-zinc-400 font-mono">
                     <span>{scriptAnalytics.words} words</span>
@@ -528,6 +581,8 @@ function ProjectPageInner() {
                 value={script}
                 onChange={setScript}
                 disabled={generating}
+                limit={scriptLimit}
+                upgrade={nextScriptTier}
                 placeholder="Paste your video narration, voiceover script, or visual story concept here…&#10;&#10;AI Director will automatically generate visual scene prompts, camera angles, and art styles."
               />
             </div>
@@ -540,7 +595,7 @@ function ProjectPageInner() {
                   Aspect Ratio
                 </label>
                 <span className="text-2xs text-zinc-400">
-                  {aspectRatio === '16:9' ? 'Widescreen (1920×1080)' : aspectRatio === '9:16' ? 'Vertical (1080×1920)' : 'Square (1080×1080)'}
+                  {aspectRatio === '16:9' ? 'Widescreen' : aspectRatio === '9:16' ? 'Vertical' : 'Square'}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -692,98 +747,103 @@ function ProjectPageInner() {
               </div>
             </div>
 
-            {/* ─── Optional Custom Voiceover Drawer ─────────────────────────── */}
-            <div className="pt-2 border-t border-bg-border/60">
-              <button
-                type="button"
+            {/* ─── Voiceover ────────────────────────────────────────────────── */}
+            <div className="pt-2 border-t border-bg-border/60 space-y-3">
+              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Mic size={12} className="text-zinc-400" />
+                Voiceover
+              </label>
 
-                className="w-full flex items-center justify-between py-2 text-xs text-white transition-colors"
-              >
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Mic size={13} className="text-emerald-400" />
-                  Have recorded voiceover? (Optional)
-                </span>
+              <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-bg-base border border-bg-border">
+                {([
+                  { id: 'script', label: 'Script only' },
+                  { id: 'voice', label: 'I have a voiceover' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      setVoiceMode(opt.id);
+                      if (opt.id === 'script') {
+                        setCustomAudioFile(null);
+                        setCustomAudioDurationMs(0);
+                      }
+                    }}
+                    className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      voiceMode === opt.id
+                        ? 'bg-zinc-800 text-white border border-white/20'
+                        : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
 
-              </button>
-
-
-              <div className="mt-2 p-3 rounded-xl bg-bg-surface border border-bg-border space-y-3 animate-fade-in">
-                <p className="text-xxs text-zinc-400">
-                  Upload your recorded MP3 or WAV file. Whisper AI will extract word timestamps to align every scene automatically.
+              {voiceMode === 'script' ? (
+                <p className="text-xs text-zinc-400">
+                  AI reads your script, decides the scene cuts and gives each scene a natural duration.
                 </p>
+              ) : (
+                <div className="p-3 rounded-xl bg-bg-surface border border-bg-border space-y-3 animate-fade-in">
+                  <p className="text-xs text-zinc-400">
+                    Upload your recorded MP3 or WAV. Whisper extracts word timestamps so every scene matches your speech.
+                  </p>
 
-                <input
-                  ref={voiceFileInputRef}
-                  type="file"
-                  id="voicefileinput"
-                  accept="audio/*,.mp3,.wav,.m4a"
-                  className="hidden"
-                  onChange={handleCustomVoiceSelected}
-                />
+                  <input
+                    ref={voiceFileInputRef}
+                    type="file"
+                    id="voicefileinput"
+                    accept="audio/*,.mp3,.wav,.m4a"
+                    className="hidden"
+                    onChange={handleCustomVoiceSelected}
+                  />
 
-                {customAudioFile ? (
-                  <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-700/30 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileAudio size={16} className="text-emerald-400 flex-shrink-0" />
-                        <div className="truncate">
-                          <p className="text-xs font-medium text-white truncate">{customAudioFile.name}</p>
-                          <p className="text-2xs text-emerald-400 font-mono">
-                            {formatDuration(customAudioDurationMs)} · Uploaded
-                          </p>
+                  {customAudioFile ? (
+                    <div className="p-2.5 rounded-lg bg-emerald-950/20 border border-emerald-700/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileAudio size={16} className="text-emerald-400 flex-shrink-0" />
+                          <div className="truncate">
+                            <p className="text-xs font-medium text-white truncate">{customAudioFile.name}</p>
+                            <p className="text-xs text-emerald-400 font-mono">
+                              {formatDuration(customAudioDurationMs)} · Ready
+                            </p>
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomAudioFile(null);
+                            setCustomAudioDurationMs(0);
+                          }}
+                          className="text-zinc-400 hover:text-rose-400 p-1"
+                          title="Remove audio"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomAudioFile(null);
-                          setCustomAudioDurationMs(0);
-                        }}
-                        className="text-zinc-400 hover:text-rose-400 p-1"
-                      >
-                        <X size={14} />
-                      </button>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={handleCreateWithCustomVoice}
-                      disabled={generating}
-                      className="btn-accent w-full py-2 text-xs font-semibold flex items-center justify-center gap-2"
+                  ) : (
+                    <label
+                      htmlFor="voicefileinput"
+                      className="btn-secondary w-full justify-center text-xs text-zinc-200 cursor-pointer py-2"
                     >
-                      {generating ? (
+                      {readingAudioDuration ? (
                         <>
                           <Loader2 size={13} className="animate-spin" />
-                          <span>{generatingMsg || 'Syncing Voice…'}</span>
+                          <span>Reading audio…</span>
                         </>
                       ) : (
                         <>
-                          <Wand2 size={13} />
-                          <span>Sync Voiceover &amp; Create Storyboard</span>
+                          <Upload size={13} />
+                          <span>Upload audio file (MP3 / WAV)</span>
                         </>
                       )}
-                    </button>
-                  </div>
-                ) : (
-                  <label
-                    htmlFor="voicefileinput"
-                    className="btn-secondary w-full justify-center text-xs text-zinc-200 cursor-pointer py-2"
-                  >
-                    {readingAudioDuration ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" />
-                        <span>Reading Audio…</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload size={13} />
-                        <span>Upload Audio File (MP3 / WAV)</span>
-                      </>
-                    )}
-                  </label>
-                )}
-              </div>
-
+                    </label>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Error Message */}
@@ -801,132 +861,95 @@ function ProjectPageInner() {
               id="generate-storyboard-btn"
               type="button"
               onClick={handleGenerateVisualStoryboard}
-              disabled={generating || !script.trim()}
+              disabled={generating || !script.trim() || scriptTooLong || (voiceMode === 'voice' && !customAudioFile)}
               className="btn-primary w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]"
             >
               {generating ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  <span>{generatingMsg || 'Creating Storyboard…'}</span>
+                  <span>{generatingMsg || 'Creating storyboard…'}</span>
                 </>
               ) : hasVoice ? (
                 <>
-                  <Mic size={16} className="text-zinc-950" />
+                  <Mic size={16} />
                   <span>Sync Voiceover &amp; Generate Storyboard</span>
                   <ArrowRight size={15} />
                 </>
               ) : (
                 <>
-                  <Sparkles size={16} className="text-zinc-950" />
-                  <span>
-                    Generate Visual Storyboard (AI Decides Scenes)
-                  </span>
+                  <Sparkles size={16} />
+                  <span>Generate Storyboard</span>
                   <ArrowRight size={15} />
                 </>
               )}
             </button>
-            <p className="text-2xs text-center text-zinc-400">
-              {hasVoice
-                ? '🎙️ Whisper AI extracts word timecodes for 100% accurate scene durations & speech sync.'
-                : '📝 AI Director reads your script, decides scene cuts & assigns natural durations without voice.'}
+            <p className="text-xs text-center text-zinc-400">
+              {!script.trim()
+                ? 'Paste your script to continue.'
+                : voiceMode === 'voice' && !customAudioFile
+                  ? 'Upload your voiceover file to continue.'
+                  : hasVoice
+                    ? 'Scene timings will follow your speech.'
+                    : 'AI decides the scene cuts and durations.'}
             </p>
           </div>
         </div>
 
-        {/* Right Column: Live Aspect Ratio & Project Studio Simulator */}
+        {/* Right Column: real sample of the selected style, in the chosen aspect ratio */}
         <div className="hidden lg:flex flex-1 flex-col overflow-y-auto p-8 items-center justify-center bg-radial from-zinc-900/60 to-bg-base">
-          <div className="max-w-xl w-full flex flex-col items-center gap-6">
-            {/* Aspect Ratio Simulator Frame */}
-            <div className="w-full flex flex-col items-center">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-xs font-mono font-medium">
-                  {aspectRatio === '16:9' ? '16:9 Widescreen' : aspectRatio === '9:16' ? '9:16 Vertical Reel' : '1:1 Square'}
-                </span>
-                <span className="px-2.5 py-1 rounded-md bg-zinc-900 text-zinc-400 border border-zinc-800 text-xs font-mono">
-                  {aspectRatio === '16:9' ? '1920 × 1080' : aspectRatio === '9:16' ? '1080 × 1920' : '1080 × 1080'}
-                </span>
-              </div>
+          <div className="max-w-xl w-full flex flex-col items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-300 text-xs font-mono font-medium">
+                {aspectRatio === '16:9' ? '16:9 Widescreen' : aspectRatio === '9:16' ? '9:16 Vertical' : '1:1 Square'}
+              </span>
+            </div>
 
-              {/* Dynamic Frame Display */}
-              <div
-                className={`relative border border-bg-border rounded-xl bg-zinc-950 overflow-hidden shadow-2xl transition-all duration-300 flex flex-col justify-between p-5 group ${aspectRatio === '16:9'
+            <div
+              className={`relative border border-bg-border rounded-xl bg-zinc-950 overflow-hidden shadow-2xl transition-all duration-300 ${
+                aspectRatio === '16:9'
                   ? 'w-full aspect-video max-h-[360px]'
                   : aspectRatio === '9:16'
                     ? 'w-[260px] aspect-[9/16] max-h-[460px]'
                     : 'w-[340px] aspect-square max-h-[360px]'
-                  }`}
-              >
-                {/* Background visual atmosphere */}
-                <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/80 via-zinc-950 to-black pointer-events-none" />
-                <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-zinc-700/10 rounded-full blur-3xl pointer-events-none" />
-
-                {/* Top Overlay */}
-                <div className="relative z-10 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/60 border border-white/10 text-zinc-300 font-mono text-2xs">
-                    <Layers size={10} className="text-zinc-300" />
-                    Scene #1 Preview
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-black/60 border border-white/10 text-zinc-400 text-2xs">
-                    {pacingProfile}
-                  </span>
-                </div>
-
-                {/* Center Cinematic Art Motif */}
-                <div className="relative z-10 text-center my-auto px-4">
-                  <div className="w-12 h-12 rounded-xl bg-zinc-800/80 border border-bg-border flex items-center justify-center mx-auto mb-3 shadow-inner text-zinc-300">
-                    <Images size={22} />
+              }`}
+            >
+              {activeStyle.thumbnailUrl ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={activeStyle.thumbnailUrl}
+                    alt={activeStyle.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10">
+                    <p className="text-sm font-semibold text-white">{activeStyle.name}</p>
                   </div>
-                  <div className="flex items-center justify-center gap-1.5 mb-1">
-                    <h4 className="text-xs font-semibold text-white tracking-wide">
-                      {activeStyle.name}
-                    </h4>
-                    {isPromptCustomized && (
-                      <span className="text-3xs font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Customized
-                      </span>
-                    )}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-zinc-900/80 via-zinc-950 to-black">
+                  <div className="w-12 h-12 rounded-xl bg-zinc-800/80 border border-bg-border flex items-center justify-center mb-3 text-zinc-300">
+                    <Palette size={22} />
                   </div>
-                  <p className="text-2xs text-zinc-400 line-clamp-2 max-w-xs mx-auto">
-                    {activeStylePrompt}
-                  </p>
+                  <p className="text-sm font-semibold text-white">{activeStyle.name}</p>
+                  <p className="text-xs text-zinc-400 line-clamp-3 max-w-xs mt-1">{activeStylePrompt}</p>
                 </div>
-
-                {/* Bottom Subtitle / Script Excerpt */}
-                <div className="relative z-10 bg-black/75 backdrop-blur-md rounded-xl p-2.5 border border-white/10 text-left">
-                  <p className="text-xxs text-zinc-200 line-clamp-2 italic leading-relaxed">
-                    {script.trim()
-                      ? `"${script.trim().slice(0, 120)}…"`
-                      : '"Paste or write your script on the left to simulate scene breakdowns…"'}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Quick Metrics Bar */}
-            <div className="w-full grid grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-bg-surface border border-bg-border text-center">
-                <span className="text-2xs uppercase font-semibold tracking-wider text-zinc-400">Scenes</span>
-                <p className="text-sm font-bold text-white mt-0.5 truncate px-1">
-                  {scriptAnalytics.estScenes > 0 ? scriptAnalytics.estScenesDisplay : '0'}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-bg-surface border border-bg-border text-center">
-                <span className="text-2xs uppercase font-semibold tracking-wider text-zinc-400">Est. Video</span>
-                <p className="text-base font-bold text-white mt-0.5">
-                  {scriptAnalytics.estSec > 0 ? `~${scriptAnalytics.estSec}s` : '0s'}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-bg-surface border border-bg-border text-center">
-                <span className="text-2xs uppercase font-semibold tracking-wider text-zinc-400">AI Model</span>
-                <p className="text-sm font-bold text-zinc-100 mt-0.5 truncate" title={selectedAIModel?.name}>
-                  {selectedAIModel?.name || 'FLUX.1'}
-                </p>
-              </div>
-            </div>
+            <p className="text-xs text-zinc-500 text-center">
+              Sample of the selected style
+              {isPromptCustomized ? ' · your prompt edits apply to generated scenes' : ''}
+            </p>
           </div>
         </div>
       </div>
+
+      <GenerationOverlay
+        open={generating}
+        stages={genStages}
+        currentStage={Math.min(genStage, genStages.length - 1)}
+        detail={generatingMsg}
+      />
 
       {/* Style Preset Modal */}
       {showStyleModal && (

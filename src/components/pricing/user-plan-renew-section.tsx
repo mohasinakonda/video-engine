@@ -3,6 +3,7 @@
 import React from 'react';
 import { TrendingUp, Check } from 'lucide-react';
 import type { SubscriptionPlan, BillingCycle, UserSubscription } from '@/types/subscription';
+import { getPlanPrice } from '@/lib/plan-pricing';
 
 interface UserPlanRenewSectionProps {
   plans: SubscriptionPlan[];
@@ -61,12 +62,7 @@ export function UserPlanRenewSection({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
-          const rawPrice =
-            billingCycle === 'quarterly'
-              ? (plan.priceQuarterly ?? (plan.priceYearly ? Math.round(plan.priceYearly / 4) : Math.round(plan.priceMonthly * 3 * 0.9)))
-              : billingCycle === 'yearly'
-              ? (plan.priceYearly ?? (plan.priceQuarterly ? plan.priceQuarterly * 4 : plan.priceMonthly * 10))
-              : plan.priceMonthly;
+          const rawPrice = getPlanPrice(plan, billingCycle);
           const isCurrent = userSub?.tier === plan.id && userSub?.status === 'ACTIVE';
 
           return (

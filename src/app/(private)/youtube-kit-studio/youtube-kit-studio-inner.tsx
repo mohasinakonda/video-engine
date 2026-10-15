@@ -190,7 +190,7 @@ export default function YouTubeKitStudioInner() {
                 </span>
               </div>
               <p className="text-xxs text-zinc-400 truncate">
-                Viral titles, hook retention diagnostics, high-CTR thumbnails &amp; SEO
+                Titles, thumbnails, description &amp; tags from your script
               </p>
             </div>
           </div>

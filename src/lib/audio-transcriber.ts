@@ -1,5 +1,5 @@
 import type { PacingProfile, ShotType, CutPace, VisualSceneType, CameraMotionEffect, VisualWorldBible } from '@/types';
-import { getPollinationsClient, breakdownRequirementToImageScenes } from '@/lib/pollinations';
+import { breakdownRequirementToImageScenes } from '@/lib/scene-ai';
 
 export interface SpokenSegment {
   id: number;
@@ -111,7 +111,6 @@ export function parseSrtContent(srtText: string): SpokenSegment[] {
 // ─── Whisper Transcription ────────────────────────────────────────────────────
 
 export interface TranscribeOptions {
-  pollinationsApiKey?: string;
   groqApiKey?: string;
   language?: string;
   scriptPrompt?: string;
@@ -143,7 +142,7 @@ async function transcribeSingleAudioChunk(
     formData.append('prompt', 'Accurate speech transcription with exact word timestamps.');
   }
 
-  // Try 1: Internal API Route (/api/transcribe-audio) with server-side Groq/OpenAI/Pollinations
+  // Try 1: Internal API Route (/api/transcribe-audio) with server-side Groq/OpenAI
   try {
     const apiRes = await fetch('/api/transcribe-audio', {
       method: 'POST',
@@ -177,62 +176,15 @@ async function transcribeSingleAudioChunk(
         return normalizeWhisperResponse(data);
       }
     } catch (groqErr) {
-      console.warn('Groq transcription failed, falling back to Pollinations:', groqErr);
+      console.warn('Groq transcription failed:', groqErr);
     }
   }
 
-  // Try 3: Pollinations AI Whisper Endpoint
-  const polKey = options?.pollinationsApiKey?.trim() || '';
-  const headers: Record<string, string> = {};
-  if (polKey) {
-    headers['Authorization'] = `Bearer ${polKey}`;
-  }
-
-  formData.set('model', 'openai/whisper-large-v3');
-
-  try {
-    const res = await fetch('https://gen.pollinations.ai/v1/audio/transcriptions', {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      return normalizeWhisperResponse(data);
-    }
-
-    const errText = await res.text().catch(() => '');
-    let parsedErr = '';
-    try {
-      const json = JSON.parse(errText);
-      parsedErr = json.error?.message || json.message || '';
-    } catch {
-      parsedErr = errText;
-    }
-
-    if (res.status === 404 || res.status === 500) {
-      formData.set('model', 'community/NamanSoni78/whisper-large-v3-turbo');
-      const retryRes = await fetch('https://gen.pollinations.ai/v1/audio/transcriptions', {
-        method: 'POST',
-        headers,
-        body: formData,
-      });
-      if (retryRes.ok) {
-        const data = await retryRes.json();
-        return normalizeWhisperResponse(data);
-      }
-    }
-
-    throw new Error(parsedErr || `Whisper transcription failed with status ${res.status}`);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Whisper Transcription Error: ${msg}`);
-  }
+  throw new Error('Whisper Transcription Error: transcription service unavailable. Please try again.');
 }
 
 /**
- * Transcribes audio via Groq Whisper Large-v3 Turbo (with OpenAI/Pollinations fallback).
+ * Transcribes audio via Groq Whisper Large-v3 Turbo (with server-side OpenAI fallback).
  * Sends the complete audio in a single pass to eliminate word-boundary amputation and hallucination loops.
  */
 export async function transcribeAudioWithWhisper(
@@ -623,7 +575,6 @@ export interface DirectorOptions {
   targetSceneCount?: number;
   pacingProfile?: PacingProfile;
   stylePrompt?: string;
-  apiKey?: string;
   onProgress?: (msg: string) => void;
   /** Word-level timestamps from Whisper for precise audio-scene alignment */
   words?: TimedWord[];
@@ -1058,7 +1009,6 @@ export async function directScenesFromAudioAndScript(
   const plannedBreakdown = await breakdownRequirementToImageScenes(effectiveScript, {
     sceneCount: options.targetSceneCount,
     stylePrompt: options.stylePrompt,
-    apiKey: options.apiKey,
     pacingProfile: options.pacingProfile,
     onProgress: options.onProgress,
     worldBible: options.worldBible,

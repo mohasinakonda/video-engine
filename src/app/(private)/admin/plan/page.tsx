@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { getPlanPrice } from '@/lib/plan-pricing';
 import {
   Settings,
   DollarSign,
@@ -449,7 +450,7 @@ export default function AdminPlanSettingsPage() {
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <DollarSign size={20} className="text-emerald-400" />
-              Monthly &amp; Yearly Subscription Plans
+              Monthly &amp; 3-Month Subscription Plans
             </h2>
             <p className="text-xs text-zinc-400">
               Customize the monthly price, 3-month (quarterly) bundle price, and monthly credit allowance for each tier
@@ -490,11 +491,10 @@ export default function AdminPlanSettingsPage() {
                     <label className="block text-zinc-400 text-[11px]">3-Month Package Price (BDT)</label>
                     <input
                       type="number"
-                      value={plan.priceQuarterly ?? (plan.priceYearly ? Math.round(plan.priceYearly / 4) : Math.round(plan.priceMonthly * 3 * 0.9))}
+                      value={getPlanPrice(plan, 'quarterly')}
                       onChange={(e) => {
                         const val = Number(e.target.value);
                         handleUpdatePlan(idx, 'priceQuarterly', val);
-                        handleUpdatePlan(idx, 'priceYearly', val * 4);
                       }}
                       className="w-full bg-bg-base border border-bg-border rounded-xl px-3 py-1.5 text-white font-mono focus:outline-none focus:border-zinc-500"
                     />

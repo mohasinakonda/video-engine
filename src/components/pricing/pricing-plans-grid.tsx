@@ -4,6 +4,7 @@ import React from 'react';
 import { validateAndApplyPromoCode } from '@/lib/subscription-store';
 import { PricingPlanCard } from '@/components/pricing/pricing-plan-card';
 import type { SubscriptionPlan, BillingCycle, AdminSettings } from '@/types/subscription';
+import { cycleMonths, getPlanPrice } from '@/lib/plan-pricing';
 
 interface PricingPlansGridProps {
   plans: SubscriptionPlan[];
@@ -58,12 +59,7 @@ export function PricingPlansGrid({
       {/* 3 Core Subscription Cards */}
       <div id="plans-grid" className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
         {plans.map((plan) => {
-          const rawPrice =
-            billingCycle === 'quarterly'
-              ? (plan.priceQuarterly ?? (plan.priceYearly ? Math.round(plan.priceYearly / 4) : Math.round(plan.priceMonthly * 3 * 0.9)))
-              : billingCycle === 'yearly'
-                ? (plan.priceYearly ?? (plan.priceQuarterly ? plan.priceQuarterly * 4 : plan.priceMonthly * 10))
-                : plan.priceMonthly;
+          const rawPrice = getPlanPrice(plan, billingCycle);
           let displayPrice = rawPrice;
           if (promoAppliedCode) {
             const res = validateAndApplyPromoCode(promoAppliedCode, rawPrice);
@@ -79,7 +75,7 @@ export function PricingPlansGrid({
           const isRecommended = plan.id === calcRecommendedTier;
 
           const estCostPerVid = Math.round(
-            (billingCycle === 'quarterly' ? rawPrice / 3 : billingCycle === 'yearly' ? rawPrice / 12 : rawPrice) /
+            (rawPrice / cycleMonths(billingCycle)) /
             (plan.id === 'STARTER' ? 15 : plan.id === 'CREATOR' ? 40 : 80)
           );
 

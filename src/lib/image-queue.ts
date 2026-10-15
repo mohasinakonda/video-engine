@@ -36,7 +36,6 @@ export interface ImageQueueCallbacks {
 }
 
 export interface ImageQueueOptions {
-  apiKey: string;
   projectId: string;
   scenes: SceneItem[];
   stylePrompt?: string;
@@ -84,7 +83,7 @@ async function processScene(
   options: ImageQueueOptions,
   retryAttempt = 0
 ): Promise<void> {
-  const { apiKey, projectId, negativePrompt, callbacks } = options;
+  const { projectId, negativePrompt, callbacks } = options;
 
   // Checkpoint check: if scene image already exists in persistent storage and not forced, skip regeneration
   if (!options.forceRegenerate) {
@@ -106,7 +105,7 @@ async function processScene(
 
   try {
     const rawVisual = scene.visualPrompt || scene.fullPrompt || '';
-    const result = await generateImage(apiKey, rawVisual, negativePrompt, {
+    const result = await generateImage(rawVisual, negativePrompt, {
       model: options.model,
       baseStyle: options.stylePrompt,
       aspectRatio: options.aspectRatio,

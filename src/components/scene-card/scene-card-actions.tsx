@@ -56,30 +56,6 @@ export default function SceneCardActions({
           hovering || moreMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >
-        {/* Regenerate */}
-        <button
-          type="button"
-          onClick={onRegenerate}
-          disabled={isSubmittingRegenerate}
-          className="w-5 h-5 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-all active:scale-90"
-          title="Regenerate image"
-        >
-          <RefreshCw size={11} className={isSubmittingRegenerate ? 'animate-spin' : ''} />
-        </button>
-
-        {/* Quick Download */}
-        {currentSrc && !imgError && (
-          <a
-            href={currentSrc}
-            download={`scene_${scene.sceneId}.jpg`}
-            onClick={() => onSetMoreMenuOpen(false)}
-            className="w-5 h-5 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-all active:scale-90"
-            title="Download image"
-          >
-            <Download size={11} className="text-zinc-300" />
-          </a>
-        )}
-
         {/* More Options Menu */}
         <div className="relative">
           <button
@@ -88,7 +64,7 @@ export default function SceneCardActions({
             className={`w-5 h-5 flex items-center justify-center rounded-full transition-all active:scale-90 ${
               moreMenuOpen ? 'bg-white/20 text-white' : 'text-white/80 hover:text-white hover:bg-white/15'
             }`}
-            title="More options (Creative Studio, B-Roll, Upload, Download)"
+            title="More options"
           >
             <MoreVertical size={11} />
           </button>
@@ -109,6 +85,31 @@ export default function SceneCardActions({
                 className="absolute right-0 top-full mt-2 z-50 w-52 max-h-[260px] overflow-y-auto rounded-xl bg-zinc-900/95 border border-zinc-700/80 shadow-2xl backdrop-blur-xl p-1.5 space-y-1 animate-fade-in text-left"
                 onClick={(e) => e.stopPropagation()}
               >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSetMoreMenuOpen(false);
+                    onRegenerate();
+                  }}
+                  disabled={isSubmittingRegenerate}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={`text-zinc-300 ${isSubmittingRegenerate ? 'animate-spin' : ''}`} />
+                  <span>Regenerate Image</span>
+                </button>
+
+                {currentSrc && !imgError && (
+                  <a
+                    href={currentSrc}
+                    download={`scene_${scene.sceneId}.jpg`}
+                    onClick={() => onSetMoreMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    <Download size={12} className="text-zinc-300" />
+                    <span>Download Image</span>
+                  </a>
+                )}
+
                 <button
                   type="button"
                   onClick={() => {

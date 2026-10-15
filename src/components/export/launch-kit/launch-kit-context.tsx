@@ -13,17 +13,18 @@ import {
   getStylePresets,
   getDefaultStylePreset,
   getYouTubeApiKey,
-  getPollinationsApiKey,
-  getPollinationsImageModel,
+  getImageModel,
 } from '@/lib/store';
 import {
   getUserCreditsRemaining,
-  deductUserCredits,
-  grantUserCredits,
+  holdLocalCredits,
+  syncCreditsFromServer,
   hasEnoughCredits,
 } from '@/lib/subscription-store';
 import { generateImage, base64ToUint8Array } from '@/lib/gemini';
 import { saveMediaBlob } from '@/lib/media-storage';
+import { useScriptCharLimit } from '@/hooks/use-script-limit';
+import { TEXT_LIMITS, scriptTooLongMessage } from '@/lib/input-limits';
 
 interface LaunchKitContextValue {
   // Core project & packaging
@@ -41,6 +42,9 @@ interface LaunchKitContextValue {
   handleSaveScriptOnly: () => Promise<void>;
   scriptWordCount: number;
   scriptCharCount: number;
+  scriptCharLimit: number;
+  nextScriptTier: { label: string; limit: number } | null;
+  scriptTooLong: boolean;
 
   // Custom focus & style preset
   customFocus: string;
@@ -110,6 +114,9 @@ interface LaunchKitContextValue {
 }
 
 const LaunchKitContext = createContext<LaunchKitContextValue | null>(null);
+
+/** Neutral quality suffix for thumbnails; the concept prompt itself carries the look. */
+const THUMBNAIL_STYLE_SUFFIX = 'vibrant saturated colors, bright exposure, sharp focus, crisp detail, high contrast';
 
 export function useLaunchKit(): LaunchKitContextValue {
   const ctx = useContext(LaunchKitContext);
@@ -185,6 +192,7 @@ export function LaunchKitProvider({
 
   // Editable Voice Script State (initialized from project.rawScript)
   const [voiceScript, setVoiceScript] = useState(project.rawScript || '');
+  const { limit: scriptCharLimit, nextTier: nextScriptTier } = useScriptCharLimit();
   const [customFocus, setCustomFocus] = useState(project.youtubePackaging?.customTopicPrompt || '');
   const [isScriptSaved, setIsScriptSaved] = useState(false);
   const [stylePreset, setStylePreset] = useState<BaseStylePreset | null>(null);
@@ -211,7 +219,7 @@ export function LaunchKitProvider({
     let isMounted = true;
     async function loadActiveModel() {
       try {
-        const storedModelId = await getPollinationsImageModel();
+        const storedModelId = await getImageModel();
         const res = await fetch('/api/models');
         if (res.ok) {
           const data = await res.json();
@@ -309,6 +317,10 @@ export function LaunchKitProvider({
       showToast('Please enter a search query for competitor benchmarks');
       return;
     }
+    if (query.length > TEXT_LIMITS.searchQuery) {
+      showToast(`Search query must be ${TEXT_LIMITS.searchQuery} characters or fewer.`);
+      return;
+    }
 
     setIsSearchingCompetitors(true);
     try {
@@ -357,6 +369,10 @@ export function LaunchKitProvider({
     const cleanScript = voiceScript.trim();
     if (!cleanScript) {
       showToast('Please enter or paste your voice script below first!');
+      return;
+    }
+    if (cleanScript.length > scriptCharLimit) {
+      showToast(scriptTooLongMessage(cleanScript.length, scriptCharLimit));
       return;
     }
 
@@ -432,6 +448,11 @@ export function LaunchKitProvider({
 
   const handleSelectTitle = async (idx: number) => {
     if (!packaging) return;
+    // A title is designed together with a thumbnail idea: bring that idea into focus too.
+    const paired = packaging.titles?.[idx]?.pairedConceptId;
+    if (paired && packaging.thumbnailConcepts?.some((c) => c.id === paired)) {
+      setActiveConceptId(paired);
+    }
     const updatedPackaging: YouTubePackagingData = {
       ...packaging,
       selectedTitleIndex: idx,
@@ -491,6 +512,10 @@ export function LaunchKitProvider({
   const handleEnhanceConceptPrompt = async (concept: ThumbnailConcept) => {
     if (!concept.visualPrompt.trim()) {
       showToast('Please enter a draft visual prompt to enhance');
+      return;
+    }
+    if (concept.visualPrompt.trim().length > TEXT_LIMITS.thumbnailPrompt) {
+      showToast(`Thumbnail prompt must be ${TEXT_LIMITS.thumbnailPrompt} characters or fewer.`);
       return;
     }
     setEnhancingThumbId(concept.id);
@@ -605,7 +630,7 @@ export function LaunchKitProvider({
       return;
     }
 
-    const chosenModel = selectedAIModel?.modelId || (await getPollinationsImageModel()) || 'black-forest-labs/FLUX-1-schnell';
+    const chosenModel = selectedAIModel?.modelId || (await getImageModel()) || 'black-forest-labs/FLUX-1-schnell';
     const unitCost = selectedAIModel?.creditCost ?? 2;
 
     if (!hasEnoughCredits(unitCost)) {
@@ -613,8 +638,8 @@ export function LaunchKitProvider({
       return;
     }
 
-    const deducted = deductUserCredits(unitCost, `YouTube Thumbnail generation (${selectedAIModel?.name || chosenModel})`);
-    if (!deducted) {
+    // UI hold only: /api/generate-image charges the real credits (and refunds on failure).
+    if (!holdLocalCredits(unitCost)) {
       showToast('⚠️ Could not deduct credit. Insufficient balance or account blocked.');
       return;
     }
@@ -623,71 +648,41 @@ export function LaunchKitProvider({
     try {
       showToast(`Generating high-res thumbnail with ${selectedAIModel?.name || 'AI Engine'} (${project.aspectRatio || '16:9'})...`);
 
-      const apiKey = (await getPollinationsApiKey()) || '';
       const isVertical = project.aspectRatio === '9:16';
 
       let imageUrl = '';
 
-      try {
-        // Primary: Direct high-speed client-side generation (same engine as Storyboard)
-        const result = await generateImage(
-          apiKey,
-          concept.visualPrompt.trim(),
-          stylePreset?.negativePrompt,
-          {
-            model: chosenModel,
-            baseStyle: stylePreset?.stylePrompt,
-            aspectRatio: isVertical ? '9:16' : '16:9',
-            width: isVertical ? 1080 : 1920,
-            height: isVertical ? 1920 : 1080,
-          }
-        );
-
-        if (result.base64Image) {
-          imageUrl = result.base64Image.startsWith('data:')
-            ? result.base64Image
-            : `data:${result.mimeType || 'image/jpeg'};base64,${result.base64Image}`;
-
-          // Also persist blob to IndexedDB for instant offline/browser load
-          try {
-            const bytes = base64ToUint8Array(result.base64Image);
-            const blob = new Blob([bytes.buffer as ArrayBuffer], { type: result.mimeType || 'image/jpeg' });
-            const projectId = project.projectId || 'default';
-            await saveMediaBlob(`thumb_${projectId}_${concept.id}`, blob);
-          } catch (storageErr) {
-            console.warn('[ThumbnailStudio] Blob persistence warning:', storageErr);
-          }
+      // Goes through /api/generate-image, which charges and refunds server-side
+      const result = await generateImage(
+        concept.visualPrompt.trim(),
+        stylePreset?.negativePrompt,
+        {
+          model: chosenModel,
+          // Thumbnails carry their own lighting/colour direction in the prompt, so the
+          // storyboard style's lighting is NOT appended (it fights bright thumbnail lighting).
+          baseStyle: THUMBNAIL_STYLE_SUFFIX,
+          aspectRatio: isVertical ? '9:16' : '16:9',
         }
-      } catch (clientErr) {
-        console.warn('[ThumbnailStudio] Direct generation failed, attempting API route fallback:', clientErr);
-        // Fallback: try server route with apiKey forwarded
-        const res = await fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: concept.visualPrompt.trim(),
-            aspectRatio: isVertical ? '9:16' : '16:9',
-            stylePrompt: stylePreset?.stylePrompt,
-            negativePrompt: stylePreset?.negativePrompt,
-            apiKey,
-            model: chosenModel,
-          }),
-        });
+      );
 
-        if (res.ok) {
-          const data = await res.json();
-          imageUrl = data.imageUrl || data.url || data.base64Image;
-        } else {
-          throw clientErr;
+      if (result.base64Image) {
+        imageUrl = result.base64Image.startsWith('data:')
+          ? result.base64Image
+          : `data:${result.mimeType || 'image/jpeg'};base64,${result.base64Image}`;
+
+        // Also persist blob to IndexedDB for instant offline/browser load
+        try {
+          const bytes = base64ToUint8Array(result.base64Image);
+          const blob = new Blob([bytes.buffer as ArrayBuffer], { type: result.mimeType || 'image/jpeg' });
+          const projectId = project.projectId || 'default';
+          await saveMediaBlob(`thumb_${projectId}_${concept.id}`, blob);
+        } catch (storageErr) {
+          console.warn('[ThumbnailStudio] Blob persistence warning:', storageErr);
         }
       }
 
       if (!imageUrl) {
         throw new Error('No image returned from generation engine');
-      }
-
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('credits_updated'));
       }
 
       const updatedConcepts = (packaging?.thumbnailConcepts || []).map((c) =>
@@ -713,10 +708,10 @@ export function LaunchKitProvider({
       showToast('✓ Thumbnail generated successfully!');
     } catch (err: any) {
       console.error('Failed to generate thumbnail:', err);
-      grantUserCredits(unitCost, 'Refund: YouTube Thumbnail generation failed');
       showToast(`Thumbnail generation failed: ${err.message}`);
     } finally {
       setGeneratingThumbId(null);
+      syncCreditsFromServer();
     }
   };
 
@@ -952,7 +947,8 @@ ${hashtagsStr}`;
     return voiceScript.trim() ? voiceScript.trim().split(/\s+/).length : 0;
   }, [voiceScript]);
 
-  const scriptCharCount = voiceScript.length;
+  const scriptCharCount = voiceScript.trim().length;
+  const scriptTooLong = scriptCharCount > scriptCharLimit;
 
   return (
     <LaunchKitContext.Provider
@@ -969,6 +965,9 @@ ${hashtagsStr}`;
         handleSaveScriptOnly,
         scriptWordCount,
         scriptCharCount,
+        scriptCharLimit,
+        nextScriptTier,
+        scriptTooLong,
         customFocus,
         setCustomFocus,
         stylePreset,

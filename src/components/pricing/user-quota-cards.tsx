@@ -16,6 +16,15 @@ interface UserQuotaCardsProps {
   whatsappNumber?: string;
 }
 
+const GRACE_MS = 24 * 3600 * 1000;
+
+/** Plan lapsed: credits are kept for 24h, then expire and the account drops to Trial. */
+function graceMessage(expiresAt: number, credits: number): string {
+  const hoursLeft = Math.ceil((expiresAt + GRACE_MS - Date.now()) / (3600 * 1000));
+  if (hoursLeft <= 0 || credits <= 0) return 'Plan expired. Renew to unlock paid features again.';
+  return `Plan expired. Renew within ${hoursLeft}h to keep your ${credits.toLocaleString()} credits, otherwise they expire and you move to the free Trial.`;
+}
+
 export function UserQuotaCards({
   userSub,
   userProfile,
@@ -66,9 +75,9 @@ export function UserQuotaCards({
                 ? `Active cycle · Renews in ${Math.round(
                     (userSub.expiresAt - Date.now()) / (24 * 3600 * 1000)
                   )} days`
-                : isExpired
-                ? 'Subscription has expired. Renew to resume 1080p rendering.'
-                : 'Free trial tier (30 starter credits)'}
+                : isExpired && userSub
+                ? graceMessage(userSub.expiresAt, creditsRemaining)
+                : 'Free trial tier'}
             </p>
           </div>
 
