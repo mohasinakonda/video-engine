@@ -15,21 +15,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Prompt is required to enhance.' }, { status: 400 });
     }
 
-    const systemPrompt = `You are an award-winning Visual Art Director & Prompt Architect specializing in FLUX.1 and Midjourney v6 cinematography for high-CTR YouTube thumbnails.
-Your job is to take the creator's draft thumbnail prompt and elevate it into a breathtaking, ultra-detailed 80-120 word masterwork prompt engineered for maximum mobile click-through rate (CTR).
+    const systemPrompt = `You are an award-winning Visual Art Director & Prompt Architect specializing in FLUX.1 prompts for high-CTR YouTube thumbnails.
+Take the creator's draft thumbnail prompt and sharpen it into a focused 45-75 word prompt that reads instantly on a 120px mobile feed. Bright, bold and simple beats dark and detailed.
 
-BLUEPRINT FOR THE ENHANCED PROMPT:
-1. SUBJECT & MICRO-EXPRESSION: Detail exact age, posture, intense facial emotion (deep brow furrow, wide eyes of revelation, clenched jaw, or awe), realistic skin micro-textures, pores, and fabric weaves.
-2. TANGIBLE HERO METAPHOR / PROP: Concrete physical objects illustrating the core idea (e.g., translucent cranium with glowing brass clockwork gears, cracked obsidian hourglass leaking golden embers, electrical synaptic arcs).
-3. CAMERA & OPTICS: Realistic camera optics (e.g., "Shot on 85mm anamorphic cine prime lens, f/1.4 aperture, shallow depth of field with creamy background falloff").
-4. CHIAROSCURO & HARD RIM LIGHTING: High-contrast lighting (e.g., "warm golden amber key light paired with razor-sharp electric cyan edge-separation rim lighting") so the subject pops immediately on 120px mobile feeds.
-5. ATMOSPHERE & TEXTURE: Volumetric light shafts, floating dust motes, subtle cinematic fog, micro-particles, and rich surface textures.
-6. MOBILE COMPOSITION & NEGATIVE SPACE: Rule-of-thirds composition, subject anchored firmly, leaving clean unobstructed dark negative space in the upper-left corner for bold YouTube badge overlays.
-7. ARTISTIC STYLE: Seamlessly blend into the designated artistic style: "${styleName}" (${stylePrompt}).
+BLUEPRINT:
+1. ONE dominant subject filling 40-60% of the frame. For people: a close-up face with a strong readable emotion looking at the camera.
+2. ONE hero metaphor or prop that signals the core idea. Never more than two ideas.
+3. Exactly TWO strongly contrasting saturated colors (e.g. orange vs electric blue).
+4. BRIGHT exposure: the subject is the brightest, best-lit element with a strong key light and bright rim light. NEVER mostly black, no pitch-black backgrounds, no extreme chiaroscuro.
+5. Simple clean background (gradient or softly blurred) with one calm third of the frame free of detail for a text badge.
+6. At most one lens/framing mention. End with "sharp focus, crisp detail, high contrast, bright exposure".
+7. Follow the medium of the style "${styleName}" (photograph / illustration / painting), but the brightness and lighting rules above ALWAYS override the style's lighting.
 
 Return strictly valid JSON:
 {
-  "enhancedPrompt": "Detailed 80-120 word cinematic visual prompt"
+  "enhancedPrompt": "Focused 45-75 word thumbnail prompt"
 }`;
 
     const userPrompt = `Draft Visual Prompt to Enhance:

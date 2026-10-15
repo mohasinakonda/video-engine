@@ -110,6 +110,9 @@ interface LaunchKitContextValue {
 
 const LaunchKitContext = createContext<LaunchKitContextValue | null>(null);
 
+/** Neutral quality suffix for thumbnails; the concept prompt itself carries the look. */
+const THUMBNAIL_STYLE_SUFFIX = 'vibrant saturated colors, bright exposure, sharp focus, crisp detail, high contrast';
+
 export function useLaunchKit(): LaunchKitContextValue {
   const ctx = useContext(LaunchKitContext);
   if (!ctx) {
@@ -633,10 +636,10 @@ export function LaunchKitProvider({
           stylePreset?.negativePrompt,
           {
             model: chosenModel,
-            baseStyle: stylePreset?.stylePrompt,
+            // Thumbnails carry their own lighting/colour direction in the prompt, so the
+            // storyboard style's lighting is NOT appended (it fights bright thumbnail lighting).
+            baseStyle: THUMBNAIL_STYLE_SUFFIX,
             aspectRatio: isVertical ? '9:16' : '16:9',
-            width: isVertical ? 1080 : 1920,
-            height: isVertical ? 1920 : 1080,
           }
         );
 
@@ -664,7 +667,7 @@ export function LaunchKitProvider({
           body: JSON.stringify({
             prompt: concept.visualPrompt.trim(),
             aspectRatio: isVertical ? '9:16' : '16:9',
-            stylePrompt: stylePreset?.stylePrompt,
+            stylePrompt: THUMBNAIL_STYLE_SUFFIX,
             negativePrompt: stylePreset?.negativePrompt,
             model: chosenModel,
           }),

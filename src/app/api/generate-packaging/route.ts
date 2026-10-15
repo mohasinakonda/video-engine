@@ -142,21 +142,22 @@ Provide exactly 5 distinct, proven psychological title archetypes:
 4. High-Stakes Story / Tension (e.g., "The Brain Glitch That Ruined Him")
 5. Search / SEO Authority (e.g., "Why We Worry About the Future")
 
-SENIOR YOUTUBE THUMBNAIL DIRECTOR RULES (6-DIMENSIONAL FLUX PROMPT FORMULA):
-YouTube thumbnails are viewed at 120-200px on mobile feeds. Low-detail or generic prompts are forbidden!
-Every single concept's "visualPrompt" MUST be an 80-120 word vivid, cinematic prompt following this exact 6-part anatomy:
-1. SUBJECT & MICRO-EXPRESSION: Specific age, attire, intense facial micro-expression (furrowed brow, wide eyes of revelation, clenched jaw, or focused awe), with realistic skin micro-textures, pores, and fabric weaves.
-2. TANGIBLE HERO METAPHOR / PROP: Concrete physical objects illustrating the core tension (e.g., translucent cranium revealing intricate glowing brass clockwork gears, an obsidian hourglass with cracked glass leaking incandescent gold sand, glowing synaptic filaments, or ancient stone monoliths).
-3. CAMERA & OPTICS: Exact camera lens simulation (e.g., "Shot on 85mm anamorphic cine prime lens, f/1.4 aperture, creamy cinematic bokeh with shallow depth of field", or "Dramatic wide-angle 24mm low-angle perspective").
-4. CHIAROSCURO & HARD RIM LIGHTING: High-contrast lighting (e.g., "warm golden amber key light paired with razor-sharp electric cyan rim lighting cutting the subject profile against the dark background") ensuring the focal subject violently pops on 120px mobile screens.
-5. ATMOSPHERE & TEXTURE: Volumetric light shafts, floating dust motes, subtle cinematic fog, micro-particles, and rich surface textures.
-6. MOBILE COMPOSITION & NEGATIVE SPACE: Dynamic rule-of-thirds composition, subject anchored firmly (e.g. right two-thirds), with the upper-left or top-center quadrant kept as clean, unobstructed dark negative space for bold 2-3 word YouTube text badges.
-7. STYLE INTEGRATION: Seamlessly blend the composition with the designated visual style "${styleName}".
+SENIOR YOUTUBE THUMBNAIL DIRECTOR RULES (BRIGHT, BOLD, SIMPLE — FLUX PROMPT FORMULA):
+YouTube thumbnails are viewed at 120-200px on mobile feeds. They must read instantly: ONE bold idea, big subject, bright and punchy. Dark, murky, over-detailed images FAIL.
+Every concept's "visualPrompt" MUST be a focused 45-75 word prompt, concrete nouns, no filler, following this anatomy:
+1. ONE DOMINANT SUBJECT, LARGE: a single clear subject filling 40-60% of the frame. If it is a person: close-up face with a strong readable emotion (shocked wide eyes, awe, fear, curiosity) looking toward the camera.
+2. ONE HERO METAPHOR / PROP: a single concrete, instantly understandable symbol of the video's core idea (cracked hourglass, glowing brain, giant clock, tiny figure vs huge object). Never stack more than 2 ideas.
+3. COLOR CONTRAST: exactly two strongly contrasting SATURATED colors (e.g. orange vs electric blue, red vs teal, gold vs deep purple). Vivid and luminous.
+4. BRIGHT EXPOSURE: the subject must be the BRIGHTEST, best-lit element, lit by a strong key light plus a bright rim light. Overall image is mid-to-high key: NEVER mostly black, NEVER pitch-black backgrounds or "obsidian black", NEVER extreme chiaroscuro. Backgrounds are simple gradients or softly blurred, medium-dark at the darkest.
+5. SIMPLE BACKGROUND: clean, uncluttered, with a calm area (one third of the frame) kept free of detail for a text badge. Describe it as "simple clean gradient background", not "dark negative space".
+6. CAMERA: mention one lens/framing at most (e.g. "85mm portrait, shallow depth of field"). End with "sharp focus, crisp detail, high contrast".
+7. STYLE: use the medium of the style "${styleName}" (photograph vs illustration vs painting) but the lighting/brightness rules above ALWAYS override the style's lighting.
+Split-frame compositions are allowed ONLY if BOTH halves are fully filled with equal visual weight and bright colors. Never leave one half empty or black.
 
 Provide exactly 3 distinct, proven high-CTR YouTube thumbnail archetypes:
-- Concept 1 (The Paradox / Split Contrast): Dual split-frame or side-by-side opposing states causing cognitive dissonance.
-- Concept 2 (The Visceral Focal Subject): Singular dominant iconic subject or macro portrait with intense gaze and chiaroscuro rim lighting.
-- Concept 3 (Surreal Scale / Human vs The Infinite): A tiny human silhouette dwarfed by a colossal, impossible conceptual structure or landscape.
+- Concept 1 (The Paradox / Contrast): Two opposing states in one image causing cognitive dissonance (both fully filled and bright).
+- Concept 2 (The Visceral Focal Subject): One dominant iconic subject or close-up face with an intense emotion, bright rim light, vivid color contrast.
+- Concept 3 (Surreal Scale): A small figure dwarfed by a colossal conceptual structure, in a vivid luminous sky (sunset or aurora colors), not a dark storm.
 
 Return strictly valid JSON:
 {
@@ -181,7 +182,7 @@ Return strictly valid JSON:
       "conceptName": "The Paradox / Split Contrast",
       "compositionType": "split_contrast",
       "visualHook": "Creates cognitive dissonance by comparing two opposing states side-by-side.",
-      "visualPrompt": "Split-frame dual contrast composition. On the left side, an apex African lion sleeping deeply on sun-drenched golden savanna grass, warm serene sunlight, relaxed peaceful posture. On the right side, an intense close-up portrait of a 30-year-old human in a dark midnight room, wide anxious eyes illuminated by an eerie blue glow, translucent temples revealing miniature glowing golden clock gears and tangled electrical lightning sparks. Shot on 85mm anamorphic prime lens, f/1.4 shallow depth of field, hard contrasting rim lighting separating both halves, textured skin pores, clean dark negative space reserved on the upper-left corner for bold badge text.",
+      "visualPrompt": "Bold YouTube thumbnail photograph, two halves of equal weight. Left: a calm lion sleeping on bright golden savanna grass in warm sunlight. Right: a close-up of a wide-eyed anxious man, bright blue light on his face, tiny glowing golden gears visible through his temple. Vivid orange versus electric blue color contrast, strong rim light, clean simple backgrounds, sharp focus, crisp detail, high contrast, bright exposure.",
       "textOverlayHint": "WHY WE WORRY",
       "badgeColor": "yellow"
     },
@@ -190,7 +191,7 @@ Return strictly valid JSON:
       "conceptName": "The Visceral Focal Subject",
       "compositionType": "focal_close_up",
       "visualHook": "Dominant singular focal point with extreme lighting contrast that pops on mobile feeds.",
-      "visualPrompt": "Cinematic macro medium close-up of a human silhouette facing the camera with an intense piercing gaze, their forehead and cranium fracturing like dark obsidian stone to reveal a brilliant glowing core of incandescent fiery amber light and swirling cosmic nebula particles. Shot on 50mm f/1.2 lens, extreme chiaroscuro side lighting, intense cobalt-blue rim light carving the facial contour against an obsidian black background, atmospheric smoke and floating golden dust motes, rule-of-thirds composition centered slightly right, upper-left quadrant completely dark and clean.",
+      "visualPrompt": "Bold YouTube thumbnail photograph: a man's face filling the right half of the frame, shocked wide eyes looking straight at the camera, his forehead cracked open like stone with brilliant glowing orange light bursting out. Vivid orange and electric blue color contrast, bright blue rim light on the face, simple clean dark-blue gradient background, 85mm portrait, sharp focus, crisp detail, high contrast, bright exposure.",
       "textOverlayHint": "THE BRAIN TRAP",
       "badgeColor": "red"
     },
@@ -199,7 +200,7 @@ Return strictly valid JSON:
       "conceptName": "Surreal Scale / Human vs The Infinite",
       "compositionType": "cinematic_scale",
       "visualHook": "Evokes awe and existential curiosity through vast scale disparity.",
-      "visualPrompt": "Surreal wide-angle composition with immense scale disparity. A tiny solitary human silhouette stands at the precipice of a dark cliff, gazing up at a colossal, monolithic ancient stone sundial looming hundreds of feet into a stormy indigo sky, its central needle crackling with golden electric arcs and temporal distortion rings. Low-angle 24mm anamorphic cinema shot, volumetric God rays piercing heavy storm clouds, deep atmospheric perspective, sharp silhouette contrast, clean negative space in the upper third.",
+      "visualPrompt": "Bold YouTube thumbnail photograph: a tiny lone figure stands on a cliff edge looking up at a colossal ancient stone sundial rising into a vivid orange and purple sunset sky, glowing golden light spilling from its needle. Strong warm backlight, saturated orange versus deep purple color contrast, simple clean sky, wide-angle low-angle shot, sharp focus, crisp detail, high contrast, bright exposure.",
       "textOverlayHint": "TIME ILLUSION",
       "badgeColor": "cyan"
     }
@@ -215,7 +216,7 @@ Return strictly valid JSON:
 RULES:
 1. EVERYTHING must be deeply derived from the provided VOICE SCRIPT's true core subject. Never use generic filler or timestamp names.
 2. TITLES must be authentic, highly engaging, under 60 characters, and avoid generic clickbait cliches.
-3. THUMBNAILS must strictly follow the Senior YouTube Thumbnail Director rules with 80-120 word concrete physical descriptions, high chiaroscuro contrast, camera optics, and clean negative space.
+3. THUMBNAILS must strictly follow the Senior YouTube Thumbnail Director rules: 45-75 word prompts, one big subject, bright exposure, two saturated contrasting colors, simple background. Never dark or murky.
 4. Chapters must span from 00:00 to ${formatSecondsToTime(durationSec)}.`;
 
     const userPrompt = `${effectiveTitle ? `Working Title: ${effectiveTitle}\n` : ''}Total Duration: ${formatSecondsToTime(durationSec)}
