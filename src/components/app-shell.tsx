@@ -23,13 +23,17 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full bg-bg-base overflow-hidden">
-      {collapseSidebar ? (
+      {/* {collapseSidebar ? (
         <div className="relative w-14 flex-shrink-0 h-full">
           <Sidebar collapsed />
         </div>
       ) : (
         <Sidebar />
-      )}
+      )} */}
+
+      <div className="relative w-14 flex-shrink-0 h-full">
+        <Sidebar collapsed />
+      </div>
       <main className="flex-1 min-w-0 flex flex-col h-full overflow-y-auto">
         {children}
       </main>

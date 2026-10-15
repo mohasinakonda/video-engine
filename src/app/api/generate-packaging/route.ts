@@ -8,6 +8,9 @@ import {
 } from '@/lib/supabase-service';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 120;
+
 function formatSecondsToTime(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
@@ -17,6 +20,7 @@ function formatSecondsToTime(sec: number): string {
 export async function POST(req: Request) {
   let authenticatedUserId: string | null = null;
   let remainingCredits: number | null = null;
+  let creditsCharged = false;
   const CREDITS_PER_PACKAGING = 15;
 
   try {
@@ -37,46 +41,54 @@ export async function POST(req: Request) {
     }
 
     // ─── 0. Authenticate Caller & Atomically Deduct 15 Credits (if Supabase user exists) ───
+    // Fails closed: must be signed in, and the charge must succeed before we spend AI quota.
     if (isSupabaseConfigured()) {
-      try {
-        const serverSupabase = createServerClient();
-        const {
-          data: { user },
-        } = await serverSupabase.auth.getUser();
+      const serverSupabase = createServerClient();
+      const {
+        data: { user },
+      } = await serverSupabase.auth.getUser();
 
-        if (user) {
-          authenticatedUserId = user.id;
-
-          const { data: profile } = await serverSupabase
-            .from('profiles')
-            .select('credits_remaining, is_blocked, block_reason')
-            .eq('id', user.id)
-            .single();
-
-          if (profile?.is_blocked) {
-            return NextResponse.json(
-              { error: profile.block_reason || 'Your account is suspended.' },
-              { status: 403 }
-            );
-          }
-
-          if (profile && profile.credits_remaining < CREDITS_PER_PACKAGING) {
-            return NextResponse.json(
-              {
-                error: `Insufficient credits. Generating a YouTube Launch Kit requires ${CREDITS_PER_PACKAGING} credits. You currently have ${profile.credits_remaining} credits.`,
-              },
-              { status: 402 }
-            );
-          }
-
-          const deducted = await deductCreditsRemote(user.id, CREDITS_PER_PACKAGING);
-          if (deducted && profile) {
-            remainingCredits = profile.credits_remaining - CREDITS_PER_PACKAGING;
-          }
-        }
-      } catch (authErr) {
-        console.warn('[generate-packaging] Supabase auth check bypassed:', authErr);
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized. Please sign in.' }, { status: 401 });
       }
+      authenticatedUserId = user.id;
+
+      const { data: profile } = await serverSupabase
+        .from('profiles')
+        .select('credits_remaining, is_blocked, block_reason')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) {
+        return NextResponse.json({ error: 'Profile not found.' }, { status: 403 });
+      }
+
+      if (profile.is_blocked) {
+        return NextResponse.json(
+          { error: profile.block_reason || 'Your account is suspended.' },
+          { status: 403 }
+        );
+      }
+
+      if (profile.credits_remaining < CREDITS_PER_PACKAGING) {
+        return NextResponse.json(
+          {
+            error: `Insufficient credits. Generating a YouTube Launch Kit requires ${CREDITS_PER_PACKAGING} credits. You currently have ${profile.credits_remaining} credits.`,
+          },
+          { status: 402 }
+        );
+      }
+
+      // Pass the user's session client so the DB sees an authenticated caller.
+      const deducted = await deductCreditsRemote(user.id, CREDITS_PER_PACKAGING, serverSupabase);
+      if (!deducted) {
+        return NextResponse.json(
+          { error: 'Could not charge credits. Please try again.' },
+          { status: 402 }
+        );
+      }
+      creditsCharged = true;
+      remainingCredits = profile.credits_remaining - CREDITS_PER_PACKAGING;
     }
 
     // Filter out generic timestamp titles like "Project Sep 29 10:51 PM"
@@ -87,8 +99,8 @@ export async function POST(req: Request) {
       totalDurationMs > 0
         ? Math.round(totalDurationMs / 1000)
         : scenes.length > 0
-        ? Math.round(scenes[scenes.length - 1].audioEndSec || 60)
-        : 60;
+          ? Math.round(scenes[scenes.length - 1].audioEndSec || 60)
+          : 60;
 
     // Build scene context with timestamps
     const sceneContext = (scenes || [])
@@ -221,34 +233,46 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
 
     let parsedResult: any = null;
 
-    // ─── 1. Groq (Ultra-fast Llama 3.3 70B) ──────────────────────────────────
+    // ─── 1. Groq (Ultra-fast openai/gpt-oss-120b, fallback qwen/qwen3.8-27b) ──
     if (!parsedResult && groqKey && groqKey.trim()) {
-      try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.5,
-          }),
-          signal: AbortSignal.timeout(14000),
-        });
+      const groqModels = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
+      for (const model of groqModels) {
+        if (parsedResult) break;
+        try {
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${groqKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.4,
+            }),
+            signal: AbortSignal.timeout(25000),
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) parsedResult = JSON.parse(content);
+          if (response.ok) {
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content;
+            if (content) {
+              const jsonMatch = content.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                parsedResult = JSON.parse(jsonMatch[0]);
+                break;
+              }
+            }
+          } else {
+            console.warn(`Groq packaging (${model}) failed HTTP ${response.status}`);
+          }
+        } catch (err) {
+          console.warn(`Groq packaging (${model}) error:`, err);
         }
-      } catch (err) {
-        console.warn('Groq packaging failed:', err);
       }
     }
 
@@ -270,13 +294,18 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
             response_format: { type: 'json_object' },
             temperature: 0.5,
           }),
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(20000),
         });
 
         if (response.ok) {
           const data = await response.json();
           const content = data.choices?.[0]?.message?.content;
-          if (content) parsedResult = JSON.parse(content);
+          if (content) {
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              parsedResult = JSON.parse(jsonMatch[0]);
+            }
+          }
         }
       } catch (err) {
         console.warn('OpenAI packaging failed:', err);
@@ -301,7 +330,7 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
             response_format: { type: 'json_object' },
             temperature: 0.4,
           }),
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(60000),
         });
 
         if (diRes.ok) {
@@ -319,12 +348,9 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
       }
     }
 
-    // If AI failed completely, return error so user knows to retry instead of receiving fake templates
+    // If AI failed completely, throw error so user knows to retry and credit deduction is safely refunded
     if (!parsedResult) {
-      return NextResponse.json(
-        { error: 'AI generation service is currently busy or timed out. Please click "Analyze & Generate Launch Kit" again to retry.' },
-        { status: 503 }
-      );
+      throw new Error('AI generation service is currently busy or timed out. Please click "Analyze & Generate Launch Kit" again to retry.');
     }
 
     // ─── Step 2: Intelligent Live YouTube Market Competitor Search ───────────
@@ -365,13 +391,13 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
       customTopicPrompt,
       titles: Array.isArray(parsedResult.titles) && parsedResult.titles.length > 0
         ? parsedResult.titles.map((t: any, idx: number) => ({
-            title: t.title,
-            hookStyle: t.hookStyle || (idx === 0 ? 'Curiosity Gap' : idx === 1 ? 'Extreme Transformation' : idx === 2 ? 'Counter-Intuitive Truth' : idx === 3 ? 'High-Stakes Story' : 'Search / SEO Authority'),
-            ctrScore: t.ctrScore || (98 - idx * 2),
-            whyItWorks: t.whyItWorks || 'Maximizes click-through rate through emotional resonance.',
-            charCount: (t.title || '').length,
-            pairedConceptId: t.pairedConceptId || `thumb_${(idx % 3) + 1}`,
-          }))
+          title: t.title,
+          hookStyle: t.hookStyle || (idx === 0 ? 'Curiosity Gap' : idx === 1 ? 'Extreme Transformation' : idx === 2 ? 'Counter-Intuitive Truth' : idx === 3 ? 'High-Stakes Story' : 'Search / SEO Authority'),
+          ctrScore: t.ctrScore || (98 - idx * 2),
+          whyItWorks: t.whyItWorks || 'Maximizes click-through rate through emotional resonance.',
+          charCount: (t.title || '').length,
+          pairedConceptId: t.pairedConceptId || `thumb_${(idx % 3) + 1}`,
+        }))
         : [],
       selectedTitleIndex: 0,
       description: parsedResult.description || '',
@@ -382,18 +408,18 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
       hashtags: Array.isArray(parsedResult.hashtags) ? parsedResult.hashtags : [],
       thumbnailConcepts: Array.isArray(parsedResult.thumbnailConcepts)
         ? parsedResult.thumbnailConcepts.map((c: any, i: number) => ({
-            id: c.id || `thumb_${i + 1}`,
-            conceptName: c.conceptName || `Concept #${i + 1}`,
-            visualPrompt: (c.visualPrompt || '').trim(),
-            originalPrompt: (c.visualPrompt || '').trim(),
-            textOverlayHint: (c.textOverlayHint || '').toUpperCase().slice(0, 30),
-            customBadgeText: (c.textOverlayHint || '').toUpperCase().slice(0, 30),
-            badgeColor: c.badgeColor || (i === 0 ? 'yellow' : i === 1 ? 'red' : 'cyan'),
-            badgePosition: 'top-left',
-            visualHook: c.visualHook || 'High-contrast focal composition designed for YouTube mobile feeds.',
-            compositionType: c.compositionType || (i === 0 ? 'split_contrast' : i === 1 ? 'focal_close_up' : 'cinematic_scale'),
-            imageUrl: c.imageUrl || undefined,
-          }))
+          id: c.id || `thumb_${i + 1}`,
+          conceptName: c.conceptName || `Concept #${i + 1}`,
+          visualPrompt: (c.visualPrompt || '').trim(),
+          originalPrompt: (c.visualPrompt || '').trim(),
+          textOverlayHint: (c.textOverlayHint || '').toUpperCase().slice(0, 30),
+          customBadgeText: (c.textOverlayHint || '').toUpperCase().slice(0, 30),
+          badgeColor: c.badgeColor || (i === 0 ? 'yellow' : i === 1 ? 'red' : 'cyan'),
+          badgePosition: 'top-left',
+          visualHook: c.visualHook || 'High-contrast focal composition designed for YouTube mobile feeds.',
+          compositionType: c.compositionType || (i === 0 ? 'split_contrast' : i === 1 ? 'focal_close_up' : 'cinematic_scale'),
+          imageUrl: c.imageUrl || undefined,
+        }))
         : [],
       generatedAt: Date.now(),
       remainingCredits: remainingCredits ?? undefined,
@@ -404,9 +430,11 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
     console.error('API /api/generate-packaging error:', error);
 
     // If an error occurred after credit deduction, refund the 15 credits
-    if (authenticatedUserId && isSupabaseConfigured()) {
+    // Only refund what was actually charged
+    if (creditsCharged && authenticatedUserId && isSupabaseConfigured()) {
       try {
-        await grantCreditsRemote(authenticatedUserId, CREDITS_PER_PACKAGING);
+        const serverSupabase = createServerClient();
+        await grantCreditsRemote(authenticatedUserId, CREDITS_PER_PACKAGING, serverSupabase);
         console.log(`[API /api/generate-packaging] Refunded ${CREDITS_PER_PACKAGING} credits to ${authenticatedUserId} due to generation failure`);
       } catch (refundErr) {
         console.error('[API /api/generate-packaging] Failed to refund credits:', refundErr);

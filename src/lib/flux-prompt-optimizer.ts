@@ -64,7 +64,7 @@ function resolveLlmConfig(): { client: OpenAI; model: string } | null {
     };
   }
 
-  // 3. Groq (Ultra-fast ~100ms Llama-3.1)
+  // 3. Groq (Ultra-fast openai/gpt-oss-120b)
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey && groqKey.trim()) {
     return {
@@ -72,7 +72,7 @@ function resolveLlmConfig(): { client: OpenAI; model: string } | null {
         apiKey: groqKey.trim(),
         baseURL: 'https://api.groq.com/openai/v1',
       }),
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-120b',
     };
   }
 

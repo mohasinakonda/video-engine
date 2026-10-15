@@ -47,37 +47,44 @@ Elevate this prompt now into a masterwork FLUX.1 thumbnail prompt.`;
 
     let enhancedPrompt = '';
 
-    // ─── 1. Groq (Ultra-fast, ~400ms) ────────────────────────────────────────
+    // ─── 1. Groq (Ultra-fast openai/gpt-oss-120b / qwen/qwen3.8-27b) ────────
     if (!enhancedPrompt && groqKey && groqKey.trim()) {
-      try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${groqKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.6,
-          }),
-          signal: AbortSignal.timeout(10000),
-        });
+      const groqModels = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
+      for (const model of groqModels) {
+        if (enhancedPrompt) break;
+        try {
+          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${groqKey.trim()}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.6,
+            }),
+            signal: AbortSignal.timeout(15000),
+          });
 
-        if (response.ok) {
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) {
-            const parsed = JSON.parse(content);
-            if (parsed.enhancedPrompt) enhancedPrompt = parsed.enhancedPrompt.trim();
+          if (response.ok) {
+            const data = await response.json();
+            const content = data.choices?.[0]?.message?.content;
+            if (content) {
+              const parsed = JSON.parse(content);
+              if (parsed.enhancedPrompt) {
+                enhancedPrompt = parsed.enhancedPrompt.trim();
+                break;
+              }
+            }
           }
+        } catch (err) {
+          console.warn(`Groq enhance prompt (${model}) failed:`, err);
         }
-      } catch (err) {
-        console.warn('Groq enhance prompt failed:', err);
       }
     }
 
