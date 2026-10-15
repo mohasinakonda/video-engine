@@ -14,6 +14,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { useLaunchKit } from '../launch-kit-context';
+import CharCounter from '@/components/char-counter';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 
 export function ScriptInputCard() {
   const {
@@ -25,6 +27,9 @@ export function ScriptInputCard() {
     handleSaveScriptOnly,
     scriptWordCount,
     scriptCharCount,
+    scriptCharLimit,
+    nextScriptTier,
+    scriptTooLong,
     customFocus,
     setCustomFocus,
     isGenerating,
@@ -88,7 +93,7 @@ export function ScriptInputCard() {
           <button
             type="button"
             onClick={handleGeneratePackaging}
-            disabled={isGenerating}
+            disabled={isGenerating || scriptTooLong}
             className="btn-primary text-xs px-4 py-2 flex items-center gap-2 font-bold flex-shrink-0"
           >
             {isGenerating ? (
@@ -114,8 +119,8 @@ export function ScriptInputCard() {
             <span>Voiceover Narration Script</span>
           </label>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-zinc-400">
-              {scriptWordCount} words · {scriptCharCount} chars
+            <span className={`text-xs font-mono ${scriptTooLong ? 'text-rose-400' : 'text-zinc-400'}`}>
+              {scriptWordCount} words · {scriptCharCount.toLocaleString()} chars
             </span>
             {packaging && (
               <button
@@ -154,6 +159,7 @@ export function ScriptInputCard() {
           placeholder="Paste or write your full voiceover script here. The AI will analyze this exact text to evaluate retention risk, generate high-CTR titles, and build style-matched thumbnails."
           className="input text-xs font-mono leading-relaxed bg-zinc-950/80 border-zinc-800 focus:border-zinc-500 text-zinc-200 resize-y min-h-[110px]"
         />
+        <CharCounter length={scriptCharCount} limit={scriptCharLimit} upgrade={nextScriptTier} />
       </div>
 
       {/* Custom Direction & Style Meta Bar */}
@@ -166,6 +172,7 @@ export function ScriptInputCard() {
           <input
             type="text"
             value={customFocus}
+            maxLength={TEXT_LIMITS.customFocus}
             onChange={(e) => setCustomFocus(e.target.value)}
             placeholder="e.g. Focus on ancient ocean giants, emphasize the 1997 anomaly..."
             className="input text-xs bg-zinc-950/80 border-zinc-800 text-white"

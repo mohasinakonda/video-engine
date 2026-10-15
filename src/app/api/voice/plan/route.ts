@@ -10,6 +10,8 @@ import {
   refundVoiceCredits,
   type VoiceAuth,
 } from '@/lib/voice-server';
+import { VOICE_CLIP_MAX_CHARS, scriptTooLongMessage } from '@/lib/input-limits';
+import { getUserScriptCharLimit } from '@/lib/input-limits-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,12 +42,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Script text is required.' }, { status: 400 });
     }
 
-    const maxChars = mode === 'longform' ? 500_000 : 5_000;
+    const planLimit = await getUserScriptCharLimit(auth.serverSupabase, auth.userId);
+    const maxChars = mode === 'longform' ? planLimit : Math.min(VOICE_CLIP_MAX_CHARS, planLimit);
     if (text.length > maxChars) {
-      return NextResponse.json(
-        { error: `Script too long (max ${maxChars.toLocaleString()} characters in ${mode} mode).` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: scriptTooLongMessage(text.length, maxChars) }, { status: 400 });
     }
 
     const model = await resolveVoiceModel(

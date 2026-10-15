@@ -18,6 +18,9 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { TEXT_LIMITS, VOICE_CLIP_MAX_CHARS, scriptTooLongMessage } from '@/lib/input-limits';
+import { useScriptCharLimit } from '@/hooks/use-script-limit';
+import CharCounter from '@/components/char-counter';
 import { getAudioDuration } from '@/lib/media-storage';
 import {
   MIMO_STYLE_TAGS,
@@ -320,7 +323,10 @@ export default function VoicePage() {
 
   // Dynamic Credits
   const charsPerCredit = engine?.charsPerCredit ?? 1000;
-  const charLimit = mode === 'longform' ? 500_000 : 5_000;
+  const { limit: planCharLimit, nextTier } = useScriptCharLimit();
+  const charLimit = mode === 'longform' ? planCharLimit : Math.min(VOICE_CLIP_MAX_CHARS, planCharLimit);
+  const textTooLong = text.trim().length > charLimit;
+  const descriptionTooLong = voiceDescription.trim().length > TEXT_LIMITS.voiceDescription;
   const creditEstimate = useMemo(() => {
     const chars = text.trim().length;
     if (chars <= 0) return 0;
@@ -539,7 +545,11 @@ export default function VoicePage() {
       return;
     }
     if (script.length > charLimit) {
-      showToast(`Script exceeds ${charLimit.toLocaleString()} character limit.`, 'error');
+      showToast(scriptTooLongMessage(script.length, charLimit), 'error');
+      return;
+    }
+    if (voiceDescription.trim().length > TEXT_LIMITS.voiceDescription) {
+      showToast(`Voice description must be ${TEXT_LIMITS.voiceDescription} characters or fewer.`, 'error');
       return;
     }
 
@@ -754,7 +764,7 @@ export default function VoicePage() {
   }, [resultBlob, downloadBlob]);
 
 
-  const canGenerate = text.trim().length > 0 && !busy;
+  const canGenerate = text.trim().length > 0 && !textTooLong && !descriptionTooLong && !busy;
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-bg-base text-zinc-100 font-sans selection:bg-white/20 selection:text-white">
@@ -899,6 +909,7 @@ export default function VoicePage() {
                   placeholder="e.g. Heavy Russian accent, gruff middle-aged male, blunt and matter-of-fact."
                   className="w-full bg-transparent text-sm leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-none font-mono"
                 />
+                <CharCounter length={voiceDescription.trim().length} limit={TEXT_LIMITS.voiceDescription} />
               </div>
             </div>
 
@@ -1046,9 +1057,14 @@ export default function VoicePage() {
 
               <span className="text-zinc-600">|</span>
 
-              <span className="text-zinc-400 font-mono">
-                {text.length.toLocaleString()} / {charLimit.toLocaleString()} chars
+              <span className={`font-mono ${textTooLong ? 'text-rose-400' : 'text-zinc-400'}`}>
+                {text.trim().length.toLocaleString()} / {charLimit.toLocaleString()} chars
               </span>
+              {textTooLong && mode === 'longform' && nextTier && (
+                <a href="/plan" className="text-rose-400 underline underline-offset-2 hover:text-rose-300">
+                  Upgrade to {nextTier.label} for {nextTier.limit.toLocaleString()}
+                </a>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

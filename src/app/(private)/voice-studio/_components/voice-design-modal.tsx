@@ -1,5 +1,7 @@
 import { getAudioDuration } from "@/lib/media-storage";
 import { showToast } from "@/lib/toast";
+import { TEXT_LIMITS } from "@/lib/input-limits";
+import CharCounter from "@/components/char-counter";
 import { Bookmark, Loader2, Lock, Pause, Play, RotateCcw, Sparkles, X } from "lucide-react";
 import { Dispatch, SetStateAction, useCallback, useRef, useState } from "react";
 
@@ -471,6 +473,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                         <input
                             type="text"
                             value={modalVoiceName}
+                            maxLength={TEXT_LIMITS.voiceName}
                             onChange={(e) => setModalVoiceName(e.target.value)}
                             placeholder="e.g. Liam - Cinematic Tech Narrator"
                             className="w-full px-3.5 py-2.5 rounded-xl bg-bg-surface border border-bg-border text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
@@ -605,6 +608,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                             className="w-full p-3 rounded-xl bg-bg-surface border border-bg-border text-xs text-zinc-200 font-mono focus:outline-none focus:border-zinc-600 leading-relaxed"
                             placeholder="e.g. Authoritative male voice, with low pitch, speaking in fluent English (US)..."
                         />
+                        <CharCounter length={modalPrompt.trim().length} limit={TEXT_LIMITS.voiceDescription} className="mt-1" />
                     </div>
 
                     {/* 4. Audition & Live Preview */}
@@ -773,7 +777,7 @@ export const VoiceDesignModal = ({ setDesignModalOpen, setSelectedCustomVoice, s
                         <button
                             type="button"
                             onClick={handleModalSaveVoice}
-                            disabled={modalSaving || !modalVoiceName.trim()}
+                            disabled={modalSaving || !modalVoiceName.trim() || modalPrompt.trim().length > TEXT_LIMITS.voiceDescription}
                             className="btn-primary px-5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
                             title={!modalAudioBase64 ? 'Audition the voice first to generate sample' : 'Save and lock voice timbre'}
                         >

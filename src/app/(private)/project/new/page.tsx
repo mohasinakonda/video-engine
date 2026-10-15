@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import GenerationOverlay from './components/generation-overlay';
 import ScriptInput from '@/components/script-input';
+import { useScriptCharLimit } from '@/hooks/use-script-limit';
+import { scriptTooLongMessage } from '@/lib/input-limits';
 import StylePresetModal from '@/components/style-preset-modal';
 import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 import type { AIImageModel } from '@/types/subscription';
@@ -86,6 +88,8 @@ function ProjectPageInner() {
   const [projectId, setProjectId] = useState<string>(() => generateId());
   const [projectTitle, setProjectTitle] = useState('');
   const [script, setScript] = useState('');
+  const { limit: scriptLimit, nextTier: nextScriptTier } = useScriptCharLimit();
+  const scriptTooLong = script.trim().length > scriptLimit;
 
   // Aspect Ratio State
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
@@ -264,6 +268,10 @@ function ProjectPageInner() {
       return;
     }
     if (!script.trim()) return;
+    if (scriptTooLong) {
+      setGenerationError(scriptTooLongMessage(script.trim().length, scriptLimit));
+      return;
+    }
 
     setGenerating(true);
     setGenerationError('');
@@ -413,6 +421,9 @@ function ProjectPageInner() {
       }
 
       const effectiveScript = script.trim() || transcriptionText;
+      if (effectiveScript.length > scriptLimit) {
+        throw new Error(scriptTooLongMessage(effectiveScript.length, scriptLimit));
+      }
       if (!script.trim()) setScript(effectiveScript);
 
       // Scene count is NOT forced here — the AI Director decides it from the real
@@ -570,6 +581,8 @@ function ProjectPageInner() {
                 value={script}
                 onChange={setScript}
                 disabled={generating}
+                limit={scriptLimit}
+                upgrade={nextScriptTier}
                 placeholder="Paste your video narration, voiceover script, or visual story concept here…&#10;&#10;AI Director will automatically generate visual scene prompts, camera angles, and art styles."
               />
             </div>
@@ -848,7 +861,7 @@ function ProjectPageInner() {
               id="generate-storyboard-btn"
               type="button"
               onClick={handleGenerateVisualStoryboard}
-              disabled={generating || !script.trim() || (voiceMode === 'voice' && !customAudioFile)}
+              disabled={generating || !script.trim() || scriptTooLong || (voiceMode === 'voice' && !customAudioFile)}
               className="btn-primary w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]"
             >
               {generating ? (

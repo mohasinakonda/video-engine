@@ -7,6 +7,13 @@ import {
   grantCreditsRemote,
 } from '@/lib/supabase-service';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import {
+  SCRIPT_CHAR_LIMITS,
+  TEXT_LIMITS,
+  effectiveTier,
+  getScriptCharLimit,
+  scriptTooLongMessage,
+} from '@/lib/input-limits';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -39,6 +46,19 @@ export async function POST(req: Request) {
     if (!cleanScript && scenes.length === 0) {
       return NextResponse.json({ error: 'Voice script content is required to generate packaging.' }, { status: 400 });
     }
+    // Absolute ceiling before any DB work; the per-plan check follows once we know the user.
+    if (cleanScript.length > SCRIPT_CHAR_LIMITS.STUDIO) {
+      return NextResponse.json(
+        { error: scriptTooLongMessage(cleanScript.length, SCRIPT_CHAR_LIMITS.STUDIO) },
+        { status: 400 }
+      );
+    }
+    if (typeof customTopicPrompt !== 'string' || customTopicPrompt.length > TEXT_LIMITS.customFocus) {
+      return NextResponse.json(
+        { error: `Custom angle must be ${TEXT_LIMITS.customFocus} characters or fewer.` },
+        { status: 400 }
+      );
+    }
 
     // ─── 0. Authenticate Caller & Atomically Deduct 15 Credits (if Supabase user exists) ───
     // Fails closed: must be signed in, and the charge must succeed before we spend AI quota.
@@ -55,7 +75,7 @@ export async function POST(req: Request) {
 
       const { data: profile } = await serverSupabase
         .from('profiles')
-        .select('credits_remaining, is_blocked, block_reason')
+        .select('credits_remaining, is_blocked, block_reason, tier, role, subscription_expires_at')
         .eq('id', user.id)
         .single();
 
@@ -67,6 +87,14 @@ export async function POST(req: Request) {
         return NextResponse.json(
           { error: profile.block_reason || 'Your account is suspended.' },
           { status: 403 }
+        );
+      }
+
+      const scriptLimit = getScriptCharLimit(effectiveTier(profile), profile.role === 'admin');
+      if (cleanScript.length > scriptLimit) {
+        return NextResponse.json(
+          { error: scriptTooLongMessage(cleanScript.length, scriptLimit) },
+          { status: 400 }
         );
       }
 
@@ -108,7 +136,8 @@ export async function POST(req: Request) {
         (s: any, idx: number) =>
           `Scene ${idx + 1} (${formatSecondsToTime(s.audioStartSec || 0)} - ${formatSecondsToTime(s.audioEndSec || 0)}): "${s.narrationLine || ''}" [Visual Motif: ${s.visualPrompt || ''}]`
       )
-      .join('\n');
+      .join('\n')
+      .slice(0, 24_000);
 
     // Determine artistic style context for thumbnails
     const styleName = (baseStylePreset as BaseStylePreset)?.name || 'Cinematic Documentary';

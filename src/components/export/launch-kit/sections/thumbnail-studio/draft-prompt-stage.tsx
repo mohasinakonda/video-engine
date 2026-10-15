@@ -12,6 +12,8 @@ import {
   Zap,
   ChevronDown,
 } from 'lucide-react';
+import CharCounter from '@/components/char-counter';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 import type { ThumbnailConcept } from '@/types';
 import { useLaunchKit } from '../../launch-kit-context';
 import { CopyButton } from '../../components/copy-button';
@@ -287,10 +289,12 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
               <textarea
                 rows={5}
                 value={concept.visualPrompt}
+                maxLength={TEXT_LIMITS.thumbnailPrompt}
                 onChange={(e) => handleUpdateConceptPrompt(concept.id, e.target.value)}
                 placeholder="Describe one big subject, the key emotion, and two contrasting colors..."
                 className="w-full text-xs font-mono leading-relaxed bg-zinc-950 border border-zinc-700/80 focus:border-zinc-500 rounded-xl text-zinc-100 p-3.5 focus:outline-none resize-y min-h-[110px]"
               />
+              <CharCounter length={concept.visualPrompt.trim().length} limit={TEXT_LIMITS.thumbnailPrompt} />
             </div>
           )}
         </div>
@@ -309,7 +313,11 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
           <button
             type="button"
             onClick={() => handleGenerateThumbnail(concept)}
-            disabled={isGeneratingThis || Boolean(generatingThumbId)}
+            disabled={
+              isGeneratingThis ||
+              Boolean(generatingThumbId) ||
+              concept.visualPrompt.trim().length > TEXT_LIMITS.thumbnailPrompt
+            }
             className="btn-primary text-xs px-6 py-2.5 flex items-center justify-center gap-2 w-full sm:w-auto font-bold"
           >
             {isGeneratingThis ? (

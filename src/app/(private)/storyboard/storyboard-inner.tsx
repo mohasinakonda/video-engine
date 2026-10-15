@@ -27,6 +27,8 @@ import {
   getImageModel,
 } from '@/lib/store';
 import { extractScenes } from '@/lib/gemini';
+import { useScriptCharLimit } from '@/hooks/use-script-limit';
+import { scriptTooLongMessage } from '@/lib/input-limits';
 import JSZip from 'jszip';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
@@ -70,6 +72,7 @@ export default function StoryboardInner() {
   const [extracting, setExtracting] = useState(false);
   const [extractMsg, setExtractMsg] = useState('');
   const [extractError, setExtractError] = useState('');
+  const { limit: scriptCharLimit } = useScriptCharLimit();
 
   const [generatingImages, setGeneratingImages] = useState(false);
   const [generatingMotion, setGeneratingMotion] = useState(false);
@@ -374,7 +377,12 @@ export default function StoryboardInner() {
     const proj = projectRef.current;
     const preset = presetRef.current;
     if (!proj || !preset) return;
-
+    // Re-extraction re-runs the LLM over the whole script, so the plan limit applies here too.
+    const scriptLength = proj.rawScript?.trim().length || 0;
+    if (scriptLength > scriptCharLimit) {
+      setExtractError(scriptTooLongMessage(scriptLength, scriptCharLimit));
+      return;
+    }
 
     // If project has no audio duration, calculate reasonable fallback based on script words
     const words = proj.rawScript?.trim().split(/\s+/).filter(Boolean).length || 0;

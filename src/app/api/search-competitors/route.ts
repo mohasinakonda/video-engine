@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { searchYouTubeMarket } from '@/lib/youtube-search';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 
 export async function POST(req: Request) {
   try {
@@ -8,6 +9,12 @@ export async function POST(req: Request) {
 
     if (!cleanQuery) {
       return NextResponse.json({ error: 'Search query is required' }, { status: 400 });
+    }
+    if (cleanQuery.length > TEXT_LIMITS.searchQuery) {
+      return NextResponse.json(
+        { error: `Search query must be ${TEXT_LIMITS.searchQuery} characters or fewer.` },
+        { status: 400 }
+      );
     }
 
     const envKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY || youtubeApiKey;

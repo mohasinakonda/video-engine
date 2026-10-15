@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateVoiceRequest } from '@/lib/voice-server';
+import { TEXT_LIMITS, clampText } from '@/lib/input-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,8 +77,19 @@ export async function POST(req: Request) {
           : typeof body.description === 'string'
           ? body.description.trim()
           : '';
+      if (userPrompt.length > TEXT_LIMITS.voiceDescription) {
+        return NextResponse.json(
+          { error: `Voice description must be ${TEXT_LIMITS.voiceDescription} characters or fewer.` },
+          { status: 400 }
+        );
+      }
       const mode = body.mode === 'director' ? 'director' : 'standard';
-      const attributes = body.attributes || {};
+      const rawAttributes = body.attributes && typeof body.attributes === 'object' ? body.attributes : {};
+      // Attribute values come from fixed dropdowns; cap them so free text can't ride along.
+      const attributes: Record<string, string | undefined> = {};
+      for (const [k, v] of Object.entries(rawAttributes)) {
+        if (typeof v === 'string' && v.trim()) attributes[k] = v.trim().slice(0, 60);
+      }
 
       const attrSummary = [
         attributes.gender && `Gender: ${attributes.gender}`,
@@ -127,7 +139,7 @@ Return ONLY the refined voice description prompt. Do not wrap in markdown quotes
         attrSummary ? `\nSpecified attributes: ${attrSummary}` : ''
       }`;
 
-      const enhanced = await callLlm(systemPrompt, inputDetails, 0.6);
+      const enhanced = clampText(await callLlm(systemPrompt, inputDetails, 0.6), TEXT_LIMITS.voiceDescription);
 
       return NextResponse.json({
         success: true,
@@ -143,6 +155,9 @@ Return ONLY the refined voice description prompt. Do not wrap in markdown quotes
 
       if (!voicePrompt) {
         return NextResponse.json({ error: 'voicePrompt is required.' }, { status: 400 });
+      }
+      if (voicePrompt.length > TEXT_LIMITS.voiceDescription || topic.length > TEXT_LIMITS.voiceTopic) {
+        return NextResponse.json({ error: 'Voice description or topic is too long.' }, { status: 400 });
       }
 
       const systemPrompt = `You are an expert Scriptwriter and Voice Director for Xiaomi MiMo-V2.5-TTS speech synthesis.
@@ -198,7 +213,10 @@ Design the PERFECT matching Voice Description prompt following MiMo best practic
 - Strictly NO post-processing terms (no reverb, EQ, etc.).
 - Output ONLY the voice description text.`;
 
-      const voice = await callLlm(systemPrompt, `Script:\n${script.slice(0, 800)}`, 0.6);
+      const voice = clampText(
+        await callLlm(systemPrompt, `Script:\n${script.slice(0, 800)}`, 0.6),
+        TEXT_LIMITS.voiceDescription
+      );
       return NextResponse.json({ success: true, voicePrompt: voice });
     }
 

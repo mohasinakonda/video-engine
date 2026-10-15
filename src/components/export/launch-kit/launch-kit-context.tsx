@@ -23,6 +23,8 @@ import {
 } from '@/lib/subscription-store';
 import { generateImage, base64ToUint8Array } from '@/lib/gemini';
 import { saveMediaBlob } from '@/lib/media-storage';
+import { useScriptCharLimit } from '@/hooks/use-script-limit';
+import { TEXT_LIMITS, scriptTooLongMessage } from '@/lib/input-limits';
 
 interface LaunchKitContextValue {
   // Core project & packaging
@@ -40,6 +42,9 @@ interface LaunchKitContextValue {
   handleSaveScriptOnly: () => Promise<void>;
   scriptWordCount: number;
   scriptCharCount: number;
+  scriptCharLimit: number;
+  nextScriptTier: { label: string; limit: number } | null;
+  scriptTooLong: boolean;
 
   // Custom focus & style preset
   customFocus: string;
@@ -187,6 +192,7 @@ export function LaunchKitProvider({
 
   // Editable Voice Script State (initialized from project.rawScript)
   const [voiceScript, setVoiceScript] = useState(project.rawScript || '');
+  const { limit: scriptCharLimit, nextTier: nextScriptTier } = useScriptCharLimit();
   const [customFocus, setCustomFocus] = useState(project.youtubePackaging?.customTopicPrompt || '');
   const [isScriptSaved, setIsScriptSaved] = useState(false);
   const [stylePreset, setStylePreset] = useState<BaseStylePreset | null>(null);
@@ -311,6 +317,10 @@ export function LaunchKitProvider({
       showToast('Please enter a search query for competitor benchmarks');
       return;
     }
+    if (query.length > TEXT_LIMITS.searchQuery) {
+      showToast(`Search query must be ${TEXT_LIMITS.searchQuery} characters or fewer.`);
+      return;
+    }
 
     setIsSearchingCompetitors(true);
     try {
@@ -359,6 +369,10 @@ export function LaunchKitProvider({
     const cleanScript = voiceScript.trim();
     if (!cleanScript) {
       showToast('Please enter or paste your voice script below first!');
+      return;
+    }
+    if (cleanScript.length > scriptCharLimit) {
+      showToast(scriptTooLongMessage(cleanScript.length, scriptCharLimit));
       return;
     }
 
@@ -498,6 +512,10 @@ export function LaunchKitProvider({
   const handleEnhanceConceptPrompt = async (concept: ThumbnailConcept) => {
     if (!concept.visualPrompt.trim()) {
       showToast('Please enter a draft visual prompt to enhance');
+      return;
+    }
+    if (concept.visualPrompt.trim().length > TEXT_LIMITS.thumbnailPrompt) {
+      showToast(`Thumbnail prompt must be ${TEXT_LIMITS.thumbnailPrompt} characters or fewer.`);
       return;
     }
     setEnhancingThumbId(concept.id);
@@ -956,7 +974,8 @@ ${hashtagsStr}`;
     return voiceScript.trim() ? voiceScript.trim().split(/\s+/).length : 0;
   }, [voiceScript]);
 
-  const scriptCharCount = voiceScript.length;
+  const scriptCharCount = voiceScript.trim().length;
+  const scriptTooLong = scriptCharCount > scriptCharLimit;
 
   return (
     <LaunchKitContext.Provider
@@ -973,6 +992,9 @@ ${hashtagsStr}`;
         handleSaveScriptOnly,
         scriptWordCount,
         scriptCharCount,
+        scriptCharLimit,
+        nextScriptTier,
+        scriptTooLong,
         customFocus,
         setCustomFocus,
         stylePreset,

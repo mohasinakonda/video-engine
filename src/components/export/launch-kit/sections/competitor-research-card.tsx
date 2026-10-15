@@ -4,6 +4,7 @@ import React from 'react';
 import { Search, Loader2, Sparkles, ExternalLink, Eye, Flame } from 'lucide-react';
 import type { CompetitorVideo } from '@/types';
 import { useLaunchKit } from '../launch-kit-context';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 
 export function CompetitorResearchCard() {
   const {
@@ -73,6 +74,7 @@ export function CompetitorResearchCard() {
             <input
               type="text"
               value={competitorSearchInput}
+              maxLength={TEXT_LIMITS.searchQuery}
               onChange={(e) => setCompetitorSearchInput(e.target.value)}
               placeholder="Search competitor topic query..."
               className="w-full bg-zinc-950 border border-zinc-700 focus:border-red-500 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none transition-colors"

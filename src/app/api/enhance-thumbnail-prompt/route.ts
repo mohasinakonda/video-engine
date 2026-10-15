@@ -1,18 +1,25 @@
 import { NextResponse } from 'next/server';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 
 export async function POST(req: Request) {
   try {
-    const {
-      prompt = '',
-      coreTopic = '',
-      styleName = 'Cinematic Documentary',
-      stylePrompt = 'Cinematic lighting, 8k, photorealistic',
-      aspectRatio = '16:9',
-    } = await req.json();
+    const body = await req.json();
+    const str = (v: unknown, fallback: string, max: number) =>
+      (typeof v === 'string' && v.trim() ? v.trim() : fallback).slice(0, max);
+    const coreTopic = str(body.coreTopic, '', 300);
+    const styleName = str(body.styleName, 'Cinematic Documentary', 100);
+    const stylePrompt = str(body.stylePrompt, 'Cinematic lighting, 8k, photorealistic', 1_000);
+    const aspectRatio = body.aspectRatio === '9:16' ? '9:16' : '16:9';
 
-    const cleanPrompt = (prompt || '').trim();
+    const cleanPrompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
     if (!cleanPrompt) {
       return NextResponse.json({ error: 'Prompt is required to enhance.' }, { status: 400 });
+    }
+    if (cleanPrompt.length > TEXT_LIMITS.thumbnailPrompt) {
+      return NextResponse.json(
+        { error: `Thumbnail prompt must be ${TEXT_LIMITS.thumbnailPrompt} characters or fewer.` },
+        { status: 400 }
+      );
     }
 
     const systemPrompt = `You are an award-winning Visual Art Director & Prompt Architect specializing in FLUX.1 prompts for high-CTR YouTube thumbnails.

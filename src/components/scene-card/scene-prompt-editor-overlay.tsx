@@ -3,6 +3,8 @@
 import React from 'react';
 import { Edit2, X, Loader2, Wand2, RefreshCw } from 'lucide-react';
 import PromptModifierChips from './prompt-modifier-chips';
+import CharCounter from '@/components/char-counter';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 import ModelSelectorDropdown from '@/components/storyboard/model-selector-dropdown';
 
 interface ScenePromptEditorOverlayProps {
@@ -33,7 +35,11 @@ export default function ScenePromptEditorOverlay({
   onClose,
 }: ScenePromptEditorOverlayProps) {
   const isSubmitDisabled =
-    !promptDraft.trim() || isGenerating || isSubmittingRegenerate || disabled;
+    !promptDraft.trim() ||
+    promptDraft.trim().length > TEXT_LIMITS.scenePrompt ||
+    isGenerating ||
+    isSubmittingRegenerate ||
+    disabled;
 
   return (
     <div
@@ -82,6 +88,7 @@ export default function ScenePromptEditorOverlay({
           placeholder="Describe scene visual details, camera optics, and lighting..."
           autoFocus
         />
+        <CharCounter length={promptDraft.trim().length} limit={TEXT_LIMITS.scenePrompt} />
 
         {/* Reusable Quick Modifier Chips */}
         <PromptModifierChips onAppend={onAppendModifier} size="xs" />

@@ -9,6 +9,7 @@ import {
   CLONE_COST_CREDITS,
   type VoiceAuth,
 } from '@/lib/voice-server';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,6 +81,18 @@ export async function POST(req: Request) {
 
     if (!name) {
       return NextResponse.json({ error: 'Voice name is required.' }, { status: 400 });
+    }
+    if (name.length > TEXT_LIMITS.voiceName) {
+      return NextResponse.json(
+        { error: `Voice name must be ${TEXT_LIMITS.voiceName} characters or fewer.` },
+        { status: 400 }
+      );
+    }
+    if (voicePrompt.length > TEXT_LIMITS.voiceDescription) {
+      return NextResponse.json(
+        { error: `Voice description must be ${TEXT_LIMITS.voiceDescription} characters or fewer.` },
+        { status: 400 }
+      );
     }
     if (!audioBase64) {
       return NextResponse.json({ error: 'Audio sample is required to create a persistent voice anchor.' }, { status: 400 });

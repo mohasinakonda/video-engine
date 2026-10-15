@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { processAudioFileForCloning } from '@/lib/audio-encoder';
 import { showToast } from '@/lib/toast';
+import { TEXT_LIMITS } from '@/lib/input-limits';
 
 export interface CustomVoice {
   id: string;
@@ -121,7 +122,7 @@ export function VoiceCloneModal({
         if (!voiceName.trim()) {
           const rawName = selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
           const formatted = rawName.charAt(0).toUpperCase() + rawName.slice(1);
-          setVoiceName(formatted.slice(0, 30));
+          setVoiceName(formatted.slice(0, TEXT_LIMITS.voiceName));
         }
 
         showToast('Voice sample loaded & optimized!', 'success');
@@ -347,6 +348,7 @@ export function VoiceCloneModal({
               <input
                 type="text"
                 value={voiceName}
+                maxLength={TEXT_LIMITS.voiceName}
                 onChange={(e) => setVoiceName(e.target.value)}
                 placeholder="e.g., Hazrat Voice, David Narrator"
                 className="w-full px-3 py-2 text-xs rounded-xl bg-bg-surface border border-bg-border text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400"
@@ -394,6 +396,7 @@ export function VoiceCloneModal({
               <input
                 type="text"
                 value={voicePrompt}
+                maxLength={TEXT_LIMITS.voiceDescription}
                 onChange={(e) => setVoicePrompt(e.target.value)}
                 placeholder="e.g. Natural, confident, clear documentary narrator"
                 className="w-full px-3 py-2 text-xs rounded-xl bg-bg-surface border border-bg-border text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400"

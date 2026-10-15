@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import CharCounter from '@/components/char-counter';
 
 // ─── Word Count Helpers ───────────────────────────────────────────────────────
 
@@ -26,6 +27,10 @@ interface ScriptInputProps {
   onChange: (v: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  /** Max characters allowed on the user's plan. */
+  limit?: number;
+  /** Plan that raises the limit, offered when the script is over it. */
+  upgrade?: { label: string; limit: number } | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -35,6 +40,8 @@ export default function ScriptInput({
   onChange,
   disabled = false,
   placeholder = 'Paste your full narration script here…\n\nThe script will be semantically split into ~3-minute audio chunks using AI.',
+  limit,
+  upgrade,
 }: ScriptInputProps) {
   const [wordCount, setWordCount] = useState(0);
   const [readTime, setReadTime] = useState('0 min');
@@ -92,6 +99,8 @@ export default function ScriptInput({
           />
         </div>
       )}
+
+      {limit !== undefined && <CharCounter length={value.trim().length} limit={limit} upgrade={upgrade} className="px-1" />}
     </div>
   );
 }
