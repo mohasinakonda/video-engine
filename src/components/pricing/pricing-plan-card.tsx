@@ -2,9 +2,18 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, Check, ArrowRight } from 'lucide-react';
+import { Sparkles, Check, ArrowRight, Mic } from 'lucide-react';
 import type { SubscriptionPlan, BillingCycle } from '@/types/subscription';
-import { cycleLabel, cycleMonths, getPlanCredits } from '@/lib/plan-pricing';
+import {
+  cycleLabel,
+  cycleMonths,
+  estimateCostPerVideo,
+  estimateVideoCount,
+  estimateVoiceMinutes,
+  formatVoiceDuration,
+  getPlanCredits,
+} from '@/lib/plan-pricing';
+import { useVoiceRate } from '@/hooks/use-voice-rate';
 
 export interface PricingPlanCardProps {
   plan: SubscriptionPlan;
@@ -61,24 +70,15 @@ export function PricingPlanCard({
 
   const creditHeaderLabel = `${totalCredits.toLocaleString()} Credits / ${cycleDurationLabel}`;
 
-  const estVideoCount =
-    billingCycle === 'quarterly'
-      ? plan.id === 'STARTER'
-        ? '45–60'
-        : plan.id === 'CREATOR'
-          ? '120–150'
-          : '300+'
-      : plan.id === 'STARTER'
-        ? '15–20'
-        : plan.id === 'CREATOR'
-          ? '40–50'
-          : '100+';
+  const videoRange = estimateVideoCount(totalCredits);
+  const voiceMinutes = estimateVoiceMinutes(totalCredits, useVoiceRate());
+  const estVideoCount = `${videoRange.min}–${videoRange.max}`;
 
-  const normalizedMonthlyCost =
-    estCostPerVid ??
-    Math.round(
-      (rawPrice / cycleMonths(billingCycle)) / (plan.id === 'STARTER' ? 15 : plan.id === 'CREATOR' ? 40 : 80)
-    );
+  const normalizedMonthlyCost = estCostPerVid ?? estimateCostPerVideo(displayPrice, totalCredits);
+
+  // What the same months would cost on monthly billing, to show the quarterly saving.
+  const monthlyEquivalent = plan.priceMonthly * cycleMonths(billingCycle);
+  const cycleSaving = billingCycle === 'quarterly' ? monthlyEquivalent - rawPrice : 0;
 
   const buttonText = actionLabel || `Choose ${plan.name}`;
 
@@ -123,19 +123,28 @@ export function PricingPlanCard({
             <span>{creditHeaderLabel}</span>
           </p>
           <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
-            2 credits / image · 15 credits / YouTube kit
+            From 2 credits / image · 15 credits / YouTube kit
+          </p>
+          <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-800 bg-[#F4F0EA] border border-[#E5E0D8] px-2 py-1 rounded-lg">
+            <Mic size={12} className="text-[#E05A30]" />
+            <span>Up to {formatVoiceDuration(voiceMinutes)} of AI voiceover</span>
           </p>
 
           {/* Pricing Display */}
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-4xl font-extrabold text-zinc-950">৳{new Intl.NumberFormat('en-BD').format(displayPrice)}</span>
             <span className="text-xs text-zinc-500">/ {cycleDurationLabel}</span>
-            {displayPrice < rawPrice && (
+            {(displayPrice < rawPrice || cycleSaving > 0) && (
               <span className="text-xs line-through text-zinc-400 font-mono">
-                ৳{rawPrice}
+                ৳{new Intl.NumberFormat('en-BD').format(cycleSaving > 0 ? monthlyEquivalent : rawPrice)}
               </span>
             )}
           </div>
+          {cycleSaving > 0 && (
+            <p className="mt-1 text-[11px] font-semibold text-emerald-700">
+              You save ৳{new Intl.NumberFormat('en-BD').format(cycleSaving + (rawPrice - displayPrice))} vs monthly
+            </p>
+          )}
 
           <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
             <span className="text-emerald-700 font-semibold font-mono">

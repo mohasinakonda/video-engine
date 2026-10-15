@@ -2,8 +2,12 @@
 
 import React from 'react';
 import { Film, Mic, Sliders, Award } from 'lucide-react';
+import { useVoiceRate } from '@/hooks/use-voice-rate';
+import { VOICE_CHARS_PER_MINUTE } from '@/lib/plan-pricing';
 
 export function CreditsExplainerSection() {
+  const creditsPerVoiceMinute = Math.max(1, Math.round(VOICE_CHARS_PER_MINUTE / useVoiceRate()));
+
   return (
     <div className="bg-white border border-[#E5E0D8] rounded-3xl p-6 sm:p-8 shadow-sm">
       <div className="text-center max-w-2xl mx-auto mb-6">
@@ -54,13 +58,13 @@ export function CreditsExplainerSection() {
             <div className="w-9 h-9 rounded-xl bg-emerald-100/60 border border-emerald-200/60 text-emerald-700 flex items-center justify-center font-bold text-sm">
               <Mic size={18} />
             </div>
-            <h4 className="text-sm font-bold text-zinc-950">Free AI Voiceovers</h4>
+            <h4 className="text-sm font-bold text-zinc-950">~{creditsPerVoiceMinute} Credits = 1 Min Voice</h4>
             <p className="text-[11px] text-zinc-600 leading-relaxed">
-              Natural AI voice narration (Bangla, English & 30+ accents) and script breakdown are 100% free.
+              Premium expressive AI narration in 23 languages, or your own cloned voice. Script breakdown is free.
             </p>
           </div>
           <div className="mt-3 pt-2 border-t border-[#E5E0D8] text-[10px] text-emerald-700 font-semibold">
-            0 extra credits for audio & scripts
+            Charged only for the words you narrate
           </div>
         </div>
 

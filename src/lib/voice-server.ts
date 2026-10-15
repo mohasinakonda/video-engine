@@ -69,8 +69,8 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     id: 'voice-chatterbox-multilingual',
     name: 'Chatterbox Multilingual',
     modelId: 'ResembleAI/chatterbox-multilingual',
-    description: 'Flagship expressive engine. 5,000-char single pass, 23 languages, emotion control.',
-    charsPerCredit: 2000,
+    description: 'Premium expressive voice. 23 languages with emotion control.',
+    charsPerCredit: 300,
     allowedPlans: [],
     isDefault: true,
     isActive: true,
@@ -80,27 +80,27 @@ export const FALLBACK_VOICE_MODELS: VoiceModelRecord[] = [
     name: 'Chatterbox Turbo',
     modelId: 'ResembleAI/chatterbox-turbo',
     description: 'Faster low-latency engine, English-focused.',
-    charsPerCredit: 4000,
+    charsPerCredit: 300,
     allowedPlans: [],
     isDefault: false,
-    isActive: true,
+    isActive: false,
   },
   {
     id: 'voice-mimo-v25-tts',
     name: 'MiMo V2.5 (Free)',
     modelId: 'XiaomiMiMo/MiMo-V2.5-tts',
     description: 'Free experimental engine. Quality may vary.',
-    charsPerCredit: 10000,
+    charsPerCredit: 400,
     allowedPlans: [],
     isDefault: false,
-    isActive: true,
+    isActive: false,
   },
   {
     id: 'voice-mimo-v25-voicedesign',
     name: 'MiMo V2.5 VoiceDesign (Free)',
     modelId: 'XiaomiMiMo/MiMo-V2.5-tts-voicedesign',
     description: 'Design any voice via text description. Supports multi-emotion mixing and director mode.',
-    charsPerCredit: 10000,
+    charsPerCredit: 250,
     allowedPlans: [],
     isDefault: false,
     isActive: true,
@@ -112,7 +112,7 @@ export async function resolveVoiceModel(
   client?: any
 ): Promise<VoiceModelRecord> {
   const models = await fetchVoiceModelsRemote(client);
-  const pool = models.length > 0 ? models : FALLBACK_VOICE_MODELS;
+  const pool = models.length > 0 ? models : FALLBACK_VOICE_MODELS.filter((m) => m.isActive);
   if (modelId) {
     const found = pool.find((m) => m.id === modelId || m.modelId === modelId);
     if (found) return found;

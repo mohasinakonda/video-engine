@@ -55,7 +55,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
   const [promoAppliedCode, setPromoAppliedCode] = useState('');
 
   // Interactive Guest States
-  const [calculatorVideos, setCalculatorVideos] = useState<number>(20);
+  const [calculatorVideos, setCalculatorVideos] = useState<number>(10);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [showComparison, setShowComparison] = useState<boolean>(true);
 

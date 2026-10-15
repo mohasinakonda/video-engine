@@ -4,7 +4,7 @@ import React from 'react';
 import { validateAndApplyPromoCode } from '@/lib/subscription-store';
 import { PricingPlanCard } from '@/components/pricing/pricing-plan-card';
 import type { SubscriptionPlan, BillingCycle, AdminSettings } from '@/types/subscription';
-import { cycleMonths, getPlanPrice } from '@/lib/plan-pricing';
+import { getPlanPrice, quarterlySavingsPercent, recommendPlanForVideos } from '@/lib/plan-pricing';
 
 interface PricingPlansGridProps {
   plans: SubscriptionPlan[];
@@ -25,6 +25,9 @@ export function PricingPlansGrid({
   calculatorVideos,
   onSelectPlan,
 }: PricingPlansGridProps) {
+  const maxQuarterlySaving = Math.max(0, ...plans.map(quarterlySavingsPercent));
+  const recommendedPlanId = recommendPlanForVideos(plans, calculatorVideos)?.id;
+
   return (
     <div className="space-y-8">
       {/* Billing Cycle Toggle */}
@@ -49,9 +52,11 @@ export function PricingPlansGrid({
               }`}
           >
             <span>3 Months</span>
-            <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-              Save Discount
-            </span>
+            {maxQuarterlySaving > 0 && (
+              <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                Save up to {maxQuarterlySaving}%
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -70,14 +75,7 @@ export function PricingPlansGrid({
             displayPrice = Math.round(rawPrice * (1 - settings.globalDiscountPercent / 100));
           }
 
-          const calcRecommendedTier =
-            calculatorVideos <= 18 ? 'STARTER' : calculatorVideos <= 45 ? 'CREATOR' : 'STUDIO';
-          const isRecommended = plan.id === calcRecommendedTier;
-
-          const estCostPerVid = Math.round(
-            (rawPrice / cycleMonths(billingCycle)) /
-            (plan.id === 'STARTER' ? 15 : plan.id === 'CREATOR' ? 40 : 80)
-          );
+          const isRecommended = plan.id === recommendedPlanId;
 
           const isHighlighted = isRecommended || plan.popular;
 
@@ -90,7 +88,6 @@ export function PricingPlansGrid({
               rawPrice={rawPrice}
               isHighlighted={isHighlighted}
               isRecommended={isRecommended}
-              estCostPerVid={estCostPerVid}
               onSelectPlan={onSelectPlan}
             />
           );

@@ -44,7 +44,7 @@ export const LandingNavbar: React.FC = () => {
           <Link href="/#scene-builder" className="hover:text-zinc-950 transition-colors">Scene Builder</Link>
           <Link href="/#storyboard" className="hover:text-zinc-950 transition-colors">Storyboard</Link>
           <Link href="/#styles" className="hover:text-zinc-950 transition-colors">Styles</Link>
-          <Link href="/#features" className="hover:text-zinc-950 transition-colors">Features</Link>
+          <Link href="/#key-features" className="hover:text-zinc-950 transition-colors">Features</Link>
           <Link href="/pricing" className="hover:text-zinc-950 transition-colors">Pricing</Link>
         </nav>
 

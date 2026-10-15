@@ -709,31 +709,35 @@ create or replace function public.credit_affiliate_commission(
 returns boolean as $$
 declare
   v_ref_owner uuid;
+  v_percent int;
   v_commission int;
 begin
   if not public.is_service_or_admin() then
     raise exception 'Not authorized to credit affiliate commission';
   end if;
 
-  if p_order_amount_bdt <= 0 or p_commission_percent < 0 or p_commission_percent > 50 then
+  if p_order_amount_bdt <= 0 then
     return false;
   end if;
 
-  select id into v_ref_owner
+  -- The affiliate's own rate (set per user in admin) wins over the caller's default.
+  select id, coalesce(referral_commission_percent, p_commission_percent)
+  into v_ref_owner, v_percent
   from public.profiles
   where upper(referral_code) = upper(trim(p_referral_code));
 
-  if not found then
+  if not found or v_ref_owner is null or v_percent < 0 or v_percent > 50 then
     return false;
   end if;
 
-  v_commission := round((p_order_amount_bdt * p_commission_percent) / 100.0);
+  v_commission := round((p_order_amount_bdt * v_percent)::numeric / 100.0);
 
   update public.profiles
   set
-    referral_earnings_bdt = referral_earnings_bdt + v_commission,
-    referral_pending_bdt = referral_pending_bdt + v_commission,
-    referral_count = referral_count + 1,
+    affiliate_earnings_bdt = coalesce(affiliate_earnings_bdt, 0) + v_commission,
+    referral_earnings_bdt = coalesce(referral_earnings_bdt, 0) + v_commission,
+    referral_pending_bdt = coalesce(referral_pending_bdt, 0) + v_commission,
+    referral_count = coalesce(referral_count, 0) + 1,
     updated_at = now()
   where id = v_ref_owner;
 
