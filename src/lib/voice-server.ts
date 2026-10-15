@@ -16,6 +16,7 @@ import {
   isSupabaseConfigured,
 } from '@/lib/supabase-service';
 import { calculateVoiceCredits, MAX_CHUNK_CHARS } from '@/lib/voice-chunker';
+import { effectiveTier } from '@/lib/input-limits';
 import { humanizeSpeechPayload } from '@/lib/human-speech-engine';
 
 export interface VoiceModelRecord {
@@ -145,7 +146,7 @@ export async function authenticateVoiceRequest(): Promise<
   }
   const { data: profile } = await serverSupabase
     .from('profiles')
-    .select('credits_remaining, is_blocked, block_reason, tier')
+    .select('credits_remaining, is_blocked, block_reason, tier, subscription_expires_at')
     .eq('id', user.id)
     .single();
   if (profile?.is_blocked) {
@@ -159,7 +160,7 @@ export async function authenticateVoiceRequest(): Promise<
   return {
     auth: {
       userId: user.id,
-      tier: profile?.tier || 'TRIAL',
+      tier: effectiveTier(profile),
       creditsRemaining: profile?.credits_remaining ?? 0,
       serverSupabase,
     },

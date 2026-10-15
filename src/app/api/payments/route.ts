@@ -22,6 +22,7 @@ import {
 } from '@/lib/subscription-store';
 import type { PaymentSubmission, PlanTier, BillingCycle } from '@/types/subscription';
 import { getPlanPrice, getPlanCredits, isBillingCycle } from '@/lib/plan-pricing';
+import { effectiveTier } from '@/lib/input-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -162,7 +163,16 @@ export async function POST(req: Request) {
 
       if (isSupabaseConfigured() && userId && UUID_REGEX.test(userId)) {
         const profile = await fetchSupabaseProfile(userId);
-        if (profile && profile.tier && profile.tier !== 'TRIAL') {
+        // An expired plan counts as TRIAL here too, so lapsed users must renew before topping up.
+        const tier = profile
+          ? effectiveTier({
+              tier: profile.tier,
+              subscription_expires_at: profile.subscriptionExpiresAt
+                ? new Date(profile.subscriptionExpiresAt).toISOString()
+                : null,
+            })
+          : 'TRIAL';
+        if (tier !== 'TRIAL') {
           isSubscriber = true;
         }
       }

@@ -86,11 +86,13 @@ create policy "Admins can manage all profiles"
   with check (public.is_admin());
 
 -- Anti-tampering trigger: prevents standard users from escalating role, credits, tier, or affiliate funds
+-- SECURITY INVOKER on purpose: in a SECURITY DEFINER function current_user is the
+-- owner (postgres), which would make the bypass below match every caller.
 create or replace function public.protect_profile_fields()
 returns trigger as $$
 begin
-  -- If service role or verified admin, permit changes
-  if current_user = 'service_role' or (auth.jwt()->>'role' = 'service_role') then
+  -- Service role and trusted server-side code (SECURITY DEFINER RPCs owned by postgres) may change anything.
+  if current_user in ('service_role', 'postgres', 'supabase_admin') or (auth.jwt()->>'role' = 'service_role') then
     return new;
   end if;
 
@@ -132,7 +134,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security invoker set search_path = public;
 
 drop trigger if exists trg_protect_profile_fields on public.profiles;
 create trigger trg_protect_profile_fields
@@ -412,6 +414,7 @@ set search_path = public
 as $$
 declare
   v_sub record;
+  v_period interval;
 begin
   if not public.is_service_or_admin() then
     raise exception 'Only admins can approve payments';
@@ -426,6 +429,8 @@ begin
     return false;
   end if;
 
+  v_period := case when v_sub.billing_cycle = 'quarterly' then interval '90 days' else interval '30 days' end;
+
   update public.payments
   set status = 'APPROVED', reviewed_at = now(), admin_note = p_admin_note
   where id = p_submission_id;
@@ -438,9 +443,10 @@ begin
           when v_sub.item_type = 'subscription' and v_sub.plan_id is not null then v_sub.plan_id
           else tier
         end,
+        -- Renewals stack: early renewals never lose paid days.
         subscription_expires_at = case
-          when v_sub.item_type = 'subscription' and v_sub.billing_cycle = 'quarterly' then now() + interval '90 days'
-          when v_sub.item_type = 'subscription' then now() + interval '30 days'
+          when v_sub.item_type = 'subscription'
+            then greatest(now(), coalesce(subscription_expires_at, now())) + v_period
           else subscription_expires_at
         end,
         updated_at = now()
@@ -463,6 +469,68 @@ revoke execute on function public.submit_payment_request(text, uuid, text, text,
 grant execute on function public.submit_payment_request(text, uuid, text, text, text, text, text, integer, integer, text, integer, text, text, text) to authenticated, service_role;
 revoke execute on function public.approve_payment_admin(text, text) from public, anon;
 grant execute on function public.approve_payment_admin(text, text) to authenticated, service_role;
+
+-- ==============================================================================
+-- PLAN EXPIRY: 24h grace, then TRIAL with 0 credits (plan + top-up share one balance)
+-- ==============================================================================
+create table if not exists public.credit_expirations (
+  id bigint generated always as identity primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  tier_before text not null,
+  credits_expired int not null,
+  plan_expired_at timestamptz,
+  created_at timestamptz default now() not null
+);
+
+alter table public.credit_expirations enable row level security;
+drop policy if exists "Users can view own credit expirations" on public.credit_expirations;
+create policy "Users can view own credit expirations"
+  on public.credit_expirations for select
+  using (auth.uid() = user_id or public.is_admin());
+
+create or replace function public.expire_lapsed_subscriptions()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count integer;
+begin
+  with lapsed as (
+    select id, tier, credits_remaining, subscription_expires_at
+    from public.profiles
+    where tier <> 'TRIAL'
+      and subscription_expires_at is not null
+      and subscription_expires_at < now() - interval '24 hours'
+    for update
+  ), logged as (
+    insert into public.credit_expirations (user_id, tier_before, credits_expired, plan_expired_at)
+    select id, tier, credits_remaining, subscription_expires_at from lapsed
+  )
+  update public.profiles p
+  set tier = 'TRIAL',
+      credits_remaining = 0,
+      subscription_expires_at = null,
+      updated_at = now()
+  from lapsed
+  where p.id = lapsed.id;
+
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+revoke execute on function public.expire_lapsed_subscriptions() from public, anon, authenticated;
+grant execute on function public.expire_lapsed_subscriptions() to service_role;
+
+-- Hourly job (requires the pg_cron extension).
+create extension if not exists pg_cron;
+select cron.schedule(
+  'expire-lapsed-subscriptions',
+  '5 * * * *',
+  $cron$select public.expire_lapsed_subscriptions()$cron$
+);
 
 -- ==============================================================================
 -- AFFILIATE PAYOUT REQUESTS

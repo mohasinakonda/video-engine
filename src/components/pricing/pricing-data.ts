@@ -33,11 +33,11 @@ export const CREATOR_FAQS: CreatorFaqItem[] = [
   },
   {
     q: 'Do unused credits roll over to the next month?',
-    a: 'Yes! If you renew your subscription before your active billing cycle expires, all unused credits automatically roll over and stack on top of your fresh monthly quota.',
+    a: 'Yes! Renew before your plan ends (or within 24 hours after) and all unused credits roll over on top of your new quota, and any days left on your plan are added to the new period. If a plan is not renewed within 24 hours of expiring, the remaining credits (including top-ups) expire and the account returns to the free Trial.',
   },
   {
     q: 'How do instant credit top-up packs work?',
-    a: 'If you exhaust your monthly quota early, active plan subscribers can instantly purchase 50, 100, or 250 credit packs via bKash or Nagad. Top-up credits never expire.',
+    a: 'If you exhaust your monthly quota early, active plan subscribers can instantly purchase 50, 100, or 250 credit packs via bKash or Nagad. Top-up credits stay valid as long as your plan is active.',
   },
 ];
 

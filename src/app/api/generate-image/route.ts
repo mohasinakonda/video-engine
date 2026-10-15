@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { effectiveTier } from '@/lib/input-limits';
 import {
   isSupabaseConfigured,
   deductCreditsRemote,
@@ -166,7 +167,7 @@ export async function POST(req: Request) {
 
       const { data: profile } = await serverSupabase
         .from('profiles')
-        .select('credits_remaining, is_blocked, block_reason, tier')
+        .select('credits_remaining, is_blocked, block_reason, tier, subscription_expires_at')
         .eq('id', user.id)
         .single();
 
@@ -184,7 +185,7 @@ export async function POST(req: Request) {
       // Check if this model is restricted to specific plans
       const allowedPlans = modelRecord?.allowedPlans;
       if (Array.isArray(allowedPlans) && allowedPlans.length > 0) {
-        const userTier = profile.tier || 'TRIAL';
+        const userTier = effectiveTier(profile);
         if (!allowedPlans.includes(userTier)) {
           return NextResponse.json(
             {

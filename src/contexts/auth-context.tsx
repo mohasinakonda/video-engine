@@ -45,7 +45,8 @@ function deriveSubscription(profile: UserProfile): UserSubscription {
     expiresAt = joinedTimestamp + THIRTY_DAYS;
   }
 
-  const isExpired = !isTrial && Date.now() > expiresAt;
+  // A paid tier without an expiry date (e.g. set manually by an admin) never lapses — same rule as the server.
+  const isExpired = !isTrial && Boolean(profile.subscriptionExpiresAt) && Date.now() > expiresAt;
 
   return {
     tier: isExpired ? 'TRIAL' : profile.tier,
