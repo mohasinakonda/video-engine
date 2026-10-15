@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePricingPlans } from '@/hooks/use-pricing';
 import { PricingPlanCard } from '@/components/pricing/pricing-plan-card';
 import type { BillingCycle, SubscriptionPlan } from '@/types/subscription';
+import { getPlanPrice } from '@/lib/plan-pricing';
 
 export const PricingSection = () => {
   const { plans, isLoading: loading } = usePricingPlans();
@@ -80,12 +81,7 @@ export const PricingSection = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {plans.map((plan: SubscriptionPlan) => {
-              const price =
-                billingCycle === 'quarterly'
-                  ? (plan.priceQuarterly ?? (plan.priceYearly ? Math.round(plan.priceYearly / 4) : Math.round(plan.priceMonthly * 3 * 0.9)))
-                  : billingCycle === 'yearly'
-                    ? (plan.priceYearly ?? (plan.priceQuarterly ? plan.priceQuarterly * 4 : plan.priceMonthly * 10))
-                    : plan.priceMonthly;
+              const price = getPlanPrice(plan, billingCycle);
 
               return (
                 <PricingPlanCard

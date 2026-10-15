@@ -3,6 +3,7 @@
 import React from 'react';
 import { BadgePercent, ArrowRight } from 'lucide-react';
 import type { SubscriptionPlan, BillingCycle } from '@/types/subscription';
+import { cycleMonths, getPlanPrice } from '@/lib/plan-pricing';
 
 interface RoiCalculatorSectionProps {
   plans: SubscriptionPlan[];
@@ -24,11 +25,7 @@ export function RoiCalculatorSection({
   const calcRecommendedPlan =
     plans.find((p) => p.id === calcRecommendedTier) || plans[0];
   const calcPlanPrice = calcRecommendedPlan
-    ? billingCycle === 'quarterly'
-      ? Math.round((calcRecommendedPlan.priceQuarterly ?? calcRecommendedPlan.priceMonthly * 2.7) / 3)
-      : billingCycle === 'yearly'
-      ? Math.round((calcRecommendedPlan.priceYearly ?? calcRecommendedPlan.priceMonthly * 10) / 12)
-      : calcRecommendedPlan.priceMonthly
+    ? Math.round(getPlanPrice(calcRecommendedPlan, billingCycle) / cycleMonths(billingCycle))
     : 1200;
   const costPerVideo = Math.max(1, Math.round(calcPlanPrice / Math.max(1, calculatorVideos)));
   const freelanceEditorCost = calculatorVideos * 1200; // Average traditional video editor charge

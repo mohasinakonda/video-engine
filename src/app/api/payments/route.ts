@@ -21,6 +21,7 @@ import {
   getAdminSettings,
 } from '@/lib/subscription-store';
 import type { PaymentSubmission, PlanTier, BillingCycle } from '@/types/subscription';
+import { getPlanPrice, getPlanCredits, isBillingCycle } from '@/lib/plan-pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -191,18 +192,14 @@ export async function POST(req: Request) {
           { status: 400 }
         );
       }
-      officialOriginalPrice =
-        billingCycle === 'quarterly'
-          ? (plan.priceQuarterly ?? Math.round(plan.priceMonthly * 2.7))
-          : billingCycle === 'yearly'
-          ? (plan.priceYearly ?? plan.priceMonthly * 10)
-          : plan.priceMonthly;
-      baseCredits =
-        billingCycle === 'quarterly'
-          ? plan.creditsPerMonth * 3
-          : billingCycle === 'yearly'
-          ? plan.creditsPerMonth * 12
-          : plan.creditsPerMonth;
+      if (!isBillingCycle(billingCycle)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid billing cycle. Choose monthly or 3 months.' },
+          { status: 400 }
+        );
+      }
+      officialOriginalPrice = getPlanPrice(plan, billingCycle);
+      baseCredits = getPlanCredits(plan, billingCycle);
     } else if (itemType === 'topup') {
       const dbTopups = await fetchTopupPacksRemote();
       const allTopups = (dbTopups && dbTopups.length > 0) ? dbTopups : (getTopupPacks() || DEFAULT_TOPUP_PACKS);
@@ -314,7 +311,8 @@ export async function POST(req: Request) {
     let recordedInSupabase = false;
     if (isSupabaseConfigured()) {
       try {
-        const remoteResult = await submitPaymentRemote(submissionData);
+        // Signed-in session client: the submit RPC is not executable by anon.
+        const remoteResult = await submitPaymentRemote(submissionData, createServerClient());
         if (remoteResult) {
           recordedInSupabase = true;
         }

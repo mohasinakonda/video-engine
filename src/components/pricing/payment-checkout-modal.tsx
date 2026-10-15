@@ -249,7 +249,7 @@ export function PaymentCheckoutModal({
                     <span>Item:</span>
                     <span className="font-semibold text-white">
                       {selectedPlan
-                        ? `${selectedPlan.name} (${billingCycle === 'quarterly' ? '3 Months' : billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`
+                        ? `${selectedPlan.name} (${billingCycle === 'quarterly' ? '3 Months' : 'Monthly'})`
                         : selectedTopup?.name}
                     </span>
                   </div>

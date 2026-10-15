@@ -201,7 +201,8 @@ create table if not exists public.plans (
   badge text,
   popular boolean default false,
   price_monthly int not null,
-  price_yearly int not null,
+  price_quarterly int,
+  price_yearly int, -- legacy: yearly billing is discontinued
   credits_per_month int not null,
   max_video_duration_sec int not null,
   max_resolution text default '1080p',
@@ -224,14 +225,18 @@ create policy "Admins can manage plans" on public.plans for all
   );
 
 -- Seed Default Plans
-insert into public.plans (id, name, badge, popular, price_monthly, price_yearly, credits_per_month, max_video_duration_sec, max_resolution, features)
+-- Mirrors production pricing (Starter = 1 BDT per credit; bigger plans are cheaper per credit).
+alter table public.plans add column if not exists price_quarterly int;
+alter table public.plans alter column price_yearly drop not null;
+
+insert into public.plans (id, name, badge, popular, price_monthly, price_quarterly, credits_per_month, max_video_duration_sec, max_resolution, features)
 values
-  ('STARTER', 'Starter', 'Popular for Beginners', false, 500, 5000, 200, 180, '1080p',
-   '["200 Image Credits / month (~12-15 videos)", "Up to 3-minute video duration", "1080p Full HD rendering", "AI Script-to-Scenes Director", "Standard customer support"]'::jsonb),
-  ('CREATOR', 'Creator', 'Most Popular', true, 1200, 12000, 600, 480, '1080p',
-   '["600 Image Credits / month (~35-45 videos)", "Up to 8-minute video duration", "1080p Full HD rendering", "Custom visual art style presets", "Commercial usage license", "Priority WhatsApp support"]'::jsonb),
-  ('STUDIO', 'Studio Pro', 'Full Power', false, 2500, 25000, 1500, 1200, '4k',
-   '["1,500 Image Credits / month (~100+ videos)", "Up to 20-minute video duration", "4K Ultra HD crisp rendering", "VIP rendering speed queue", "Commercial usage license", "Direct WhatsApp VIP support"]'::jsonb)
+  ('STARTER', 'Starter', 'Popular for Beginners', false, 1200, 3200, 1200, 180, '1080p',
+   '["1,200 Credits / month", "YouTube Launch Kit & SEO Kit", "Up to 3-minute video duration per project", "1080p Full HD crisp rendering", "100% Watermark-Free Export", "Bangla & English AI Voiceovers included", "AI Script-to-Scenes Director", "Standard customer support"]'::jsonb),
+  ('CREATOR', 'Creator', 'Most Popular', true, 1650, 4500, 2000, 600, '1080p',
+   '["2,000 Credits / month", "Complete YouTube Launch Kit & SEO Director", "Up to 10-minute video duration per project", "1080p Full HD crisp rendering", "100% Watermark-Free Export", "Bangla & English AI Voiceovers included", "Custom visual styles & character consistency", "Commercial monetization license (YouTube & FB)", "Fast rendering priority queue", "Priority WhatsApp VIP support"]'::jsonb),
+  ('STUDIO', 'Studio Pro', 'Full Power', false, 2500, 6800, 3500, 1200, '4k',
+   '["3,500 Credits / month", "YouTube Launch Kit & SEO Director", "Up to 20-minute video duration", "4K Ultra HD pristine rendering", "100% Watermark-Free Export", "All AI Voiceovers & Audio FX included", "Instant VIP rendering queue", "Full commercial & agency monetization rights", "Dedicated 1-on-1 WhatsApp VIP manager"]'::jsonb)
 on conflict (id) do nothing;
 
 -- ==============================================================================
@@ -317,7 +322,7 @@ create table if not exists public.payments (
   plan_id text,
   topup_id text,
   item_type text not null check (item_type in ('subscription', 'topup')),
-  billing_cycle text check (billing_cycle in ('monthly', 'yearly')),
+  billing_cycle text check (billing_cycle in ('monthly', 'quarterly')),
   original_price_bdt int not null,
   discounted_price_bdt int not null,
   promo_code_applied text,
@@ -330,6 +335,10 @@ create table if not exists public.payments (
   reviewed_at timestamptz,
   admin_note text
 );
+
+alter table public.payments drop constraint if exists payments_billing_cycle_check;
+alter table public.payments add constraint payments_billing_cycle_check
+  check (billing_cycle in ('monthly', 'quarterly'));
 
 alter table public.payments enable row level security;
 
@@ -356,6 +365,104 @@ create policy "Admins can update payments"
   with check (
     public.is_admin()
   );
+
+-- Payment submission: callers may only file a request for themselves.
+create or replace function public.submit_payment_request(
+  p_id text, p_user_id uuid, p_user_email text, p_plan_id text, p_topup_id text,
+  p_item_type text, p_billing_cycle text, p_original_price_bdt integer,
+  p_discounted_price_bdt integer, p_promo_code_applied text, p_credits_to_grant integer,
+  p_payment_method text, p_sender_number text, p_trx_id text default null
+)
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_result json;
+begin
+  if p_user_id is distinct from auth.uid() and not public.is_service_or_admin() then
+    raise exception 'Not allowed to submit a payment for another user';
+  end if;
+
+  insert into public.payments (
+    id, user_id, user_email, plan_id, topup_id, item_type, billing_cycle,
+    original_price_bdt, discounted_price_bdt, promo_code_applied, credits_to_grant,
+    payment_method, sender_number, trx_id, status, submitted_at
+  ) values (
+    p_id, p_user_id, p_user_email, p_plan_id, p_topup_id, p_item_type, p_billing_cycle,
+    p_original_price_bdt, p_discounted_price_bdt, p_promo_code_applied, p_credits_to_grant,
+    p_payment_method, p_sender_number, p_trx_id, 'PENDING', now()
+  );
+
+  select row_to_json(p) into v_result from public.payments p where p.id = p_id;
+  return v_result;
+end;
+$$;
+
+-- Payment approval: admins / service role only (grants credits and plan tier).
+create or replace function public.approve_payment_admin(
+  p_submission_id text,
+  p_admin_note text default 'Approved by admin'
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sub record;
+begin
+  if not public.is_service_or_admin() then
+    raise exception 'Only admins can approve payments';
+  end if;
+
+  select * into v_sub from public.payments where id = p_submission_id;
+  if not found then
+    return false;
+  end if;
+  -- Never credit the same payment twice.
+  if v_sub.status = 'APPROVED' then
+    return false;
+  end if;
+
+  update public.payments
+  set status = 'APPROVED', reviewed_at = now(), admin_note = p_admin_note
+  where id = p_submission_id;
+
+  if v_sub.user_id is not null then
+    update public.profiles
+    set credits_remaining = coalesce(credits_remaining, 0) + coalesce(v_sub.credits_to_grant, 0),
+        total_spent_bdt = coalesce(total_spent_bdt, 0) + coalesce(v_sub.discounted_price_bdt, 0),
+        tier = case
+          when v_sub.item_type = 'subscription' and v_sub.plan_id is not null then v_sub.plan_id
+          else tier
+        end,
+        subscription_expires_at = case
+          when v_sub.item_type = 'subscription' and v_sub.billing_cycle = 'quarterly' then now() + interval '90 days'
+          when v_sub.item_type = 'subscription' then now() + interval '30 days'
+          else subscription_expires_at
+        end,
+        updated_at = now()
+    where id = v_sub.user_id;
+  end if;
+
+  if v_sub.promo_code_applied is not null and v_sub.promo_code_applied <> '' then
+    perform public.credit_affiliate_commission(
+      v_sub.promo_code_applied,
+      coalesce(v_sub.discounted_price_bdt, 0),
+      15
+    );
+  end if;
+
+  return true;
+end;
+$$;
+
+revoke execute on function public.submit_payment_request(text, uuid, text, text, text, text, text, integer, integer, text, integer, text, text, text) from public, anon;
+grant execute on function public.submit_payment_request(text, uuid, text, text, text, text, text, integer, integer, text, integer, text, text, text) to authenticated, service_role;
+revoke execute on function public.approve_payment_admin(text, text) from public, anon;
+grant execute on function public.approve_payment_admin(text, text) to authenticated, service_role;
 
 -- ==============================================================================
 -- AFFILIATE PAYOUT REQUESTS

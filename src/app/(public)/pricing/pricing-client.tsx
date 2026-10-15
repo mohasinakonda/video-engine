@@ -28,6 +28,7 @@ import { ComparisonTableSection } from '@/components/pricing/comparison-table-se
 import { FaqSection } from '@/components/pricing/faq-section';
 import { WhatsAppCtaSection } from '@/components/pricing/whatsapp-cta-section';
 import { PaymentCheckoutModal } from '@/components/pricing/payment-checkout-modal';
+import { getPlanPrice, getPlanCredits } from '@/lib/plan-pricing';
 
 interface PricingClientProps {
   initialUser: User | null;
@@ -106,11 +107,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     }
 
     const samplePrice = selectedPlan
-      ? (billingCycle === 'quarterly'
-          ? (selectedPlan.priceQuarterly ?? (selectedPlan.priceYearly ? Math.round(selectedPlan.priceYearly / 4) : Math.round(selectedPlan.priceMonthly * 3 * 0.9)))
-          : billingCycle === 'yearly'
-          ? (selectedPlan.priceYearly ?? (selectedPlan.priceQuarterly ? selectedPlan.priceQuarterly * 4 : selectedPlan.priceMonthly * 10))
-          : selectedPlan.priceMonthly)
+      ? getPlanPrice(selectedPlan, billingCycle)
       : (selectedTopup ? selectedTopup.priceBDT : 1000);
     const userIdentifier = initialUser?.id || initialUser?.email || userEmail || undefined;
     const planId = selectedPlan ? selectedPlan.id : undefined;
@@ -190,18 +187,8 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     let creditsToGrant = 0;
 
     if (selectedPlan) {
-      originalPrice =
-        billingCycle === 'quarterly'
-          ? (selectedPlan.priceQuarterly ?? Math.round(selectedPlan.priceMonthly * 2.7))
-          : billingCycle === 'yearly'
-          ? (selectedPlan.priceYearly ?? selectedPlan.priceMonthly * 10)
-          : selectedPlan.priceMonthly;
-      creditsToGrant =
-        billingCycle === 'quarterly'
-          ? selectedPlan.creditsPerMonth * 3
-          : billingCycle === 'yearly'
-          ? selectedPlan.creditsPerMonth * 12
-          : selectedPlan.creditsPerMonth;
+      originalPrice = getPlanPrice(selectedPlan, billingCycle);
+      creditsToGrant = getPlanCredits(selectedPlan, billingCycle);
     } else if (selectedTopup) {
       originalPrice = selectedTopup.priceBDT;
       creditsToGrant = selectedTopup.credits;

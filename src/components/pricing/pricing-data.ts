@@ -44,7 +44,7 @@ export const CREATOR_FAQS: CreatorFaqItem[] = [
 export const COMPARISON_ROWS: ComparisonRowItem[] = [
   {
     name: 'Monthly Credits Quota',
-    starter: '600 Credits (300 Images)',
+    starter: '1,200 Credits (600 Images)',
     creator: '2,000 Credits (1,000 Images)',
     studio: '3,500 Credits (1,750 Images)',
   },

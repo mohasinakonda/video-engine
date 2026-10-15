@@ -49,7 +49,7 @@ export default function RefundPage() {
               2. 7-Day Money-Back Policy for Unused Plans
             </h2>
             <p>
-              If you purchased a monthly or annual subscription via bKash, Nagad, or Bank Transfer and have consumed less than 10% of your allocated credits, you may request a full refund within 7 days of activation.
+              If you purchased a monthly or 3-month subscription via bKash, Nagad, or Bank Transfer and have consumed less than 10% of your allocated credits, you may request a full refund within 7 days of activation.
             </p>
             <p className="text-xs text-zinc-500">
               *Note: For accounts that have already rendered high-definition commercial videos consuming more than 10% of plan credits, proportional partial refunds or credit rollovers will be evaluated by our support team.
