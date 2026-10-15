@@ -22,6 +22,7 @@ import {
   ChevronsUpDown,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { AppLogo } from '@/icons/logo-icon';
 import { signOutUser } from '@/lib/supabase-service';
 
 const navItems = [
@@ -87,9 +88,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         className="absolute left-0 top-0 h-full w-14 flex flex-col items-center bg-bg-base border-r border-bg-border z-40 py-4 gap-3"
         onMouseEnter={() => setHovered(true)}
       >
-        <div className="w-8 h-8 rounded-lg bg-white text-zinc-950 flex items-center justify-center shadow-sm">
-          <Zap size={16} className="text-zinc-950 fill-zinc-950" />
-        </div>
+        <AppLogo className="w-8 h-8 rounded-lg shadow-sm" />
 
         <Link
           href="/project/new"
@@ -154,9 +153,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
       {/* Logo */}
       <div className="px-5 py-5 border-b border-bg-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-white text-zinc-950 flex items-center justify-center font-bold shadow-sm">
-            <Zap size={16} className="text-zinc-950 fill-zinc-950" />
-          </div>
+          <AppLogo className="w-8 h-8 rounded-lg shadow-sm" />
           <div>
             <p className="text-sm font-semibold text-zinc-100 leading-tight">AI Video</p>
             <p className="text-2xs text-zinc-400 leading-tight">Studio Web</p>

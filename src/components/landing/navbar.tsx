@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Zap, LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { AppLogo } from '@/icons/logo-icon';
 
 export const LandingNavbar: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -26,9 +27,7 @@ export const LandingNavbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center font-bold shadow-sm group-hover:scale-105 transition-transform">
-            <Zap size={16} className="text-[#E05A30] fill-[#E05A30]" />
-          </div>
+          <AppLogo className="w-8 h-8 rounded-xl shadow-sm group-hover:scale-105 transition-transform" />
           <div className="flex flex-col">
             <span className="font-extrabold text-sm tracking-tight text-zinc-950 flex items-center gap-1.5">
               Rendoza AI

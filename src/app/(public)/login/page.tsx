@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AppLogo } from '@/icons/logo-icon';
 import {
-  Zap,
   Sparkles,
   ShieldCheck,
   AlertCircle,
@@ -48,9 +48,7 @@ export default function LoginPage() {
 
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 text-white font-black shadow-md shadow-zinc-900/10 mb-1">
-            <Zap size={24} className="text-[#E05A30] fill-[#E05A30]" />
-          </div>
+          <AppLogo className="inline-block w-14 h-14 rounded-2xl shadow-md shadow-zinc-900/10 mb-1" />
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight flex items-center justify-center gap-2">
               <span>Rendoza AI</span>
