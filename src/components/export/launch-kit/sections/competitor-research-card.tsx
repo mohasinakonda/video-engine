@@ -163,9 +163,6 @@ export function CompetitorResearchCard() {
                 </p>
               </div>
             </div>
-            <div className="px-2.5 pb-2 text-[10px] text-amber-400 font-bold flex items-center gap-1">
-              <span>Standout Target Score: 98%</span>
-            </div>
           </div>
         )}
 

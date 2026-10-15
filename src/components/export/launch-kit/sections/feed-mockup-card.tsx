@@ -7,11 +7,9 @@ import {
   Smartphone,
   Flame,
   Monitor,
-  CheckCircle,
   Copy,
   Download,
   Share2,
-  Sparkles,
   ZoomIn,
 } from 'lucide-react';
 import { useLaunchKit } from '../launch-kit-context';
@@ -23,8 +21,6 @@ export function FeedMockupCard() {
     selectedTitle,
     durationStr,
     isVertical,
-    copiedKey,
-    handleCopyMasterLaunchPack,
     handleDownloadThumbnail,
     activeConcept,
   } = useLaunchKit();
@@ -225,26 +221,8 @@ export function FeedMockupCard() {
         )}
       </div>
 
-      {/* Master 1-Click Launch Pack Action Buttons */}
+      {/* Thumbnail download */}
       <div className="space-y-2 pt-2 border-t border-zinc-800">
-        <button
-          type="button"
-          onClick={handleCopyMasterLaunchPack}
-          className="btn-primary w-full py-3 px-4 text-xs font-bold flex items-center justify-center gap-2"
-        >
-          {copiedKey === 'master_launch_pack' ? (
-            <>
-              <CheckCircle size={15} className="text-zinc-950" />
-              <span>Copied Complete Launch Pack!</span>
-            </>
-          ) : (
-            <>
-              <Sparkles size={15} className="text-zinc-950" />
-              <span>Copy Complete YouTube Launch Pack (1-Click)</span>
-            </>
-          )}
-        </button>
-
         {activeConcept && (
           <div className="flex items-center gap-2">
             <button

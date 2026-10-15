@@ -434,6 +434,11 @@ export function LaunchKitProvider({
 
   const handleSelectTitle = async (idx: number) => {
     if (!packaging) return;
+    // A title is designed together with a thumbnail idea: bring that idea into focus too.
+    const paired = packaging.titles?.[idx]?.pairedConceptId;
+    if (paired && packaging.thumbnailConcepts?.some((c) => c.id === paired)) {
+      setActiveConceptId(paired);
+    }
     const updatedPackaging: YouTubePackagingData = {
       ...packaging,
       selectedTitleIndex: idx,

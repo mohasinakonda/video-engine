@@ -170,11 +170,11 @@ Return strictly valid JSON:
   ],
   "packagingStrategy": "1-2 sentences on why this psychological/scientific insight goes viral on YouTube and how these titles outperform competitors",
   "titles": [
-    {"title": "Viral headline 1", "hookStyle": "Curiosity Gap", "ctrScore": 98, "whyItWorks": "Creates an irresistible curiosity gap without sounding cheap.", "pairedConceptId": "thumb_1"},
-    {"title": "Viral headline 2", "hookStyle": "Extreme Transformation", "ctrScore": 95, "whyItWorks": "Direct promise of immediate resolution for chronic worry.", "pairedConceptId": "thumb_2"},
-    {"title": "Viral headline 3", "hookStyle": "Counter-Intuitive Truth", "ctrScore": 96, "whyItWorks": "Challenges common beliefs, forcing viewers to click to verify.", "pairedConceptId": "thumb_1"},
-    {"title": "Viral headline 4", "hookStyle": "High-Stakes Story", "ctrScore": 93, "whyItWorks": "Narrative tension and emotional stakes.", "pairedConceptId": "thumb_3"},
-    {"title": "Viral headline 5", "hookStyle": "Search / SEO Authority", "ctrScore": 91, "whyItWorks": "High search volume evergreen query matching user intent.", "pairedConceptId": "thumb_2"}
+    {"title": "Viral headline 1", "hookStyle": "Curiosity Gap", "whyItWorks": "Creates an irresistible curiosity gap without sounding cheap.", "pairedConceptId": "thumb_1"},
+    {"title": "Viral headline 2", "hookStyle": "Extreme Transformation", "whyItWorks": "Direct promise of immediate resolution for chronic worry.", "pairedConceptId": "thumb_2"},
+    {"title": "Viral headline 3", "hookStyle": "Counter-Intuitive Truth", "whyItWorks": "Challenges common beliefs, forcing viewers to click to verify.", "pairedConceptId": "thumb_1"},
+    {"title": "Viral headline 4", "hookStyle": "High-Stakes Story", "whyItWorks": "Narrative tension and emotional stakes.", "pairedConceptId": "thumb_3"},
+    {"title": "Viral headline 5", "hookStyle": "Search / SEO Authority", "whyItWorks": "High search volume evergreen query matching user intent.", "pairedConceptId": "thumb_2"}
   ],
   "thumbnailConcepts": [
     {
@@ -394,7 +394,6 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
         ? parsedResult.titles.map((t: any, idx: number) => ({
           title: t.title,
           hookStyle: t.hookStyle || (idx === 0 ? 'Curiosity Gap' : idx === 1 ? 'Extreme Transformation' : idx === 2 ? 'Counter-Intuitive Truth' : idx === 3 ? 'High-Stakes Story' : 'Search / SEO Authority'),
-          ctrScore: t.ctrScore || (98 - idx * 2),
           whyItWorks: t.whyItWorks || 'Maximizes click-through rate through emotional resonance.',
           charCount: (t.title || '').length,
           pairedConceptId: t.pairedConceptId || `thumb_${(idx % 3) + 1}`,

@@ -64,10 +64,7 @@ export function TitleLabCard() {
           </div>
         </div>
 
-        <span className="text-2xs text-zinc-400 flex items-center gap-1 font-mono">
-          <Smartphone size={12} className="text-zinc-500" />
-          Click to sync with feed mockup
-        </span>
+
       </div>
 
       {/* Titles List */}
@@ -76,25 +73,26 @@ export function TitleLabCard() {
           const isSelected = (packaging.selectedTitleIndex ?? 0) === idx;
           const charLen = t.title.length;
           const charBadge = getCharBadge(charLen);
+          const pairedIdx = packaging.thumbnailConcepts
+            ? packaging.thumbnailConcepts.findIndex((c) => c.id === t.pairedConceptId) + 1
+            : 0;
 
           return (
             <div
               key={idx}
               onClick={() => handleSelectTitle(idx)}
-              className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${
-                isSelected
+              className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group ${isSelected
                   ? 'bg-zinc-850/95 border-white/40 text-white shadow-lg ring-1 ring-white/10'
                   : 'bg-zinc-950/70 border-zinc-800/90 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/60'
-              }`}
+                }`}
             >
               <div className="flex items-start gap-3 min-w-0 flex-1">
                 {/* Index / Active Radio */}
                 <div
-                  className={`w-6 h-6 rounded-full border flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 transition-colors ${
-                    isSelected
+                  className={`w-6 h-6 rounded-full border flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5 transition-colors ${isSelected
                       ? 'border-white bg-white text-zinc-950'
                       : 'border-zinc-700 text-zinc-400 group-hover:border-zinc-600'
-                  }`}
+                    }`}
                 >
                   {isSelected ? <CheckCircle2 size={14} className="text-zinc-950 stroke-[3]" /> : idx + 1}
                 </div>
@@ -112,7 +110,7 @@ export function TitleLabCard() {
                     </p>
                   )}
 
-                  {/* Metadata Chips: Hook Style + Mobile Length + Predicted CTR */}
+                  {/* Metadata Chips: Hook Style + Mobile Length */}
                   <div className="flex flex-wrap items-center gap-2 pt-0.5">
                     <span
                       className={`text-3xs uppercase font-bold px-2 py-0.5 rounded border tracking-wider ${getHookBadge(
@@ -128,10 +126,12 @@ export function TitleLabCard() {
                       {charBadge.text}
                     </span>
 
-                    <span className="text-2xs text-zinc-300 font-mono flex items-center gap-1">
-                      <span className="text-zinc-200 font-bold">⚡ {t.ctrScore || 95}%</span>
-                      <span className="text-zinc-500 text-3xs">Predicted CTR</span>
-                    </span>
+                    {pairedIdx > 0 && (
+                      <span className="text-xs text-zinc-400 flex items-center gap-1">
+                        Pairs with thumbnail idea #{pairedIdx}
+                      </span>
+                    )}
+
                   </div>
                 </div>
               </div>
