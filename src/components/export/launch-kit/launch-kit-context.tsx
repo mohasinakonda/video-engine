@@ -17,8 +17,8 @@ import {
 } from '@/lib/store';
 import {
   getUserCreditsRemaining,
-  deductUserCredits,
-  grantUserCredits,
+  holdLocalCredits,
+  syncCreditsFromServer,
   hasEnoughCredits,
 } from '@/lib/subscription-store';
 import { generateImage, base64ToUint8Array } from '@/lib/gemini';
@@ -638,8 +638,8 @@ export function LaunchKitProvider({
       return;
     }
 
-    const deducted = deductUserCredits(unitCost, `YouTube Thumbnail generation (${selectedAIModel?.name || chosenModel})`);
-    if (!deducted) {
+    // UI hold only: /api/generate-image charges the real credits (and refunds on failure).
+    if (!holdLocalCredits(unitCost)) {
       showToast('⚠️ Could not deduct credit. Insufficient balance or account blocked.');
       return;
     }
@@ -652,64 +652,37 @@ export function LaunchKitProvider({
 
       let imageUrl = '';
 
-      try {
-        // Primary: Direct high-speed client-side generation (same engine as Storyboard)
-        const result = await generateImage(
-          concept.visualPrompt.trim(),
-          stylePreset?.negativePrompt,
-          {
-            model: chosenModel,
-            // Thumbnails carry their own lighting/colour direction in the prompt, so the
-            // storyboard style's lighting is NOT appended (it fights bright thumbnail lighting).
-            baseStyle: THUMBNAIL_STYLE_SUFFIX,
-            aspectRatio: isVertical ? '9:16' : '16:9',
-          }
-        );
-
-        if (result.base64Image) {
-          imageUrl = result.base64Image.startsWith('data:')
-            ? result.base64Image
-            : `data:${result.mimeType || 'image/jpeg'};base64,${result.base64Image}`;
-
-          // Also persist blob to IndexedDB for instant offline/browser load
-          try {
-            const bytes = base64ToUint8Array(result.base64Image);
-            const blob = new Blob([bytes.buffer as ArrayBuffer], { type: result.mimeType || 'image/jpeg' });
-            const projectId = project.projectId || 'default';
-            await saveMediaBlob(`thumb_${projectId}_${concept.id}`, blob);
-          } catch (storageErr) {
-            console.warn('[ThumbnailStudio] Blob persistence warning:', storageErr);
-          }
+      // Goes through /api/generate-image, which charges and refunds server-side
+      const result = await generateImage(
+        concept.visualPrompt.trim(),
+        stylePreset?.negativePrompt,
+        {
+          model: chosenModel,
+          // Thumbnails carry their own lighting/colour direction in the prompt, so the
+          // storyboard style's lighting is NOT appended (it fights bright thumbnail lighting).
+          baseStyle: THUMBNAIL_STYLE_SUFFIX,
+          aspectRatio: isVertical ? '9:16' : '16:9',
         }
-      } catch (clientErr) {
-        console.warn('[ThumbnailStudio] Direct generation failed, attempting API route fallback:', clientErr);
-        // Fallback: try server route
-        const res = await fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: concept.visualPrompt.trim(),
-            aspectRatio: isVertical ? '9:16' : '16:9',
-            stylePrompt: THUMBNAIL_STYLE_SUFFIX,
-            negativePrompt: stylePreset?.negativePrompt,
-            model: chosenModel,
-          }),
-        });
+      );
 
-        if (res.ok) {
-          const data = await res.json();
-          imageUrl = data.imageUrl || data.url || data.base64Image;
-        } else {
-          throw clientErr;
+      if (result.base64Image) {
+        imageUrl = result.base64Image.startsWith('data:')
+          ? result.base64Image
+          : `data:${result.mimeType || 'image/jpeg'};base64,${result.base64Image}`;
+
+        // Also persist blob to IndexedDB for instant offline/browser load
+        try {
+          const bytes = base64ToUint8Array(result.base64Image);
+          const blob = new Blob([bytes.buffer as ArrayBuffer], { type: result.mimeType || 'image/jpeg' });
+          const projectId = project.projectId || 'default';
+          await saveMediaBlob(`thumb_${projectId}_${concept.id}`, blob);
+        } catch (storageErr) {
+          console.warn('[ThumbnailStudio] Blob persistence warning:', storageErr);
         }
       }
 
       if (!imageUrl) {
         throw new Error('No image returned from generation engine');
-      }
-
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('credits_updated'));
       }
 
       const updatedConcepts = (packaging?.thumbnailConcepts || []).map((c) =>
@@ -735,10 +708,10 @@ export function LaunchKitProvider({
       showToast('✓ Thumbnail generated successfully!');
     } catch (err: any) {
       console.error('Failed to generate thumbnail:', err);
-      grantUserCredits(unitCost, 'Refund: YouTube Thumbnail generation failed');
       showToast(`Thumbnail generation failed: ${err.message}`);
     } finally {
       setGeneratingThumbId(null);
+      syncCreditsFromServer();
     }
   };
 

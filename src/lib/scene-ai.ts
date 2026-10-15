@@ -1,6 +1,7 @@
 "use client";
 
 import { getLLMClient, type LLMClient } from "@/lib/llm-client";
+import { syncCreditsFromServer } from "@/lib/subscription-store";
 import type { ShotType, PacingProfile, VisualSceneType, CameraMotionEffect, VisualWorldBible, CharacterVisualAnchor } from "@/types";
 
 /**
@@ -388,6 +389,8 @@ export async function generateSceneImage(
     });
 
     const data = await apiRes.json().catch(() => ({}));
+    // The route charged (or refunded) credits server-side — refresh the visible balance.
+    syncCreditsFromServer();
     if (!apiRes.ok) {
       throw new Error(data?.error || `Image generation failed (HTTP ${apiRes.status})`);
     }

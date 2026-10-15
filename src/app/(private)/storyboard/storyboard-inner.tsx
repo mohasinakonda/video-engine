@@ -33,7 +33,7 @@ import JSZip from 'jszip';
 import { ImageQueue } from '@/lib/image-queue';
 import { MotionQueue } from '@/lib/ffmpeg';
 import { getMediaBlobUrl, getMediaBlob } from '@/lib/media-storage';
-import { hasEnoughCredits, deductUserCredits, grantUserCredits, getUserCreditsRemaining } from '@/lib/subscription-store';
+import { hasEnoughCredits, holdLocalCredits, syncCreditsFromServer, getUserCreditsRemaining } from '@/lib/subscription-store';
 import type {
   ProjectManifest,
   SceneItem,
@@ -130,8 +130,8 @@ export default function StoryboardInner() {
     const count = scenesToProcess.length;
     const totalCreditsNeeded = count * unitCost;
 
-    const deducted = deductUserCredits(totalCreditsNeeded, `Batch generate ${count} scenes (${selectedAIModel?.name || 'DeepInfra'})`);
-    if (!deducted) {
+    // UI hold only: /api/generate-image charges each image server-side (and refunds failures).
+    if (!holdLocalCredits(totalCreditsNeeded)) {
       setRequiredCreditsNeeded(totalCreditsNeeded);
       setCreditModalOpen(true);
       return;
@@ -169,6 +169,7 @@ export default function StoryboardInner() {
         onComplete: () => {
           setGeneratingImages(false);
           setPauseMsg('');
+          syncCreditsFromServer();
           setScenes((latest) => {
             persistScenes(latest);
             return latest;
@@ -181,7 +182,7 @@ export default function StoryboardInner() {
         },
         onError: (sceneId, error) => {
           console.warn(`Scene ${sceneId} failed:`, error);
-          grantUserCredits(unitCost, `Refund: Scene ${sceneId} batch generation failed`);
+          syncCreditsFromServer();
         },
         onPause: (reason, resumeInMs) => {
           setPauseMsg(`${reason} — resuming in ${resumeInMs / 1000}s`);
@@ -520,11 +521,9 @@ export default function StoryboardInner() {
     setGeneratingImages(false);
     setGeneratingMotion(false);
     setPauseMsg('');
+    // Scenes never sent to the server were never charged; reload the real balance.
+    syncCreditsFromServer();
     setScenes((prev) => {
-      const cancelledCount = prev.filter((s) => s.status === 'GENERATING_IMAGE').length;
-      if (cancelledCount > 0) {
-        grantUserCredits(cancelledCount, `Refund: Batch generation stopped (${cancelledCount} scenes)`);
-      }
       return prev.map((s) => {
         if (s.status === 'GENERATING_IMAGE') return { ...s, status: 'PENDING' as const };
         if (s.status === 'GENERATING_MOTION') return { ...s, status: 'IMAGE_READY' as const };
@@ -548,8 +547,7 @@ export default function StoryboardInner() {
       return;
     }
 
-    const deducted = deductUserCredits(unitCost, `Scene ${scene.sceneId} regenerate (${selectedAIModel?.name || 'DeepInfra'})`);
-    if (!deducted) {
+    if (!holdLocalCredits(unitCost)) {
       setRequiredCreditsNeeded(unitCost);
       setCreditModalOpen(true);
       return;
@@ -572,8 +570,6 @@ export default function StoryboardInner() {
 
     if (!imageQueueRef.current) imageQueueRef.current = new ImageQueue();
 
-    let completedSuccessfully = false;
-
     try {
       await imageQueueRef.current.retryScene(targetScene, {
         projectId,
@@ -586,9 +582,6 @@ export default function StoryboardInner() {
         aspectRatio: projectRef.current?.aspectRatio || preset?.aspectRatio || '16:9',
         callbacks: {
           onSceneUpdate: (sceneId, update) => {
-            if (update.status === 'IMAGE_READY') {
-              completedSuccessfully = true;
-            }
             setScenes((prev) => {
               const next = prev.map((s) => s.sceneId === sceneId ? { ...s, ...update } : s);
               persistScenes(next);
@@ -598,18 +591,15 @@ export default function StoryboardInner() {
           onComplete: () => { },
           onError: (sceneId, err) => {
             console.error(`[Storyboard] Scene ${sceneId} regenerate error:`, err);
-            grantUserCredits(unitCost, `Refund: Scene ${sceneId} regenerate failed`);
           },
           onPause: () => { },
         },
       });
     } catch (err) {
       console.error(`[Storyboard] retryScene error for scene ${scene.sceneId}:`, err);
-      if (!completedSuccessfully) {
-        grantUserCredits(unitCost, `Refund: Scene ${scene.sceneId} exception`);
-      }
     } finally {
       generatingSceneIdsRef.current.delete(scene.sceneId);
+      syncCreditsFromServer();
     }
   }
 
