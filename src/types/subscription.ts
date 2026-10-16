@@ -110,6 +110,7 @@ export interface UserProfile {
   assignedPromoCode?: string;
   referralDiscountPercent?: number; // Custom negotiated discount % for audience (default: 20)
   referralCommissionPercent?: number; // Custom negotiated commission % for influencer (default: 15)
+  affiliateEnabled?: boolean; // Referral code works only once active (bought a plan or admin-enabled)
   role?: 'admin' | 'user';
   subscriptionExpiresAt?: number;
 }
@@ -136,6 +137,8 @@ export interface AdminSettings {
   globalDiscountActive: boolean;
   globalBannerText: string;
   globalBannerActive: boolean;
+  trialEnabled: boolean; // Give new accounts free credits on sign-up
+  trialCredits: number; // How many free credits a new account starts with
 }
 
 export interface RevenueAnalytics {

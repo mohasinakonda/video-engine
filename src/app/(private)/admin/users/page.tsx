@@ -26,7 +26,6 @@ import {
   adjustUserCredits,
   assignUserPromoCode,
   getAllPayoutRequests,
-  approvePayoutRequest,
 } from '@/lib/subscription-store';
 import type { UserProfile, AffiliatePayoutRequest } from '@/types/subscription';
 
@@ -152,6 +151,27 @@ export default function AdminUsersPage() {
     refreshData();
   };
 
+  const handleToggleAffiliate = async (user: UserProfile) => {
+    const enable = !user.affiliateEnabled;
+    const question = enable
+      ? `Activate the partner program for ${user.email}? Their code will start giving discounts and earning commission.`
+      : `Deactivate the partner program for ${user.email}? Their code stops working and they cannot request payouts.`;
+    if (!confirm(question)) return;
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setAffiliateEnabled', userId: user.id, enabled: enable }),
+      });
+      const data = await res.json();
+      showToast(data.success ? (enable ? 'Partner program activated' : 'Partner program deactivated') : 'Could not update partner status');
+    } catch {
+      showToast('Could not update partner status');
+    }
+    refreshData();
+  };
+
   const handleOpenRatesModal = (user: UserProfile) => {
     setSelectedUser(user);
     setCustomRefCode(user.referralCode || '');
@@ -184,12 +204,26 @@ export default function AdminUsersPage() {
     refreshData();
   };
 
-  const handleApprovePayout = (payoutId: string) => {
-    if (confirm('Did you send the money to this user via bKash/Nagad? Mark as paid?')) {
-      approvePayoutRequest(payoutId, 'Paid via bKash/Nagad by Admin');
-      showToast('Payout marked as PAID!');
-      refreshData();
+  const handleResolvePayout = async (payoutId: string, paid: boolean) => {
+    const question = paid
+      ? 'Did you send the money to this user via bKash/Nagad? Mark as paid?'
+      : 'Reject this payout? The amount goes back to the affiliate\'s withdrawable balance.';
+    if (!confirm(question)) return;
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resolvePayout', payoutId, paid }),
+      });
+      const data = await res.json();
+      showToast(data.success
+        ? (paid ? 'Payout marked as PAID!' : 'Payout rejected.')
+        : 'Could not update payout. It may already be resolved.');
+    } catch {
+      showToast('Could not update payout.');
     }
+    refreshData();
   };
 
   const filteredUsers = users.filter((u) => {
@@ -359,6 +393,14 @@ export default function AdminUsersPage() {
                             <span className="font-mono text-[11px] font-bold text-amber-400 bg-bg-base px-2 py-0.5 rounded border border-bg-border">
                               {user.referralCode}
                             </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase ${user.affiliateEnabled
+                                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                : 'text-zinc-500 bg-zinc-800 border-zinc-700'
+                                }`}
+                            >
+                              {user.affiliateEnabled ? 'Active' : 'Inactive'}
+                            </span>
                             <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-medium">
                               {user.referralDiscountPercent ?? 20}% off
                             </span>
@@ -406,6 +448,14 @@ export default function AdminUsersPage() {
                             >
                               <Percent size={12} className="text-emerald-400" />
                               Rates
+                            </button>
+                            <button
+                              onClick={() => handleToggleAffiliate(user)}
+                              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1"
+                              title={user.affiliateEnabled ? 'Deactivate partner program' : 'Activate partner program'}
+                            >
+                              <Gift size={12} className={user.affiliateEnabled ? 'text-zinc-400' : 'text-emerald-400'} />
+                              {user.affiliateEnabled ? 'Disable Partner' : 'Enable Partner'}
                             </button>
                             <button
                               onClick={() => handleToggleBlock(user)}
@@ -478,7 +528,9 @@ export default function AdminUsersPage() {
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${req.status === 'PAID'
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              : req.status === 'REJECTED'
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                             }`}
                         >
                           {req.status}
@@ -486,14 +538,24 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="py-3 px-4 text-right">
                         {req.status === 'PENDING' ? (
-                          <button
-                            onClick={() => handleApprovePayout(req.id)}
-                            className="btn-accent text-[11px] py-1 px-3"
-                          >
-                            Mark as Paid
-                          </button>
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => handleResolvePayout(req.id, false)}
+                              className="btn-secondary text-[11px] py-1 px-3"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              onClick={() => handleResolvePayout(req.id, true)}
+                              className="btn-accent text-[11px] py-1 px-3"
+                            >
+                              Mark as Paid
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-zinc-500 text-[11px] italic">Completed</span>
+                          <span className="text-zinc-500 text-[11px] italic">
+                            {req.status === 'REJECTED' ? 'Rejected' : 'Completed'}
+                          </span>
                         )}
                       </td>
                     </tr>

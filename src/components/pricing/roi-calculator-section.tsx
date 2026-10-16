@@ -3,7 +3,7 @@
 import React from 'react';
 import { BadgePercent, ArrowRight } from 'lucide-react';
 import type { SubscriptionPlan, BillingCycle } from '@/types/subscription';
-import { cycleMonths, getPlanPrice } from '@/lib/plan-pricing';
+import { cycleMonths, getPlanPrice, recommendPlanForVideos } from '@/lib/plan-pricing';
 
 interface RoiCalculatorSectionProps {
   plans: SubscriptionPlan[];
@@ -20,10 +20,7 @@ export function RoiCalculatorSection({
   setCalculatorVideos,
   onSelectPlan,
 }: RoiCalculatorSectionProps) {
-  const calcRecommendedTier =
-    calculatorVideos <= 18 ? 'STARTER' : calculatorVideos <= 45 ? 'CREATOR' : 'STUDIO';
-  const calcRecommendedPlan =
-    plans.find((p) => p.id === calcRecommendedTier) || plans[0];
+  const calcRecommendedPlan = recommendPlanForVideos(plans, calculatorVideos);
   const calcPlanPrice = calcRecommendedPlan
     ? Math.round(getPlanPrice(calcRecommendedPlan, billingCycle) / cycleMonths(billingCycle))
     : 1200;
@@ -31,7 +28,7 @@ export function RoiCalculatorSection({
   const freelanceEditorCost = calculatorVideos * 1200; // Average traditional video editor charge
   const savingsBDT = Math.max(0, freelanceEditorCost - calcPlanPrice);
 
-  const presets = [10, 20, 35, 60, 90];
+  const presets = [5, 10, 20, 30, 45];
 
   return (
     <div className="bg-white border border-[#E5E0D8] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
@@ -72,7 +69,7 @@ export function RoiCalculatorSection({
         <input
           type="range"
           min="5"
-          max="100"
+          max="50"
           step="5"
           value={calculatorVideos}
           onChange={(e) => setCalculatorVideos(Number(e.target.value))}

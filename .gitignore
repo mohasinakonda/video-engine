@@ -4,6 +4,9 @@ out
 .next
 .DS_Store
 
+.claude/settings.local.json
+
+
 # Tauri & Rust build artifacts
 src-tauri/target/
 src-tauri/gen/

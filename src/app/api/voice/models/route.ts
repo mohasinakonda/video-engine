@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 /** Active voice engines for the /voice page engine picker (admin-controlled). */
 export async function GET() {
   const models = await fetchVoiceModelsRemote();
-  const pool = models.length > 0 ? models : FALLBACK_VOICE_MODELS;
+  const pool = models.length > 0 ? models : FALLBACK_VOICE_MODELS.filter((m) => m.isActive);
   return NextResponse.json({
     success: true,
     models: pool.map((m) => ({

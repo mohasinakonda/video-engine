@@ -11,6 +11,10 @@ import {
   Play,
   Film,
   Sparkles,
+  Wand2,
+  AudioLines,
+  Youtube,
+  LayoutGrid,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -349,6 +353,73 @@ export const PROCESS_STEPS = [
   },
 ];
 
+// ─── Key Features Highlight (top of home page) ───────────────────────────────
+
+export interface KeyFeatureItem {
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  badge?: string;
+  points: string[];
+}
+
+export const KEY_FEATURES: KeyFeatureItem[] = [
+  {
+    icon: Wand2,
+    title: 'Script to finished video in minutes',
+    desc: 'Paste a script or upload your own voiceover. The AI splits it into timed scenes, generates matching visuals, adds narration and subtitles, and renders a ready-to-post video.',
+    badge: 'Core',
+    points: [
+      'Automatic scene planning from your script',
+      'Upload your own MP3, auto-synced with Whisper',
+      '1080p MP4 with zero watermark',
+      '16:9 for YouTube or 9:16 for Shorts & Reels',
+    ],
+  },
+  {
+    icon: AudioLines,
+    title: 'AI Voice Studio',
+    desc: 'Narrate in your own voice, or create a brand new one, without recording every video.',
+    badge: 'New',
+    points: [
+      'Clone your voice from a short sample',
+      'Design a new voice from a text description',
+      'Voiceovers in 23 languages',
+    ],
+  },
+  {
+    icon: Youtube,
+    title: 'YouTube Launch Kit',
+    desc: 'Everything you need to publish, generated from the same script.',
+    points: [
+      'Click-worthy title ideas',
+      'Thumbnail studio',
+      'SEO description, tags & chapters',
+      'Competitor research',
+    ],
+  },
+  {
+    icon: LayoutGrid,
+    title: 'Full storyboard control',
+    desc: 'The AI does the first draft. You stay the director.',
+    points: [
+      'Edit any scene prompt and regenerate',
+      'Consistent look with visual style presets',
+      'Cinematic pan & zoom motion',
+    ],
+  },
+  {
+    icon: FileCode2,
+    title: 'Export to your editor',
+    desc: 'Want to fine-tune? Take the project into the editor you already use.',
+    points: [
+      'Premiere Pro, DaVinci Resolve & Final Cut (XML)',
+      'EDL timeline export',
+      'SRT subtitles for CapCut & more',
+    ],
+  },
+];
+
 // ─── Key Features Matrix ──────────────────────────────────────────────────────
 
 export interface CoreFeatureItem {
@@ -361,7 +432,7 @@ export const CORE_FEATURES: CoreFeatureItem[] = [
   {
     icon: Subtitles,
     title: 'Auto Subtitle Sync',
-    desc: 'Generates precision word-by-word animated captions and exports .srt / .vtt files.',
+    desc: 'Subtitles timed to your narration, with one-click .srt export for any editor.',
   },
   {
     icon: Smartphone,
@@ -381,7 +452,7 @@ export const CORE_FEATURES: CoreFeatureItem[] = [
   {
     icon: Languages,
     title: 'Multi-Language Voices',
-    desc: 'Lifelike emotional AI voiceovers in Bangla, English, Hindi, and 30+ international languages.',
+    desc: 'Lifelike AI voiceovers in English, Hindi, Arabic, Spanish and 19 more languages.',
   },
   {
     icon: ShieldCheck,
@@ -391,7 +462,7 @@ export const CORE_FEATURES: CoreFeatureItem[] = [
   {
     icon: FileCode2,
     title: 'NLE Timeline Export',
-    desc: 'Export structured XML/EDL timelines directly into Adobe Premiere Pro and DaVinci Resolve.',
+    desc: 'Export XML/EDL timelines straight into Premiere Pro, DaVinci Resolve and Final Cut Pro.',
   },
   {
     icon: BadgeDollarSign,

@@ -16,7 +16,6 @@ import QuickLaunchSection from '@/components/dashboard/quick-launch-section';
 import ProjectsTab from '@/components/dashboard/tabs/projects-tab';
 import AffiliateTab from '@/components/dashboard/tabs/affiliate-tab';
 import BillingTab from '@/components/dashboard/tabs/billing-tab';
-import PayoutModal from '@/components/dashboard/payout-modal';
 
 type DashboardTab = 'projects' | 'affiliate' | 'billing';
 
@@ -24,12 +23,6 @@ export default function UserDashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('projects');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
-
-  // Payout request modal states
-  const [payoutModalOpen, setPayoutModalOpen] = useState(false);
-  const [payoutMethod, setPayoutMethod] = useState<'bkash' | 'nagad'>('bkash');
-  const [payoutAccount, setPayoutAccount] = useState('');
-  const [payoutAmount, setPayoutAmount] = useState(500);
 
   // Data fetching hook
   const {
@@ -182,9 +175,6 @@ export default function UserDashboardPage() {
             profile={profile}
             copiedCode={copiedCode}
             onCopyCode={handleCopyCode}
-            onRequestPayoutClick={() => {
-              setPayoutModalOpen(true);
-            }}
           />
         )}
 
@@ -198,24 +188,6 @@ export default function UserDashboardPage() {
           />
         )}
       </div>
-
-      {/* Modular Payout Withdrawal Modal */}
-      <PayoutModal
-        profile={profile}
-        isOpen={payoutModalOpen}
-        onClose={() => setPayoutModalOpen(false)}
-        pendingBDT={profile.referralPendingBDT}
-        payoutMethod={payoutMethod}
-        setPayoutMethod={setPayoutMethod}
-        payoutAccount={payoutAccount}
-        setPayoutAccount={setPayoutAccount}
-        payoutAmount={payoutAmount}
-        setPayoutAmount={setPayoutAmount}
-        setPayoutModalOpen={setPayoutModalOpen}
-        refreshData={refreshData}
-        isLiveSupabase={isLiveSupabase}
-        isLoggedIn={isLoggedIn}
-      />
     </div>
   );
 }

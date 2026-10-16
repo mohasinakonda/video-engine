@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTrialOffer } from '@/hooks/use-trial-offer';
+import { AppLogo } from '@/icons/logo-icon';
 import {
-  Zap,
   Sparkles,
   ShieldCheck,
   AlertCircle,
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   const supabaseConfigured = isSupabaseConfigured();
+  const trial = useTrialOffer();
 
   const handleGoogleSignIn = async () => {
     setErrorMsg('');
@@ -48,9 +50,7 @@ export default function LoginPage() {
 
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 text-white font-black shadow-md shadow-zinc-900/10 mb-1">
-            <Zap size={24} className="text-[#E05A30] fill-[#E05A30]" />
-          </div>
+          <AppLogo className="inline-block w-14 h-14 rounded-2xl shadow-md shadow-zinc-900/10 mb-1" />
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-950 tracking-tight flex items-center justify-center gap-2">
               <span>Rendoza AI</span>
@@ -63,11 +63,13 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* 30 Free Credits Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[#E05A30] text-xs font-bold uppercase tracking-wider">
-            <Gift size={14} />
-            <span>Claim 30 Free Credits on Sign-In</span>
-          </div>
+          {/* Free Credits Badge (admin-configurable) */}
+          {trial?.enabled && (
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-[#E05A30] text-xs font-bold uppercase tracking-wider">
+              <Gift size={14} />
+              <span>Claim {trial.credits} Free Credits on Sign-In</span>
+            </div>
+          )}
         </div>
 
         {/* Google Sign-In Button */}
@@ -128,7 +130,7 @@ export default function LoginPage() {
           <div className="grid grid-cols-2 gap-2 text-xs text-zinc-700">
             <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5E0D8] flex items-center gap-2">
               <Coins size={15} className="text-amber-500 shrink-0" />
-              <span className="font-medium">30 Free Credits</span>
+              <span className="font-medium">{trial?.enabled ? `${trial.credits} Free Credits` : 'Free Account'}</span>
             </div>
             <div className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#E5E0D8] flex items-center gap-2">
               <Film size={15} className="text-blue-500 shrink-0" />

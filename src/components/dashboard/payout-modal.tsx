@@ -1,99 +1,63 @@
 'use client';
 
-import React, { Dispatch, SetStateAction, useState } from 'react';
-import { DollarSign, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { DollarSign, AlertCircle, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
-import { UserProfile } from '@/types/subscription';
-import { submitPayoutRemote } from '@/lib/supabase-service';
-import { submitPayoutRequest } from '@/lib/subscription-store';
+import { formatBdt, requestAffiliatePayout, type AffiliatePayoutMethod } from '@/lib/affiliate';
 
 interface PayoutModalProps {
   isOpen: boolean;
-  setPayoutModalOpen: Dispatch<SetStateAction<boolean>>
   onClose: () => void;
-  pendingBDT: number;
-  payoutMethod: 'bkash' | 'nagad';
-  setPayoutMethod: (method: 'bkash' | 'nagad') => void;
-  payoutAccount: string;
-  setPayoutAccount: (account: string) => void;
-  payoutAmount: number;
-  setPayoutAmount: (amount: number) => void;
-  profile: UserProfile
-  refreshData: () => Promise<void>
-  isLiveSupabase: boolean;
-  isLoggedIn: boolean;
+  availableBdt: number;
+  minPayoutBdt: number;
+  onSubmitted: () => void;
 }
 
 export default function PayoutModal({
   isOpen,
   onClose,
-  pendingBDT,
-  payoutMethod,
-  setPayoutMethod,
-  payoutAccount,
-  setPayoutAccount,
-  payoutAmount,
-  setPayoutAmount,
-  profile,
-  setPayoutModalOpen,
-  refreshData,
-  isLiveSupabase,
-  isLoggedIn
+  availableBdt,
+  minPayoutBdt,
+  onSubmitted,
 }: PayoutModalProps) {
-  const [payoutError, setPayoutError] = useState('');
+  const [method, setMethod] = useState<AffiliatePayoutMethod>('bkash');
+  const [account, setAccount] = useState('');
+  const [amount, setAmount] = useState(availableBdt);
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
   if (!isOpen) return null;
 
-
-  const handleRequestPayout = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile) return;
-    if (payoutAmount > profile.referralPendingBDT) {
-      setPayoutError(`Amount exceeds your pending balance of ৳${profile.referralPendingBDT}`);
+    if (amount < minPayoutBdt) {
+      setError(`Minimum payout is ${formatBdt(minPayoutBdt)}.`);
       return;
     }
-    if (payoutAmount < 100) {
-      setPayoutError('Minimum payout amount is ৳100 BDT');
+    if (amount > availableBdt) {
+      setError(`You can withdraw up to ${formatBdt(availableBdt)}.`);
       return;
     }
-    if (!payoutAccount.trim()) {
-      setPayoutError('Please provide your bKash or Nagad phone number');
+    if (!account.trim()) {
+      setError('Please enter your bKash or Nagad number.');
       return;
     }
 
-    if (isLiveSupabase && isLoggedIn) {
-      const okRemote = await submitPayoutRemote(
-        profile.id,
-        profile.email,
-        payoutAmount,
-        payoutMethod,
-        payoutAccount.trim()
-      );
-      if (okRemote) {
-        showToast('Payout request submitted to Supabase! Admin notified.');
-        setPayoutModalOpen(false);
-        setPayoutError('');
-        setPayoutAccount('');
-        await refreshData();
-        return;
-      }
+    setSubmitting(true);
+    // The server re-checks the balance; these checks above are only for quick feedback.
+    const res = await requestAffiliatePayout(amount, method, account);
+    setSubmitting(false);
+
+    if (!res.ok) {
+      setError(res.error || 'Could not submit the request. Please try again.');
+      return;
     }
 
-    const ok = submitPayoutRequest(
-      profile.id,
-      profile.email,
-      payoutAmount,
-      payoutMethod,
-      payoutAccount.trim()
-    );
-    if (ok) {
-      showToast('Payout request submitted to admin!');
-      setPayoutModalOpen(false);
-      setPayoutError('');
-      setPayoutAccount('');
-      refreshData();
-    } else {
-      setPayoutError('Failed to submit payout request. Try again.');
-    }
+    showToast('Payout request sent! You will be notified once it is transferred.');
+    setError('');
+    setAccount('');
+    onSubmitted();
+    onClose();
   };
 
   return (
@@ -101,21 +65,21 @@ export default function PayoutModal({
       <div className="modal-panel max-w-md p-6 space-y-4">
         <h3 className="text-base font-bold text-white flex items-center gap-2">
           <DollarSign size={18} className="text-emerald-400" />
-          Withdraw Referral Commission
+          Withdraw Commission
         </h3>
         <p className="text-xs text-zinc-400">
-          Available Pending Balance:{' '}
-          <strong className="text-emerald-400 font-mono">৳{pendingBDT} BDT</strong>
+          Available to withdraw:{' '}
+          <strong className="text-emerald-400 font-mono">{formatBdt(availableBdt)}</strong>
         </p>
 
-        <form onSubmit={handleRequestPayout} className="space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
             <label className="block text-zinc-300 font-medium mb-1">Select Wallet</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setPayoutMethod('bkash')}
-                className={`py-2 px-3 rounded-lg border font-bold text-center transition-colors ${payoutMethod === 'bkash'
+                onClick={() => setMethod('bkash')}
+                className={`py-2 px-3 rounded-lg border font-bold text-center transition-colors ${method === 'bkash'
                   ? 'border-pink-500 bg-pink-500/10 text-white'
                   : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700'
                   }`}
@@ -124,8 +88,8 @@ export default function PayoutModal({
               </button>
               <button
                 type="button"
-                onClick={() => setPayoutMethod('nagad')}
-                className={`py-2 px-3 rounded-lg border font-bold text-center transition-colors ${payoutMethod === 'nagad'
+                onClick={() => setMethod('nagad')}
+                className={`py-2 px-3 rounded-lg border font-bold text-center transition-colors ${method === 'nagad'
                   ? 'border-orange-500 bg-orange-500/10 text-white'
                   : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-700'
                   }`}
@@ -137,14 +101,14 @@ export default function PayoutModal({
 
           <div>
             <label className="block text-zinc-300 font-medium mb-1">
-              Your {payoutMethod.toUpperCase()} Personal Number *
+              Your {method === 'bkash' ? 'bKash' : 'Nagad'} Personal Number *
             </label>
             <input
               type="text"
               required
               placeholder="e.g. 017XXXXXXXX"
-              value={payoutAccount}
-              onChange={(e) => setPayoutAccount(e.target.value)}
+              value={account}
+              onChange={(e) => setAccount(e.target.value)}
               className="input font-mono"
             />
           </div>
@@ -153,33 +117,28 @@ export default function PayoutModal({
             <label className="block text-zinc-300 font-medium mb-1">Withdrawal Amount (BDT) *</label>
             <input
               type="number"
-              min="100"
-              max={pendingBDT}
-              value={payoutAmount}
-              onChange={(e) => setPayoutAmount(Number(e.target.value))}
+              min={minPayoutBdt}
+              max={availableBdt}
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
               className="input font-mono font-bold"
             />
+            <p className="text-2xs text-zinc-500 mt-1">Minimum {formatBdt(minPayoutBdt)}</p>
           </div>
 
-          {payoutError && (
+          {error && (
             <p className="text-xs text-rose-400 flex items-center gap-1">
               <AlertCircle size={14} />
-              {payoutError}
+              {error}
             </p>
           )}
 
           <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn-secondary flex-1"
-            >
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn-accent flex-1"
-            >
+            <button type="submit" disabled={submitting} className="btn-accent flex-1 flex items-center justify-center gap-1.5">
+              {submitting && <Loader2 size={14} className="animate-spin" />}
               Submit Request
             </button>
           </div>

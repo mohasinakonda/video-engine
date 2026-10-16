@@ -3,8 +3,11 @@
 import React from 'react';
 import Link from 'next/link';
 import { Sparkles, Coins } from 'lucide-react';
+import { useTrialOffer } from '@/hooks/use-trial-offer';
 
 export function PricingHeader() {
+  const trial = useTrialOffer();
+
   return (
     <div className="text-center space-y-4 max-w-3xl mx-auto">
       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F4F0EA] border border-[#E5E0D8] text-zinc-700 text-xs font-semibold uppercase tracking-wider">
@@ -21,18 +24,20 @@ export function PricingHeader() {
         Instant WhatsApp activation with zero hidden fees.
       </p>
 
-      {/* Free Trial Banner */}
-      <div className="pt-2">
-        <Link
-          href="/login"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E5E0D8] text-xs text-zinc-700 hover:text-zinc-950 hover:border-zinc-400 transition-colors shadow-sm"
-        >
-          <Coins size={14} className="text-amber-500" />
-          <span>
-            New creator? <strong>Sign in to get 30 Free Starter Credits</strong> &rarr;
-          </span>
-        </Link>
-      </div>
+      {/* Free Trial Banner (admin-configurable) */}
+      {trial?.enabled && (
+        <div className="pt-2">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-[#E5E0D8] text-xs text-zinc-700 hover:text-zinc-950 hover:border-zinc-400 transition-colors shadow-sm"
+          >
+            <Coins size={14} className="text-amber-500" />
+            <span>
+              New creator? <strong>Sign in to get {trial.credits} Free Credits</strong> &rarr;
+            </span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

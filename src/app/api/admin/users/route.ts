@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import {
   fetchAllProfilesRemote,
+  fetchAffiliatePayoutsRemote,
+  resolveAffiliatePayoutRemote,
   updateProfileRemote,
   isSupabaseConfigured,
 } from '@/lib/supabase-service';
@@ -12,17 +14,19 @@ import {
   assignUserPromoCode,
   getAllPayoutRequests,
 } from '@/lib/subscription-store';
-import type { UserProfile } from '@/types/subscription';
+import type { AffiliatePayoutRequest, UserProfile } from '@/types/subscription';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   let isLiveSupabase = false;
   let users: UserProfile[] | null = null;
+  let remotePayouts: AffiliatePayoutRequest[] | null = null;
 
   if (isSupabaseConfigured()) {
     try {
       const supabase = createServerClient();
+      remotePayouts = await fetchAffiliatePayoutsRemote(supabase);
       const remote = await fetchAllProfilesRemote(supabase);
       if (remote !== null && remote.length > 0) {
         users = remote;
@@ -38,7 +42,7 @@ export async function GET() {
 
   // Use fetched users, or fall back to local store
   const finalUsers = (users && users.length > 0) ? users : getAllUsers();
-  const payouts = getAllPayoutRequests();
+  const payouts = remotePayouts ?? getAllPayoutRequests();
 
   return NextResponse.json({
     success: true,
@@ -53,6 +57,15 @@ export async function POST(req: Request) {
     const supabase = createServerClient();
     const body = await req.json();
     const { action, userId, amount, isBlocked, reason, promoCode } = body;
+
+    if (action === 'resolvePayout') {
+      const { payoutId, paid } = body;
+      if (!payoutId || typeof paid !== 'boolean') {
+        return NextResponse.json({ success: false, error: 'payoutId and paid required' }, { status: 400 });
+      }
+      const ok = await resolveAffiliatePayoutRemote(supabase, String(payoutId), paid);
+      return NextResponse.json({ success: ok }, { status: ok ? 200 : 409 });
+    }
 
     if (!userId) {
       return NextResponse.json({ success: false, error: 'userId required' }, { status: 400 });
@@ -94,6 +107,12 @@ export async function POST(req: Request) {
       }
       assignUserPromoCode(userId, promoCode);
       return NextResponse.json({ success: true, remoteUpdated });
+    }
+
+    if (action === 'setAffiliateEnabled') {
+      const enabled = Boolean(body.enabled);
+      const { error } = await supabase.from('profiles').update({ affiliate_enabled: enabled }).eq('id', userId);
+      return NextResponse.json({ success: !error }, { status: error ? 500 : 200 });
     }
 
     if (action === 'updateReferralRates') {

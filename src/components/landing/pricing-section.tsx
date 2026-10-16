@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { usePricingPlans } from '@/hooks/use-pricing';
 import { PricingPlanCard } from '@/components/pricing/pricing-plan-card';
 import type { BillingCycle, SubscriptionPlan } from '@/types/subscription';
-import { getPlanPrice } from '@/lib/plan-pricing';
+import { getPlanPrice, quarterlySavingsPercent } from '@/lib/plan-pricing';
 
 export const PricingSection = () => {
   const { plans, isLoading: loading } = usePricingPlans();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  const maxQuarterlySaving = Math.max(0, ...plans.map(quarterlySavingsPercent));
 
   return (
     <section id="pricing" className="py-24 px-6 border-b border-[#E5E0D8] bg-[#FAF8F5]">
@@ -48,9 +49,11 @@ export const PricingSection = () => {
                   }`}
               >
                 <span>3 Months</span>
-                <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  Save Discount
-                </span>
+                {maxQuarterlySaving > 0 && (
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    Save up to {maxQuarterlySaving}%
+                  </span>
+                )}
               </button>
             </div>
           </div>

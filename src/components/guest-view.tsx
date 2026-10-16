@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { HeroSection } from './landing/hero-section';
+import { KeyFeaturesSection } from './landing/key-features-section';
 import { HowItWorksSection } from './landing/how-it-works-section';
 import { SceneBuilderSection } from './landing/scene-builder-section';
 import { NarrationTimelineSection } from './landing/narration-timeline-section';
@@ -15,6 +16,9 @@ export default function GuestView() {
     <div className="w-full">
       {/* ─── Hero Section ───────────────────────────────────────────────── */}
       <HeroSection />
+
+      {/* ─── Key Features Highlight ─────────────────────────────────────── */}
+      <KeyFeaturesSection />
 
       {/* ─── How It Works (6-Stage Stepper & Visual Mockups) ─────────────── */}
       <HowItWorksSection />
