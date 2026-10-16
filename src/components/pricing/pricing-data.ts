@@ -13,7 +13,7 @@ export interface ComparisonRowItem {
 export const CREATOR_FAQS: CreatorFaqItem[] = [
   {
     q: 'How are credits calculated and how many credits does one video require?',
-    a: 'Each newly generated scene image costs 2 credits. Generating a full YouTube Launch Kit (viral CTR titles, 3 thumbnail prompts, description, tags, and market intelligence) costs 15 credits. A typical 1-minute video contains 10–12 scenes (~20–24 credits). On our Creator plan (2,000 credits), you can generate up to 1,000 images or 35–45 complete videos with full launch kits. AI voiceovers and MP4 rendering are 100% free!',
+    a: 'Each newly generated scene image costs 2 credits. Generating a full YouTube Launch Kit (viral CTR titles, 3 thumbnail prompts, description, tags, and market intelligence) costs 15 credits. A typical 1-minute video contains 10–12 scenes (~20–24 credits). Premium AI voiceover costs about 3 credits per minute of narration. On our Creator plan (2,000 credits), you can generate up to 1,000 images or about 22–28 complete 3-minute videos with voiceover and full launch kits. MP4 rendering and downloads are free.',
   },
   {
     q: 'Can I monetize the generated videos on YouTube and Facebook?',

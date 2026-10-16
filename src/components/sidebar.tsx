@@ -24,6 +24,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
 import { signOutUser } from '@/lib/supabase-service';
+import Image from 'next/image';
 
 const navItems = [
   { href: '/projects', label: 'Projects', icon: Video },
@@ -42,7 +43,6 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
-
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -106,9 +106,8 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
                 key={href}
                 href={href}
                 title={label}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  isActive ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
-                }`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isActive ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
+                  }`}
               >
                 <Icon size={15} />
               </Link>
@@ -353,8 +352,8 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
                   href="/dashboard"
                   onClick={() => setProfileMenuOpen(false)}
                   className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${pathname === '/dashboard'
-                      ? 'bg-zinc-800 text-white font-semibold'
-                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
                     }`}
                 >
                   <LayoutDashboard size={14} className={pathname === '/dashboard' ? 'text-white' : 'text-zinc-400'} />
@@ -365,8 +364,8 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
                   href="/plan"
                   onClick={() => setProfileMenuOpen(false)}
                   className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${pathname === '/plan'
-                      ? 'bg-zinc-800 text-white font-semibold'
-                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
                     }`}
                 >
                   <CreditCard size={14} className={pathname === '/plan' ? 'text-white' : 'text-zinc-400'} />
@@ -377,8 +376,8 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
                   href="/settings"
                   onClick={() => setProfileMenuOpen(false)}
                   className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${pathname === '/settings'
-                      ? 'bg-zinc-800 text-white font-semibold'
-                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                    ? 'bg-zinc-800 text-white font-semibold'
+                    : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
                     }`}
                 >
                   <Settings size={14} className={pathname === '/settings' ? 'text-white' : 'text-zinc-400'} />
@@ -390,8 +389,8 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
                     href="/admin"
                     onClick={() => setProfileMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors ${pathname.startsWith('/admin')
-                        ? 'bg-zinc-800 text-white font-semibold'
-                        : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
+                      ? 'bg-zinc-800 text-white font-semibold'
+                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800/60'
                       }`}
                   >
                     <ShieldCheck size={14} className={pathname.startsWith('/admin') ? 'text-white' : 'text-zinc-400'} />
@@ -427,15 +426,17 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
             type="button"
             onClick={() => setProfileMenuOpen((prev) => !prev)}
             className={`w-full flex items-center justify-between p-2 rounded-xl border transition-all text-left group ${profileMenuOpen || pathname === '/dashboard'
-                ? 'bg-zinc-850 border-zinc-700 shadow-sm'
-                : 'bg-zinc-900/80 border-zinc-800/80 hover:border-zinc-700/80 hover:bg-zinc-850/80'
+              ? 'bg-zinc-850 border-zinc-700 shadow-sm'
+              : 'bg-zinc-900/80 border-zinc-800/80 hover:border-zinc-700/80 hover:bg-zinc-850/80'
               }`}
             aria-label="User Account Menu"
             aria-expanded={profileMenuOpen}
           >
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {user.user_metadata?.avatar_url ? (
-                <img
+                <Image
+                  width={28}
+                  height={28}
                   src={user.user_metadata.avatar_url}
                   alt={user.user_metadata?.full_name || 'User'}
                   className="w-7 h-7 rounded-full object-cover border border-zinc-700/80 group-hover:border-zinc-500 transition-colors shrink-0"

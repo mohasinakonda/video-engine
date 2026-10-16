@@ -15,7 +15,11 @@ const nextConfig = {
     ];
   },
   images: {
-    unoptimized: true,
+    remotePatterns: [{
+      hostname: 'lh3.googleusercontent.com'
+    },
+    { hostname: "xvctobddvxmvohicrenf.supabase.co" }
+    ]
   },
   typescript: {
     ignoreBuildErrors: false,

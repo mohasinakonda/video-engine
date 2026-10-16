@@ -7,6 +7,7 @@ import {
   Play,
 } from 'lucide-react';
 import { LANDING_SECTION_IMAGES } from './types-and-data';
+import Image from 'next/image';
 
 
 
@@ -87,7 +88,9 @@ export const HeroSection = () => {
             <div className="relative flex items-center justify-center py-6">
               {/* Card 1 (Far Left) */}
               <div className="w-16 h-28 sm:w-20 sm:h-36 md:w-24 md:h-40 rounded-2xl overflow-hidden -rotate-6 opacity-100 shadow-lg -mr-6 sm:-mr-8 shrink-0 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100 transition-transform duration-300 hover:opacity-100 hover:-translate-y-2">
-                <img
+                <Image
+                  width={80}
+                  height={120}
                   src={LANDING_SECTION_IMAGES.hero[4].url}
                   alt={LANDING_SECTION_IMAGES.hero[4]?.caption || 'AI generated video scene'}
                   className="w-full h-full object-cover"
@@ -96,7 +99,9 @@ export const HeroSection = () => {
 
               {/* Card 2 (Mid Left) */}
               <div className="w-20 h-36 sm:w-24 sm:h-44 md:w-28 md:h-48 rounded-2xl overflow-hidden -rotate-3 opacity-100 shadow-xl -mr-5 sm:-mr-6 shrink-0 z-10 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100 transition-transform duration-300 hover:opacity-100 hover:-translate-y-2">
-                <img
+                <Image
+                  width={80}
+                  height={120}
                   src={LANDING_SECTION_IMAGES.hero[1].url}
                   alt={LANDING_SECTION_IMAGES.hero[1].caption}
                   className="w-full h-full object-cover"
@@ -131,7 +136,9 @@ export const HeroSection = () => {
 
               {/* Card 4 (Mid Right) */}
               <div className="w-20 h-36 sm:w-24 sm:h-44 md:w-28 md:h-48 rounded-2xl overflow-hidden rotate-3 opacity-100 shadow-xl -ml-5 sm:-ml-6 shrink-0 z-10 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100 transition-transform duration-300 hover:opacity-100 hover:-translate-y-2">
-                <img
+                <Image
+                  width={80}
+                  height={120}
                   src={LANDING_SECTION_IMAGES.hero[3].url}
                   alt={LANDING_SECTION_IMAGES.hero[3].caption}
                   className="w-full h-full object-cover"
@@ -140,7 +147,9 @@ export const HeroSection = () => {
 
               {/* Card 5 (Far Right) */}
               <div className="w-16 h-28 sm:w-20 sm:h-36 md:w-24 md:h-40 rounded-2xl overflow-hidden rotate-6 opacity-100 shadow-lg -ml-6 sm:-ml-8 shrink-0 border-2 border-white ring-1 ring-[#E5E0D8] bg-zinc-100 transition-transform duration-300 hover:opacity-100 hover:-translate-y-2">
-                <img
+                <Image
+                  width={80}
+                  height={120}
                   src={LANDING_SECTION_IMAGES.hero[4].url}
                   alt={LANDING_SECTION_IMAGES.hero[4].caption}
                   className="w-full h-full object-cover"

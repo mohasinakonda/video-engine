@@ -13,6 +13,7 @@ import type {
   PaymentSubmission,
   AdminSettings,
   AIImageModel,
+  AffiliatePayoutRequest,
 } from '@/types/subscription';
 import type { BaseStylePreset } from '@/types';
 import { SUB_STYLES_CATALOG } from '@/lib/style-taxonomy';
@@ -954,43 +955,50 @@ export async function ensureUserProfileRemote(authUser: { id: string; email?: st
   }
 }
 
-/** Submit Payout Request to Supabase */
-export async function submitPayoutRemote(
-  userId: string,
-  userEmail: string,
-  amountBDT: number,
-  paymentMethod: 'bkash' | 'nagad' | 'bank',
-  accountNumber: string
-): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+/** Affiliate payout requests for the admin queue, newest first (admin session required). */
+export async function fetchAffiliatePayoutsRemote(client: any): Promise<AffiliatePayoutRequest[] | null> {
+  if (!isSupabaseConfigured()) return null;
   try {
-    const supabase = createClient();
-    const id = `payout_${Date.now()}`;
-    const { error } = await supabase.from('affiliate_payouts').insert({
-      id,
-      user_id: userId,
-      user_email: userEmail,
-      amount_bdt: amountBDT,
-      payment_method: paymentMethod,
-      account_number: accountNumber,
-      status: 'PENDING',
-    });
-
-    if (error) {
-      console.error('[Supabase] Failed to insert affiliate payout:', error);
-      return false;
-    }
-
-    const profile = await fetchSupabaseProfile(userId);
-    if (profile) {
-      const nextPending = Math.max(0, profile.referralPendingBDT - amountBDT);
-      await supabase.from('profiles').update({ referral_pending_bdt: nextPending }).eq('id', userId);
-    }
-    return true;
+    const { data, error } = await client
+      .from('affiliate_payouts')
+      .select('*')
+      .order('requested_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      userEmail: row.user_email,
+      amountBDT: row.amount_bdt,
+      paymentMethod: row.payment_method,
+      accountNumber: row.account_number,
+      requestedAt: new Date(row.requested_at).getTime(),
+      status: row.status,
+      paidAt: row.paid_at ? new Date(row.paid_at).getTime() : undefined,
+      note: row.note || undefined,
+    }));
   } catch (err) {
-    console.error('[Supabase] Error submitting payout:', err);
+    console.warn('[Supabase] fetchAffiliatePayoutsRemote error:', err);
+    return null;
+  }
+}
+
+/** Mark a pending payout as paid, or reject it (returns the amount to the affiliate). */
+export async function resolveAffiliatePayoutRemote(
+  client: any,
+  payoutId: string,
+  paid: boolean
+): Promise<boolean> {
+  const { data, error } = await client.rpc('admin_resolve_affiliate_payout', {
+    p_payout_id: payoutId,
+    p_paid: paid,
+    p_note: paid ? 'Paid via bKash/Nagad by admin' : 'Rejected by admin',
+  });
+  if (error) {
+    console.warn('[Supabase] admin_resolve_affiliate_payout error:', error);
     return false;
   }
+  return Boolean(data);
 }
 
 /** Atomically increment promo code current_uses in Supabase */
