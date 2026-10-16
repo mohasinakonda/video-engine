@@ -7,12 +7,14 @@ import {
   Play,
 } from 'lucide-react';
 import { LANDING_SECTION_IMAGES } from './types-and-data';
+import { useTrialOffer } from '@/hooks/use-trial-offer';
 import Image from 'next/image';
 
 
 
 export const HeroSection = () => {
   const router = useRouter();
+  const trial = useTrialOffer();
   const [userScriptInput, setUserScriptInput] = useState('');
 
   const handleStartWithScript = (e: React.FormEvent) => {
@@ -77,9 +79,11 @@ export const HeroSection = () => {
                 <Check size={13} className="text-emerald-600" /> Zero Watermarks
               </span>
 
-              <span className="flex items-center gap-1.5">
-                <Check size={13} className="text-emerald-600" /> 30 Free Credits
-              </span>
+              {trial?.enabled && (
+                <span className="flex items-center gap-1.5">
+                  <Check size={13} className="text-emerald-600" /> {trial.credits} Free Credits
+                </span>
+              )}
             </div>
           </div>
 

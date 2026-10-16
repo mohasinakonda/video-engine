@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
+  Lock,
+  ArrowRight,
   Share2,
   Copy,
   Check,
@@ -79,6 +82,36 @@ export default function AffiliateTab({ profile, copiedCode, onCopyCode }: Affili
   const available = data?.availableBdt ?? 0;
   const hasPendingPayout = (data?.requestedBdt ?? 0) > 0;
   const canWithdraw = available >= minPayout && !hasPendingPayout;
+
+  if (data && !data.enabled) {
+    return (
+      <div className="p-6 sm:p-10 rounded-2xl bg-bg-surface border border-bg-border text-center space-y-5">
+        <div className="mx-auto w-12 h-12 rounded-2xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-zinc-300">
+          <Lock size={20} />
+        </div>
+        <div className="space-y-2 max-w-lg mx-auto">
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            Unlock the Rendoza AI Partner Program
+          </h2>
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            Buy any plan to activate your partner account. Once active, your audience gets{' '}
+            <strong className="text-zinc-200">{discPercent}% off</strong> with your code, and you earn{' '}
+            <strong className="text-zinc-200">{commPercent}% of every sale</strong>, paid to your bKash or Nagad.
+          </p>
+        </div>
+        <ul className="text-xs text-zinc-400 space-y-1.5 max-w-sm mx-auto text-left">
+          <li className="flex items-start gap-2"><span className="text-emerald-400 font-bold">1.</span> Buy any monthly or 3-month plan</li>
+          <li className="flex items-start gap-2"><span className="text-emerald-400 font-bold">2.</span> Your promo code activates as soon as the payment is approved</li>
+          <li className="flex items-start gap-2"><span className="text-emerald-400 font-bold">3.</span> Share it and track every sale and payout right here</li>
+        </ul>
+        <Link href="/plan" className="btn-accent text-sm inline-flex items-center gap-2">
+          Choose a plan
+          <ArrowRight size={15} />
+        </Link>
+        <p className="text-2xs text-zinc-500">YouTuber or creator? Contact us on WhatsApp to get activated directly.</p>
+      </div>
+    );
+  }
 
   const shareText = `Use my promo code ${profile.referralCode} to get ${discPercent}% off your first Rendoza AI plan. Turn any script into a finished video in minutes: ${SITE_URL}/pricing`;
 

@@ -109,6 +109,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, remoteUpdated });
     }
 
+    if (action === 'setAffiliateEnabled') {
+      const enabled = Boolean(body.enabled);
+      const { error } = await supabase.from('profiles').update({ affiliate_enabled: enabled }).eq('id', userId);
+      return NextResponse.json({ success: !error }, { status: error ? 500 : 200 });
+    }
+
     if (action === 'updateReferralRates') {
       const { referralCode, discountPercent, commissionPercent } = body;
       if (isSupabaseConfigured()) {

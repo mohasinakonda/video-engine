@@ -151,6 +151,27 @@ export default function AdminUsersPage() {
     refreshData();
   };
 
+  const handleToggleAffiliate = async (user: UserProfile) => {
+    const enable = !user.affiliateEnabled;
+    const question = enable
+      ? `Activate the partner program for ${user.email}? Their code will start giving discounts and earning commission.`
+      : `Deactivate the partner program for ${user.email}? Their code stops working and they cannot request payouts.`;
+    if (!confirm(question)) return;
+
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setAffiliateEnabled', userId: user.id, enabled: enable }),
+      });
+      const data = await res.json();
+      showToast(data.success ? (enable ? 'Partner program activated' : 'Partner program deactivated') : 'Could not update partner status');
+    } catch {
+      showToast('Could not update partner status');
+    }
+    refreshData();
+  };
+
   const handleOpenRatesModal = (user: UserProfile) => {
     setSelectedUser(user);
     setCustomRefCode(user.referralCode || '');
@@ -372,6 +393,14 @@ export default function AdminUsersPage() {
                             <span className="font-mono text-[11px] font-bold text-amber-400 bg-bg-base px-2 py-0.5 rounded border border-bg-border">
                               {user.referralCode}
                             </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase ${user.affiliateEnabled
+                                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                : 'text-zinc-500 bg-zinc-800 border-zinc-700'
+                                }`}
+                            >
+                              {user.affiliateEnabled ? 'Active' : 'Inactive'}
+                            </span>
                             <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 font-medium">
                               {user.referralDiscountPercent ?? 20}% off
                             </span>
@@ -419,6 +448,14 @@ export default function AdminUsersPage() {
                             >
                               <Percent size={12} className="text-emerald-400" />
                               Rates
+                            </button>
+                            <button
+                              onClick={() => handleToggleAffiliate(user)}
+                              className="btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1"
+                              title={user.affiliateEnabled ? 'Deactivate partner program' : 'Activate partner program'}
+                            >
+                              <Gift size={12} className={user.affiliateEnabled ? 'text-zinc-400' : 'text-emerald-400'} />
+                              {user.affiliateEnabled ? 'Disable Partner' : 'Enable Partner'}
                             </button>
                             <button
                               onClick={() => handleToggleBlock(user)}

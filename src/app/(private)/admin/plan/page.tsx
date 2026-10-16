@@ -386,7 +386,40 @@ export default function AdminPlanSettingsPage() {
               Global Site-wide Offers &amp; Banner (All Users)
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {/* Free Trial Credits */}
+              <div className="space-y-3 p-4 rounded-xl bg-bg-base border border-bg-border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-zinc-200">Free Trial Credits (New Users)</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.trialEnabled ?? true}
+                      onChange={(e) => setSettings({ ...settings, trialEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-white" />
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-zinc-400 mb-1">Credits on Sign-Up</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    disabled={!(settings.trialEnabled ?? true)}
+                    value={settings.trialCredits ?? 100}
+                    onChange={(e) => setSettings({ ...settings, trialCredits: Math.max(0, Number(e.target.value)) })}
+                    className="w-full bg-bg-surface border border-bg-border rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-500 disabled:opacity-50"
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-500">
+                  {(settings.trialEnabled ?? true)
+                    ? `New accounts start with ${settings.trialCredits ?? 100} credits (~${Math.floor((settings.trialCredits ?? 100) / 25)} min of video). Existing users are not changed.`
+                    : 'Off: new accounts start with 0 credits and the site stops advertising free credits.'}
+                </p>
+              </div>
+
               {/* Global Discount */}
               <div className="space-y-3 p-4 rounded-xl bg-bg-base border border-bg-border">
                 <div className="flex items-center justify-between">

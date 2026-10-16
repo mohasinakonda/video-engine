@@ -142,6 +142,7 @@ export async function fetchSupabaseProfile(userId: string): Promise<UserProfile 
     assignedPromoCode: data.assigned_promo_code,
     referralDiscountPercent: data.referral_discount_percent ?? 20,
     referralCommissionPercent: data.referral_commission_percent ?? 15,
+    affiliateEnabled: Boolean(data.affiliate_enabled),
     role: data.role || 'user',
     subscriptionExpiresAt: data.subscription_expires_at ? new Date(data.subscription_expires_at).getTime() : undefined,
   };
@@ -414,6 +415,8 @@ export async function fetchAdminSettingsRemote(clientOverride?: any): Promise<Ad
       globalDiscountActive: data.global_discount_active,
       globalBannerText: data.global_banner_text,
       globalBannerActive: data.global_banner_active,
+      trialEnabled: data.trial_enabled ?? true,
+      trialCredits: data.trial_credits ?? 100,
     };
   } catch (err) {
     console.error('[Supabase] Failed to fetch admin settings:', err);
@@ -436,6 +439,8 @@ export async function saveAdminSettingsRemote(settings: AdminSettings, clientOve
       global_discount_active: settings.globalDiscountActive,
       global_banner_text: settings.globalBannerText,
       global_banner_active: settings.globalBannerActive,
+      trial_enabled: settings.trialEnabled ?? true,
+      trial_credits: Math.max(0, Math.floor(settings.trialCredits ?? 100)),
     });
 
     if (error) {
@@ -844,6 +849,7 @@ export async function fetchAllProfilesRemote(client?: any): Promise<UserProfile[
       assignedPromoCode: row.assigned_promo_code,
       referralDiscountPercent: row.referral_discount_percent ?? 20,
       referralCommissionPercent: row.referral_commission_percent ?? 15,
+      affiliateEnabled: Boolean(row.affiliate_enabled),
       role: row.role || 'user',
       subscriptionExpiresAt: row.subscription_expires_at ? new Date(row.subscription_expires_at).getTime() : undefined,
     }));

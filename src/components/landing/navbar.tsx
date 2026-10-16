@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { LayoutDashboard } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { AppLogo } from '@/icons/logo-icon';
+import { useTrialOffer } from '@/hooks/use-trial-offer';
 
 export const LandingNavbar: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const trial = useTrialOffer();
 
   useEffect(() => {
     try {
@@ -70,7 +72,7 @@ export const LandingNavbar: React.FC = () => {
                 href="/login?mode=signup"
                 className="text-xs font-bold px-4 py-2 rounded-md bg-[#E05A30] hover:bg-[#C84C25] text-white transition-all shadow-md shadow-[#E05A30]/20 active:scale-95"
               >
-                Start Free (30 Credits)
+                {trial === null ? 'Start Free' : trial.enabled ? `Start Free (${trial.credits} Credits)` : 'Get Started'}
               </Link>
             </>
           )}

@@ -34,6 +34,8 @@ export interface AffiliatePayout {
 }
 
 export interface AffiliateDashboard {
+  /** Program unlocks after buying any subscription plan, or when an admin enables it. */
+  enabled: boolean;
   holdDays: number;
   minPayoutBdt: number;
   salesCount: number;

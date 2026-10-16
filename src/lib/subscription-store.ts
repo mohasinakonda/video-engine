@@ -29,6 +29,8 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   globalDiscountActive: false,
   globalBannerText: '',
   globalBannerActive: false,
+  trialEnabled: true,
+  trialCredits: 100,
 };
 
 export const DEFAULT_SUBSCRIPTION_PLANS: SubscriptionPlan[] = [];

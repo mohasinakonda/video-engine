@@ -16,7 +16,7 @@ export default function JsonLd() {
       '@type': 'Offer',
       price: '0',
       priceCurrency: 'USD',
-      description: '30 Free Credits on Signup',
+      description: 'Free credits on signup',
     },
     featureList: [
       'Script to AI Video generation',
