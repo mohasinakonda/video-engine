@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { TEXT_LIMITS } from '@/lib/input-limits';
+import { callLLM, parseJsonObject } from '@/lib/llm-providers';
+
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
@@ -48,123 +51,18 @@ Style Guidelines: ${stylePrompt}
 
 Elevate this prompt now into a masterwork FLUX.1 thumbnail prompt.`;
 
-    const groqKey = process.env.GROQ_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const deepinfraKey = process.env.DEEPINFRA_API_KEY;
-
-    let enhancedPrompt = '';
-
-    // ─── 1. Groq (Ultra-fast openai/gpt-oss-120b / qwen/qwen3.8-27b) ────────
-    if (!enhancedPrompt && groqKey && groqKey.trim()) {
-      const groqModels = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
-      for (const model of groqModels) {
-        if (enhancedPrompt) break;
-        try {
-          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${groqKey.trim()}`,
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-              ],
-              response_format: { type: 'json_object' },
-              temperature: 0.6,
-            }),
-            signal: AbortSignal.timeout(15000),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const content = data.choices?.[0]?.message?.content;
-            if (content) {
-              const parsed = JSON.parse(content);
-              if (parsed.enhancedPrompt) {
-                enhancedPrompt = parsed.enhancedPrompt.trim();
-                break;
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`Groq enhance prompt (${model}) failed:`, err);
-        }
-      }
-    }
-
-    // ─── 2. OpenAI Fallback ──────────────────────────────────────────────────
-    if (!enhancedPrompt && openaiKey && openaiKey.trim()) {
-      try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.6,
-          }),
-          signal: AbortSignal.timeout(12000),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) {
-            const parsed = JSON.parse(content);
-            if (parsed.enhancedPrompt) enhancedPrompt = parsed.enhancedPrompt.trim();
-          }
-        }
-      } catch (err) {
-        console.warn('OpenAI enhance prompt failed:', err);
-      }
-    }
-
-    // ─── 3. DeepInfra Fallback ───────────────────────────────────────────────
-    if (!enhancedPrompt && deepinfraKey && deepinfraKey.trim()) {
-      try {
-        const diRes = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${deepinfraKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.6,
-          }),
-          signal: AbortSignal.timeout(20000),
-        });
-
-        if (diRes.ok) {
-          const data = await diRes.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) {
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              const parsed = JSON.parse(jsonMatch[0]);
-              if (parsed.enhancedPrompt) enhancedPrompt = parsed.enhancedPrompt.trim();
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('DeepInfra enhance prompt failed:', err);
-      }
-    }
+    const llm = await callLLM({
+      tag: 'enhance-thumbnail-prompt',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.6,
+      json: true,
+      timeoutMs: 25_000,
+      accept: (content) => typeof parseJsonObject(content)?.enhancedPrompt === 'string',
+    });
+    const enhancedPrompt: string = llm ? String(parseJsonObject(llm.content).enhancedPrompt).trim() : '';
 
     if (!enhancedPrompt) {
       return NextResponse.json(

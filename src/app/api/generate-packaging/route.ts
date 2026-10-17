@@ -7,6 +7,7 @@ import {
   grantCreditsRemote,
 } from '@/lib/supabase-service';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { callLLM, parseJsonObject } from '@/lib/llm-providers';
 import {
   SCRIPT_CHAR_LIMITS,
   TEXT_LIMITS,
@@ -257,126 +258,27 @@ ${cleanScript}
 
 ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
 
-    const groqKey = process.env.GROQ_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const deepinfraKey = process.env.DEEPINFRA_API_KEY;
+    // A kit missing chapters/description/thumbnails still costs the user 15 credits,
+    // so only a complete one is accepted; otherwise the next model is tried.
+    const isCompleteKit = (r: any) =>
+      Array.isArray(r?.titles) && r.titles.length >= 5 &&
+      Array.isArray(r?.thumbnailConcepts) && r.thumbnailConcepts.length >= 3 &&
+      Array.isArray(r?.chapters) && r.chapters.length >= 1 &&
+      typeof r?.description === 'string' && r.description.trim().length > 0;
 
-    let parsedResult: any = null;
-
-    // ─── 1. Groq (Ultra-fast openai/gpt-oss-120b, fallback qwen/qwen3.8-27b) ──
-    if (!parsedResult && groqKey && groqKey.trim()) {
-      const groqModels = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
-      for (const model of groqModels) {
-        if (parsedResult) break;
-        try {
-          const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${groqKey.trim()}`,
-            },
-            body: JSON.stringify({
-              model,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-              ],
-              response_format: { type: 'json_object' },
-              temperature: 0.4,
-            }),
-            signal: AbortSignal.timeout(25000),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            const content = data.choices?.[0]?.message?.content;
-            if (content) {
-              const jsonMatch = content.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                parsedResult = JSON.parse(jsonMatch[0]);
-                break;
-              }
-            }
-          } else {
-            console.warn(`Groq packaging (${model}) failed HTTP ${response.status}`);
-          }
-        } catch (err) {
-          console.warn(`Groq packaging (${model}) error:`, err);
-        }
-      }
-    }
-
-    // ─── 2. OpenAI ───────────────────────────────────────────────────────────
-    if (!parsedResult && openaiKey && openaiKey.trim()) {
-      try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.5,
-          }),
-          signal: AbortSignal.timeout(20000),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) {
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              parsedResult = JSON.parse(jsonMatch[0]);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('OpenAI packaging failed:', err);
-      }
-    }
-
-    // ─── 3. DeepInfra (Llama 3.1 70B fallback) ───────────────────────────────
-    if (!parsedResult && deepinfraKey && deepinfraKey.trim()) {
-      try {
-        const diRes = await fetch('https://api.deepinfra.com/v1/openai/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${deepinfraKey.trim()}`,
-          },
-          body: JSON.stringify({
-            model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.4,
-          }),
-          signal: AbortSignal.timeout(60000),
-        });
-
-        if (diRes.ok) {
-          const data = await diRes.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) {
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              parsedResult = JSON.parse(jsonMatch[0]);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('DeepInfra packaging failed:', err);
-      }
-    }
+    // 2 models × 45s stays inside maxDuration together with the competitor search below.
+    const llm = await callLLM({
+      tag: 'generate-packaging',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.4,
+      json: true,
+      timeoutMs: 45_000,
+      accept: (content) => isCompleteKit(parseJsonObject(content)),
+    });
+    const parsedResult: any = llm ? parseJsonObject(llm.content) : null;
 
     // If AI failed completely, throw error so user knows to retry and credit deduction is safely refunded
     if (!parsedResult) {

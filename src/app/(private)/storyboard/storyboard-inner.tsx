@@ -1049,7 +1049,7 @@ export default function StoryboardInner() {
             </div>
 
             <div className="p-3.5 rounded-xl bg-bg-base border border-bg-border text-xs text-zinc-400 leading-relaxed">
-              Top up credits for as low as ৳50 or subscribe to Creator/Studio plans with instant bKash or Nagad payment!
+              Top up credits for as low as ৳200 or subscribe to Creator/Studio plans with instant bKash or Nagad payment!
             </div>
 
             <div className="flex items-center gap-3 pt-2">
