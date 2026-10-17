@@ -266,8 +266,9 @@ export async function deleteDeepinfraVoice(
  * Chatterbox-native params:
  *  - exaggeration (0-1): emotion/expression intensity. Mapped from the
  *    UI expressiveness slider (0-100), nudged by per-section tone.
- *  - cfg_weight: default 0.5; lowered to ~0.3 for highly exaggerated
- *    (dramatic) delivery per Resemble AI's tuning guidance.
+ *  - cfg (Resemble's "cfg_weight"; DeepInfra names the field `cfg`, 0-1 —
+ *    any other name is silently ignored): default 0.5; lowered to ~0.3 for
+ *    highly exaggerated (dramatic) delivery per Resemble AI's tuning guidance.
  *  - language_id: e.g. "en", "es", "hi".
  * Emotion tags ([whisper], [laugh], …) stay inline in the text — Chatterbox
  * performs them natively.
@@ -393,7 +394,7 @@ export async function synthesizeVoiceChunk(params: {
 
     // Style-drawer override: only sent when the user picked a style / moved a slider.
     if (typeof params.cfgWeight === 'number' && Number.isFinite(params.cfgWeight)) {
-      chatterboxPayload.cfg_weight = Math.min(1, Math.max(0.1, params.cfgWeight));
+      chatterboxPayload.cfg = Math.min(1, Math.max(0.1, params.cfgWeight));
     }
 
     if (isSavedVoice && params.voiceId) {
@@ -443,7 +444,7 @@ export async function synthesizeVoiceChunk(params: {
       text,
       language_id: params.languageId || toLanguageId(params.language),
       exaggeration: Math.round(exaggeration * 100) / 100,
-      cfg_weight: cfgWeight,
+      cfg: cfgWeight,
     };
     // temperature was never sent on this path before — only add when overridden.
     if (typeof params.temperature === 'number' && Number.isFinite(params.temperature)) {
