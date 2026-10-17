@@ -124,12 +124,14 @@ export async function POST(req: Request) {
     const isDefaultTitle = !title || title.toLowerCase().startsWith('project ') || title.toLowerCase() === 'video' || title.toLowerCase() === 'untitled';
     const effectiveTitle = isDefaultTitle ? '' : title.trim();
 
+    // Only known for kits built from a video project; a standalone kit has no audio yet,
+    // so no length is sent rather than a made-up one.
     const durationSec =
       totalDurationMs > 0
         ? Math.round(totalDurationMs / 1000)
         : scenes.length > 0
-          ? Math.round(scenes[scenes.length - 1].audioEndSec || 60)
-          : 60;
+          ? Math.round(scenes[scenes.length - 1].audioEndSec || 0)
+          : 0;
 
     // Build scene context with timestamps
     const sceneContext = (scenes || [])
@@ -157,7 +159,7 @@ CRITICAL CONCEPT EXTRACTION & METAPHOR SEPARATION RULE:
 - FOR THUMBNAIL VISUALS (CRITICAL EXCEPTION): YouTube thumbnails THRIVE on visual metaphors, stark contrasts, and striking physical symbols! The thumbnail CAN and SHOULD utilize dramatic visual metaphors (such as a sleeping calm lion contrasted with an overthinking human cranium filled with turbulent clockwork gears) to provoke immense psychological curiosity!
 
 Video Specifications:
-- Aspect Ratio: ${aspectRatio} (${aspectRatio === '9:16' ? 'Vertical Shorts / Reels / TikTok' : 'Landscape 16:9 Standard'})
+- Aspect Ratio: ${aspectRatio} (${aspectRatio === '9:16' ? 'Vertical Shorts / Reels / TikTok' : aspectRatio === '1:1' ? 'Square 1:1 for Facebook / Instagram feeds' : 'Landscape 16:9 Standard'})
 - Artistic Visual Style: ${styleName}
 - Style Guidelines: ${stylePrompt}
 ${negativePrompt ? `- Style Negative Rules (Do not generate): ${negativePrompt}` : ''}
@@ -182,12 +184,20 @@ Every concept's "visualPrompt" MUST be a focused 45-75 word prompt, concrete nou
 5. SIMPLE BACKGROUND: clean, uncluttered, with a calm area (one third of the frame) kept free of detail for a text badge. Describe it as "simple clean gradient background", not "dark negative space".
 6. CAMERA: mention one lens/framing at most (e.g. "85mm portrait, shallow depth of field"). End with "sharp focus, crisp detail, high contrast".
 7. STYLE: use the medium of the style "${styleName}" (photograph vs illustration vs painting) but the lighting/brightness rules above ALWAYS override the style's lighting.
-Split-frame compositions are allowed ONLY if BOTH halves are fully filled with equal visual weight and bright colors. Never leave one half empty or black.
+FRAME (${aspectRatio}): ${
+  aspectRatio === '9:16'
+    ? 'Vertical frame. Stack elements top-to-bottom. A split screen is TOP half vs BOTTOM half, never left/right. Keep the main subject in the upper two-thirds; headline text goes at the top.'
+    : aspectRatio === '1:1'
+      ? 'Square frame. Centered composition. A split screen is LEFT half vs RIGHT half of the square. Headline text goes along the top or bottom edge.'
+      : 'Landscape frame. A split screen is LEFT half vs RIGHT half. Headline text goes on the calm left or right third, opposite the subject.'
+}
 
-Provide exactly 3 distinct, proven high-CTR YouTube thumbnail archetypes:
-- Concept 1 (The Paradox / Contrast): Two opposing states in one image causing cognitive dissonance (both fully filled and bright).
-- Concept 2 (The Visceral Focal Subject): One dominant iconic subject or close-up face with an intense emotion, bright rim light, vivid color contrast.
-- Concept 3 (Surreal Scale): A small figure dwarfed by a colossal conceptual structure, in a vivid luminous sky (sunset or aurora colors), not a dark storm.
+Provide exactly 3 thumbnail concepts, in this order:
+- Concept 1 (Bold Text Headline): ONE dominant subject from the script plus a SHORT HEADLINE rendered inside the image. The headline is 2-4 words, ALL CAPS, the most curiosity-provoking idea of the video. In "visualPrompt" write it exactly as: huge bold clean sans-serif text reading "YOUR HEADLINE" in white with a thick black outline, then where it sits in the frame. Use the identical words in "textOverlayHint". The text must not cover the subject's face.
+- Concept 2 (Split Screen): two opposing states from the script in one image, both halves fully filled and bright with equal visual weight (follow the FRAME rule for the split direction).
+- Concept 3 (Single Scene): one direct, literal scene of the script's core idea. No split, no collage. One clear subject in a simple setting.
+Only Concept 1 contains text. In Concepts 2 and 3 never mention words, letters, signs, labels or captions.
+The JSON below is a TEMPLATE: replace every <...> with content from THIS script. Every subject, object and setting must come from the script; never copy wording or subjects from these instructions.
 
 Return strictly valid JSON:
 {
@@ -209,36 +219,33 @@ Return strictly valid JSON:
   "thumbnailConcepts": [
     {
       "id": "thumb_1",
-      "conceptName": "The Paradox / Split Contrast",
-      "compositionType": "split_contrast",
-      "visualHook": "Creates cognitive dissonance by comparing two opposing states side-by-side.",
-      "visualPrompt": "Bold YouTube thumbnail photograph, two halves of equal weight. Left: a calm lion sleeping on bright golden savanna grass in warm sunlight. Right: a close-up of a wide-eyed anxious man, bright blue light on his face, tiny glowing golden gears visible through his temple. Vivid orange versus electric blue color contrast, strong rim light, clean simple backgrounds, sharp focus, crisp detail, high contrast, bright exposure.",
-      "textOverlayHint": "WHY WE WORRY",
+      "conceptName": "Bold Text Headline",
+      "compositionType": "text_headline",
+      "visualHook": "<why this hook + subject makes people click>",
+      "visualPrompt": "Bold YouTube thumbnail photograph: <one dominant subject from the script, its state or emotion, its key light>. Huge bold clean sans-serif text reading \"<2-4 WORD HOOK>\" in white with a thick black outline <placement from the FRAME rule>. <two saturated contrasting colors> color contrast, bright rim light, simple clean gradient background, <one lens/framing>, sharp focus, crisp detail, high contrast, bright exposure.",
+      "textOverlayHint": "<the same 2-4 WORD HOOK>",
       "badgeColor": "yellow"
     },
     {
       "id": "thumb_2",
-      "conceptName": "The Visceral Focal Subject",
-      "compositionType": "focal_close_up",
-      "visualHook": "Dominant singular focal point with extreme lighting contrast that pops on mobile feeds.",
-      "visualPrompt": "Bold YouTube thumbnail photograph: a man's face filling the right half of the frame, shocked wide eyes looking straight at the camera, his forehead cracked open like stone with brilliant glowing orange light bursting out. Vivid orange and electric blue color contrast, bright blue rim light on the face, simple clean dark-blue gradient background, 85mm portrait, sharp focus, crisp detail, high contrast, bright exposure.",
-      "textOverlayHint": "THE BRAIN TRAP",
+      "conceptName": "Split Screen",
+      "compositionType": "split_contrast",
+      "visualHook": "<the contrast between the two states and why it creates curiosity>",
+      "visualPrompt": "Bold YouTube thumbnail photograph, two halves of equal weight. ${aspectRatio === '9:16' ? 'Top' : 'Left'}: <state A from the script, brightly lit>. ${aspectRatio === '9:16' ? 'Bottom' : 'Right'}: <the opposite state B from the script, brightly lit>. <two saturated contrasting colors> color contrast, strong rim light, clean simple backgrounds, sharp focus, crisp detail, high contrast, bright exposure.",
+      "textOverlayHint": "<2-4 WORD HOOK>",
       "badgeColor": "red"
     },
     {
       "id": "thumb_3",
-      "conceptName": "Surreal Scale / Human vs The Infinite",
-      "compositionType": "cinematic_scale",
-      "visualHook": "Evokes awe and existential curiosity through vast scale disparity.",
-      "visualPrompt": "Bold YouTube thumbnail photograph: a tiny lone figure stands on a cliff edge looking up at a colossal ancient stone sundial rising into a vivid orange and purple sunset sky, glowing golden light spilling from its needle. Strong warm backlight, saturated orange versus deep purple color contrast, simple clean sky, wide-angle low-angle shot, sharp focus, crisp detail, high contrast, bright exposure.",
-      "textOverlayHint": "TIME ILLUSION",
+      "conceptName": "Single Scene",
+      "compositionType": "single_scene",
+      "visualHook": "<the single moment from the script that tells the story at a glance>",
+      "visualPrompt": "Bold YouTube thumbnail photograph: <one literal scene from the script with one clear subject and a simple setting, its key light>. <two saturated contrasting colors> color contrast, strong backlight or rim light, simple clean background, <one lens/framing>, sharp focus, crisp detail, high contrast, bright exposure.",
+      "textOverlayHint": "<2-4 WORD HOOK>",
       "badgeColor": "cyan"
     }
   ],
-  "chapters": [
-    {"time": "00:00", "title": "Introduction", "seconds": 0}
-  ],
-  "description": "Full YouTube description with 2-line hook, core summary, chapters list, subscribe CTA, and hashtags.",
+  "description": "Full YouTube description with 2-line hook, core summary, subscribe CTA, and hashtags. No timestamps or chapters.",
   "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
   "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"]
 }
@@ -246,10 +253,10 @@ Return strictly valid JSON:
 RULES:
 1. EVERYTHING must be deeply derived from the provided VOICE SCRIPT's true core subject. Never use generic filler or timestamp names.
 2. TITLES must be authentic, highly engaging, under 60 characters, and avoid generic clickbait cliches.
-3. THUMBNAILS must strictly follow the Senior YouTube Thumbnail Director rules: 45-75 word prompts, one big subject, bright exposure, two saturated contrasting colors, simple background. Never dark or murky.
-4. Chapters must span from 00:00 to ${formatSecondsToTime(durationSec)}.`;
+3. THUMBNAILS must strictly follow the Senior YouTube Thumbnail Director rules: 45-75 word prompts, one big subject, bright exposure, two saturated contrasting colors, simple background. Never dark or murky. Concept 1 = text headline, Concept 2 = split screen, Concept 3 = single scene.
+4. The DESCRIPTION must not contain timestamps or a chapters list.`;
 
-    const userPrompt = `${effectiveTitle ? `Working Title: ${effectiveTitle}\n` : ''}Total Duration: ${formatSecondsToTime(durationSec)}
+    const userPrompt = `${effectiveTitle ? `Working Title: ${effectiveTitle}\n` : ''}${durationSec > 0 ? `Total Duration: ${formatSecondsToTime(durationSec)}` : ''}
 ${customTopicPrompt ? `Creator Focus/Direction: "${customTopicPrompt}"\n` : ''}
 Voice Script:
 \"\"\"
@@ -258,12 +265,11 @@ ${cleanScript}
 
 ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
 
-    // A kit missing chapters/description/thumbnails still costs the user 15 credits,
+    // A kit missing titles/description/thumbnails still costs the user 15 credits,
     // so only a complete one is accepted; otherwise the next model is tried.
     const isCompleteKit = (r: any) =>
       Array.isArray(r?.titles) && r.titles.length >= 5 &&
       Array.isArray(r?.thumbnailConcepts) && r.thumbnailConcepts.length >= 3 &&
-      Array.isArray(r?.chapters) && r.chapters.length >= 1 &&
       typeof r?.description === 'string' && r.description.trim().length > 0;
 
     // 2 models × 45s stays inside maxDuration together with the competitor search below.
@@ -332,9 +338,6 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
         : [],
       selectedTitleIndex: 0,
       description: parsedResult.description || '',
-      chapters: Array.isArray(parsedResult.chapters) && parsedResult.chapters.length > 0
-        ? parsedResult.chapters
-        : [{ time: '00:00', title: 'Introduction', seconds: 0 }],
       tags: Array.isArray(parsedResult.tags) ? parsedResult.tags : [],
       hashtags: Array.isArray(parsedResult.hashtags) ? parsedResult.hashtags : [],
       thumbnailConcepts: Array.isArray(parsedResult.thumbnailConcepts)

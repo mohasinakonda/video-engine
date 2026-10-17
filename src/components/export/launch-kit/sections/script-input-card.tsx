@@ -13,7 +13,7 @@ import {
   Cpu,
   Zap,
 } from 'lucide-react';
-import { useLaunchKit } from '../launch-kit-context';
+import { useLaunchKit, THUMBNAIL_FRAMES, type ThumbnailAspect } from '../launch-kit-context';
 import CharCounter from '@/components/char-counter';
 import { TEXT_LIMITS } from '@/lib/input-limits';
 
@@ -34,6 +34,9 @@ export function ScriptInputCard() {
     setCustomFocus,
     isGenerating,
     handleGeneratePackaging,
+    thumbAspect,
+    canChangeThumbAspect,
+    handleChangeThumbAspect,
   } = useLaunchKit();
 
   const [expanded, setExpanded] = useState(false);
@@ -184,12 +187,29 @@ export function ScriptInputCard() {
             <Monitor size={12} className="text-zinc-300" />
             <span>Thumbnail Frame</span>
           </label>
-          <div className="p-2 rounded-lg bg-zinc-950/80 border border-zinc-800 text-xs text-zinc-300 flex items-center justify-between">
-            <span>{(project.aspectRatio || '16:9') === '9:16' ? 'Vertical (Shorts)' : 'Landscape (YouTube)'}</span>
-            <span className="font-mono text-white text-2xs bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
-              {project.aspectRatio || '16:9'}
-            </span>
-          </div>
+          {canChangeThumbAspect ? (
+            <select
+              value={thumbAspect}
+              onChange={(e) => handleChangeThumbAspect(e.target.value as ThumbnailAspect)}
+              className="input text-xs bg-zinc-950/80 border-zinc-800 text-white cursor-pointer"
+            >
+              {(Object.keys(THUMBNAIL_FRAMES) as ThumbnailAspect[]).map((aspect) => {
+                const frame = THUMBNAIL_FRAMES[aspect];
+                return (
+                  <option key={aspect} value={aspect}>
+                    {aspect} · {frame.label}
+                  </option>
+                );
+              })}
+            </select>
+          ) : (
+            <div className="p-2 rounded-lg bg-zinc-950/80 border border-zinc-800 text-xs text-zinc-300 flex items-center justify-between">
+              <span>{THUMBNAIL_FRAMES[thumbAspect].label}</span>
+              <span className="font-mono text-white text-2xs bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">
+                {thumbAspect}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

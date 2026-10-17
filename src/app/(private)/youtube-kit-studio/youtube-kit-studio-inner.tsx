@@ -106,19 +106,20 @@ export default function YouTubeKitStudioInner() {
     }
   }, []);
 
+  // Handle creating a new project
+  const handleCreateNewProject = () => {
+    const newProj = createDefaultProject();
+    saveProject(newProj).then(() => {
+      setAllProjects((prev) => [newProj, ...prev]);
+      setProject(newProj);
+      startTransition(() => {
+        router.push(`/youtube-kit-studio?id=${newProj.projectId}`);
+      });
+    });
+  }
   // Handle switching to a different project from the dropdown
   const handleSelectProject = (projectId: string) => {
-    if (projectId === 'NEW_STANDALONE') {
-      const newProj = createDefaultProject();
-      saveProject(newProj).then(() => {
-        setAllProjects((prev) => [newProj, ...prev]);
-        setProject(newProj);
-        startTransition(() => {
-          router.push(`/youtube-kit-studio?id=${newProj.projectId}`);
-        });
-      });
-      return;
-    }
+
 
     const selected = allProjects.find((p) => p.projectId === projectId);
     if (selected) {
@@ -198,6 +199,10 @@ export default function YouTubeKitStudioInner() {
 
         {/* Project Selector & Cross-Studio Links */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button onClick={handleCreateNewProject} className="flex items-center bg-zinc-700/50 border border-zinc-700/50 px-2 py-1 rounded-lg gap-1.5 text-xs text-white transition-colors font-bold">
+            <PlusCircle size={13} className="text-white shrink-0" />
+            <span className="text-xs">New Standalone Kit</span>
+          </button>
           {/* Project Switcher Dropdown */}
           <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-xl text-xs">
             <FolderOpen size={13} className="text-zinc-400 shrink-0" />
@@ -212,14 +217,9 @@ export default function YouTubeKitStudioInner() {
                   {p.title || 'Untitled Video'}
                 </option>
               ))}
-              <option value="NEW_STANDALONE" className="bg-zinc-900 text-red-300 font-semibold">
-                + New Standalone Kit
-              </option>
+
             </select>
           </div>
-
-
-
 
         </div>
       </header>

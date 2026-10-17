@@ -121,7 +121,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
 
       {/* 16:9 or 9:16 Replaced Image Canvas with Live Text Badge Overlay */}
       <div
-        className={`relative rounded-xl overflow-hidden border border-zinc-800 bg-black flex items-center justify-center mx-auto shadow-2xl group ${isVertical ? 'aspect-[9/16] max-h-[480px]' : 'aspect-video w-full'
+        className={`relative rounded-xl overflow-hidden border border-zinc-800 bg-black flex items-center justify-center mx-auto shadow-2xl group ${isVertical ? 'aspect-[9/16] max-h-[480px]' : project.aspectRatio === '1:1' ? 'aspect-square max-h-[480px]' : 'aspect-video w-full'
           }`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}

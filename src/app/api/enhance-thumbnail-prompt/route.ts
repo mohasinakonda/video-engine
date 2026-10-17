@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     const coreTopic = str(body.coreTopic, '', 300);
     const styleName = str(body.styleName, 'Cinematic Documentary', 100);
     const stylePrompt = str(body.stylePrompt, 'Cinematic lighting, 8k, photorealistic', 1_000);
-    const aspectRatio = body.aspectRatio === '9:16' ? '9:16' : '16:9';
+    const aspectRatio = body.aspectRatio === '9:16' || body.aspectRatio === '1:1' ? body.aspectRatio : '16:9';
 
     const cleanPrompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
     if (!cleanPrompt) {
@@ -36,6 +36,8 @@ BLUEPRINT:
 5. Simple clean background (gradient or softly blurred) with one calm third of the frame free of detail for a text badge.
 6. At most one lens/framing mention. End with "sharp focus, crisp detail, high contrast, bright exposure".
 7. Follow the medium of the style "${styleName}" (photograph / illustration / painting), but the brightness and lighting rules above ALWAYS override the style's lighting.
+8. TEXT: if the draft asks for rendered text (e.g. text reading "LIGHT NEVER DIES?"), keep the exact same words, spelling and placement in the same form: text reading "..." . If the draft has no text, do not add any.
+9. Keep the draft's composition type: a split screen stays a split screen, a single scene stays a single scene.
 
 Return strictly valid JSON:
 {

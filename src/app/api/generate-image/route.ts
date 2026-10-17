@@ -223,10 +223,18 @@ export async function POST(req: Request) {
     // (lossy) LLM rewrite and only do a light cleanup.
     const optimizedPrompt = await optimizeFluxPrompt(prompt, { stylePrompt, skipLlm: true });
     const built = buildFinalPrompt(optimizedPrompt, undefined, negativePrompt);
-    const finalNegative = built.negative;
+    // Thumbnails with a headline ask for `text reading "..."`; drop text-related negatives for those.
+    const rendersText = /\btext reading\b/i.test(built.positive);
+    const finalNegative = rendersText
+      ? built.negative
+        .split(',')
+        .filter((part) => !/\b(text|texts|letters?|typography|words?|captions?|overlay)\b/i.test(part))
+        .join(',')
+        .trim()
+      : built.negative;
     // schnell ignores negative prompts, so state the quality constraints positively.
     const finalPrompt =
-      /schnell/i.test(selectedModelId) && !/sharp focus/i.test(built.positive)
+      /schnell/i.test(selectedModelId) && !rendersText && !/sharp focus/i.test(built.positive)
         ? `${built.positive}, sharp focus, crisp natural detail, clean frame with no text or watermark`
         : built.positive;
     const { width, height } = getFluxDimensions(aspectRatio, reqWidth, reqHeight);
@@ -287,8 +295,10 @@ export async function POST(req: Request) {
         const imageResponse = await togetherClient.images.generate({
           model: togetherModel,
           prompt: finalPrompt,
-          width: Math.min(width, 1024),
-          height: Math.min(height, 1024),
+          // Scale to fit 1024 keeping the aspect ratio (multiples of 64), instead of
+          // clamping each side separately, which turned 1280x720 into 1024x720.
+          width: Math.round((width * Math.min(1, 1024 / Math.max(width, height))) / 64) * 64,
+          height: Math.round((height * Math.min(1, 1024 / Math.max(width, height))) / 64) * 64,
           steps: inferenceSteps,
           response_format: 'b64_json',
         } as any);

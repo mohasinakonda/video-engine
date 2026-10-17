@@ -265,7 +265,7 @@ export async function uploadAssetToCanva(
 }
 
 /**
- * Create a new Canva Design pre-configured as YouTube Thumbnail (16:9 1280x720 / 1920x1080)
+ * Create a new Canva Design pre-configured as a thumbnail (16:9 1280x720, 9:16 1080x1920, 1:1 1080x1080)
  * with the uploaded AI background asset linked.
  */
 export async function createCanvaThumbnailDesign(
@@ -277,8 +277,9 @@ export async function createCanvaThumbnailDesign(
   }
 ): Promise<{ designId: string; editUrl: string }> {
   const isVertical = options.aspectRatio === '9:16';
-  const width = isVertical ? 1080 : 1280;
-  const height = isVertical ? 1920 : 720;
+  const isSquare = options.aspectRatio === '1:1';
+  const width = isVertical || isSquare ? 1080 : 1280;
+  const height = isVertical ? 1920 : isSquare ? 1080 : 720;
 
   const payload: Record<string, any> = {
     title: options.title || 'YouTube Thumbnail',

@@ -17,6 +17,7 @@ import {
 } from '@/lib/store';
 import {
   getUserCreditsRemaining,
+  getCurrentUserProfile,
   holdLocalCredits,
   syncCreditsFromServer,
   hasEnoughCredits,
@@ -24,7 +25,16 @@ import {
 import { generateImage, base64ToUint8Array } from '@/lib/gemini';
 import { saveMediaBlob } from '@/lib/media-storage';
 import { useScriptCharLimit } from '@/hooks/use-script-limit';
-import { TEXT_LIMITS, scriptTooLongMessage } from '@/lib/input-limits';
+import { TEXT_LIMITS, scriptTooLongMessage, effectiveTier } from '@/lib/input-limits';
+
+export type ThumbnailAspect = '16:9' | '9:16' | '1:1';
+
+/** Output size per frame; matches what /api/generate-image renders (getFluxDimensions). */
+export const THUMBNAIL_FRAMES: Record<ThumbnailAspect, { label: string; width: number; height: number }> = {
+  '16:9': { label: 'Landscape (YouTube)', width: 1280, height: 720 },
+  '9:16': { label: 'Vertical (Shorts / Reels)', width: 720, height: 1280 },
+  '1:1': { label: 'Square (Facebook / Instagram)', width: 1024, height: 1024 },
+};
 
 interface LaunchKitContextValue {
   // Core project & packaging
@@ -34,6 +44,8 @@ interface LaunchKitContextValue {
   showToast: (msg: string) => void;
   userCredits: number;
   selectedAIModel: AIImageModel | null;
+  /** Model used for thumbnails: FLUX-2 Klein when the user's plan allows it, else the user's image model. */
+  thumbnailModel: AIImageModel | null;
 
   // Voice script
   voiceScript: string;
@@ -110,6 +122,10 @@ interface LaunchKitContextValue {
 
   // Format helpers
   isVertical: boolean;
+  thumbAspect: ThumbnailAspect;
+  /** Only standalone kits (YouTube Kit Studio) pick a frame; video projects use their own format. */
+  canChangeThumbAspect: boolean;
+  handleChangeThumbAspect: (aspect: ThumbnailAspect) => Promise<void>;
   durationStr: string;
 }
 
@@ -117,6 +133,16 @@ const LaunchKitContext = createContext<LaunchKitContextValue | null>(null);
 
 /** Neutral quality suffix for thumbnails; the concept prompt itself carries the look. */
 const THUMBNAIL_STYLE_SUFFIX = 'vibrant saturated colors, bright exposure, sharp focus, crisp detail, high contrast';
+
+/**
+ * Thumbnails use their own negative prompt instead of the storyboard style's: many style
+ * presets ban "oversaturated", "neon" or "text", which fights bright thumbnails and headlines.
+ */
+const THUMBNAIL_NEGATIVE_PROMPT =
+  'blurry, out of focus, low quality, noisy, jpeg artifacts, distorted face, bad anatomy, deformed hands, watermark, signature, dull muted colors, dark underexposed image';
+
+/** Renders much brighter thumbnails and more reliable headline text than FLUX schnell. */
+const PREFERRED_THUMBNAIL_MODEL_ID = 'black-forest-labs/FLUX-2-klein-9b';
 
 export function useLaunchKit(): LaunchKitContextValue {
   const ctx = useContext(LaunchKitContext);
@@ -205,6 +231,32 @@ export function LaunchKitProvider({
   const [mockupViewMode, setMockupViewMode] = useState<'mobile' | 'desktop' | 'shorts'>('mobile');
 
   const [selectedAIModel, setSelectedAIModel] = useState<AIImageModel | null>(null);
+  const [imageModels, setImageModels] = useState<AIImageModel[]>([]);
+  const [planTier, setPlanTier] = useState<string>('TRIAL');
+
+  // Track the user's effective plan (profile loads async and updates with credits).
+  useEffect(() => {
+    const readTier = () => {
+      const profile = getCurrentUserProfile();
+      setPlanTier(
+        profile
+          ? effectiveTier({
+            tier: profile.tier,
+            subscription_expires_at: profile.subscriptionExpiresAt ? new Date(profile.subscriptionExpiresAt).toISOString() : null,
+          })
+          : 'TRIAL'
+      );
+    };
+    readTier();
+    window.addEventListener('credits_updated', readTier);
+    return () => window.removeEventListener('credits_updated', readTier);
+  }, []);
+
+  const thumbnailModel = useMemo(() => {
+    const preferred = imageModels.find((m) => m.modelId === PREFERRED_THUMBNAIL_MODEL_ID && m.isActive !== false);
+    const allowed = preferred && (!preferred.allowedPlans?.length || preferred.allowedPlans.includes(planTier as any));
+    return allowed ? preferred : selectedAIModel;
+  }, [imageModels, planTier, selectedAIModel]);
 
   useEffect(() => {
     function updateCredits() {
@@ -225,6 +277,7 @@ export function LaunchKitProvider({
           const data = await res.json();
           if (data.success && Array.isArray(data.models)) {
             const imageModels = data.models.filter((m: AIImageModel) => !m.id.startsWith('voice-'));
+            if (isMounted) setImageModels(imageModels);
             const match =
               imageModels.find((m: AIImageModel) => m.modelId === storedModelId || m.id === storedModelId) ||
               imageModels.find((m: AIImageModel) => m.isDefault) ||
@@ -252,7 +305,16 @@ export function LaunchKitProvider({
   }, []);
 
   const packaging = project.youtubePackaging;
-  const isVertical = project.aspectRatio === '9:16';
+  const thumbAspect: ThumbnailAspect = project.aspectRatio || '16:9';
+  const isVertical = thumbAspect === '9:16';
+  const canChangeThumbAspect = project.projectId.startsWith('yt-studio-');
+
+  const handleChangeThumbAspect = async (aspect: ThumbnailAspect) => {
+    if (!canChangeThumbAspect || aspect === thumbAspect) return;
+    const updated = { ...project, aspectRatio: aspect };
+    await saveProject(updated);
+    onUpdateProject(updated);
+  };
 
   const [competitorSearchInput, setCompetitorSearchInput] = useState(
     packaging?.marketInsights?.marketSearchQuery || ''
@@ -402,7 +464,7 @@ export function LaunchKitProvider({
           totalDurationMs: project.totalDurationMs || 0,
           customTopicPrompt: customFocus.trim(),
           baseStylePreset: stylePreset,
-          aspectRatio: project.aspectRatio || '16:9',
+          aspectRatio: thumbAspect,
           youtubeApiKey: userApiKey,
         }),
       });
@@ -529,7 +591,7 @@ export function LaunchKitProvider({
           coreTopic: packaging?.scriptIntelligence?.coreTopic || project.title || '',
           styleName: stylePreset?.name || 'Cinematic Documentary',
           stylePrompt: stylePreset?.stylePrompt || 'Cinematic lighting, 8k, photorealistic',
-          aspectRatio: project.aspectRatio === '9:16' ? '9:16' : '16:9',
+          aspectRatio: thumbAspect,
         }),
       });
 
@@ -582,7 +644,6 @@ export function LaunchKitProvider({
         titles: [],
         selectedTitleIndex: 0,
         description: '',
-        chapters: [],
         tags: [],
         hashtags: [],
         thumbnailConcepts: [],
@@ -630,8 +691,8 @@ export function LaunchKitProvider({
       return;
     }
 
-    const chosenModel = selectedAIModel?.modelId || (await getImageModel()) || 'black-forest-labs/FLUX-1-schnell';
-    const unitCost = selectedAIModel?.creditCost ?? 2;
+    const chosenModel = thumbnailModel?.modelId || (await getImageModel()) || 'black-forest-labs/FLUX-1-schnell';
+    const unitCost = thumbnailModel?.creditCost ?? 2;
 
     if (!hasEnoughCredits(unitCost)) {
       showToast(`⚠️ Insufficient credits (${unitCost} required). Please upgrade or purchase credits to generate a thumbnail.`);
@@ -646,22 +707,20 @@ export function LaunchKitProvider({
 
     setGeneratingThumbId(concept.id);
     try {
-      showToast(`Generating high-res thumbnail with ${selectedAIModel?.name || 'AI Engine'} (${project.aspectRatio || '16:9'})...`);
-
-      const isVertical = project.aspectRatio === '9:16';
+      showToast(`Generating high-res thumbnail with ${thumbnailModel?.name || 'AI Engine'} (${thumbAspect})...`);
 
       let imageUrl = '';
 
       // Goes through /api/generate-image, which charges and refunds server-side
       const result = await generateImage(
         concept.visualPrompt.trim(),
-        stylePreset?.negativePrompt,
+        THUMBNAIL_NEGATIVE_PROMPT,
         {
           model: chosenModel,
           // Thumbnails carry their own lighting/colour direction in the prompt, so the
           // storyboard style's lighting is NOT appended (it fights bright thumbnail lighting).
           baseStyle: THUMBNAIL_STYLE_SUFFIX,
-          aspectRatio: isVertical ? '9:16' : '16:9',
+          aspectRatio: thumbAspect,
         }
       );
 
@@ -752,13 +811,17 @@ export function LaunchKitProvider({
       return;
     }
     const cleanTitle = (project.title || 'youtube_thumbnail').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const { width, height } = THUMBNAIL_FRAMES[thumbAspect];
+    // Name the file after its real format (data URLs carry the MIME type).
+    const mime = imageUrl.match(/^data:image\/([a-z0-9.+-]+);/i)?.[1]?.toLowerCase() || 'jpeg';
+    const ext = mime === 'jpeg' ? 'jpg' : mime.replace('+xml', '');
     const link = document.createElement('a');
     link.href = imageUrl;
-    link.download = `${cleanTitle}_1280x720.jpg`;
+    link.download = `${cleanTitle}_${width}x${height}.${ext}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('Downloaded High-Res Thumbnail (1280x720)');
+    showToast(`Downloaded thumbnail (${width}x${height})`);
   };
 
   const handleEditInCanva = async (concept: ThumbnailConcept) => {
@@ -779,7 +842,7 @@ export function LaunchKitProvider({
           imageUrl: concept.imageUrl,
           title: concept.conceptName || project.title,
           textOverlayHint: concept.textOverlayHint || '',
-          aspectRatio: project.aspectRatio === '9:16' ? '9:16' : '16:9',
+          aspectRatio: thumbAspect,
         }),
       });
 
@@ -824,9 +887,11 @@ export function LaunchKitProvider({
 
       // 2. Smart Bridge fallback: Copy to clipboard and launch Canva YouTube Thumbnail Editor
       const copied = await copyImageToClipboard(concept.imageUrl);
-      const canvaUrl = project.aspectRatio === '9:16'
+      const canvaUrl = thumbAspect === '9:16'
         ? 'https://www.canva.com/create/instagram-stories/'
-        : 'https://www.canva.com/create/youtube-thumbnails/';
+        : thumbAspect === '1:1'
+          ? 'https://www.canva.com/create/instagram-posts/'
+          : 'https://www.canva.com/create/youtube-thumbnails/';
 
       window.open(canvaUrl, '_blank', 'noopener,noreferrer');
 
@@ -902,7 +967,6 @@ export function LaunchKitProvider({
   const handleCopyMasterLaunchPack = () => {
     if (!packaging) return;
     const activeTitle = selectedTitle;
-    const chaptersText = (packaging.chapters || []).map((c) => `${c.time} ${c.title}`).join('\n');
     const tagsCsv = (packaging.tags || []).join(', ');
     const hashtagsStr = (packaging.hashtags || []).join(' ');
 
@@ -911,9 +975,6 @@ ${activeTitle}
 
 === VIDEO DESCRIPTION ===
 ${packaging.description}
-
-=== TIMESTAMPS / CHAPTERS ===
-${chaptersText}
 
 === TAGS (CSV) ===
 ${tagsCsv}
@@ -959,6 +1020,7 @@ ${hashtagsStr}`;
         showToast,
         userCredits,
         selectedAIModel,
+        thumbnailModel,
         voiceScript,
         setVoiceScript,
         isScriptSaved,
@@ -1010,6 +1072,9 @@ ${hashtagsStr}`;
         handleSyncFromCanva,
         handleReplaceConceptImage,
         isVertical,
+        thumbAspect,
+        canChangeThumbAspect,
+        handleChangeThumbAspect,
         durationStr,
       }}
     >

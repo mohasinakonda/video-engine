@@ -137,7 +137,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
   const {
     project,
     packaging,
-    selectedAIModel,
+    thumbnailModel,
     generatingThumbId,
     enhancingThumbId,
     setConceptEditMode,
@@ -330,8 +330,8 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
                 <Sparkles size={15} className="text-zinc-950" />
                 <span>
                   {hasImage
-                    ? `Re-render (${selectedAIModel?.creditCost ?? 2} cr)`
-                    : `Generate Thumbnail (${selectedAIModel?.creditCost ?? 2} cr)`}
+                    ? `Re-render (${thumbnailModel?.creditCost ?? 2} cr)`
+                    : `Generate Thumbnail (${thumbnailModel?.creditCost ?? 2} cr)`}
                 </span>
               </>
             )}
