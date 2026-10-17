@@ -8,6 +8,5 @@ export * from './sections/competitor-research-card';
 export * from './sections/feed-mockup-card';
 export * from './sections/title-lab-card';
 export * from './sections/thumbnail-studio-card';
-export * from './sections/chapters-card';
 export * from './sections/seo-description-card';
 export * from './sections/tags-card';

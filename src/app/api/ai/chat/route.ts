@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { isSupabaseConfigured } from '@/lib/supabase-service';
+import { callLLM } from '@/lib/llm-providers';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
-
-const DEEPINFRA_CHAT_URL = 'https://api.deepinfra.com/v1/openai/chat/completions';
-const DEFAULT_MODEL = 'meta-llama/Meta-Llama-3.1-70B-Instruct';
 
 const MAX_MESSAGES = 12;
 const MAX_TOTAL_CHARS = 60_000;
@@ -72,11 +70,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Too many AI requests. Please wait a few minutes.' }, { status: 429 });
   }
 
-  const apiKey = process.env.DEEPINFRA_API_KEY?.trim();
-  if (!apiKey) {
-    return NextResponse.json({ error: 'AI text engine is not configured.' }, { status: 503 });
-  }
-
   const body = await req.json().catch(() => null);
   const messages = sanitizeMessages(body?.messages);
   if (!messages) {
@@ -89,38 +82,19 @@ export async function POST(req: Request) {
     typeof body.max_tokens === 'number'
       ? Math.min(Math.max(Math.floor(body.max_tokens), 1), MAX_OUTPUT_TOKENS)
       : MAX_OUTPUT_TOKENS;
+  const useJson = body.json === true;
 
-  const payload: Record<string, unknown> = {
-    model: DEFAULT_MODEL,
+  // 2 models × 55s stays inside maxDuration (120s).
+  const llm = await callLLM({
+    tag: 'ai/chat',
     messages,
     temperature,
-    max_tokens: maxTokens,
-  };
-  if (body.json === true) payload.response_format = { type: 'json_object' };
-
-  try {
-    const res = await fetch(DEEPINFRA_CHAT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      console.warn('[API /api/ai/chat] DeepInfra error', res.status, await res.text().catch(() => ''));
-      return NextResponse.json({ error: 'AI request failed.' }, { status: 502 });
-    }
-
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (typeof content !== 'string' || !content) {
-      return NextResponse.json({ error: 'AI returned an empty response.' }, { status: 502 });
-    }
-    return NextResponse.json({ content });
-  } catch (err) {
-    console.error('[API /api/ai/chat] error:', err);
+    maxTokens,
+    json: useJson,
+    timeoutMs: 55_000,
+  });
+  if (!llm) {
     return NextResponse.json({ error: 'AI request failed.' }, { status: 502 });
   }
+  return NextResponse.json({ content: llm.content });
 }

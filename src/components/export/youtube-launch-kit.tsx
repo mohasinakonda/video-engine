@@ -12,7 +12,6 @@ import {
   FeedMockupCard,
   TitleLabCard,
   ThumbnailStudioCard,
-  ChaptersCard,
   SeoDescriptionCard,
   TagsCard,
 
@@ -83,7 +82,6 @@ function YouTubeLaunchKitContent() {
               {tab === 'research' && <CompetitorResearchCard />}
               {tab === 'description' && (
                 <>
-                  <ChaptersCard />
                   <SeoDescriptionCard />
                   <TagsCard />
                 </>

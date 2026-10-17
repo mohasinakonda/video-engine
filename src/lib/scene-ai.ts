@@ -589,43 +589,54 @@ export async function breakdownRequirementToImageScenes(
   }
 
   const words = requirement.trim().split(/\s+/).filter(Boolean).length;
-  // Batch scripts over 220 words (~1.5+ mins) into sequential chapters so the LLM never hits output token limits and never skips paragraphs
+  // Batch scripts over 220 words (~1.5+ mins) into chapters so the LLM never hits output token limits and never skips paragraphs
   const isLongScript = !options?.sceneCount && (words > 220 || (options?.targetDurationSec && options.targetDurationSec > 120));
 
   // Multi-chunk batching for long scripts to prevent token truncation & enforce rich scene count
   if (isLongScript) {
     const batches = splitIntoPacingChunks(requirement, 200);
-    options?.onProgress?.(`Divided into ${batches.length} sequential story chapters for cinematic visual extraction…`);
+    options?.onProgress?.(`Divided into ${batches.length} story chapters for cinematic visual extraction…`);
 
     const totalTargetSec = options?.targetDurationSec || Math.max(20, Math.round((words / 135) * 60));
-    const allScenes: ScriptSceneBreakdown[] = [];
 
-    for (let i = 0; i < batches.length; i++) {
+    // Chapters are independent (they share the world bible), so extract them concurrently;
+    // results are stored by index to keep scene order.
+    const CHAPTER_CONCURRENCY = 4;
+    const chapterScenes: ScriptSceneBreakdown[][] = new Array(batches.length);
+    let nextChapter = 0;
+    let doneChapters = 0;
+
+    const extractChapter = async (i: number) => {
       const batchText = batches[i];
       const batchWords = batchText.split(/\s+/).filter(Boolean).length;
       const batchDurationSec = totalTargetSec > 0 ? (batchWords / words) * totalTargetSec : undefined;
-
-      options?.onProgress?.(
-        `Stage 2: Extracting scenes for Chapter ${i + 1}/${batches.length} (${allScenes.length} scenes created)…`
-      );
-
       try {
-        const batchScenes = await breakdownRequirementToImageScenesSingle(batchText, {
+        chapterScenes[i] = await breakdownRequirementToImageScenesSingle(batchText, {
           ...options,
           targetDurationSec: batchDurationSec,
           worldBible,
         });
-        allScenes.push(...batchScenes);
       } catch (err) {
         console.warn(`Batch ${i + 1} extraction error, falling back to local partition:`, err);
-        const fallbackBatch = await breakdownRequirementToImageScenesSingle(batchText, {
+        chapterScenes[i] = await breakdownRequirementToImageScenesSingle(batchText, {
           ...options,
           targetDurationSec: batchDurationSec,
           worldBible,
         });
-        allScenes.push(...fallbackBatch);
       }
-    }
+      doneChapters += 1;
+      options?.onProgress?.(`Stage 2: Extracting scenes — ${doneChapters}/${batches.length} chapters done…`);
+    };
+
+    options?.onProgress?.(`Stage 2: Extracting scenes — 0/${batches.length} chapters done…`);
+    await Promise.all(
+      Array.from({ length: Math.min(CHAPTER_CONCURRENCY, batches.length) }, async () => {
+        while (nextChapter < batches.length) {
+          await extractChapter(nextChapter++);
+        }
+      })
+    );
+    const allScenes = chapterScenes.flat();
 
     const balanced = deduplicateAndBalanceScenes(allScenes, requirement, options?.sceneCount);
     options?.onProgress?.(`Successfully generated ${balanced.length} diverse scenes across ${batches.length} chapters.`);

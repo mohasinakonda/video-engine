@@ -332,7 +332,8 @@ export interface YouTubePackagingData {
   titles: TitleOption[];
   selectedTitleIndex?: number;
   description: string;
-  chapters: ChapterItem[];
+  /** No longer generated; kept optional so kits saved before the removal still load. */
+  chapters?: ChapterItem[];
   tags: string[];
   hashtags: string[];
   thumbnailConcepts: ThumbnailConcept[];

@@ -68,37 +68,49 @@ export async function extractScenes(
 
   const client = getLLMClient();
 
-  // Multi-chunk batching for long scripts (e.g. 23 min scripts)
-  if (words > 180 || totalSec > 90) {
+  // Multi-chunk batching for long scripts (e.g. 23 min scripts).
+  // Threshold set to 400 words: Groq handles smaller scripts in a single ~2-4s call.
+  if (words > 400 || totalSec > 180) {
     const batches = splitIntoPacingChunks(script, 140);
     onProgress?.(`Divided into ${batches.length} story batches for detailed visual extraction…`);
 
-    const allBreakdown: ScriptSceneBreakdown[] = [];
+    // Batches are independent, so run them concurrently (each LLM call takes ~20–30s);
+    // results are stored by index to keep scene order.
+    const BATCH_CONCURRENCY = 4;
+    const results: ScriptSceneBreakdown[][] = new Array(batches.length);
+    let nextBatch = 0;
+    let doneBatches = 0;
 
-    for (let i = 0; i < batches.length; i++) {
+    const extractBatch = async (i: number) => {
       const batchScript = batches[i];
       const batchWords = batchScript.split(/\s+/).filter(Boolean).length;
       const batchDurationSec = (batchWords / words) * totalSec;
-
-      onProgress?.(
-        `Extracting scenes: Batch ${i + 1} of ${batches.length} (${allBreakdown.length} scenes created so far)…`
-      );
-
       try {
-        const batchScenes = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
+        results[i] = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
           pacingProfile,
           stylePrompt,
         });
-        allBreakdown.push(...batchScenes);
       } catch (err) {
         console.warn(`Batch ${i + 1} extraction failed, using fallback partition:`, err);
-        const fallbackBatch = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
+        results[i] = await breakdownScriptToScenes(batchScript, client, batchDurationSec, {
           pacingProfile,
           stylePrompt,
         });
-        allBreakdown.push(...fallbackBatch);
       }
-    }
+      doneBatches += 1;
+      onProgress?.(`Extracting scenes: ${doneBatches} of ${batches.length} batches done…`);
+    };
+
+    const worker = async () => {
+      while (nextBatch < batches.length) {
+        await extractBatch(nextBatch++);
+      }
+    };
+
+    onProgress?.(`Extracting scenes: 0 of ${batches.length} batches done…`);
+    await Promise.all(Array.from({ length: Math.min(BATCH_CONCURRENCY, batches.length) }, worker));
+
+    const allBreakdown = results.flat();
 
     if (allBreakdown.length > 0) {
       return convertBreakdownToScenes(allBreakdown, totalSec, stylePrompt, onProgress);
