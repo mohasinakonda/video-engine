@@ -10,6 +10,7 @@ import { VisualStyleSection } from './landing/visual-style-section';
 import { BuiltForEditingSection } from './landing/built-for-editing-section';
 import { FeaturesSection } from './landing/features-section';
 import { PricingSection } from './landing/pricing-section';
+import { PaymentMethodsSection } from './landing/payment-methods-section';
 
 export default function GuestView() {
   return (
@@ -43,6 +44,9 @@ export default function GuestView() {
 
       {/* ─── Pricing Section (With Local Bangladesh Support) ───────────── */}
       <PricingSection />
+
+      {/* ─── Payment Methods (Bangla QR) ─────────────────────────────────── */}
+      <PaymentMethodsSection />
     </div>
   );
 }

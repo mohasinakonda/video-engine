@@ -22,7 +22,8 @@ import { TopupPacksSection } from '@/components/pricing/topup-packs-section';
 import { UserPlanRenewSection } from '@/components/pricing/user-plan-renew-section';
 import { PaymentHistorySection } from '@/components/pricing/payment-history-section';
 import { PaymentCheckoutModal } from '@/components/pricing/payment-checkout-modal';
-import { getPlanPrice, getPlanCredits } from '@/lib/plan-pricing';
+import { getPlanPrice, getPlanCredits, getPlanChange } from '@/lib/plan-pricing';
+import { profileEffectiveTier } from '@/lib/input-limits';
 
 interface PlanClientProps {
   initialUser: User | null;
@@ -161,7 +162,13 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
     }
   };
 
+  const currentTier = profileEffectiveTier(userProfile);
+
   const openCheckoutForPlan = (plan: SubscriptionPlan) => {
+    if (getPlanChange(currentTier, plan.id) === 'downgrade') {
+      showToast('You can switch to a lower plan after your current plan ends.', 'warning');
+      return;
+    }
     setSelectedPlan(plan);
     setSelectedTopup(null);
     setSubmitSuccess(false);
@@ -210,7 +217,8 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
     let finalPrice = originalPrice;
     let bonusCredits = 0;
 
-    if (promoAppliedCode) {
+    // Promo and referral codes are for plans only; top-ups never take one.
+    if (promoAppliedCode && selectedPlan) {
       const userIdentifier = initialUser?.id || initialUser?.email || userEmail || undefined;
       const planId = selectedPlan ? selectedPlan.id : undefined;
       const res = validateAndApplyPromoCode(promoAppliedCode, originalPrice, userIdentifier, planId);
@@ -260,7 +268,7 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
         topupId: selectedTopup ? selectedTopup.id : undefined,
         originalPriceBDT: originalPrice,
         discountedPriceBDT: finalPrice,
-        promoCodeApplied: promoAppliedCode || undefined,
+        promoCodeApplied: (selectedPlan && promoAppliedCode) || undefined,
         creditsToGrant,
         paymentMethod,
         senderNumber: senderNumber.trim(),
@@ -321,7 +329,8 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
           plans={plans}
           billingCycle={billingCycle}
           setBillingCycle={setBillingCycle}
-          userSub={userSub}
+          currentTier={currentTier}
+          expiresAt={userProfile?.subscriptionExpiresAt}
           onSelectPlan={openCheckoutForPlan}
         />
 
@@ -333,6 +342,7 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
 
       {/* Manual Payment Checkout Modal */}
       <PaymentCheckoutModal
+        currentTier={currentTier}
         isOpen={paymentModalOpen}
         onClose={() => setPaymentModalOpen(false)}
         selectedPlan={selectedPlan}

@@ -1,12 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Clock,
   ChevronRight,
   HardDrive,
   MessageCircle,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { getWhatsAppVerificationUrl } from '@/lib/subscription-store';
 import type {
@@ -31,6 +33,15 @@ export default function BillingTab({
   settings,
   storageInfo,
 }: BillingTabProps) {
+  const [copied, setCopied] = useState(false);
+  const adminWhatsApp = (settings?.whatsappNumber || '').trim();
+
+  const copyWhatsApp = () => {
+    navigator.clipboard.writeText(adminWhatsApp).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="space-y-6">
       {/* Subscription & Credit Pack Quick Summary */}
@@ -92,6 +103,21 @@ export default function BillingTab({
           <p className="text-xs text-zinc-400">
             Track your manual payment submissions and contact admin on WhatsApp for instant approval
           </p>
+          {adminWhatsApp && (
+            <div className="mt-2 inline-flex items-center gap-2 text-xs text-zinc-400">
+              <span>Admin WhatsApp:</span>
+              <span className="font-mono text-white">{adminWhatsApp}</span>
+              <button
+                type="button"
+                onClick={copyWhatsApp}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-bg-elevated border border-bg-border hover:border-bg-border-strong text-[11px] text-zinc-300 hover:text-white transition-colors"
+                title="Copy number if WhatsApp doesn't open on this device"
+              >
+                {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="bg-bg-surface border border-bg-border rounded-xl overflow-hidden shadow-sm">

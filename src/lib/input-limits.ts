@@ -70,6 +70,17 @@ export function effectiveTier(profile: {
   return Number.isFinite(expiresAt) && Date.now() > expiresAt ? 'TRIAL' : tier;
 }
 
+/** effectiveTier for an app-side UserProfile, whose expiry is in milliseconds. */
+export function profileEffectiveTier(profile: {
+  tier?: string | null;
+  subscriptionExpiresAt?: number | null;
+} | null | undefined): PlanTier {
+  return effectiveTier({
+    tier: profile?.tier,
+    subscription_expires_at: profile?.subscriptionExpiresAt ? new Date(profile.subscriptionExpiresAt).toISOString() : null,
+  });
+}
+
 /**
  * Trim AI-generated text to `max` characters, cutting at the last sentence
  * end (or word) so the result never stops mid-word.

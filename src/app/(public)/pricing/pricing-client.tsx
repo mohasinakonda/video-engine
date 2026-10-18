@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { showToast } from '@/lib/toast';
 
 import {
   validateAndApplyPromoCode,
@@ -28,7 +29,8 @@ import { ComparisonTableSection } from '@/components/pricing/comparison-table-se
 import { FaqSection } from '@/components/pricing/faq-section';
 import { WhatsAppCtaSection } from '@/components/pricing/whatsapp-cta-section';
 import { PaymentCheckoutModal } from '@/components/pricing/payment-checkout-modal';
-import { getPlanPrice, getPlanCredits } from '@/lib/plan-pricing';
+import { getPlanPrice, getPlanCredits, getPlanChange } from '@/lib/plan-pricing';
+import { profileEffectiveTier } from '@/lib/input-limits';
 
 interface PricingClientProps {
   initialUser: User | null;
@@ -173,7 +175,13 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     }
   };
 
+  const currentTier = profileEffectiveTier(userProfile);
+
   const openCheckoutForPlan = (plan: SubscriptionPlan) => {
+    if (getPlanChange(currentTier, plan.id) === 'downgrade') {
+      showToast('You can switch to a lower plan after your current plan ends.', 'warning');
+      return;
+    }
     setSelectedPlan(plan);
     setSelectedTopup(null);
     setSubmitSuccess(false);
@@ -197,7 +205,8 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     let finalPrice = originalPrice;
     let bonusCredits = 0;
 
-    if (promoAppliedCode) {
+    // Promo and referral codes are for plans only; top-ups never take one.
+    if (promoAppliedCode && selectedPlan) {
       const userIdentifier = initialUser?.id || initialUser?.email || userEmail || undefined;
       const planId = selectedPlan ? selectedPlan.id : undefined;
       const res = validateAndApplyPromoCode(promoAppliedCode, originalPrice, userIdentifier, planId);
@@ -240,7 +249,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
         topupId: selectedTopup ? selectedTopup.id : undefined,
         originalPriceBDT: originalPrice,
         discountedPriceBDT: finalPrice,
-        promoCodeApplied: promoAppliedCode || undefined,
+        promoCodeApplied: (selectedPlan && promoAppliedCode) || undefined,
         creditsToGrant,
         paymentMethod,
         senderNumber: senderNumber.trim(),
@@ -318,6 +327,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
 
       {/* Manual Payment Checkout Modal (WhatsApp Assisted) */}
       <PaymentCheckoutModal
+        currentTier={currentTier}
         isOpen={paymentModalOpen}
         onClose={() => setPaymentModalOpen(false)}
         selectedPlan={selectedPlan}

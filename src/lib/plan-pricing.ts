@@ -4,7 +4,7 @@
  * is exactly what they are charged and credited.
  */
 
-import type { BillingCycle, SubscriptionPlan } from '@/types/subscription';
+import type { BillingCycle, PlanTier, SubscriptionPlan } from '@/types/subscription';
 
 export const BILLING_CYCLES: readonly BillingCycle[] = ['monthly', 'quarterly'];
 
@@ -88,4 +88,19 @@ export function estimateVoiceMinutes(credits: number, charsPerCredit: number): n
 export function formatVoiceDuration(minutes: number): string {
   if (minutes < 120) return `${minutes} min`;
   return `${Math.floor(minutes / 60)} hours`;
+}
+
+const TIER_RANK: Record<PlanTier, number> = { TRIAL: 0, STARTER: 1, CREATOR: 2, STUDIO: 3 };
+
+/**
+ * Plan changes: an upgrade starts a fresh period today, a renewal of the same plan stacks
+ * onto the paid days, and a downgrade is blocked while the current plan is active
+ * (the user can buy the lower plan once it lapses). `currentTier` must be the effective tier.
+ */
+export type PlanChange = 'new' | 'renew' | 'upgrade' | 'downgrade';
+
+export function getPlanChange(currentTier: PlanTier, targetTier: PlanTier): PlanChange {
+  if (currentTier === 'TRIAL') return 'new';
+  if (currentTier === targetTier) return 'renew';
+  return TIER_RANK[targetTier] > TIER_RANK[currentTier] ? 'upgrade' : 'downgrade';
 }
