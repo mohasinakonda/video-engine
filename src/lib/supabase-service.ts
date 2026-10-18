@@ -110,9 +110,10 @@ export async function signOutUser() {
 }
 
 /** Fetch user profile from Supabase profiles table */
-export async function fetchSupabaseProfile(userId: string): Promise<UserProfile | null> {
+/** On the server, pass the request's session client: the default browser client has no session there, so RLS hides the row. */
+export async function fetchSupabaseProfile(userId: string, clientOverride?: any): Promise<UserProfile | null> {
   if (!isSupabaseConfigured()) return null;
-  const supabase = createClient();
+  const supabase = clientOverride || createClient();
   const { data, error } = await supabase
     .from('profiles')
     .select('*')

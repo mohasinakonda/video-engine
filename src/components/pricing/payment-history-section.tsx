@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Clock, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, MessageCircle, Copy, Check } from 'lucide-react';
 import { getWhatsAppVerificationUrl } from '@/lib/subscription-store';
 import type { PaymentSubmission } from '@/types/subscription';
 
@@ -11,7 +11,17 @@ interface PaymentHistorySectionProps {
 }
 
 export function PaymentHistorySection({ submissions, whatsappNumber }: PaymentHistorySectionProps) {
+  const [copied, setCopied] = useState(false);
   if (submissions.length === 0) return null;
+
+  const adminWhatsApp = (whatsappNumber || '').trim();
+  const hasPending = submissions.slice(0, 4).some((s) => s.status === 'PENDING');
+
+  const copyWhatsApp = () => {
+    navigator.clipboard.writeText(adminWhatsApp).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="space-y-4 pt-6 border-t border-zinc-800">
@@ -19,6 +29,21 @@ export function PaymentHistorySection({ submissions, whatsappNumber }: PaymentHi
         <Clock size={16} className="text-emerald-400" />
         Your Recent Payment Submissions
       </h3>
+      {/* For devices without WhatsApp installed: copy the number instead. */}
+      {hasPending && adminWhatsApp && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+          <span>WhatsApp not opening? Message admin at</span>
+          <span className="font-mono text-white">{adminWhatsApp}</span>
+          <button
+            type="button"
+            onClick={copyWhatsApp}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-[11px] font-semibold text-white transition-colors"
+          >
+            {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+            {copied ? 'Copied!' : 'Copy number'}
+          </button>
+        </div>
+      )}
       <div className="space-y-2">
         {submissions.slice(0, 4).map((sub) => {
           const waUrl = getWhatsAppVerificationUrl(

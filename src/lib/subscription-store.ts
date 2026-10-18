@@ -575,6 +575,22 @@ export function formatWhatsAppLink(number?: string, message?: string): string {
     : `https://wa.me/${rawNumber}`;
 }
 
+/** The message a user sends the admin after paying, also offered for manual copy. */
+export function getWhatsAppVerificationMessage(
+  senderPhone: string,
+  amountBDT: number,
+  itemName: string,
+  userEmail: string
+): string {
+  return (
+    `Hello Admin! I have paid ৳${amountBDT}.\n` +
+    `Paid From: ${senderPhone}\n` +
+    `Item: ${itemName}\n` +
+    `My Account Email: ${userEmail}\n` +
+    `Please verify and approve my credits/subscription!`
+  );
+}
+
 export function getWhatsAppVerificationUrl(
   senderPhone: string,
   amountBDT: number,
@@ -582,14 +598,7 @@ export function getWhatsAppVerificationUrl(
   userEmail: string,
   adminWhatsApp?: string
 ): string {
-  const text = (
-    `Hello Admin! I have sent ৳${amountBDT} via bKash/Nagad.\n` +
-    `Phone Number: ${senderPhone}\n` +
-    `Item: ${itemName}\n` +
-    `My Account Email: ${userEmail}\n` +
-    `Please verify and approve my credits/subscription!`
-  );
-  return formatWhatsAppLink(adminWhatsApp, text);
+  return formatWhatsAppLink(adminWhatsApp, getWhatsAppVerificationMessage(senderPhone, amountBDT, itemName, userEmail));
 }
 
 // ─── Affiliate Payout System ────────────────────────────────────────────────

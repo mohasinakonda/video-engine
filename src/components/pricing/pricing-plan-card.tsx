@@ -79,6 +79,9 @@ export function PricingPlanCard({
   // What the same months would cost on monthly billing, to show the quarterly saving.
   const monthlyEquivalent = plan.priceMonthly * cycleMonths(billingCycle);
   const cycleSaving = billingCycle === 'quarterly' ? monthlyEquivalent - rawPrice : 0;
+  // Includes any promo or global discount on top of the quarterly price.
+  const totalSaving = cycleSaving + (rawPrice - displayPrice);
+  const savingPercent = monthlyEquivalent > 0 ? Math.round((totalSaving / monthlyEquivalent) * 100) : 0;
 
   const buttonText = actionLabel || `Choose ${plan.name}`;
 
@@ -141,9 +144,14 @@ export function PricingPlanCard({
             )}
           </div>
           {cycleSaving > 0 && (
-            <p className="mt-1 text-[11px] font-semibold text-emerald-700">
-              You save ৳{new Intl.NumberFormat('en-BD').format(cycleSaving + (rawPrice - displayPrice))} vs monthly
-            </p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wide">
+                Save {savingPercent}%
+              </span>
+              <span className="text-[11px] font-semibold text-emerald-700">
+                ৳{new Intl.NumberFormat('en-BD').format(totalSaving)} less than monthly
+              </span>
+            </div>
           )}
 
           <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">

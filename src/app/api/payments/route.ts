@@ -21,8 +21,8 @@ import {
   getAdminSettings,
 } from '@/lib/subscription-store';
 import type { PaymentSubmission, PlanTier, BillingCycle } from '@/types/subscription';
-import { getPlanPrice, getPlanCredits, isBillingCycle } from '@/lib/plan-pricing';
-import { effectiveTier } from '@/lib/input-limits';
+import { getPlanPrice, getPlanCredits, isBillingCycle, getPlanChange } from '@/lib/plan-pricing';
+import { profileEffectiveTier } from '@/lib/input-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       }
 
       // Check if user has admin role
-      const profile = await fetchSupabaseProfile(user.id);
+      const profile = await fetchSupabaseProfile(user.id, serverSupabase);
       const isAdmin = profile?.role === 'admin';
 
       // Anti-IDOR: Non-admins can strictly only query their own payments
@@ -94,8 +94,9 @@ export async function POST(req: Request) {
     // Identity comes from the authenticated session, never from the request body.
     let sessionUserId: string | undefined;
     let sessionEmail: string | undefined;
+    let serverSupabase: ReturnType<typeof createServerClient> | undefined;
     if (isSupabaseConfigured()) {
-      const serverSupabase = createServerClient();
+      serverSupabase = createServerClient();
       const {
         data: { user },
       } = await serverSupabase.auth.getUser();
@@ -157,36 +158,34 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Strict Subscriber Restriction for Top-Up Packs
-    if (itemType === 'topup') {
-      let isSubscriber = false;
+    // 2. Plan rules, based on the plan the user has right now (an expired plan counts as TRIAL).
+    let currentTier: PlanTier = 'TRIAL';
+    if (isSupabaseConfigured() && userId && UUID_REGEX.test(userId)) {
+      const profile = await fetchSupabaseProfile(userId, serverSupabase);
+      currentTier = profileEffectiveTier(profile);
+    }
 
-      if (isSupabaseConfigured() && userId && UUID_REGEX.test(userId)) {
-        const profile = await fetchSupabaseProfile(userId);
-        // An expired plan counts as TRIAL here too, so lapsed users must renew before topping up.
-        const tier = profile
-          ? effectiveTier({
-              tier: profile.tier,
-              subscription_expires_at: profile.subscriptionExpiresAt
-                ? new Date(profile.subscriptionExpiresAt).toISOString()
-                : null,
-            })
-          : 'TRIAL';
-        if (tier !== 'TRIAL') {
-          isSubscriber = true;
-        }
-      }
+    // Top-up packs are for active subscribers only, so lapsed users must renew first.
+    if (itemType === 'topup' && currentTier === 'TRIAL') {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Credit top-up packs are exclusively reserved for active plan subscribers (Starter, Creator, or Studio Pro). Please subscribe to a plan first.',
+        },
+        { status: 403 }
+      );
+    }
 
-      if (!isSubscriber) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              'Credit top-up packs are exclusively reserved for active plan subscribers (Starter, Creator, or Studio Pro). Please subscribe to a plan first.',
-          },
-          { status: 403 }
-        );
-      }
+    // No downgrades while a plan is active; the lower plan can be bought once it ends.
+    if (itemType === 'subscription' && getPlanChange(currentTier, planId as PlanTier) === 'downgrade') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'You cannot switch to a lower plan while your current plan is active. You can choose it after your plan ends.',
+        },
+        { status: 403 }
+      );
     }
 
     // 3. Official Server Price & Credits Verification (Anti-Tamper & Strict Promo Validation)
@@ -229,6 +228,14 @@ export async function POST(req: Request) {
     let validatedPromoCode: string | undefined = undefined;
 
     const userIdentifier = (userId && UUID_REGEX.test(userId)) ? userId : userEmail.trim().toLowerCase();
+
+    // Promo and referral codes are for plans only, so a top-up never pays an affiliate commission.
+    if (itemType === 'topup' && promoCodeApplied && String(promoCodeApplied).trim()) {
+      return NextResponse.json(
+        { success: false, error: 'Promo codes can only be used on subscription plans, not credit top-ups.' },
+        { status: 400 }
+      );
+    }
 
     if (promoCodeApplied && String(promoCodeApplied).trim()) {
       const cleanCode = String(promoCodeApplied).trim().toUpperCase();
