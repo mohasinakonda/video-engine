@@ -560,3 +560,10 @@ Pages:
 
 - Credit prices, plan access and limits are controlled from the admin panel. The values in §2.4 are only seed defaults.
 - **Existing features on `main` are not modified.** This covers YouTube Kit Studio / Launch Kit, the video engine (storyboard, export), `/projects`, Voice Studio and the dashboard view. Phase 3 adds new modules, routes and pages next to them. Existing libraries are only reused read-only (for example `callLLM`). The dashboard gets no new cards on `main` pages; the Create library and Learn page are new pages instead.
+
+**Script (C3, 20 Oct 2026):**
+- Phase 1 insights are not sent to the script writer for now. Loading them needs the YouTube token and a full Analytics fetch on every script. Instead, every hook delivers the promise in the first 15 seconds.
+- Durations and the research checklist are computed from the script, not stored: estimated at 150 words a minute for English and 115 for Bangla.
+- "Evidence" means the brief says it: the claim must share most of its meaningful words with the brief's key points, promise, questions or evidence. Any other factual claim becomes "Check this" automatically, as does any sentence with a number the brief doesn't contain (small counts like "3 reasons" excepted).
+- Rewriting one part costs half the admin-set script price, rounded up.
+- Generating a script sets SCRIPT_READY. Saving after a brief change marks the script as reviewed against the new brief.

@@ -38,8 +38,8 @@ vi.mock('./projects', async (importOriginal) => {
       rows.set(id, row);
       return row;
     },
-    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string; brief?: unknown }) => {
-      if (changes.status && !canTransition(project.status, changes.status, project.archivedFrom)) throw new actual.TransitionError(project.status, changes.status);
+    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string; brief?: unknown; script?: unknown }) => {
+      if (changes.status && changes.status !== project.status && !canTransition(project.status, changes.status, project.archivedFrom)) throw new actual.TransitionError(project.status, changes.status);
       const row = rows.get(project.id)!;
       if (changes.status) {
         row.archivedFrom = changes.status === 'ARCHIVED' ? row.status : null;
@@ -47,6 +47,7 @@ vi.mock('./projects', async (importOriginal) => {
       }
       if (changes.title) row.title = changes.title;
       if (changes.brief !== undefined) row.brief = changes.brief;
+      if (changes.script !== undefined) row.script = changes.script;
       return row;
     },
     deleteProject: async (_u: string, id: string) => rows.delete(id),
@@ -56,6 +57,11 @@ vi.mock('./projects', async (importOriginal) => {
 const ai = { result: null as unknown };
 const credits = { charged: 0, refunded: 0 };
 vi.mock('./ai/brief-interpreter', () => ({ interpretBrief: async () => ai.result }));
+const writer = { script: null as unknown, calls: [] as string[] };
+vi.mock('./ai/script-writer', () => ({
+  writeScript: async () => (writer.calls.push('full'), writer.script),
+  rewriteSection: async (_b: unknown, _s: unknown, id: string) => (writer.calls.push(id), writer.script),
+}));
 vi.mock('@/lib/supabase-service', () => ({
   deductCreditsRemote: async (_u: string, amount: number) => ((credits.charged += amount), true),
   grantCreditsRemote: async (_u: string, amount: number) => ((credits.refunded += amount), true),
@@ -63,6 +69,8 @@ vi.mock('@/lib/supabase-service', () => ({
 vi.mock('@/lib/supabase/server', () => ({ createClient: () => ({}) }));
 
 import { emptyBrief } from './brief';
+import { emptyScript } from './script';
+import { POST as writeScriptRoute, PUT as saveScript } from '@/app/api/create/projects/[id]/script/route';
 import { POST as draftBrief, PUT as saveBrief } from '@/app/api/create/projects/[id]/brief/route';
 import { GET as list, POST as create } from '@/app/api/create/projects/route';
 import { DELETE as remove, GET as read, PATCH as rename } from '@/app/api/create/projects/[id]/route';
@@ -179,5 +187,72 @@ describe('brief API', () => {
     expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
     expect(credits.refunded).toBe(2);
     expect(rows.get(MY_PROJECT)?.status).toBe('DRAFT');
+  });
+});
+
+describe('script API', () => {
+  const ready = { ...emptyBrief('Deep sea', 'English'), corePromise: 'Meet the animals', audience: 'Curious adults', keyPoints: ['Pressure'], updatedAt: '2026-10-20T10:00:00.000Z' };
+  const put = (body: unknown) => new Request('http://localhost/api', { method: 'PUT', body: JSON.stringify(body) });
+  const withBrief = (status: VideoProject['status'], brief: unknown = ready, script: unknown = null) => {
+    seed(MY_PROJECT, 'user-a', status);
+    Object.assign(rows.get(MY_PROJECT)!, { brief, script });
+  };
+
+  beforeEach(() => {
+    credits.charged = 0;
+    credits.refunded = 0;
+    writer.calls = [];
+  });
+
+  it('refuses before charging when the brief is missing or incomplete', async () => {
+    withBrief('DRAFT', null);
+    expect((await writeScriptRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
+    withBrief('BRIEF_READY', { ...ready, corePromise: '' });
+    const res = await writeScriptRoute(req({}), ctx(MY_PROJECT));
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('brief_incomplete');
+    expect(credits.charged).toBe(0);
+    expect((await writeScriptRoute(req({}), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
+  });
+
+  it('writes a full script, saves it and refunds when nothing usable comes back', async () => {
+    withBrief('BRIEF_READY');
+    writer.script = emptyScript(ready, 8);
+    const ok = await events(await writeScriptRoute(req({ targetMinutes: 8 }), ctx(MY_PROJECT)));
+    expect(ok.at(-1).type).toBe('result');
+    expect(rows.get(MY_PROJECT)?.status).toBe('SCRIPT_READY');
+    expect(credits.charged).toBe(5);
+
+    withBrief('BRIEF_READY');
+    writer.script = null;
+    const failed = await events(await writeScriptRoute(req({}), ctx(MY_PROJECT)));
+    expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
+    expect(rows.get(MY_PROJECT)?.status).toBe('BRIEF_READY');
+  });
+
+  it('rewrites one part at half price, only for an existing part', async () => {
+    const script = emptyScript(ready, 8);
+    withBrief('SCRIPT_READY', ready, script);
+    expect((await writeScriptRoute(req({ sectionId: 'nope' }), ctx(MY_PROJECT))).status).toBe(409);
+    writer.script = script;
+    const ok = await events(await writeScriptRoute(req({ sectionId: script.sections[0].id }), ctx(MY_PROJECT)));
+    expect(ok.at(-1).type).toBe('result');
+    expect(writer.calls).toEqual([script.sections[0].id]);
+    expect(credits.charged).toBe(3);
+  });
+
+  it('saves edits free, marks them reviewed against the current brief, and refuses invalid or locked ones', async () => {
+    const old = { ...emptyScript(ready, 8), briefUpdatedAt: '2026-01-01T00:00:00.000Z' };
+    withBrief('BRIEF_READY', ready, old);
+    const res = await saveScript(put(old), ctx(MY_PROJECT));
+    expect(res.status).toBe(200);
+    expect(rows.get(MY_PROJECT)).toMatchObject({ status: 'SCRIPT_READY', script: { briefUpdatedAt: ready.updatedAt } });
+    expect(credits.charged).toBe(0);
+
+    expect((await saveScript(put({ ...old, sections: [] }), ctx(MY_PROJECT))).status).toBe(400);
+    withBrief('PUBLISHED', ready, old);
+    expect((await saveScript(put(old), ctx(MY_PROJECT))).status).toBe(409);
+    withBrief('DRAFT', null);
+    expect((await saveScript(put(old), ctx(MY_PROJECT))).status).toBe(409);
   });
 });

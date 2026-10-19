@@ -1,15 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { Archive, ArrowLeft, Loader2, PenLine, Sparkles, Trash2 } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { ArrowLeft, Loader2, PenLine, Sparkles } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
 import { BriefEditor } from '@/components/create/brief-editor';
-import { ProjectSteps } from '@/components/create/project-steps';
+import { ProjectHeader, ProjectPlaceholder } from '@/components/create/project-header';
 import { runStream, type StreamFailure } from '@/components/create/run-stream';
-import { STATUS_LABELS, type CreateConfig, type VideoBrief, type VideoProject } from '@/components/create/types';
+import { type CreateConfig, type VideoBrief, type VideoProject } from '@/components/create/types';
 import { useCreateConfig } from '@/components/create/use-create-config';
+import { useProject } from '@/components/create/use-project';
 import { StreamError } from '@/components/discover/stream-error';
 import { briefFromThesis, briefSchema, emptyBrief } from '@/lib/youtube/create/brief';
 
@@ -18,23 +19,12 @@ const guessLanguage = (text: string): VideoBrief['language'] => ((text.match(/[\
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const { config, error: configError } = useCreateConfig();
-  const [project, setProject] = useState<VideoProject | null | 'missing'>(null);
+  const { project, setProject } = useProject(id, !!config?.hasAccess);
   const [draft, setDraft] = useState<VideoBrief | null>(null);
   const [saving, setSaving] = useState(false);
   const [aiRunning, setAiRunning] = useState(false);
   const [failure, setFailure] = useState<StreamFailure | null>(null);
-
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/create/projects/${id}`);
-    if (!res.ok) return setProject('missing');
-    setProject((await res.json()).project);
-  }, [id]);
-
-  useEffect(() => {
-    if (config?.hasAccess) load();
-  }, [config?.hasAccess, load]);
 
   const saved = project && project !== 'missing' ? briefSchema.safeParse(project.brief) : null;
   const brief = saved?.success ? saved.data : draft;
@@ -62,19 +52,6 @@ export default function ProjectPage() {
     setDraft(null);
   };
 
-  const archive = async () => {
-    if (!project || project === 'missing') return;
-    const res = await fetch(`/api/create/projects/${project.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'archive' }) });
-    if (res.ok) router.push('/create');
-  };
-
-  const remove = async () => {
-    if (!project || project === 'missing') return;
-    if (!window.confirm('Delete this project? Its brief, script and any measurements are removed. This can’t be undone.')) return;
-    const res = await fetch(`/api/create/projects/${project.id}`, { method: 'DELETE' });
-    if (res.ok) router.push('/create');
-  };
-
   return (
     <div className="page-shell">
       <div className="page-container max-w-4xl space-y-6">
@@ -84,36 +61,11 @@ export default function ProjectPage() {
         </Link>
 
         <AccessGate config={config} error={configError}>
-          {project === null ? (
-            <div className="card flex justify-center py-16">
-              <Loader2 size={22} className="animate-spin text-zinc-400" />
-            </div>
-          ) : project === 'missing' ? (
-            <div className="card space-y-3">
-              <p className="text-base text-zinc-300">This project doesn’t exist or isn’t yours.</p>
-              <Link href="/create" className="btn-primary btn-sm w-fit">
-                Back to Create
-              </Link>
-            </div>
+          {project === null || project === 'missing' ? (
+            <ProjectPlaceholder missing={project === 'missing'} />
           ) : (
             <>
-              <header className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-zinc-400">
-                      {project.origin === 'opportunity' ? 'From a Discover idea' : 'Your own idea'} · {STATUS_LABELS[project.status]}
-                    </p>
-                    <h1 className="text-2xl font-bold text-white leading-snug">{project.title}</h1>
-                  </div>
-                  <button type="button" className="btn-ghost btn-sm" onClick={archive} title="Archive">
-                    <Archive size={15} />
-                  </button>
-                  <button type="button" className="btn-ghost btn-sm text-rose-400" onClick={remove} title="Delete">
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-                <ProjectSteps status={project.status} active="brief" />
-              </header>
+              <ProjectHeader project={project} active="brief" />
 
               {failure && <StreamError error={failure} />}
 

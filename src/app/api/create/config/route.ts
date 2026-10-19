@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getChannelDoctorSettings, getUserAccess } from '@/lib/youtube/settings';
+import { sectionCost } from '@/lib/youtube/create/script';
 import { requireUser } from '@/lib/youtube/route-auth';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,7 @@ export async function GET() {
     costs: {
       brief: create.briefCreditCost,
       script: create.scriptCreditCost,
+      scriptSection: sectionCost(create.scriptCreditCost),
       packaging: create.packagingCreditCost,
       performance: create.performanceCreditCost,
     },

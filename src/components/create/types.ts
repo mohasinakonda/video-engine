@@ -1,6 +1,7 @@
 /** Browser-side shapes for Create (no tokens or server internals). */
 export type { ProjectStatus, Thesis, VideoProject } from '@/lib/youtube/create/types';
 export type { VideoBrief } from '@/lib/youtube/create/brief';
+export type { VideoScript, ScriptSection, Claim, ClaimKind } from '@/lib/youtube/create/script';
 export type { StructureBeat } from '@/lib/youtube/create/structures';
 
 export interface CreateConfig {
@@ -9,7 +10,7 @@ export interface CreateConfig {
   adminPreview: boolean;
   tier: string;
   allowedPlans: string[];
-  costs: { brief: number; script: number; packaging: number; performance: number };
+  costs: { brief: number; script: number; scriptSection: number; packaging: number; performance: number };
 }
 
 export const STATUS_LABELS = {

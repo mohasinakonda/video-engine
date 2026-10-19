@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Loader2, Plus, RotateCcw, Save, Sparkles, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowDown, ArrowRight, ArrowUp, Loader2, Plus, RotateCcw, Save, Sparkles, Trash2 } from 'lucide-react';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { FORMATS, FORMAT_LABELS, MECHANISMS, MECHANISM_LABELS } from '@/lib/youtube/discover/formats';
 import { structureFor } from '@/lib/youtube/create/structures';
@@ -255,9 +256,17 @@ export function BriefEditor({
                 : 'Unsaved changes.'
               : todo.length
                 ? `To write a script, add: ${todo.join(', ')}.`
-                : 'Brief saved. Script writing is the next step and is coming soon.'}
+                : project.status === 'DRAFT'
+                  ? 'Not saved yet.'
+                  : 'Brief saved.'}
           </p>
-          <button type="button" className="btn-primary px-5" disabled={!dirty || saving} onClick={() => onSave(clean(brief))}>
+          {!dirty && !todo.length && project.status !== 'DRAFT' && (
+            <Link href={`/create/${project.id}/script`} className="btn-primary px-5">
+              {project.script ? 'Go to the script' : 'Next: write the script'}
+              <ArrowRight size={16} />
+            </Link>
+          )}
+          <button type="button" className={dirty || project.status === 'DRAFT' ? 'btn-primary px-5' : 'btn-ghost px-4'} disabled={(!dirty && project.status !== 'DRAFT') || saving} onClick={() => onSave(clean(brief))}>
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save brief
           </button>
@@ -333,7 +342,7 @@ function TextList({
   );
 }
 
-function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+export function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -345,7 +354,7 @@ function Section({ title, action, children }: { title: string; action?: React.Re
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1.5">
       <span className="block text-sm font-semibold text-zinc-200">{label}</span>
