@@ -21,7 +21,12 @@ export interface StageDetail {
 interface StreamOptions<S extends string> {
   userId: string;
   /** Which admin switch and plan list gate this route. Default: Channel Doctor. */
-  feature?: 'doctor' | 'discover';
+  feature?: 'doctor' | 'discover' | 'create';
+  /**
+   * Set false for work that doesn't call YouTube (writing a brief or script): no token is
+   * fetched, so a missing or expired connection doesn't block it.
+   */
+  needsYouTube?: boolean;
   /** Credits for this kind of analysis, read from the admin settings. */
   cost: (settings: ChannelDoctorSettings) => number;
   label: string;
@@ -31,6 +36,7 @@ interface StreamOptions<S extends string> {
    */
   reserve?: (settings: ChannelDoctorSettings) => Promise<string | null>;
   run: (ctx: {
+    /** Always set when `needsYouTube` is true (the default). */
     token: Token;
     settings: ChannelDoctorSettings;
     onStage: (stage: S, detail?: StageDetail) => void;
@@ -45,6 +51,7 @@ interface StreamOptions<S extends string> {
 export async function streamAnalysis<S extends string = DiagnosisStage>({
   userId,
   feature = 'doctor',
+  needsYouTube = true,
   cost: costFor,
   label,
   reserve,
@@ -52,11 +59,14 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
 }: StreamOptions<S>): Promise<Response> {
   const settings = await getChannelDoctorSettings();
   const access = await getUserAccess(userId, settings);
-  if (feature === 'discover') {
-    if (!access.hasDiscoverAccess) {
-      return settings.discover.enabled
-        ? NextResponse.json({ error: 'Discover is not included in your current plan.', code: 'plan' }, { status: 403 })
-        : NextResponse.json({ error: 'Discover is not available yet.' }, { status: 503 });
+  if (feature === 'discover' || feature === 'create') {
+    const allowed = feature === 'discover' ? access.hasDiscoverAccess : access.hasCreateAccess;
+    const switchedOn = feature === 'discover' ? settings.discover.enabled : settings.create.enabled;
+    const name = feature === 'discover' ? 'Discover' : 'Create';
+    if (!allowed) {
+      return switchedOn
+        ? NextResponse.json({ error: `${name} is not included in your current plan.`, code: 'plan' }, { status: 403 })
+        : NextResponse.json({ error: `${name} is not available yet.` }, { status: 503 });
     }
   } else {
     if (!settings.enabled) {
@@ -67,14 +77,16 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
     }
   }
 
-  let token: Token;
-  try {
-    token = await getValidAccessToken(userId);
-  } catch (err) {
-    if (err instanceof NotConnectedError) return NextResponse.json({ error: 'Connect YouTube first.', code: 'not_connected' }, { status: 409 });
-    if (err instanceof ReauthRequiredError) return NextResponse.json({ error: err.message, code: 'reauth' }, { status: 409 });
-    console.error(`[${label}] token error:`, (err as Error)?.message);
-    return NextResponse.json({ error: 'Could not reach YouTube. Please try again.' }, { status: 502 });
+  let token: Token | null = null;
+  if (needsYouTube) {
+    try {
+      token = await getValidAccessToken(userId);
+    } catch (err) {
+      if (err instanceof NotConnectedError) return NextResponse.json({ error: 'Connect YouTube first.', code: 'not_connected' }, { status: 409 });
+      if (err instanceof ReauthRequiredError) return NextResponse.json({ error: err.message, code: 'reauth' }, { status: 409 });
+      console.error(`[${label}] token error:`, (err as Error)?.message);
+      return NextResponse.json({ error: 'Could not reach YouTube. Please try again.' }, { status: 502 });
+    }
   }
 
   const guard = acquireRun(userId, settings.hourlyLimitPerUser);
@@ -114,7 +126,7 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
       const send = (event: object) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       try {
         send({ type: 'stage', stage: 'connect', charged: cost });
-        const result = await run({ token, settings, onStage: (stage, detail) => send({ type: 'stage', stage, ...detail }) });
+        const result = await run({ token: token as Token, settings, onStage: (stage, detail) => send({ type: 'stage', stage, ...detail }) });
         send({ type: 'stage', stage: 'done' });
         send({ type: 'result', data: result });
       } catch (err) {
