@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Lock, Eye, FileText } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, FileText, Youtube } from 'lucide-react';
 
 export const metadata = {
   title: 'Privacy Policy | Rendoza AI',
@@ -67,9 +67,67 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+          <section id="youtube-data" className="space-y-3">
+            <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
+              <Youtube size={18} className="text-[#E05A30]" />
+              4. YouTube Data (Channel Doctor)
+            </h2>
+            <p>
+              Channel Doctor uses YouTube API Services. If you choose to connect your YouTube channel, you authorize read-only access
+              with two Google permissions: <code>youtube.readonly</code> (your channel and video details) and{' '}
+              <code>yt-analytics.readonly</code> (your channel&apos;s YouTube Analytics and reach reports, including impressions and
+              click-through rate). We cannot upload, edit or delete anything on your channel.
+            </p>
+            <ul className="list-disc pl-5 space-y-1.5 text-zinc-600">
+              <li>
+                <strong>What we store:</strong> your channel ID, name and profile image, the permissions you granted, and your Google
+                access and refresh tokens, encrypted at rest. We also keep the ID of a YouTube reporting job that prepares your
+                impressions data.
+              </li>
+              <li>
+                <strong>What we do not store:</strong> your analytics, video statistics, retention curves, thumbnails and the reports we
+                generate are processed on demand and are not saved on our servers. A finished report is kept only in your browser tab
+                (session storage) until you close it, sign out or disconnect.
+              </li>
+              <li>
+                <strong>AI processing:</strong> to write a report, we send video titles, thumbnail images and summary metrics (not your
+                tokens or raw API data) to our AI provider, DeepInfra, for processing.
+              </li>
+              <li>
+                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis. We do not sell it, use it for
+                advertising, or share it with anyone except as described here. Our use of information received from Google APIs adheres
+                to the{' '}
+                <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                  Google API Services User Data Policy
+                </a>
+                , including the Limited Use requirements.
+              </li>
+              <li>
+                <strong>Disconnect and deletion:</strong> disconnecting in Channel Doctor stops the reporting job, asks Google to revoke our
+                access and deletes the stored connection and tokens. Deleting your account deletes it too. You can also revoke access at
+                any time at{' '}
+                <a href="https://myaccount.google.com/permissions" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                  myaccount.google.com/permissions
+                </a>
+                .
+              </li>
+            </ul>
+            <p>
+              By connecting YouTube you also agree to the{' '}
+              <a href="https://www.youtube.com/t/terms" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                YouTube Terms of Service
+              </a>{' '}
+              and the{' '}
+              <a href="https://policies.google.com/privacy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                Google Privacy Policy
+              </a>
+              .
+            </p>
+          </section>
+
           <section className="space-y-3 border-t border-[#E5E0D8] pt-6">
             <h2 className="text-base font-bold text-zinc-950">
-              4. Contact Us
+              5. Contact Us
             </h2>
             <p>
               If you have any questions or data privacy inquiries, please reach out to our privacy officer via our official WhatsApp Support channel or email us at support@rendoza.ai.

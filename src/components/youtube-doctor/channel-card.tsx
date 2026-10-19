@@ -20,7 +20,7 @@ export function ChannelCard({ connection, stats, onDisconnect, children }: Chann
   const url = stats?.url || connection.url;
 
   return (
-    <section className="card p-5 sm:p-6 space-y-5">
+    <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 sm:p-6 space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         {connection.thumbnail ? (
           <Image
@@ -38,9 +38,9 @@ export function ChannelCard({ connection, stats, onDisconnect, children }: Chann
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-bold text-white truncate">{connection.title || 'Your channel'}</h2>
+            <h2 className="text-xl font-bold text-white truncate">{connection.title || 'Your channel'}</h2>
             <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
                 needsReauth
                   ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                   : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
@@ -53,12 +53,12 @@ export function ChannelCard({ connection, stats, onDisconnect, children }: Chann
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1"
+            className="text-sm text-zinc-400 hover:text-white inline-flex items-center gap-1"
           >
             {url.replace('https://www.', '')}
             <ExternalLink size={11} />
           </a>
-          <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-400">
+          <dl className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-zinc-400">
             <div className="flex gap-1">
               <dt>Subscribers:</dt>
               <dd className="text-zinc-200 font-medium">
@@ -66,31 +66,27 @@ export function ChannelCard({ connection, stats, onDisconnect, children }: Chann
               </dd>
             </div>
             <div className="flex gap-1">
-              <dt>Public videos:</dt>
+              <dt>Videos:</dt>
               <dd className="text-zinc-200 font-medium">
                 {stats?.videoCount != null ? numberFormat.format(stats.videoCount) : 'Not available'}
               </dd>
             </div>
-            <div className="flex gap-1">
-              <dt>Channel ID:</dt>
-              <dd className="text-zinc-200 font-mono">{connection.channelId}</dd>
-            </div>
           </dl>
         </div>
 
-        <button type="button" onClick={onDisconnect} className="btn-ghost text-xs self-start sm:self-center">
+        <button type="button" onClick={onDisconnect} className="btn-ghost text-sm self-start sm:self-center">
           <Unplug size={14} />
           Disconnect
         </button>
       </div>
 
       {needsReauth ? (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/25">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
           <AlertCircle size={16} className="text-amber-400 shrink-0" />
-          <p className="flex-1 text-sm text-amber-100">
-            Google access for this channel has expired or was removed. Reconnect to run new analyses.
+          <p className="flex-1 text-base text-amber-100">
+            We lost access to this channel. Reconnect to check it again.
           </p>
-          <a href={CONNECT_URL} className="btn-primary btn-sm">
+          <a href={CONNECT_URL} className="btn-primary">
             Reconnect YouTube
           </a>
         </div>

@@ -211,3 +211,44 @@ export interface DeterministicReport {
   strengths: string[]; // evidence ids
   limitations: string[];
 }
+
+// ─── Final report (AI or deterministic fallback) ──────────────────────────────
+
+export interface ReportBottleneck {
+  category: BottleneckCategory;
+  title: string;
+  explanation: string;
+  evidenceIds: string[];
+  confidence: Confidence;
+  isHypothesis: boolean;
+}
+
+export interface ReportStrength {
+  title: string;
+  explanation: string;
+  evidenceIds: string[];
+}
+
+export interface ReportAction {
+  priority: number;
+  title: string;
+  why: string;
+  how: string;
+  evidenceIds: string[];
+  effort: 'low' | 'medium' | 'high';
+  expectedImpact: 'potentially_high' | 'moderate' | 'low';
+  confidence: Confidence;
+}
+
+export interface DiagnosisReport {
+  /** One short sentence: the answer to "what's wrong?". */
+  headline: string;
+  summary: string;
+  primaryBottleneck: ReportBottleneck | null;
+  secondaryBottlenecks: ReportBottleneck[];
+  strengths: ReportStrength[];
+  actions: ReportAction[];
+  /** 'ai': written by the model and validated; 'fallback': built from the measured findings only. */
+  source: 'ai' | 'fallback';
+  model: string | null;
+}

@@ -1,57 +1,56 @@
 'use client';
 
-import { ShieldCheck, Youtube } from 'lucide-react';
+import { ListChecks, Lock, SearchCheck, TrendingUp, Youtube } from 'lucide-react';
 
 export const CONNECT_URL = '/api/youtube/oauth/start?return_to=/youtube-doctor';
 
-/** Screen 1: what the feature does, the privacy note, and Connect YouTube. */
+const BENEFITS = [
+  { icon: SearchCheck, title: 'Find the real problem', text: 'Clicks, watch time, topics or uploads: we show which one holds you back.' },
+  { icon: ListChecks, title: 'Get a short to-do list', text: 'Up to three steps, starting with the one that matters most.' },
+  { icon: TrendingUp, title: 'Backed by your numbers', text: 'Every point comes from your own YouTube data, not guesses.' },
+];
+
+/** Screen 1: the promise, one button, and the reassurance people look for before connecting. */
 export function IntroCard({ canConnect }: { canConnect: boolean }) {
   return (
-    <section className="card p-6 sm:p-8 space-y-6">
-      <div className="space-y-2 max-w-2xl">
-        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-          Understand Why Your Channel Isn&apos;t Growing
+    <section className="rounded-2xl border border-bg-border bg-bg-surface p-6 sm:p-10 space-y-8">
+      <div className="space-y-3 max-w-2xl">
+        <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+          Why isn&apos;t your channel growing?
         </h2>
-        <p className="text-sm text-zinc-400 leading-relaxed">
-          Connect your YouTube channel to identify performance bottlenecks and get practical, evidence-based
-          recommendations.
-        </p>
+        <p className="text-lg text-zinc-300">Connect your channel and get a clear answer, plus what to fix first.</p>
       </div>
 
-      <ul className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-        {[
-          ['What limits your reach', 'Packaging, retention, topics, traffic sources and upload consistency.'],
-          ['Backed by your numbers', 'Every finding shows the data behind it, and what could not be measured.'],
-          ['What to fix first', 'A short, prioritized list of actions.'],
-        ].map(([title, text]) => (
-          <li key={title} className="p-3 rounded-lg bg-bg-elevated border border-bg-border">
-            <p className="font-semibold text-white">{title}</p>
-            <p className="text-xs text-zinc-400 mt-1">{text}</p>
+      <ul className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {BENEFITS.map(({ icon: Icon, title, text }) => (
+          <li key={title} className="p-5 rounded-xl bg-bg-elevated border border-bg-border space-y-2">
+            <Icon size={22} className="text-emerald-400" />
+            <p className="text-base font-semibold text-white">{title}</p>
+            <p className="text-sm text-zinc-400 leading-relaxed">{text}</p>
           </li>
         ))}
       </ul>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="space-y-3">
         {canConnect ? (
-          <a href={CONNECT_URL} className="btn-primary">
-            <Youtube size={16} />
+          <a href={CONNECT_URL} className="btn-primary px-7 py-3.5 text-base font-semibold">
+            <Youtube size={20} />
             Connect YouTube
           </a>
         ) : (
-          <button type="button" className="btn-primary" disabled>
-            <Youtube size={16} />
+          <button type="button" className="btn-primary px-7 py-3.5 text-base font-semibold" disabled>
+            <Youtube size={20} />
             Connect YouTube
           </button>
         )}
-        <p className="text-xs text-zinc-500">Read-only access. We can&apos;t upload, edit or delete anything.</p>
-      </div>
-
-      <div className="flex items-start gap-2.5 p-3 rounded-lg bg-bg-elevated border border-bg-border text-xs text-zinc-400">
-        <ShieldCheck size={15} className="text-emerald-400 shrink-0 mt-0.5" />
-        <p>
-          We fetch your channel data only when you run an analysis and don&apos;t store it on our servers. The report is
-          kept only in this browser tab until you close it. Titles, thumbnails and summary metrics are sent to our AI
-          provider to write the report. Disconnecting removes our access.
+        <p className="text-sm text-zinc-400 flex items-start gap-2">
+          <Lock size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+          <span>
+            Read-only: we can never post, edit or delete anything. Your data isn&apos;t saved on our servers.{' '}
+            <a href="/privacy#youtube-data" className="text-zinc-200 underline">
+              How we handle your data
+            </a>
+          </span>
         </p>
       </div>
     </section>

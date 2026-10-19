@@ -9,7 +9,12 @@ import { ChannelCard } from '@/components/youtube-doctor/channel-card';
 import { DisconnectDialog } from '@/components/youtube-doctor/disconnect-dialog';
 import { OAuthResultBanner } from '@/components/youtube-doctor/oauth-result-banner';
 import type { ConnectionState, DoctorConfig } from '@/components/youtube-doctor/types';
+import { AnalysisPanel } from '@/components/youtube-doctor/analysis-panel';
+import { ReportView } from '@/components/youtube-doctor/report-view';
+import { useDiagnosis } from '@/components/youtube-doctor/use-diagnosis';
+import { useAuth } from '@/contexts/auth-context';
 import { clearAllReports } from '@/lib/channel-doctor-storage';
+import type { RangeKey } from '@/lib/youtube/types';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -23,6 +28,11 @@ export default function ChannelDoctorInner() {
   const [state, setState] = useState<ConnectionState>({ connected: false });
   const [config, setConfig] = useState<DoctorConfig | null>(null);
   const [showDisconnect, setShowDisconnect] = useState(false);
+  const [range, setRange] = useState<RangeKey>('28d');
+
+  const { user } = useAuth();
+  const channelId = state.connected && state.connection.status === 'active' ? state.connection.channelId : null;
+  const diagnosis = useDiagnosis(user?.id ?? null, channelId, range);
 
   const load = useCallback(async () => {
     setLoadState('loading');
@@ -68,7 +78,7 @@ export default function ChannelDoctorInner() {
               <Stethoscope size={22} className="text-emerald-400" />
               Channel Doctor
             </h1>
-            <p className="page-subtitle">Find what is holding your YouTube channel back, with the evidence behind it.</p>
+            <p className="page-subtitle text-base">Find out what holds your channel back, and what to fix first.</p>
           </div>
         </header>
 
@@ -104,14 +114,16 @@ export default function ChannelDoctorInner() {
             onDisconnect={() => setShowDisconnect(true)}
           >
             {config.hasAccess ? (
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-bg-border">
-                <p className="flex-1 text-sm text-zinc-400">
-                  Channel analysis is being finished and will appear here soon.
-                </p>
-                <button type="button" className="btn-primary" disabled>
-                  Analyze Channel · {config.diagnosisCost} credits
-                </button>
-              </div>
+              <AnalysisPanel
+                range={range}
+                onRangeChange={setRange}
+                cost={config.diagnosisCost}
+                running={diagnosis.running}
+                stages={diagnosis.stages}
+                error={diagnosis.error}
+                hasReport={Boolean(diagnosis.saved)}
+                onRun={diagnosis.run}
+              />
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-bg-border">
                 <p className="flex-1 text-sm text-zinc-400">
@@ -124,6 +136,14 @@ export default function ChannelDoctorInner() {
               </div>
             )}
           </ChannelCard>
+        )}
+
+        {loadState === 'ready' && config?.enabled && state.connected && diagnosis.saved && !diagnosis.running && (
+          <ReportView
+            result={diagnosis.saved.result}
+            analyzedAt={diagnosis.saved.analyzedAt}
+            onSelectVideo={(videoId) => router.push(`/youtube-doctor/video/${videoId}?range=${range}`)}
+          />
         )}
 
         {showDisconnect && state.connected && (

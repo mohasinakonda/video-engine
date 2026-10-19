@@ -237,7 +237,7 @@ function retentionRule(
         add({
           id: 'ev_avp_low_recent',
           category: 'retention',
-          statement: `${weak.length} recent videos kept viewers for a smaller share of the video than usual (${weak
+          statement: `${weak.length} recent videos were watched for a smaller share than usual (${weak
             .map((v) => `${round(v.stats!.avgViewPct as number)}%`)
             .join(', ')} viewed vs your median of ${round(medianAvp)}%).`,
           values: { weakVideos: weak.length, medianAvgViewPct: round(medianAvp) },
@@ -342,7 +342,7 @@ function acquisitionRule(
       add({
         id: 'ev_discovery_strong',
         category: 'strength',
-        statement: `${pct(share)} of views came from YouTube recommending your videos (Browse, Suggested and the Shorts feed). Top sources: ${top}.`,
+        statement: `${pct(share)} of views came from YouTube recommending your videos (home page, suggested videos and the Shorts feed). Top sources: ${top}.`,
         values,
         sampleSize: total,
         confidence: 'high',
@@ -356,7 +356,7 @@ function acquisitionRule(
     const id = add({
       id: 'ev_discovery_low',
       category: 'acquisition',
-      statement: `Only ${pct(share)} of views came from YouTube recommendations (Browse, Suggested and the Shorts feed). Top sources: ${top}.${
+      statement: `Only ${pct(share)} of views came from YouTube recommending your videos (home page, suggested videos and the Shorts feed). Top sources: ${top}.${
         viewsChange !== null ? ` Views changed ${round(viewsChange)}% versus the previous period.` : ''
       }`,
       values: { ...values, viewsChangePct: viewsChange === null ? null : round(viewsChange) },

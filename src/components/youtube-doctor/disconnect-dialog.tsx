@@ -38,13 +38,13 @@ export function DisconnectDialog({ channelTitle, onClose, onConfirm }: Disconnec
         {result ? (
           <>
             <h3 id="disconnect-title" className="text-lg font-bold text-white">YouTube disconnected</h3>
-            <p className="text-sm text-zinc-300">
+            <p className="text-base text-zinc-300">
               {result.revokedAtGoogle
                 ? 'Our access was revoked at Google and the connection was removed from our app.'
                 : 'The connection was removed from our app, but Google did not confirm the revocation.'}
             </p>
             {!result.revokedAtGoogle && (
-              <p className="text-xs text-zinc-400">
+              <p className="text-sm text-zinc-400">
                 To be sure, remove the app at{' '}
                 <a
                   href="https://myaccount.google.com/permissions"
@@ -66,13 +66,13 @@ export function DisconnectDialog({ channelTitle, onClose, onConfirm }: Disconnec
             <h3 id="disconnect-title" className="text-lg font-bold text-white">
               Disconnect {channelTitle || 'this channel'}?
             </h3>
-            <ul className="text-sm text-zinc-300 space-y-1.5 list-disc pl-5">
-              <li>We ask Google to revoke this app&apos;s access to your channel.</li>
-              <li>We stop the daily impressions report YouTube was preparing for us.</li>
-              <li>We delete the stored connection. Reports saved in this browser tab are cleared.</li>
+            <ul className="text-base text-zinc-300 space-y-2 list-disc pl-5">
+              <li>We remove our access to your channel at Google.</li>
+              <li>We stop the daily report YouTube was preparing for us.</li>
+              <li>We delete the saved connection and the reports in this tab.</li>
             </ul>
-            <p className="text-xs text-zinc-500">You can connect again at any time.</p>
-            {error && <p className="text-xs text-rose-400">{error}</p>}
+            <p className="text-sm text-zinc-400">You can connect again any time.</p>
+            {error && <p className="text-sm text-rose-400">{error}</p>}
             <div className="flex gap-2">
               <button type="button" onClick={onClose} className="btn-secondary flex-1" disabled={busy}>
                 Cancel

@@ -60,7 +60,7 @@ export const DISCOVERY_SOURCES = new Set(['SUBSCRIBER', 'RELATED_VIDEO', 'SHORTS
 
 /** Readable names for insightTrafficSourceType values. */
 export const TRAFFIC_LABELS: Record<string, string> = {
-  SUBSCRIBER: 'Browse features',
+  SUBSCRIBER: 'Home page and subscriptions',
   RELATED_VIDEO: 'Suggested videos',
   SHORTS: 'Shorts feed',
   YT_SEARCH: 'YouTube search',

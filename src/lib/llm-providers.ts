@@ -39,6 +39,18 @@ export interface CallLLMOptions {
   accept?: (content: string) => boolean;
   /** Label for logs. */
   tag?: string;
+  /**
+   * Model ids to try in order (e.g. from admin settings). Defaults to TEXT_PROVIDERS.
+   * Unknown models are called without json_object mode and parsed from plain text.
+   */
+  models?: string[];
+}
+
+function resolveProviders(models?: string[]): TextProvider[] {
+  if (!models?.length) return TEXT_PROVIDERS;
+  return models.map(
+    (model) => TEXT_PROVIDERS.find((p) => p.model === model) ?? { name: model, model, supportsJsonMode: false }
+  );
 }
 
 /** Tries each model in order; returns the first acceptable answer, or null if all fail. */
@@ -50,7 +62,7 @@ export async function callLLM(options: CallLLMOptions): Promise<{ content: strin
     return null;
   }
 
-  for (const provider of TEXT_PROVIDERS) {
+  for (const provider of resolveProviders(options.models)) {
     try {
       const res = await fetch(DEEPINFRA_CHAT_URL, {
         method: 'POST',

@@ -135,3 +135,13 @@ export async function fetchVideoDetails(accessToken: string, ids: string[]): Pro
   const order = new Map(ids.map((id, index) => [id, index]));
   return videos.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
+
+/** The channel that owns a video, or null if YouTube doesn't return it (1 unit). */
+export async function fetchVideoChannelId(accessToken: string, videoId: string): Promise<string | null> {
+  const params = new URLSearchParams({ part: 'snippet', id: videoId, fields: 'items/snippet/channelId' });
+  const data = await googleJson<{ items?: Array<{ snippet?: { channelId?: string } }> }>(
+    `${YOUTUBE_DATA_API}/videos?${params}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  return data.items?.[0]?.snippet?.channelId ?? null;
+}

@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 /** Messages for the ?yt=<outcome> set by the OAuth callback. */
 const OUTCOMES: Record<string, { tone: 'success' | 'warning' | 'error'; text: string }> = {
-  connected: { tone: 'success', text: 'YouTube connected.' },
+  connected: { tone: 'success', text: 'YouTube connected. Now pick a period and check your channel.' },
   cancelled: { tone: 'warning', text: 'Connection cancelled. Nothing was changed.' },
   missing_scope: {
     tone: 'warning',
@@ -39,8 +39,8 @@ export function OAuthResultBanner({ outcome, onDismiss }: { outcome: string | nu
   const Icon = message.tone === 'success' ? CheckCircle2 : AlertCircle;
 
   return (
-    <div role="status" className={`flex items-start gap-2.5 p-3 rounded-xl border text-sm ${TONE_CLASSES[message.tone]}`}>
-      <Icon size={16} className="shrink-0 mt-0.5" />
+    <div role="status" className={`flex items-start gap-3 p-4 rounded-xl border text-base ${TONE_CLASSES[message.tone]}`}>
+      <Icon size={20} className="shrink-0 mt-0.5" />
       <p className="flex-1">{message.text}</p>
       <button type="button" onClick={onDismiss} aria-label="Dismiss" className="text-zinc-400 hover:text-white">
         <X size={14} />
