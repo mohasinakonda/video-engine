@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { searchYouTubeMarket } from '@/lib/youtube-search';
 import { TEXT_LIMITS } from '@/lib/input-limits';
+import { requireUser } from '@/lib/youtube/route-auth';
 
 export async function POST(req: Request) {
+  const auth = await requireUser();
+  if ('response' in auth) return auth.response;
+
   try {
     const { query = '', youtubeApiKey } = await req.json();
     const cleanQuery = (query || '').trim();
@@ -17,15 +21,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const envKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY || youtubeApiKey;
-    const competitorVideos = await searchYouTubeMarket(cleanQuery, envKey);
-
-    return NextResponse.json({
-      query: cleanQuery,
-      competitorVideos,
+    const { videos, status } = await searchYouTubeMarket(cleanQuery, {
+      apiKey: typeof youtubeApiKey === 'string' ? youtubeApiKey : null,
+      userId: auth.user.id,
     });
-  } catch (error: any) {
-    console.error('API /api/search-competitors error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to search competitors' }, { status: 500 });
+
+    return NextResponse.json({ query: cleanQuery, competitorVideos: videos, searchStatus: status });
+  } catch (error) {
+    console.error('API /api/search-competitors error:', (error as Error)?.message);
+    return NextResponse.json({ error: 'Failed to search competitors' }, { status: 500 });
   }
 }

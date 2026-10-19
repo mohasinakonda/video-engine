@@ -7,7 +7,7 @@ import { loadReport, reportKey, saveReport } from '@/lib/channel-doctor-storage'
 
 export interface DiagnosisError {
   message: string;
-  code?: 'plan' | 'credits' | 'reauth' | 'not_connected';
+  code?: 'plan' | 'credits' | 'reauth' | 'not_connected' | 'limit';
   refunded?: boolean;
 }
 
@@ -21,16 +21,17 @@ export function useDiagnosis(userId: string | null, channelId: string | null, ra
   return useAnalysisStream<DiagnosisResult>(
     '/api/youtube/diagnosis',
     userId && channelId ? reportKey(userId, channelId, range) : null,
-    range
+    { range }
   );
 }
 
 /**
- * Runs an analysis through its NDJSON stream, tracks the real stages, and keeps the
- * finished result in this tab's sessionStorage under `key`.
+ * Runs an analysis through its NDJSON stream, tracks the real stages (and the counts some
+ * stages report), and keeps the finished result in this tab's sessionStorage under `key`.
  */
-export function useAnalysisStream<T>(endpoint: string, key: string | null, range: RangeKey) {
-  const [stages, setStages] = useState<DiagnosisStage[]>([]);
+export function useAnalysisStream<T, S extends string = DiagnosisStage>(endpoint: string, key: string | null, body: object) {
+  const [stages, setStages] = useState<S[]>([]);
+  const [counts, setCounts] = useState<Partial<Record<S, number>>>({});
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<DiagnosisError | null>(null);
   const [saved, setSaved] = useState<SavedReport<T> | null>(null);
@@ -48,6 +49,7 @@ export function useAnalysisStream<T>(endpoint: string, key: string | null, range
     setRunning(true);
     setError(null);
     setStages([]);
+    setCounts({});
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -55,7 +57,7 @@ export function useAnalysisStream<T>(endpoint: string, key: string | null, range
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ range }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
@@ -81,6 +83,7 @@ export function useAnalysisStream<T>(endpoint: string, key: string | null, range
           const event = JSON.parse(line);
           if (event.type === 'stage') {
             setStages((prev) => (prev.includes(event.stage) ? prev : [...prev, event.stage]));
+            if (typeof event.count === 'number') setCounts((prev) => ({ ...prev, [event.stage]: event.count }));
             // Credits were taken: let the header balance refresh.
             if (event.stage === 'connect') window.dispatchEvent(new Event('credits_updated'));
           } else if (event.type === 'result') {
@@ -102,7 +105,9 @@ export function useAnalysisStream<T>(endpoint: string, key: string | null, range
     } finally {
       setRunning(false);
     }
-  }, [endpoint, key, range, running]);
+    // The body is serialized per run; callers pass a fresh object with the current inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint, key, JSON.stringify(body), running]);
 
-  return { run, running, stages, error, saved };
+  return { run, running, stages, counts, error, saved };
 }

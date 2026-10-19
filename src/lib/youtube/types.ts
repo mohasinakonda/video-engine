@@ -27,6 +27,13 @@ export interface VideoMeta {
   lifetimeViews: number | null;
   likes: number | null;
   comments: number | null;
+  /** Filled only when requested (public research of other channels). */
+  channelId?: string;
+  categoryId?: string | null;
+  /** First 300 characters, only when requested. */
+  description?: string;
+  /** A live stream in progress or a scheduled premiere (no final length or views yet). */
+  liveOrUpcoming?: boolean;
 }
 
 export interface PeriodStats {

@@ -8,6 +8,7 @@ import {
   FlaskConical,
   Loader2,
   Plus,
+  Compass,
   Save,
   Stethoscope,
   Trash2,
@@ -25,10 +26,37 @@ interface Settings {
   maxRetentionVideos: number;
   maxThumbnails: number;
   hourlyLimitPerUser: number;
+  discover: DiscoverSettings;
   updatedAt: string | null;
 }
 
-type ModelKind = 'text' | 'vision';
+interface Weights {
+  channelFit: number;
+  competitorPerformance: number;
+  momentum: number;
+  contentGap: number;
+  competition: number;
+  productionFit: number;
+  phase1: number;
+}
+
+interface DiscoverSettings {
+  enabled: boolean;
+  allowedPlans: string[];
+  discoveryCreditCost: number;
+  researchCreditCost: number;
+  opportunityCreditCost: number;
+  maxCompetitors: number;
+  videosPerCompetitor: number;
+  searchCallsPerDiscovery: number;
+  searchDailyGlobalLimit: number;
+  discoveryRunsPerUserDay: number;
+  embeddingModels: string[];
+  maxCompetitorThumbnails: number;
+  weights: Weights;
+}
+
+type ModelKind = 'text' | 'vision' | 'embedding';
 
 const PLANS = [
   { id: 'TRIAL', label: 'Trial' },
@@ -42,6 +70,33 @@ const LIMITS: { key: keyof Settings; label: string; hint: string; min: number; m
   { key: 'maxRetentionVideos', label: 'Retention videos', hint: 'Videos whose retention curve is analyzed', min: 0, max: 20 },
   { key: 'maxThumbnails', label: 'Thumbnails analyzed', hint: 'Sent to the vision model (top + weakest)', min: 0, max: 24 },
   { key: 'hourlyLimitPerUser', label: 'Runs per user per hour', hint: 'Protects the Google API quota', min: 1, max: 100 },
+];
+
+type NumberKey<T> = { [K in keyof T]: T[K] extends number ? K : never }[keyof T];
+
+const DISCOVER_COSTS: { key: NumberKey<DiscoverSettings>; label: string; hint: string }[] = [
+  { key: 'discoveryCreditCost', label: 'Find competitors', hint: 'Uses YouTube search; charged per run' },
+  { key: 'researchCreditCost', label: 'Market research', hint: 'Full research and next-video opportunities' },
+  { key: 'opportunityCreditCost', label: 'Opportunity deep-dive', hint: 'One opportunity with thumbnails' },
+];
+
+const DISCOVER_LIMITS: { key: NumberKey<DiscoverSettings>; label: string; hint: string; min: number; max: number }[] = [
+  { key: 'maxCompetitors', label: 'Competitors per user', hint: 'Active channels on the watchlist', min: 1, max: 25 },
+  { key: 'videosPerCompetitor', label: 'Videos per competitor', hint: 'Recent uploads read for the baseline', min: 15, max: 100 },
+  { key: 'searchCallsPerDiscovery', label: 'Searches per discovery', hint: 'search.list calls in one run', min: 1, max: 5 },
+  { key: 'searchDailyGlobalLimit', label: 'Search calls per day (all users)', hint: 'YouTube allows 100/day for the whole app', min: 0, max: 100000 },
+  { key: 'discoveryRunsPerUserDay', label: 'Discovery runs per user per day', hint: 'Keeps the shared search budget fair', min: 0, max: 50 },
+  { key: 'maxCompetitorThumbnails', label: 'Competitor thumbnails analyzed', hint: 'Sent to the vision model per run', min: 0, max: 30 },
+];
+
+const WEIGHTS: { key: keyof Weights; label: string }[] = [
+  { key: 'channelFit', label: 'Channel fit' },
+  { key: 'competitorPerformance', label: 'Competitor performance' },
+  { key: 'momentum', label: 'Momentum' },
+  { key: 'contentGap', label: 'Content gap' },
+  { key: 'competition', label: 'Competition (lower is better)' },
+  { key: 'productionFit', label: 'Production fit' },
+  { key: 'phase1', label: 'Channel Doctor diagnosis' },
 ];
 
 export default function AdminChannelDoctorPage() {
@@ -59,11 +114,12 @@ export default function AdminChannelDoctorPage() {
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
 
-  const togglePlan = (plan: string) => {
-    if (!settings) return;
-    const has = settings.allowedPlans.includes(plan);
-    update('allowedPlans', has ? settings.allowedPlans.filter((p) => p !== plan) : [...settings.allowedPlans, plan]);
-  };
+  const updateDiscover = <K extends keyof DiscoverSettings>(key: K, value: DiscoverSettings[K]) =>
+    setSettings((prev) => (prev ? { ...prev, discover: { ...prev.discover, [key]: value } } : prev));
+
+  const toggle = (plans: string[], plan: string) => (plans.includes(plan) ? plans.filter((p) => p !== plan) : [...plans, plan]);
+  const togglePlan = (plan: string) => settings && update('allowedPlans', toggle(settings.allowedPlans, plan));
+  const toggleDiscoverPlan = (plan: string) => settings && updateDiscover('allowedPlans', toggle(settings.discover.allowedPlans, plan));
 
   const save = async () => {
     if (!settings) return;
@@ -133,27 +189,7 @@ export default function AdminChannelDoctorPage() {
                 <p className="text-xs text-zinc-400 mb-3">
                   Based on the user&apos;s active plan; an expired plan counts as Trial. Anyone can still connect or disconnect.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {PLANS.map((plan) => {
-                    const on = settings.allowedPlans.includes(plan.id);
-                    return (
-                      <button
-                        key={plan.id}
-                        type="button"
-                        onClick={() => togglePlan(plan.id)}
-                        aria-pressed={on}
-                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
-                          on
-                            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
-                            : 'bg-bg-elevated border-bg-border text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        {on && <CheckCircle2 size={12} className="inline mr-1 -mt-0.5" />}
-                        {plan.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <PlanPicker selected={settings.allowedPlans} onToggle={togglePlan} />
               </div>
             </section>
 
@@ -211,12 +247,157 @@ export default function AdminChannelDoctorPage() {
               </div>
             </section>
 
+            <DiscoverSection
+              discover={settings.discover}
+              update={updateDiscover}
+              togglePlan={toggleDiscoverPlan}
+            />
+
             {settings.updatedAt && (
               <p className="text-xs text-zinc-500">Last saved {new Date(settings.updatedAt).toLocaleString()}</p>
             )}
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function PlanPicker({ selected, onToggle }: { selected: string[]; onToggle: (plan: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PLANS.map((plan) => {
+        const on = selected.includes(plan.id);
+        return (
+          <button
+            key={plan.id}
+            type="button"
+            onClick={() => onToggle(plan.id)}
+            aria-pressed={on}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors ${
+              on
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200'
+                : 'bg-bg-elevated border-bg-border text-zinc-400 hover:text-white'
+            }`}
+          >
+            {on && <CheckCircle2 size={12} className="inline mr-1 -mt-0.5" />}
+            {plan.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Discover (Phase 2): switch, plans, prices, limits, embedding models and score weights. */
+function DiscoverSection({
+  discover,
+  update,
+  togglePlan,
+}: {
+  discover: DiscoverSettings;
+  update: <K extends keyof DiscoverSettings>(key: K, value: DiscoverSettings[K]) => void;
+  togglePlan: (plan: string) => void;
+}) {
+  const weightTotal = WEIGHTS.reduce((sum, w) => sum + discover.weights[w.key], 0);
+
+  return (
+    <div className="space-y-6 pt-6 border-t border-bg-border">
+      <div>
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <Compass size={18} className="text-emerald-400" />
+          Discover
+        </h2>
+        <p className="text-xs text-zinc-400">Competitor research and next-video opportunities. Uses the report models above.</p>
+      </div>
+
+      <section className="card space-y-4">
+        <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <span>
+            <span className="block text-sm font-semibold text-white">Discover enabled</span>
+            <span className="block text-xs text-zinc-400">
+              Keep off for users until YouTube approves the derived-metrics use case (API audit).
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={discover.enabled}
+            onChange={(e) => update('enabled', e.target.checked)}
+            className="w-5 h-5 accent-emerald-500"
+          />
+        </label>
+        <div className="pt-4 border-t border-bg-border">
+          <p className="text-sm font-semibold text-white mb-3">Plans that can use Discover</p>
+          <PlanPicker selected={discover.allowedPlans} onToggle={togglePlan} />
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="text-sm font-semibold text-white">Credit cost</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {DISCOVER_COSTS.map((cost) => (
+            <NumberField
+              key={cost.key}
+              label={cost.label}
+              hint={cost.hint}
+              value={discover[cost.key]}
+              min={0}
+              max={1000}
+              onChange={(v) => update(cost.key, v)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="text-sm font-semibold text-white">Limits and YouTube quota</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {DISCOVER_LIMITS.map((limit) => (
+            <NumberField
+              key={limit.key}
+              label={limit.label}
+              hint={limit.hint}
+              value={discover[limit.key]}
+              min={limit.min}
+              max={limit.max}
+              onChange={(v) => update(limit.key, v)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <ModelList
+        kind="embedding"
+        title="Topic models (embeddings)"
+        hint="Group similar video titles into topics. Use a multilingual model so Bangla and English titles match."
+        models={discover.embeddingModels}
+        onChange={(list) => update('embeddingModels', list)}
+      />
+
+      <section className="card space-y-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-white">Opportunity score weights</p>
+            <p className="text-xs text-zinc-400">How much each signal counts in the 0–100 opportunity score. Must add up to 100.</p>
+          </div>
+          <span className={`text-sm font-mono font-semibold ${weightTotal === 100 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {weightTotal}/100
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {WEIGHTS.map((w) => (
+            <NumberField
+              key={w.key}
+              label={w.label}
+              hint="Weight"
+              value={discover.weights[w.key]}
+              min={0}
+              max={100}
+              onChange={(v) => update('weights', { ...discover.weights, [w.key]: v })}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -296,9 +477,11 @@ function ModelList({
       const data = await res.json();
       setResults((prev) => ({
         ...prev,
-        [modelId]: data.ok
-          ? { ok: true, text: `Works · ${(data.ms / 1000).toFixed(1)}s · valid JSON` }
-          : { ok: false, text: data.error || 'Test failed' },
+        [modelId]: !data.ok
+          ? { ok: false, text: data.error || 'Test failed' }
+          : kind === 'embedding'
+            ? { ok: true, text: `Works · ${(data.ms / 1000).toFixed(1)}s · ${data.dimensions} dimensions · similar titles scored ${data.similarity}` }
+            : { ok: true, text: `Works · ${(data.ms / 1000).toFixed(1)}s · valid JSON` },
       }));
     } catch {
       setResults((prev) => ({ ...prev, [modelId]: { ok: false, text: 'Test request failed' } }));
@@ -354,7 +537,7 @@ function ModelList({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())}
-            placeholder="DeepInfra model id, e.g. google/gemma-3-27b-it"
+            placeholder={kind === 'embedding' ? 'DeepInfra model id, e.g. BAAI/bge-m3' : 'DeepInfra model id, e.g. google/gemma-3-27b-it'}
             className="input text-xs font-mono"
           />
           <button type="button" onClick={add} disabled={!draft.trim()} className="btn-secondary btn-sm shrink-0">

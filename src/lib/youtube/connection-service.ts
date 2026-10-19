@@ -186,7 +186,11 @@ export async function deleteConnection(userId: string): Promise<{ hadConnection:
     revokedAtGoogle = false;
   }
 
-  const { error } = await getServiceClient().from(TABLE).delete().eq('user_id', userId);
+  const client = getServiceClient();
+  const { error } = await client.from(TABLE).delete().eq('user_id', userId);
   if (error) throw new Error(`Could not remove the YouTube connection (${error.code})`);
+  // The competitor watchlist belongs to this connection; disconnecting removes it too.
+  const { error: watchlistError } = await client.from('discover_competitors').delete().eq('user_id', userId);
+  if (watchlistError) console.error('[youtube] watchlist cleanup failed:', watchlistError.code);
   return { hadConnection: true, revokedAtGoogle };
 }

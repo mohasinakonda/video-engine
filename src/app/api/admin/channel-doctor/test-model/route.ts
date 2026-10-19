@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { parseJsonObject } from '@/lib/llm-providers';
+import { embed, parseJsonObject } from '@/lib/llm-providers';
 import { validateDeepInfraModel } from '@/lib/youtube/settings';
 import { requireAdmin } from '@/lib/youtube/route-auth';
 
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const bodySchema = z.object({
-  kind: z.enum(['text', 'vision']),
+  kind: z.enum(['text', 'vision', 'embedding']),
   modelId: z.string().trim().min(3).max(120),
 });
 
@@ -32,6 +32,18 @@ export async function POST(req: Request) {
 
   const key = process.env.DEEPINFRA_API_KEY?.trim();
   if (!key) return NextResponse.json({ ok: false, error: 'DEEPINFRA_API_KEY is not set.' });
+
+  if (kind === 'embedding') {
+    const started = Date.now();
+    // Two titles that mean the same thing should land close together.
+    const result = await embed({ texts: ['Best car vacuum', 'Top vacuums for your car'], models: [modelId], tag: 'test-model' });
+    const ms = Date.now() - started;
+    if (!result) return NextResponse.json({ ok: false, ms, error: 'The model did not return embeddings.' });
+    const [a, b] = result.vectors;
+    const dot = a.reduce((sum, v, i) => sum + v * b[i], 0);
+    const similarity = dot / (Math.hypot(...a) * Math.hypot(...b));
+    return NextResponse.json({ ok: true, ms, dimensions: a.length, similarity: Math.round(similarity * 100) / 100 });
+  }
 
   const content =
     kind === 'vision'

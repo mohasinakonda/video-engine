@@ -83,3 +83,106 @@ export const TRAFFIC_LABELS: Record<string, string> = {
   LIVE_REDIRECT: 'Live redirects',
   PRODUCT_PAGE: 'Product pages',
 };
+
+/** Thresholds for Discover (docs/discover-plan.md). Tuned on real channels; every user-facing claim states its numbers. */
+export const DISCOVER_RULES = {
+  /**
+   * Cosine at or above which two titles count as the same topic, per embedding model.
+   * bge-m3, measured 19 Oct 2026 against a wildlife channel: unrelated channels (cooking,
+   * MrBeast, Kurzgesagt) score 0.38–0.50, a related one (BBC Earth) 0.53–0.63.
+   */
+  titleMatch: { 'BAAI/bge-m3': 0.57, default: 0.6 } as Record<string, number>,
+  /** Models that pair English and Bangla titles well; others cap confidence at medium. */
+  strongEmbeddingModels: ['BAAI/bge-m3'],
+  discovery: {
+    /** Search looks back this far, so found channels are active now. */
+    searchWindowDays: 90,
+    /** Channels kept from search results before fetching their uploads. */
+    maxCandidates: 30,
+    /** Suggestions shown to the user. */
+    maxSuggestions: 20,
+    /** Recent uploads read per candidate. */
+    titlesPerCandidate: 15,
+    /** Your uploads used to describe your topics. */
+    yourTitles: 50,
+    minYourTitles: 3,
+    /** Videos up to this long count as likely Shorts (the public API has no Shorts flag). */
+    shortsMaxSec: 180,
+    /** Share of a candidate's titles matching yours. */
+    directOverlap: 0.4,
+    adjacentOverlap: 0.15,
+    /** Shorts shares closer than this count as a similar format mix. */
+    formatMixTolerance: 0.3,
+    relevanceHigh: 0.6,
+    relevanceMedium: 0.3,
+  },
+  topics: {
+    /**
+     * Average-link threshold (mean pairwise cosine) per embedding model. bge-m3, measured
+     * 19 Oct 2026 on wildlife channels with channel names stripped from titles: 0.45 merged
+     * all wildlife into one cluster, 0.55 left almost nothing clustered, 0.5 gave specific topics.
+     */
+    clusterSimilarity: { 'BAAI/bge-m3': 0.5, default: 0.55 } as Record<string, number>,
+    /** A market topic needs this many videos from this many channels (yours counts). */
+    minVideos: 3,
+    minChannels: 2,
+    maxTopics: 25,
+    /** Videos older than this don't shape today's topics. */
+    maxAgeDays: 365,
+    /** Unclassified titles sent to the model for a format, per run. */
+    maxAiFormatTitles: 300,
+  },
+  momentum: {
+    /** Recent momentum: this many channels posted on the topic in the last 30 days… */
+    recentChannels: 2,
+    /** …and the last 30 days hold at least this share of the topic's last-90-day videos (an even spread is 0.33). */
+    recentShare: 0.5,
+    /** Durable demand: present in this many of the last 6 months, from 2+ channels, median ratio ≥ 1. */
+    durableMonths: 3,
+  },
+  gaps: {
+    /** Coverage gap: you have at most this many videos on the topic… */
+    maxYourVideos: 1,
+    /** …while this many standouts from this many channels cover it. */
+    minOutliers: 2,
+    minOutlierChannels: 2,
+    /** Audience-problem gap needs this many competitors on a problem-type topic. */
+    problemChannels: 3,
+    /** Format and packaging gaps: a format or title style shared by at least this share of the topic's standouts. */
+    dominantShare: 0.5,
+    /** Emerging topics are not yet crowded: at most this many competitor videos. */
+    emergingMaxVideos: 12,
+  },
+  scoring: {
+    /** Cosine between topic and channel centres mapped to 0–100 fit (bge-m3, stripped titles). */
+    fitFloor: 0.45,
+    fitCeiling: 0.85,
+    gapScores: { coverage: 90, emerging: 80, format: 70, packaging: 60, audience_problem: 50 },
+    momentumScores: { recent: 90, durable: 70, one_off: 30, none: 10 },
+    difficultyScores: { low: 90, medium: 60, high: 30 },
+    /** Opportunities shown (strongest first). */
+    maxOpportunities: 8,
+  },
+  originality: {
+    /** An angle is rejected as a copy at or above this word overlap (Jaccard)… */
+    maxWordOverlap: 0.6,
+    /** …or with more than this many identical words in a row… */
+    maxSharedRun: 5,
+    /** …or at this embedding similarity to a competitor title. */
+    maxEmbeddingSimilarity: 0.9,
+  },
+  outliers: {
+    /** Younger videos are still collecting views: not compared yet. */
+    minAgeDays: 7,
+    /** Older videos are left out of the baseline (a channel changes over a year). */
+    maxBaselineAgeDays: 365,
+    /** Same-format videos needed for a usable baseline, and for a strong one. */
+    minBaseline: 6,
+    highBaseline: 12,
+    /** Both must hold: views ≥ 2× the channel's usual, and a robust z-score ≥ 2 on log views. */
+    minRatio: 2,
+    minRobustZ: 2,
+    /** Outliers kept in the result (strongest first). */
+    maxReported: 40,
+  },
+} as const;

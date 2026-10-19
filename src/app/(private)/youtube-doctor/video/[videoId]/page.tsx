@@ -50,7 +50,7 @@ function VideoAnalysisInner() {
 
   const channelId = connection?.connected ? connection.connection.channelId : null;
   const key = user && channelId ? reportKey(user.id, channelId, range, videoId) : null;
-  const analysis = useAnalysisStream<VideoAnalysisResult>(`/api/youtube/videos/${videoId}/analysis`, key, range);
+  const analysis = useAnalysisStream<VideoAnalysisResult>(`/api/youtube/videos/${videoId}/analysis`, key, { range });
   const result = analysis.saved?.result;
 
   return (

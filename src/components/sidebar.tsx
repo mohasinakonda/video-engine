@@ -21,6 +21,7 @@ import {
   Flame,
   ChevronsUpDown,
   Stethoscope,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
@@ -32,6 +33,7 @@ const navItems = [
   { href: '/voice-studio', label: 'Voice Studio', icon: AudioLines },
   { href: '/youtube-kit-studio', label: 'YouTube Kit Studio', icon: Flame },
   { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
+  { href: '/discover', label: 'Discover', icon: Compass },
   // { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
 ];
@@ -45,6 +47,16 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
+  // Discover is listed once the admin switches it on (admins always see it, to test).
+  const [discoverOn, setDiscoverOn] = useState(false);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetch('/api/youtube/discover/config')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((cfg) => setDiscoverOn(Boolean(cfg?.enabled)))
+      .catch(() => setDiscoverOn(false));
+  }, [isLoggedIn]);
+  const showItem = (href: string) => (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn);
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -84,7 +96,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const expanded = !collapsed || hovered || profileMenuOpen;
 
   if (!expanded) {
-    const visibleNav = navItems.filter(({ href }) => href !== '/admin' || isAdmin);
+    const visibleNav = navItems.filter(({ href }) => showItem(href));
     return (
       <aside
         className="absolute left-0 top-0 h-full w-14 flex flex-col items-center bg-bg-base border-r border-bg-border z-40 py-4 gap-3"
@@ -178,7 +190,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
       {/* Navigation */}
       <nav className="flex-1 px-3 pt-4 space-y-1 overflow-y-auto">
         {navItems
-          .filter(({ href }) => href !== '/admin' || isAdmin)
+          .filter(({ href }) => showItem(href))
           .map(({ href, label, icon: Icon }) => {
             const isActive =
               href === '/' ? pathname === '/' : pathname.startsWith(href);

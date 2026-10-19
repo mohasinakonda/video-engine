@@ -79,6 +79,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/voice-studio') ||
     pathname.startsWith('/youtube-kit-studio') ||
     pathname.startsWith('/youtube-doctor') ||
+    pathname.startsWith('/discover') ||
     pathname.startsWith('/export') ||
     pathname.startsWith('/settings');
 

@@ -39,3 +39,24 @@ export function clearAllReports() {
     // nothing to clear
   }
 }
+
+/** Finds a saved research result in this tab that contains the opportunity, if any. */
+export function findSavedOpportunity<R extends { opportunities?: { id: string }[] }>(
+  userId: string,
+  opportunityId: string
+): { analyzedAt: string; result: R } | null {
+  try {
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      const key = window.sessionStorage.key(i);
+      if (!key?.startsWith(`${PREFIX}${userId}:`) || !/:research-(30d|90d)$/.test(key)) continue;
+      const saved = loadReport<R>(key);
+      if (saved?.result.opportunities?.some((o) => o.id === opportunityId)) return saved;
+    }
+  } catch {
+    // storage blocked
+  }
+  return null;
+}
+
+/** Key for a video brief handed to the (coming) creation flow. Cleared with the reports. */
+export const briefKey = (userId: string, opportunityId: string) => `${PREFIX}${userId}:brief:${opportunityId}`;

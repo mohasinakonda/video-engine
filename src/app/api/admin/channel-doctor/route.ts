@@ -30,6 +30,7 @@ export async function PUT(req: Request) {
   const checks = await Promise.all([
     ...parsed.data.textModels.map((id) => validateDeepInfraModel(id, 'text')),
     ...parsed.data.visionModels.map((id) => validateDeepInfraModel(id, 'vision')),
+    ...parsed.data.discover.embeddingModels.map((id) => validateDeepInfraModel(id, 'embedding')),
   ]);
   const modelErrors = checks.filter((message): message is string => Boolean(message));
   if (modelErrors.length > 0) {
