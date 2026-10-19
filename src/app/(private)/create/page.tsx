@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, PenLine, Plus } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
+import { PublishReminders } from '@/components/create/publish-reminders';
 import { STATUS_LABELS, type VideoProject } from '@/components/create/types';
 import { useCreateConfig } from '@/components/create/use-create-config';
 
@@ -13,13 +14,16 @@ export default function CreateLibraryPage() {
   const [projects, setProjects] = useState<VideoProject[] | null>(null);
   const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
-    if (!config?.hasAccess) return;
+  const load = useCallback(() => {
     fetch('/api/create/projects')
       .then(async (r) => ((r.ok ? r.json() : Promise.reject(new Error((await r.json().catch(() => ({}))).error)))))
       .then((d) => setProjects(d.projects))
       .catch((e) => setLoadError(e.message || 'Could not load your projects.'));
-  }, [config?.hasAccess]);
+  }, []);
+
+  useEffect(() => {
+    if (config?.hasAccess) load();
+  }, [config?.hasAccess, load]);
 
   const active = projects?.filter((p) => p.status !== 'ARCHIVED') ?? [];
 
@@ -61,21 +65,24 @@ export default function CreateLibraryPage() {
               </div>
             </section>
           ) : (
-            <ul className="space-y-2">
-              {active.map((p) => (
-                <li key={p.id}>
-                  <Link href={`/create/${p.id}`} className="flex flex-col sm:flex-row sm:items-center gap-2 p-4 rounded-xl border border-bg-border bg-bg-surface hover:border-zinc-600">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-white truncate">{p.title}</p>
-                      <p className="text-sm text-zinc-400">
-                        {p.origin === 'opportunity' ? `From Discover: ${p.thesis?.topic}` : 'Your own idea'} · updated {new Date(p.updatedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-lg bg-bg-elevated border border-bg-border text-sm text-zinc-200 w-fit">{STATUS_LABELS[p.status]}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-4">
+              <PublishReminders hasWaiting={active.some((p) => p.status === 'IN_PRODUCTION')} onLinked={load} />
+              <ul className="space-y-2">
+                {active.map((p) => (
+                  <li key={p.id}>
+                    <Link href={`/create/${p.id}`} className="flex flex-col sm:flex-row sm:items-center gap-2 p-4 rounded-xl border border-bg-border bg-bg-surface hover:border-zinc-600">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-base font-semibold text-white truncate">{p.title}</p>
+                        <p className="text-sm text-zinc-400">
+                          {p.origin === 'opportunity' ? `From Discover: ${p.thesis?.topic}` : 'Your own idea'} · updated {new Date(p.updatedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-lg bg-bg-elevated border border-bg-border text-sm text-zinc-200 w-fit">{STATUS_LABELS[p.status]}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </AccessGate>
       </div>

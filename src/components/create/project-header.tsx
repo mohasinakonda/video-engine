@@ -7,7 +7,7 @@ import { ProjectSteps } from './project-steps';
 import { STATUS_LABELS, type VideoProject } from './types';
 
 /** Title, status, step links, archive and delete: the same on every step of a project. */
-export function ProjectHeader({ project, active }: { project: VideoProject; active: 'brief' | 'script' | 'package' }) {
+export function ProjectHeader({ project, active }: { project: VideoProject; active: 'brief' | 'script' | 'package' | 'publish' }) {
   const router = useRouter();
 
   const archive = async () => {

@@ -8,8 +8,8 @@ const STEPS: { id: string; label: string; path: string | null; doneAt: ProjectSt
   { id: 'brief', label: 'Brief', path: '', doneAt: AFTER_BRIEF },
   { id: 'script', label: 'Script', path: '/script', doneAt: AFTER_BRIEF.slice(1) },
   { id: 'package', label: 'Packaging', path: '/package', doneAt: AFTER_BRIEF.slice(2) },
-  // Pages for the later steps arrive with their milestones (C5, C6).
-  { id: 'publish', label: 'Publish', path: null, doneAt: AFTER_BRIEF.slice(4) },
+  { id: 'publish', label: 'Publish', path: '/publish', doneAt: AFTER_BRIEF.slice(4) },
+  // The measure page arrives with C6.
   { id: 'measure', label: 'Measure', path: null, doneAt: ['LEARNED'] },
 ];
 

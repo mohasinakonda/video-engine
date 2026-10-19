@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { NotConnectedError, ReauthRequiredError } from '../connection-service';
+import { GoogleApiError } from '../google-fetch';
 import { requireUser } from '../route-auth';
 import { getChannelDoctorSettings, getUserAccess, type CreateSettings } from '../settings';
 import { ProjectLimitError, TransitionError, getProject } from './projects';
@@ -34,6 +36,12 @@ export async function ownedProject(userId: string, id: string): Promise<VideoPro
 
 /** Maps known errors to responses; logs only the operation and an error code. */
 export function projectErrorResponse(err: unknown, operation: string): NextResponse {
+  if (err instanceof NotConnectedError) return NextResponse.json({ error: 'Connect your YouTube channel first.', code: 'not_connected' }, { status: 409 });
+  if (err instanceof ReauthRequiredError || (err instanceof GoogleApiError && err.kind === 'auth')) {
+    return NextResponse.json({ error: 'Your YouTube connection needs to be renewed.', code: 'reauth' }, { status: 409 });
+  }
+  if (err instanceof GoogleApiError && err.kind === 'quota') return NextResponse.json({ error: 'YouTube is busy right now. Please try again later.', code: 'quota' }, { status: 503 });
+  if (err instanceof GoogleApiError) return NextResponse.json({ error: 'YouTube couldn’t be reached. Please try again.', code: 'youtube' }, { status: 502 });
   if (err instanceof TransitionError) return NextResponse.json({ error: err.message, code: 'transition' }, { status: 409 });
   if (err instanceof ProjectLimitError) return NextResponse.json({ error: err.message, code: 'limit' }, { status: 409 });
   console.error(`[create] ${operation} failed:`, (err as Error)?.message);

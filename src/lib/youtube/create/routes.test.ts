@@ -58,6 +58,44 @@ vi.mock('./projects', async (importOriginal) => {
 const ai = { result: null as unknown };
 const credits = { charged: 0, refunded: 0 };
 vi.mock('./ai/brief-interpreter', () => ({ interpretBrief: async () => ai.result }));
+// ─── YouTube and the link table ──────────────────────────────────────────────
+const MY_CHANNEL = 'UC' + 'a'.repeat(22);
+const yt = {
+  connected: true,
+  videos: new Map<string, { videoId: string; channelId: string; title: string; thumbnailUrl: null; publishedAt: string; privacy: 'public' | 'private'; scheduledFor: null }>(),
+};
+const links = new Map<string, { userId: string; projectId: string; youtubeVideoId: string; status: string }>();
+vi.mock('../connection-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../connection-service')>();
+  return {
+    ...actual,
+    getValidAccessToken: async () => {
+      if (!yt.connected) throw new actual.NotConnectedError();
+      return { accessToken: 't', connection: { channelId: MY_CHANNEL, title: 'Mine' }, reportingJobId: null };
+    },
+  };
+});
+vi.mock('./published-videos', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./published-videos')>();
+  const { linkStatusFor } = await import('./publish');
+  return {
+    ...actual,
+    fetchRecentUploads: async () => Array.from(yt.videos.values()).filter((v) => v.channelId === MY_CHANNEL),
+    fetchVideoForLink: async (_t: string, id: string) => yt.videos.get(id) ?? null,
+    linkedVideoIds: async (userId: string) => new Set(Array.from(links.values()).filter((l) => l.userId === userId).map((l) => l.youtubeVideoId)),
+    getLink: async (userId: string, projectId: string) => links.get(projectId)?.userId === userId ? links.get(projectId) : null,
+    createLink: async (userId: string, input: { projectId: string; video: { videoId: string; privacy: 'public' | 'private' } }) => {
+      if (links.has(input.projectId)) throw new actual.AlreadyLinkedError();
+      const link = { userId, projectId: input.projectId, youtubeVideoId: input.video.videoId, status: linkStatusFor(input.video) };
+      links.set(input.projectId, link);
+      return link;
+    },
+    deleteLink: async (_u: string, projectId: string) => void links.delete(projectId),
+    updateLinkFromVideo: async (_u: string, link: unknown) => link,
+  };
+});
+vi.mock('../quota-budget', async (importOriginal) => ({ ...(await importOriginal<typeof import('../quota-budget')>()), consumeQuota: async () => true }));
+
 const packager = { result: null as unknown, previous: undefined as unknown };
 vi.mock('./ai/packager', () => ({
   generatePackaging: async (_b: unknown, _s: unknown, o: { previous?: unknown }) => ((packager.previous = o.previous), packager.result),
@@ -77,6 +115,9 @@ import { emptyBrief } from './brief';
 import { emptyScript } from './script';
 import { blankThumbnail, emptyPackaging } from './packaging';
 import { POST as packageRoute, PUT as savePackaging } from '@/app/api/create/projects/[id]/packaging/route';
+import { DELETE as unlink, GET as readLink, POST as linkVideo } from '@/app/api/create/projects/[id]/publish/route';
+import { GET as candidatesRoute } from '@/app/api/create/projects/[id]/publish-candidates/route';
+import { GET as remindersRoute } from '@/app/api/create/publish-reminders/route';
 import { POST as writeScriptRoute, PUT as saveScript } from '@/app/api/create/projects/[id]/script/route';
 import { POST as draftBrief, PUT as saveBrief } from '@/app/api/create/projects/[id]/brief/route';
 import { GET as list, POST as create } from '@/app/api/create/projects/route';
@@ -330,5 +371,69 @@ describe('packaging API', () => {
     expect((await savePackaging(put(pack(true)), ctx(MY_PROJECT))).status).toBe(409);
     at('PUBLISHED');
     expect((await savePackaging(put(pack(true)), ctx(MY_PROJECT))).status).toBe(409);
+  });
+});
+
+describe('publish link API', () => {
+  const MINE = 'mineVideo01';
+  const THEIRS = 'otherVideo1';
+  const body = (video: string, method = 'suggested') => req({ video, method });
+
+  beforeEach(() => {
+    links.clear();
+    yt.connected = true;
+    yt.videos.clear();
+    yt.videos.set(MINE, { videoId: MINE, channelId: MY_CHANNEL, title: 'Why deep sea creatures glow', thumbnailUrl: null, publishedAt: '2026-10-22T00:00:00Z', privacy: 'private', scheduledFor: null });
+    yt.videos.set(THEIRS, { videoId: THEIRS, channelId: 'UC' + 'b'.repeat(22), title: 'Someone else', thumbnailUrl: null, publishedAt: '2026-10-22T00:00:00Z', privacy: 'public', scheduledFor: null });
+    seed(MY_PROJECT, 'user-a', 'IN_PRODUCTION');
+    rows.get(MY_PROJECT)!.title = 'Why deep sea creatures glow';
+  });
+
+  it('suggests the matching upload from the connected channel', async () => {
+    const res = await candidatesRoute(req(), ctx(MY_PROJECT));
+    const data = await res.json();
+    expect(data.suggestion).toBe(MINE);
+    expect(data.candidates.map((c: { videoId: string }) => c.videoId)).toEqual([MINE]);
+    expect((await candidatesRoute(req(), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
+    yt.connected = false;
+    expect((await (await candidatesRoute(req(), ctx(MY_PROJECT))).json()).code).toBe('not_connected');
+  });
+
+  it('links a confirmed video, from a pasted link too, and waits for a private one to go public', async () => {
+    const res = await linkVideo(body(`https://youtu.be/${MINE}`, 'pasted'), ctx(MY_PROJECT));
+    expect(res.status).toBe(200);
+    expect(rows.get(MY_PROJECT)?.status).toBe('PUBLISHED');
+    expect(links.get(MY_PROJECT)).toMatchObject({ youtubeVideoId: MINE, status: 'waiting_public' });
+    expect((await (await readLink(req(), ctx(MY_PROJECT))).json()).link.youtubeVideoId).toBe(MINE);
+  });
+
+  it('refuses videos from other channels, bad links, double links and unpackaged projects', async () => {
+    expect((await (await linkVideo(body(THEIRS), ctx(MY_PROJECT))).json()).code).toBe('not_owned');
+    expect((await (await linkVideo(body('https://evil.com/watch?v=mineVideo01'), ctx(MY_PROJECT))).json()).code).toBe('bad_link');
+    expect((await linkVideo(body(MINE), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
+
+    links.set('elsewhere', { userId: 'user-a', projectId: 'elsewhere', youtubeVideoId: MINE, status: 'tracking' });
+    expect((await (await linkVideo(body(MINE), ctx(MY_PROJECT))).json()).code).toBe('already_linked');
+    expect(rows.get(MY_PROJECT)?.status).toBe('IN_PRODUCTION');
+
+    links.clear();
+    seed(MY_PROJECT, 'user-a', 'SCRIPT_READY');
+    expect((await linkVideo(body(MINE), ctx(MY_PROJECT))).status).toBe(409);
+  });
+
+  it('undoes a link before measuring starts', async () => {
+    await linkVideo(body(MINE), ctx(MY_PROJECT));
+    const res = await unlink(req(), ctx(MY_PROJECT));
+    expect(res.status).toBe(200);
+    expect(rows.get(MY_PROJECT)?.status).toBe('PACKAGED');
+    expect(links.has(MY_PROJECT)).toBe(false);
+    expect((await unlink(req(), ctx(MY_PROJECT))).status).toBe(409);
+  });
+
+  it('reminds about a new upload that matches a project in production, quietly when disconnected', async () => {
+    const data = await (await remindersRoute()).json();
+    expect(data.reminders).toEqual([expect.objectContaining({ projectId: MY_PROJECT, video: expect.objectContaining({ videoId: MINE }) })]);
+    yt.connected = false;
+    expect((await (await remindersRoute()).json()).reminders).toEqual([]);
   });
 });

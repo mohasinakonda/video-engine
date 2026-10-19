@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, ClipboardCopy, Download, Loader2, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowRight, Check, ClipboardCopy, Download, Loader2, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
 import { MECHANISM_LABELS, titleMechanisms } from '@/lib/youtube/discover/formats';
 import {
   THUMBNAIL_FIELDS,
@@ -242,6 +243,12 @@ export function PackagingEditor({
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save packaging
           </button>
+          {done && !dirty && !stale && (
+            <Link href={`/create/${project.id}/publish`} className="btn-primary px-5">
+              Next: publish
+              <ArrowRight size={16} />
+            </Link>
+          )}
         </div>
       </div>
     </div>

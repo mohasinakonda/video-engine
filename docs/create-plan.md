@@ -575,3 +575,10 @@ Pages:
 - Titles drop hype, all-caps words and any number not in the brief. Counts ("5 ways") are allowed only if they match the brief or the number of key points. A title's mechanism is read from its wording, not taken from the model's claim.
 - Thumbnails are visual briefs only: no image generation and no Canva in this flow.
 - Hand-off: "Download package" (title, thumbnail brief, description, tags and the script) plus copy buttons.
+
+**Publish link (C5, 20 Oct 2026):**
+- Matching uses title word overlap only (chosen title first, then the other concepts and the project title), plus whether the video went out after the project started. No embeddings: word overlap already finds the video after small last-minute title edits (tested on two real channels), and it costs nothing.
+- Recent uploads are read from the uploads playlist (`UU…`, derived from the channel id) and `videos.list` with `status`: 2 quota units, no search, nothing stored. A video is suggested only at a score of 0.5 or more; otherwise the creator picks from the list or pastes a link.
+- The server re-checks every link: the video's channel must be the connected one, and the video must not be linked already. Private, unlisted and scheduled videos link as `waiting_public`; the status moves to `tracking` when YouTube reports the video public (checked whenever the link is shown).
+- Unlinking is allowed while the project is PUBLISHED (before measuring). It returns to PACKAGED.
+- Library reminder: for projects IN_PRODUCTION, the library checks recent uploads at most once an hour per browser, and at most 24 times a day per user on the server. Matches need a score of 0.6 or more. Each video and each project appears in at most one reminder, and "No" hides that pair.
