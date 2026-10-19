@@ -51,6 +51,7 @@ interface Weights {
   contentGap: number;
   competition: number;
   productionFit: number;
+  trackRecord: number;
   phase1: number;
 }
 
@@ -118,6 +119,7 @@ const WEIGHTS: { key: keyof Weights; label: string }[] = [
   { key: 'competition', label: 'Competition (lower is better)' },
   { key: 'productionFit', label: 'Production fit' },
   { key: 'phase1', label: 'Channel Doctor diagnosis' },
+  { key: 'trackRecord', label: 'Your track record (measured Create videos)' },
 ];
 
 export default function AdminChannelDoctorPage() {

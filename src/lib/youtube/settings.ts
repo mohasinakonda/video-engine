@@ -57,6 +57,8 @@ export interface OpportunityWeights {
   competition: number;
   productionFit: number;
   phase1: number;
+  /** How the creator's own measured videos in this format or topic did (Create). */
+  trackRecord: number;
 }
 
 /** Admin-controlled Discover (Phase 2) settings, stored on the same row. */
@@ -79,14 +81,29 @@ export interface DiscoverSettings {
 }
 
 export const DEFAULT_WEIGHTS: OpportunityWeights = {
-  channelFit: 25,
-  competitorPerformance: 20,
+  channelFit: 20,
+  competitorPerformance: 15,
   momentum: 15,
   contentGap: 15,
   competition: 10,
   productionFit: 10,
   phase1: 5,
+  trackRecord: 10,
 };
+
+/** The defaults before the track record existed. */
+const PREVIOUS_DEFAULT_WEIGHTS = { channelFit: 25, competitorPerformance: 20, momentum: 15, contentGap: 15, competition: 10, productionFit: 10, phase1: 5 };
+
+/**
+ * Weights saved before the track record existed: untouched defaults move to the new defaults;
+ * weights an admin tuned are kept as they are, with the track record at 0 until they set it.
+ */
+export function upgradeWeights(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || 'trackRecord' in raw) return raw;
+  const old = raw as Record<string, unknown>;
+  const untouched = Object.entries(PREVIOUS_DEFAULT_WEIGHTS).every(([k, v]) => old[k] === v);
+  return untouched ? DEFAULT_WEIGHTS : { ...old, trackRecord: 0 };
+}
 
 export const DEFAULT_DISCOVER_SETTINGS: DiscoverSettings = {
   enabled: false,
@@ -133,6 +150,7 @@ export const weightsSchema = z
     competition: weight,
     productionFit: weight,
     phase1: weight,
+    trackRecord: weight,
   })
   .refine((w) => Object.values(w).reduce((sum, v) => sum + v, 0) === 100, 'The weights must add up to 100');
 
@@ -229,7 +247,7 @@ function readCreate(data: Record<string, any>): CreateSettings {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readDiscover(data: Record<string, any>): DiscoverSettings {
   const d = DEFAULT_DISCOVER_SETTINGS;
-  const weights = weightsSchema.safeParse(data.opportunity_weights);
+  const weights = weightsSchema.safeParse(upgradeWeights(data.opportunity_weights));
   return {
     enabled: data.discover_enabled ?? d.enabled,
     allowedPlans: data.discover_allowed_plans ? toPlans(data.discover_allowed_plans) : d.allowedPlans,

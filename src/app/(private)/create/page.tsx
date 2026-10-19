@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, PenLine, Plus } from 'lucide-react';
+import { GraduationCap, Loader2, PenLine, Plus } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
 import { PublishReminders } from '@/components/create/publish-reminders';
 import { STATUS_LABELS, type VideoProject } from '@/components/create/types';
@@ -38,10 +38,16 @@ export default function CreateLibraryPage() {
             </h1>
             <p className="page-subtitle text-base">Plan a video from an idea, publish it, and see what it taught you.</p>
           </div>
-          <Link href="/create/new" className="btn-primary">
-            <Plus size={16} />
-            New video
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/learn" className="btn-secondary">
+              <GraduationCap size={16} />
+              What you’ve learned
+            </Link>
+            <Link href="/create/new" className="btn-primary">
+              <Plus size={16} />
+              New video
+            </Link>
+          </div>
         </header>
 
         <AccessGate config={config} error={error}>

@@ -29,6 +29,7 @@ export const opportunityInputSchema = z.object({
     competition: score,
     productionFit: score,
     phase1: score,
+    trackRecord: score.optional(),
   }),
   signalsUsed: z.number().int().min(0).max(10),
   window: z.enum(['30d', '90d']),

@@ -591,3 +591,11 @@ Pages:
 - No AI interpreter: the summary, next step and thesis text are written deterministically from the labels, so they make no new claims. The credit price (admin-set) covers the Analytics reads.
 - The thesis is judged only from day 7. It is "inconclusive" when packaging or retention held the video back, because then the topic wasn't really tested.
 - Learning records (labels only) are written for checkpoints from day 7. Status: PUBLISHED → ANALYZING on the first measurement, then LEARNED when every checkpoint is in or when the creator finishes after day 7. Today's result is kept in the tab's sessionStorage so reopening the page doesn't charge again.
+
+**Learn (C7, 20 Oct 2026):**
+- Each measured video counts once, at its latest compared checkpoint. Groups are by format, title mechanism and topic label. The effect is (above − below) / (n + 3), and a tendency is stated only from the admin's minimum number of videos with |effect| ≥ 0.15, always worded as "tends to".
+- Discover's new `trackRecord` dimension is 50 + 50 × effect, from the format group and the nearest topic group (topic labels embedded with the research's model, cosine ≥ 0.8), weighted by group size. With too few videos it's a missing signal and the weights renormalize.
+- Track record raises an idea's confidence one level only with 5 or more videos and an effect of 0.3 or more. A poor record is added as a reason without hiding the idea.
+- Weights: the new default gives the track record 10 (channel fit 25 → 20, competitor performance 20 → 15). Weights saved as the old untouched defaults move to the new defaults; weights an admin tuned are kept, with the track record at 0 until it is set in the admin panel.
+- Discover's research stays database-free (its privacy test enforces this): the research route reads the learning labels and passes them in.
+- No AI interpreter for /learn: tendencies are worded deterministically from the counts.
