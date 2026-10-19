@@ -20,6 +20,7 @@ import { SUB_STYLES_CATALOG } from '@/lib/style-taxonomy';
 import type { VoicePreset } from '@/lib/voice-catalog';
 import { VOICE_PRESETS } from '@/lib/voice-catalog';
 import { defaultQuarterlyPrice, getPlanPrice } from '@/lib/plan-pricing';
+import { clearAllReports } from '@/lib/channel-doctor-storage';
 
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -105,6 +106,8 @@ export async function signOutUser() {
   if (!isSupabaseConfigured()) return;
   cachedAdminUserId = null;
   cachedIsAdmin = null;
+  // Channel Doctor reports are kept per browser tab; don't leave them for the next user.
+  if (typeof window !== 'undefined') clearAllReports();
   const supabase = createClient();
   return supabase.auth.signOut();
 }

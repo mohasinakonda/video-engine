@@ -20,6 +20,7 @@ import {
   AudioLines,
   Flame,
   ChevronsUpDown,
+  Stethoscope,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
@@ -30,6 +31,7 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: Video },
   { href: '/voice-studio', label: 'Voice Studio', icon: AudioLines },
   { href: '/youtube-kit-studio', label: 'YouTube Kit Studio', icon: Flame },
+  { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
   // { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
 ];
@@ -259,6 +261,16 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
             >
               <Zap size={13} className="text-blue-400" />
               Models
+            </Link>
+            <Link
+              href="/admin/channel-doctor"
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/channel-doctor'
+                ? 'bg-zinc-850 text-white border border-zinc-800'
+                : 'text-zinc-400 hover:text-white'
+                }`}
+            >
+              <Stethoscope size={13} className="text-blue-400" />
+              Channel Doctor
             </Link>
           </div>
         )}
