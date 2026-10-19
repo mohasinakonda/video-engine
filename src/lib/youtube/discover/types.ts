@@ -273,6 +273,8 @@ export interface Opportunity {
   /** AI (D6); null until written. */
   recommendedAngle: string | null;
   angleSource: 'ai' | 'fallback' | null;
+  /** AI: why this angle suits the channel. */
+  angleRationale: string | null;
   whyNow: string | null;
   audience: string | null;
   problem: string | null;
@@ -290,6 +292,8 @@ export interface Opportunity {
   evidence: OpportunityEvidence[];
   competitorSignals: { videoId: string; channelId: string; title: string; ratio: number; views: number; baselineViews: number; sampleSize: number }[];
   yourVideoIds: string[];
+  /** Your videos on this topic, with Channel Doctor's verdict when known. */
+  yourVideos: { id: string; title: string; label: 'outperformer' | 'typical' | 'underperformer' | 'not_comparable' | null }[];
   window: ResearchWindow;
   generatedAt: string;
 }

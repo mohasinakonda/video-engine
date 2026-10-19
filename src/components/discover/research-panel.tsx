@@ -1,9 +1,10 @@
 'use client';
 
-import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { RefreshCw, Sparkles } from 'lucide-react';
 import { reportKey } from '@/lib/channel-doctor-storage';
 import { ProgressSteps, type ProgressStep } from '@/components/youtube-doctor/progress-steps';
 import { useAnalysisStream } from '@/components/youtube-doctor/use-diagnosis';
+import { StreamError } from './stream-error';
 import { CompareTable } from './compare-table';
 import { OutlierList } from './outlier-list';
 import { PatternTables } from './pattern-tables';
@@ -123,15 +124,7 @@ export function ResearchPanel({
           </>
         )}
 
-        {research.error && !research.running && (
-          <div className="flex gap-3 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30">
-            <AlertCircle size={18} className="text-rose-400 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-base text-rose-100">{research.error.message}</p>
-              {research.error.refunded && <p className="text-sm text-rose-200/80">Your credits were returned.</p>}
-            </div>
-          </div>
-        )}
+        {research.error && !research.running && <StreamError error={research.error} />}
       </section>
 
       {result && !research.running && (result.opportunities?.length ?? 0) > 0 && (
@@ -152,10 +145,18 @@ export function ResearchPanel({
   );
 }
 
+const STALE_MS = 24 * 60 * 60 * 1000;
+
 function ResearchResults({ result, analyzedAt }: { result: ResearchResult; analyzedAt: string }) {
   const unavailable = result.statuses.filter((s) => s.status === 'unavailable');
+  const stale = Date.now() - Date.parse(analyzedAt) > STALE_MS;
   return (
     <div className="space-y-8">
+      {stale && (
+        <p className="text-sm text-amber-200 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+          These results are from {new Date(analyzedAt).toLocaleDateString([], { dateStyle: 'medium' })}. Views change daily: research again for current numbers.
+        </p>
+      )}
       <p className="text-sm text-zinc-400">
         {result.competitors.length} competitors · {result.videosAnalyzed} videos read · last {result.window === '30d' ? '30' : '90'} days · checked at{' '}
         {new Date(analyzedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

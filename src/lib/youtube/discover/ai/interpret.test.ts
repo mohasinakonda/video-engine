@@ -21,7 +21,7 @@ function opportunity(over: Partial<Opportunity> = {}): Opportunity {
     scores: { total: 80, channelFit: 80, competitorPerformance: 80, momentum: 90, contentGap: 90, competition: 50, productionFit: 60, phase1: null },
     evidence: [{ id: 'ev_t1_1', statement: '4 competitor videos on this topic beat their channels’ usual views (median 3.2×).', source: 'calculated', period: 'Last 90 days' }],
     competitorSignals: [{ videoId: 'v1', channelId: 'C', title: 'Best Portable Carpet Cleaner 2026', ratio: 3.2, views: 1, baselineViews: 1, sampleSize: 12 }],
-    yourVideoIds: [], window: '90d', generatedAt: '2026-10-19T00:00:00Z', ...over,
+    angleRationale: null, yourVideoIds: [], yourVideos: [], window: '90d', generatedAt: '2026-10-19T00:00:00Z', ...over,
   };
 }
 

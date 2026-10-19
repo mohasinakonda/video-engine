@@ -130,7 +130,7 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
         send({
           type: 'error',
           error: userMessage(err),
-          code: err instanceof ChannelMismatchError ? 'reauth' : undefined,
+          code: err instanceof ChannelMismatchError || (err instanceof GoogleApiError && err.kind === 'auth') ? 'reauth' : undefined,
           refunded,
         });
       } finally {

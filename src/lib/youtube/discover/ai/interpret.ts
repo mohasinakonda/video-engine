@@ -167,6 +167,8 @@ export async function interpretOpportunities(input: InterpretInput): Promise<{ o
       ...o,
       recommendedAngle: angleOk ? item.recommendedAngle : fallbackAngle(o, input.language),
       angleSource: angleOk ? ('ai' as const) : ('fallback' as const),
+      angleRationale:
+        angleOk && item.angleRationale && !BANNED.test(item.angleRationale) && onlyKnownNumbers(item.angleRationale, allowed) ? item.angleRationale : null,
       whyNow: whyOk ? withConfidenceNote(item.whyNow, o.confidence, input.language) : null,
       audience: audienceOk ? (item.audience as string) : null,
     };

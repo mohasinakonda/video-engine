@@ -371,6 +371,7 @@ export function buildOpportunities(details: TopicDetail[], ctx: EngineContext): 
       topic: s.label,
       recommendedAngle: null,
       angleSource: null,
+      angleRationale: null,
       whyNow: null,
       audience: null,
       problem: s.audienceProblem,
@@ -395,6 +396,7 @@ export function buildOpportunities(details: TopicDetail[], ctx: EngineContext): 
         sampleSize: o.sampleSize,
       })),
       yourVideoIds: detail.yours.slice(0, 10).map((v) => v.id),
+      yourVideos: detail.yours.slice(0, 10).map((v) => ({ id: v.id, title: v.title, label: ctx.phase1?.videos.get(v.id)?.label ?? null })),
       window: ctx.window,
       generatedAt: ctx.now.toISOString(),
     });

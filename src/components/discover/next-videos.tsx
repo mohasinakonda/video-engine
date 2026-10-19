@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
-import { formatCompact } from '@/components/youtube-doctor/format';
-import { GAP_LABELS, LEVEL_TEXT, MOMENTUM_LABELS, SCORE_PARTS, SOURCE_LABELS } from './opportunity-labels';
+import { GAP_LABELS, LEVEL_TEXT, MOMENTUM_LABELS } from './opportunity-labels';
+import { ConfidenceReasons, EvidenceList } from './opportunity-sections';
 import type { useResearch } from './research-panel';
 import { FORMAT_LABELS, type DiscoverConfig, type Opportunity } from './types';
 
@@ -116,76 +117,26 @@ function OpportunityCard({ opportunity: o, rank }: { opportunity: Opportunity; r
 
       <button type="button" onClick={() => setOpen(!open)} className="text-sm font-medium text-zinc-300 hover:text-white inline-flex items-center gap-1">
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        {open ? 'Hide the evidence' : 'See the evidence'}
+        {open ? 'Hide the evidence' : 'Why this idea?'}
       </button>
 
       {open && (
         <div className="space-y-5 pt-3 border-t border-bg-border">
           <div className="space-y-2">
             <p className="text-sm font-semibold text-white">Why this opportunity</p>
-            <ul className="space-y-2">
-              {o.evidence.map((e) => (
-                <li key={e.id} className="text-base text-zinc-200">
-                  ✓ {e.statement}
-                  <span className="block text-xs text-zinc-500">
-                    {SOURCE_LABELS[e.source]} · {e.period}
-                    {e.calculation && ` · ${e.calculation}`}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <EvidenceList evidence={o.evidence} />
           </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-white">
-              Score breakdown <span className="font-normal text-zinc-500">({o.signalsUsed} of 7 signals available)</span>
-            </p>
-            <ul className="space-y-1.5">
-              {SCORE_PARTS.map(({ key, label }) => {
-                const value = o.scores[key];
-                return (
-                  <li key={key} className="grid grid-cols-[160px_1fr_40px] items-center gap-3 text-sm">
-                    <span className="text-zinc-400">{label}</span>
-                    <span className="h-2 rounded-full bg-bg-elevated overflow-hidden">
-                      {value !== null && <span className="block h-full bg-emerald-500/70" style={{ width: `${value}%` }} />}
-                    </span>
-                    <span className="text-right text-zinc-300 tabular-nums">{value ?? '—'}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
           <div className="space-y-1">
             <p className="text-sm font-semibold text-white">Confidence: {o.confidence}</p>
-            <ul className="text-sm text-zinc-400 space-y-0.5">
-              {o.confidenceReasons.map((r) => (
-                <li key={r}>· {r}</li>
-              ))}
-            </ul>
+            <ConfidenceReasons opportunity={o} />
           </div>
-
-          {o.competitorSignals.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-white">Competitor standouts behind it</p>
-              <ul className="space-y-1.5">
-                {o.competitorSignals.map((c) => (
-                  <li key={c.videoId} className="text-sm text-zinc-300">
-                    <a href={`https://www.youtube.com/watch?v=${c.videoId}`} target="_blank" rel="noopener noreferrer" className="hover:underline text-zinc-100">
-                      {c.title}
-                    </a>
-                    <span className="text-zinc-500">
-                      {' '}
-                      · {c.ratio}× ({formatCompact(c.views)} vs usual {formatCompact(c.baselineViews)}, {c.sampleSize} videos)
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-zinc-500">Use these as evidence of demand, not as titles to copy.</p>
-            </div>
-          )}
         </div>
       )}
+
+      <Link href={`/discover/opportunity/${o.id}`} className="btn-secondary w-fit">
+        Open full details
+        <ArrowRight size={15} />
+      </Link>
     </li>
   );
 }

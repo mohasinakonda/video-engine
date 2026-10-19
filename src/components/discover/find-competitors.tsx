@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AlertCircle, Check, ExternalLink, Loader2, RefreshCw, Search, Wand2 } from 'lucide-react';
+import { Check, ExternalLink, Loader2, RefreshCw, Search, Wand2 } from 'lucide-react';
 import { reportKey } from '@/lib/channel-doctor-storage';
 import { ProgressSteps, type ProgressStep } from '@/components/youtube-doctor/progress-steps';
 import { useAnalysisStream } from '@/components/youtube-doctor/use-diagnosis';
+import { StreamError } from './stream-error';
 import { formatCompact } from '@/components/youtube-doctor/format';
 import { CompetitorAvatar } from './competitor-avatar';
 import { GROUP_INFO, type CompetitorCandidate, type CompetitorGroup, type DiscoverConfig, type DiscoveryResult, type DiscoveryStage, type Relevance } from './types';
@@ -121,15 +122,7 @@ export function FindCompetitors({ userId, channelId, config, slotsLeft, onSaved 
         </p>
       )}
 
-      {discovery.error && (
-        <div className="flex gap-3 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30">
-          <AlertCircle size={18} className="text-rose-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="text-base text-rose-100">{discovery.error.message}</p>
-            {discovery.error.refunded && <p className="text-sm text-rose-200/80">Your credits were returned.</p>}
-          </div>
-        </div>
-      )}
+      {discovery.error && <StreamError error={discovery.error} />}
 
       {discovery.saved && <Results result={discovery.saved.result} slotsLeft={slotsLeft} onSaved={onSaved} />}
     </div>
