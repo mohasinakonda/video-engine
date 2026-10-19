@@ -38,7 +38,7 @@ vi.mock('./projects', async (importOriginal) => {
       rows.set(id, row);
       return row;
     },
-    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string; brief?: unknown; script?: unknown }) => {
+    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string; brief?: unknown; script?: unknown; packaging?: unknown }) => {
       if (changes.status && changes.status !== project.status && !canTransition(project.status, changes.status, project.archivedFrom)) throw new actual.TransitionError(project.status, changes.status);
       const row = rows.get(project.id)!;
       if (changes.status) {
@@ -48,6 +48,7 @@ vi.mock('./projects', async (importOriginal) => {
       if (changes.title) row.title = changes.title;
       if (changes.brief !== undefined) row.brief = changes.brief;
       if (changes.script !== undefined) row.script = changes.script;
+      if (changes.packaging !== undefined) row.packaging = changes.packaging;
       return row;
     },
     deleteProject: async (_u: string, id: string) => rows.delete(id),
@@ -57,6 +58,10 @@ vi.mock('./projects', async (importOriginal) => {
 const ai = { result: null as unknown };
 const credits = { charged: 0, refunded: 0 };
 vi.mock('./ai/brief-interpreter', () => ({ interpretBrief: async () => ai.result }));
+const packager = { result: null as unknown, previous: undefined as unknown };
+vi.mock('./ai/packager', () => ({
+  generatePackaging: async (_b: unknown, _s: unknown, o: { previous?: unknown }) => ((packager.previous = o.previous), packager.result),
+}));
 const writer = { script: null as unknown, calls: [] as string[] };
 vi.mock('./ai/script-writer', () => ({
   writeScript: async () => (writer.calls.push('full'), writer.script),
@@ -70,6 +75,8 @@ vi.mock('@/lib/supabase/server', () => ({ createClient: () => ({}) }));
 
 import { emptyBrief } from './brief';
 import { emptyScript } from './script';
+import { blankThumbnail, emptyPackaging } from './packaging';
+import { POST as packageRoute, PUT as savePackaging } from '@/app/api/create/projects/[id]/packaging/route';
 import { POST as writeScriptRoute, PUT as saveScript } from '@/app/api/create/projects/[id]/script/route';
 import { POST as draftBrief, PUT as saveBrief } from '@/app/api/create/projects/[id]/brief/route';
 import { GET as list, POST as create } from '@/app/api/create/projects/route';
@@ -254,5 +261,74 @@ describe('script API', () => {
     expect((await saveScript(put(old), ctx(MY_PROJECT))).status).toBe(409);
     withBrief('DRAFT', null);
     expect((await saveScript(put(old), ctx(MY_PROJECT))).status).toBe(409);
+  });
+});
+
+describe('packaging API', () => {
+  const ready = { ...emptyBrief('Deep sea', 'English'), corePromise: 'Meet the animals', audience: 'Curious adults', keyPoints: ['Pressure'] };
+  const script = { ...emptyScript(ready, 8), updatedAt: '2026-10-20T12:00:00.000Z' };
+  const put = (body: unknown) => new Request('http://localhost/api', { method: 'PUT', body: JSON.stringify(body) });
+  const pack = (chosen: boolean) => ({
+    ...emptyPackaging('English', '2026-01-01T00:00:00.000Z'),
+    titles: [{ title: 'Why do deep sea animals glow?', mechanism: 'why', audience: '', risk: 'low', rationale: '', source: 'ai' }],
+    thumbnails: [{ ...blankThumbnail(), mainSubject: 'An anglerfish' }],
+    selectedTitle: chosen ? 0 : null,
+    selectedThumbnail: chosen ? 0 : null,
+  });
+  const at = (status: VideoProject['status'], withScript = true, packaging: unknown = null) => {
+    seed(MY_PROJECT, 'user-a', status);
+    Object.assign(rows.get(MY_PROJECT)!, { brief: ready, script: withScript ? script : null, packaging });
+  };
+
+  beforeEach(() => {
+    credits.charged = 0;
+    credits.refunded = 0;
+  });
+
+  it('refuses before charging until the script is saved, and after publishing', async () => {
+    at('BRIEF_READY');
+    expect((await packageRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
+    at('SCRIPT_READY', false);
+    expect((await packageRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
+    at('PUBLISHED');
+    expect((await packageRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
+    expect((await packageRoute(req({}), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
+    expect(credits.charged).toBe(0);
+  });
+
+  it('generates ideas without finishing the step, passes the previous choice, and refunds on failure', async () => {
+    const previous = pack(true);
+    at('SCRIPT_READY', true, previous);
+    packager.result = pack(false);
+    const ok = await events(await packageRoute(req({}), ctx(MY_PROJECT)));
+    expect(ok.at(-1).type).toBe('result');
+    expect(rows.get(MY_PROJECT)?.status).toBe('SCRIPT_READY');
+    expect(packager.previous).toEqual(previous);
+    expect(credits.charged).toBe(5);
+
+    packager.result = null;
+    const failed = await events(await packageRoute(req({}), ctx(MY_PROJECT)));
+    expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
+    expect(credits.refunded).toBe(5);
+  });
+
+  it('marks PACKAGED when a title and thumbnail are chosen, and un-finishes when the choice is cleared', async () => {
+    at('SCRIPT_READY');
+    expect((await savePackaging(put(pack(false)), ctx(MY_PROJECT))).status).toBe(200);
+    expect(rows.get(MY_PROJECT)?.status).toBe('SCRIPT_READY');
+    expect((await savePackaging(put(pack(true)), ctx(MY_PROJECT))).status).toBe(200);
+    expect(rows.get(MY_PROJECT)).toMatchObject({ status: 'PACKAGED', packaging: { scriptUpdatedAt: script.updatedAt } });
+    expect((await savePackaging(put(pack(false)), ctx(MY_PROJECT))).status).toBe(200);
+    expect(rows.get(MY_PROJECT)?.status).toBe('SCRIPT_READY');
+    expect(credits.charged).toBe(0);
+  });
+
+  it('rejects invalid packaging and locked projects', async () => {
+    at('SCRIPT_READY');
+    expect((await savePackaging(put({ ...pack(true), selectedTitle: 4 }), ctx(MY_PROJECT))).status).toBe(400);
+    at('BRIEF_READY');
+    expect((await savePackaging(put(pack(true)), ctx(MY_PROJECT))).status).toBe(409);
+    at('PUBLISHED');
+    expect((await savePackaging(put(pack(true)), ctx(MY_PROJECT))).status).toBe(409);
   });
 });

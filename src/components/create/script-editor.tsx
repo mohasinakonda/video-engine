@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Check, ClipboardCopy, Download, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowRight, Check, ClipboardCopy, Download, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
 import {
   AI_MAX_MINUTES,
   AI_MIN_MINUTES,
@@ -187,7 +188,10 @@ export function ScriptEditor({
             Save script
           </button>
           {!dirty && !stale && project.status !== 'BRIEF_READY' && (
-            <span className="text-sm text-zinc-500">Packaging is next (coming soon).</span>
+            <Link href={`/create/${project.id}/package`} className="btn-primary px-5">
+              {project.packaging ? 'Go to packaging' : 'Next: title & thumbnail'}
+              <ArrowRight size={16} />
+            </Link>
           )}
         </div>
       </div>

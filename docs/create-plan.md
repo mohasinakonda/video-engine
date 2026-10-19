@@ -567,3 +567,11 @@ Pages:
 - "Evidence" means the brief says it: the claim must share most of its meaningful words with the brief's key points, promise, questions or evidence. Any other factual claim becomes "Check this" automatically, as does any sentence with a number the brief doesn't contain (small counts like "3 reasons" excepted).
 - Rewriting one part costs half the admin-set script price, rounded up.
 - Generating a script sets SCRIPT_READY. Saving after a brief change marks the script as reviewed against the new brief.
+
+**Packaging (C4, 20 Oct 2026):**
+- The packager gets no competitor titles or Phase 1 title stats for now. Competitor titles aren't stored (30-day rule), and Phase 1 needs a full Analytics fetch. It works from the brief (including its title and thumbnail directions) and the script.
+- Generating ideas never finishes the step. PACKAGED is set when the user saves with one title and one thumbnail chosen; clearing the choice returns to SCRIPT_READY. Saving while IN_PRODUCTION keeps that status.
+- "New ideas" replaces only the concepts the user hasn't chosen. The AI fills an empty description and tags and never overwrites them.
+- Titles drop hype, all-caps words and any number not in the brief. Counts ("5 ways") are allowed only if they match the brief or the number of key points. A title's mechanism is read from its wording, not taken from the model's claim.
+- Thumbnails are visual briefs only: no image generation and no Canva in this flow.
+- Hand-off: "Download package" (title, thumbnail brief, description, tags and the script) plus copy buttons.
