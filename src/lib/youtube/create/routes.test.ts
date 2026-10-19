@@ -64,7 +64,7 @@ const yt = {
   connected: true,
   videos: new Map<string, { videoId: string; channelId: string; title: string; thumbnailUrl: null; publishedAt: string; privacy: 'public' | 'private'; scheduledFor: null }>(),
 };
-const links = new Map<string, { userId: string; projectId: string; youtubeVideoId: string; status: string }>();
+const links = new Map<string, { id?: string; userId: string; projectId: string; youtubeVideoId: string; status: string; publishedAt?: string }>();
 vi.mock('../connection-service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../connection-service')>();
   return {
@@ -86,15 +86,23 @@ vi.mock('./published-videos', async (importOriginal) => {
     getLink: async (userId: string, projectId: string) => links.get(projectId)?.userId === userId ? links.get(projectId) : null,
     createLink: async (userId: string, input: { projectId: string; video: { videoId: string; privacy: 'public' | 'private' } }) => {
       if (links.has(input.projectId)) throw new actual.AlreadyLinkedError();
-      const link = { userId, projectId: input.projectId, youtubeVideoId: input.video.videoId, status: linkStatusFor(input.video) };
+      const link = { id: `link-${input.projectId}`, userId, projectId: input.projectId, youtubeVideoId: input.video.videoId, status: linkStatusFor(input.video), publishedAt: '2026-10-01T00:00:00Z' };
       links.set(input.projectId, link);
       return link;
     },
     deleteLink: async (_u: string, projectId: string) => void links.delete(projectId),
-    updateLinkFromVideo: async (_u: string, link: unknown) => link,
+    updateLinkFromVideo: async (_u: string, link: { status: string }, video: { privacy: string }) => ({ ...link, status: link.status === 'unavailable' ? link.status : linkStatusFor(video as never) }),
   };
 });
 vi.mock('../quota-budget', async (importOriginal) => ({ ...(await importOriginal<typeof import('../quota-budget')>()), consumeQuota: async () => true }));
+
+// The hourly cap is per process; this file makes many runs for one user.
+vi.mock('../run-guard', () => ({ acquireRun: () => ({ ok: true, release: () => undefined }) }));
+
+const measured = { result: null as unknown };
+const learned: { days: number }[] = [];
+vi.mock('./measure', async (importOriginal) => ({ ...(await importOriginal<typeof import('./measure')>()), measureVideo: async () => measured.result }));
+vi.mock('./learning', () => ({ saveLearningRecord: async (_u: string, _l: string, _p: unknown, o: { days: number }) => void learned.push(o) }));
 
 const packager = { result: null as unknown, previous: undefined as unknown };
 vi.mock('./ai/packager', () => ({
@@ -118,6 +126,7 @@ import { POST as packageRoute, PUT as savePackaging } from '@/app/api/create/pro
 import { DELETE as unlink, GET as readLink, POST as linkVideo } from '@/app/api/create/projects/[id]/publish/route';
 import { GET as candidatesRoute } from '@/app/api/create/projects/[id]/publish-candidates/route';
 import { GET as remindersRoute } from '@/app/api/create/publish-reminders/route';
+import { POST as measureRoute } from '@/app/api/create/projects/[id]/performance/route';
 import { POST as writeScriptRoute, PUT as saveScript } from '@/app/api/create/projects/[id]/script/route';
 import { POST as draftBrief, PUT as saveBrief } from '@/app/api/create/projects/[id]/brief/route';
 import { GET as list, POST as create } from '@/app/api/create/projects/route';
@@ -435,5 +444,71 @@ describe('publish link API', () => {
     expect(data.reminders).toEqual([expect.objectContaining({ projectId: MY_PROJECT, video: expect.objectContaining({ videoId: MINE }) })]);
     yt.connected = false;
     expect((await (await remindersRoute()).json()).reminders).toEqual([]);
+  });
+});
+
+describe('performance API', () => {
+  const VID = 'mineVideo01';
+  const m = (days: number) => ({ days, views: 2000, baselineViews: 1000, baselineSample: 10, avgViewPct: 40, baselineAvgViewPct: 40, ctr: null, impressions: null, baselineCtr: null, discoveryShare: null, channelDiscoveryShare: null });
+  const linkAt = (publishedAt: string, status = 'tracking', projectStatus: VideoProject['status'] = 'PUBLISHED') => {
+    seed(MY_PROJECT, 'user-a', projectStatus);
+    links.clear();
+    links.set(MY_PROJECT, { id: 'link-1', userId: 'user-a', projectId: MY_PROJECT, youtubeVideoId: VID, status, publishedAt });
+  };
+
+  beforeEach(() => {
+    credits.charged = 0;
+    credits.refunded = 0;
+    learned.length = 0;
+    yt.connected = true;
+    yt.videos.clear();
+    yt.videos.set(VID, { videoId: VID, channelId: MY_CHANNEL, title: 't', thumbnailUrl: null, publishedAt: '2026-09-01T00:00:00Z', privacy: 'public', scheduledFor: null });
+  });
+
+  it('says when the first numbers arrive, without charging', async () => {
+    linkAt(new Date().toISOString());
+    const res = await measureRoute(req({}), ctx(MY_PROJECT));
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('too_early');
+    expect(credits.charged).toBe(0);
+  });
+
+  it('refuses unlinked and foreign projects', async () => {
+    seed(MY_PROJECT, 'user-a', 'PACKAGED');
+    expect((await measureRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
+    expect((await measureRoute(req({}), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
+  });
+
+  it('refunds while the video is still private', async () => {
+    linkAt('2026-09-01T00:00:00Z', 'waiting_public');
+    yt.videos.get(VID)!.privacy = 'private' as 'public';
+    const out = await events(await measureRoute(req({}), ctx(MY_PROJECT)));
+    expect(out.at(-1)).toMatchObject({ type: 'error', refunded: true });
+  });
+
+  it('measures, saves labels only from day 7, and moves to measuring', async () => {
+    linkAt('2026-09-01T00:00:00Z');
+    measured.result = { format: 'video', checkpoints: [{ days: 2, ready: true }, { days: 7, ready: true }, { days: 28, ready: false }], measurements: [m(2), m(7)], limitations: [] };
+    const out = await events(await measureRoute(req({}), ctx(MY_PROJECT)));
+    const result = out.at(-1);
+    expect(result.type).toBe('result');
+    expect(result.data.outcomes.map((o: { views: string }) => o.views)).toEqual(['well_above', 'well_above']);
+    expect(learned.map((o) => o.days)).toEqual([7]);
+    expect(rows.get(MY_PROJECT)?.status).toBe('ANALYZING');
+    expect(credits.charged).toBe(2);
+  });
+
+  it('finishes when every checkpoint is in, or when the creator closes it after day 7', async () => {
+    linkAt('2026-09-01T00:00:00Z', 'tracking', 'ANALYZING');
+    measured.result = { format: 'video', checkpoints: [{ days: 7, ready: true }, { days: 28, ready: false }], measurements: [m(7)], limitations: [] };
+    await events(await measureRoute(req({}), ctx(MY_PROJECT)));
+    expect(rows.get(MY_PROJECT)?.status).toBe('ANALYZING');
+    await events(await measureRoute(req({ finish: true }), ctx(MY_PROJECT)));
+    expect(rows.get(MY_PROJECT)?.status).toBe('LEARNED');
+
+    linkAt('2026-09-01T00:00:00Z');
+    measured.result = { format: 'video', checkpoints: [{ days: 7, ready: true }, { days: 28, ready: true }], measurements: [m(7), m(28)], limitations: [] };
+    await events(await measureRoute(req({}), ctx(MY_PROJECT)));
+    expect(rows.get(MY_PROJECT)?.status).toBe('LEARNED');
   });
 });

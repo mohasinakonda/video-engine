@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Check, ClipboardCopy, ExternalLink, Hammer, Link2, Loader2, Search, Unlink } from 'lucide-react';
+import { BarChart3, Check, ClipboardCopy, ExternalLink, Hammer, Link2, Loader2, Search, Unlink } from 'lucide-react';
 import { THUMBNAIL_FIELDS, packagingSchema, packagingToText } from '@/lib/youtube/create/packaging';
 import type { Candidate, Upload } from '@/lib/youtube/create/publish';
 import type { PublishedLink } from '@/lib/youtube/create/published-videos';
@@ -282,9 +282,15 @@ export function LinkedVideo({ project, onUnlinked }: { project: VideoProject; on
       <p className="text-base text-zinc-300">
         {waiting
           ? 'Tracking starts when it goes public.'
-          : 'Performance checks come next: we’ll compare it with your usual videos after the first days.'}
+          : 'Its performance can be compared with your usual videos from a few days after publishing.'}
       </p>
       <div className="flex flex-wrap gap-2">
+        {!waiting && (
+          <Link href={`/create/${project.id}/measure`} className="btn-primary btn-sm">
+            <BarChart3 size={14} />
+            Check performance
+          </Link>
+        )}
         <a href={`https://www.youtube.com/watch?v=${data.link.youtubeVideoId}`} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
           <ExternalLink size={14} />
           Open on YouTube

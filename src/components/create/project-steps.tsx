@@ -9,8 +9,7 @@ const STEPS: { id: string; label: string; path: string | null; doneAt: ProjectSt
   { id: 'script', label: 'Script', path: '/script', doneAt: AFTER_BRIEF.slice(1) },
   { id: 'package', label: 'Packaging', path: '/package', doneAt: AFTER_BRIEF.slice(2) },
   { id: 'publish', label: 'Publish', path: '/publish', doneAt: AFTER_BRIEF.slice(4) },
-  // The measure page arrives with C6.
-  { id: 'measure', label: 'Measure', path: null, doneAt: ['LEARNED'] },
+  { id: 'measure', label: 'Measure', path: '/measure', doneAt: ['LEARNED'] },
 ];
 
 /** Where the project is in the loop. Only real statuses mark a step done; a step opens once the one before it is done. */

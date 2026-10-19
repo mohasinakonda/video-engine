@@ -582,3 +582,12 @@ Pages:
 - The server re-checks every link: the video's channel must be the connected one, and the video must not be linked already. Private, unlisted and scheduled videos link as `waiting_public`; the status moves to `tracking` when YouTube reports the video public (checked whenever the link is shown).
 - Unlinking is allowed while the project is PUBLISHED (before measuring). It returns to PACKAGED.
 - Library reminder: for projects IN_PRODUCTION, the library checks recent uploads at most once an hour per browser, and at most 24 times a day per user on the server. Matches need a score of 0.6 or more. Each video and each project appears in at most one reminder, and "No" hides that pair.
+
+**Measure (C6, 20 Oct 2026):**
+- Checkpoints count the publish day as day 1, and a checkpoint is ready once YouTube Analytics' roughly 3-day delay has passed. "Check performance" before the first checkpoint is refused without charging and says the date.
+- Baseline: up to 20 of the channel's own videos of the same format (Shorts or long-form, from `creatorContentType`) published in the year before this one, each read for its own first N days. Views are compared only when at least 5 videos are available and their median is at least 20 views.
+- Click rate comes from the reach report for the latest checkpoint only (its files are downloaded per day). It is compared with the channel's other videos over the same days, and needs 300 impressions or more. It is skipped for Shorts, where the feed plays videos without a thumbnail click.
+- The discovery bottleneck uses the share of views from browse, suggested and the Shorts feed, compared with the channel's 90-day share, instead of age-matched impressions. Those would need a year of reach files.
+- No AI interpreter: the summary, next step and thesis text are written deterministically from the labels, so they make no new claims. The credit price (admin-set) covers the Analytics reads.
+- The thesis is judged only from day 7. It is "inconclusive" when packaging or retention held the video back, because then the topic wasn't really tested.
+- Learning records (labels only) are written for checkpoints from day 7. Status: PUBLISHED → ANALYZING on the first measurement, then LEARNED when every checkpoint is in or when the creator finishes after day 7. Today's result is kept in the tab's sessionStorage so reopening the page doesn't charge again.
