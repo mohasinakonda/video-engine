@@ -306,8 +306,10 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
       .slice(0, 6)
       .join(' ');
 
-    const envYoutubeKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY || youtubeApiKey;
-    const competitorVideos = await searchYouTubeMarket(cleanSearchQuery, envYoutubeKey);
+    const { videos: competitorVideos } = await searchYouTubeMarket(cleanSearchQuery, {
+      apiKey: typeof youtubeApiKey === 'string' ? youtubeApiKey : null,
+      userId: authenticatedUserId,
+    });
 
     // Assemble final verified AI result
     const packagingData: YouTubePackagingData = {

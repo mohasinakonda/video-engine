@@ -70,10 +70,10 @@ export default function PrivacyPage() {
           <section id="youtube-data" className="space-y-3">
             <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
               <Youtube size={18} className="text-[#E05A30]" />
-              4. YouTube Data (Channel Doctor)
+              4. YouTube Data (Channel Doctor and Discover)
             </h2>
             <p>
-              Channel Doctor uses YouTube API Services. If you choose to connect your YouTube channel, you authorize read-only access
+              Channel Doctor and Discover use YouTube API Services. If you choose to connect your YouTube channel, you authorize read-only access
               with two Google permissions: <code>youtube.readonly</code> (your channel and video details) and{' '}
               <code>yt-analytics.readonly</code> (your channel&apos;s YouTube Analytics and reach reports, including impressions and
               click-through rate). We cannot upload, edit or delete anything on your channel.
@@ -82,7 +82,8 @@ export default function PrivacyPage() {
               <li>
                 <strong>What we store:</strong> your channel ID, name and profile image, the permissions you granted, and your Google
                 access and refresh tokens, encrypted at rest. We also keep the ID of a YouTube reporting job that prepares your
-                impressions data.
+                impressions data. For Discover, we store the channel IDs of the competitors you choose to follow, with your optional
+                label and group, until you remove them or disconnect.
               </li>
               <li>
                 <strong>What we do not store:</strong> your analytics, video statistics, retention curves, thumbnails and the reports we
@@ -90,11 +91,18 @@ export default function PrivacyPage() {
                 (session storage) until you close it, sign out or disconnect.
               </li>
               <li>
-                <strong>AI processing:</strong> to write a report, we send video titles, thumbnail images and summary metrics (not your
-                tokens or raw API data) to our AI provider, DeepInfra, for processing.
+                <strong>Other channels&apos; public data (Discover):</strong> to research your market, we read public information about
+                the channels you follow or that YouTube search returns (names, video titles, view counts, durations, thumbnails). Competitor
+                channels never sign in to our app. This data is processed in memory for each research run and is not saved on our servers;
+                results stay in your browser tab. Scores, ratios and relevance labels shown in Discover are calculated by us and are not
+                YouTube metrics.
               </li>
               <li>
-                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis. We do not sell it, use it for
+                <strong>AI processing:</strong> to write a report or research ideas, we send video titles, thumbnail images and summary
+                metrics (not your tokens or raw API data) to our AI provider, DeepInfra, for processing.
+              </li>
+              <li>
+                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis and market research. We do not sell it, use it for
                 advertising, or share it with anyone except as described here. Our use of information received from Google APIs adheres
                 to the{' '}
                 <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
@@ -104,7 +112,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Disconnect and deletion:</strong> disconnecting in Channel Doctor stops the reporting job, asks Google to revoke our
-                access and deletes the stored connection and tokens. Deleting your account deletes it too. You can also revoke access at
+                access and deletes the stored connection, tokens and your followed competitors. Deleting your account deletes them too. You can also revoke access at
                 any time at{' '}
                 <a href="https://myaccount.google.com/permissions" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
                   myaccount.google.com/permissions

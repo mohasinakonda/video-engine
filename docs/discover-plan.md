@@ -6,6 +6,27 @@ Feature name: **Discover**, route `/discover`, with a new sidebar item under Cha
 
 The question Phase 2 answers: *"Given what works on my channel and what is happening in my market, what should my next video be?"*
 
+## Status (19 Oct 2026)
+
+Milestones D1–D8 are implemented on `feature/discover`. Typecheck, 132 tests and the production build pass. Real-channel runs were checked for discovery, research, topics, opportunities and AI angles in English and Bangla.
+
+**Changes from this plan made during implementation:**
+- The title-match threshold is 0.57 and the topic clustering threshold is 0.5 (bge-m3), both calibrated on real channels.
+- Channel and series suffixes are stripped from titles before topic matching.
+- A "Compilation" format was added.
+- Live streams and premieres are excluded from research.
+- Competitor reasons in discovery are deterministic: no model call is needed.
+- Low-confidence advice always starts with "Early signal" (enforced in code).
+- YouTube Kit Studio now uses the official API (the user's own key, or their connected channel within the shared search budget). The HTML scraper is gone.
+- Admins can use Discover while it is switched off for users.
+
+**Before public launch:**
+1. Submit the YouTube API audit / quota-extension form, with the "Analytics & Reporting" use case for derived metrics.
+2. Switch Discover on in Admin → Channel Doctor once approved.
+3. Walk through Discover in the browser on desktop and mobile.
+4. Set the Vercel env vars (as for Channel Doctor). Confirm that `maxDuration` 300 is allowed on the hosting plan.
+5. Optional: add a beta-tester list in admin, so that chosen accounts can use Discover before launch.
+
 ---
 
 ## 0. Two findings that shape the whole plan
