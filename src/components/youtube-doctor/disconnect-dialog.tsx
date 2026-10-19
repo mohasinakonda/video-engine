@@ -69,7 +69,7 @@ export function DisconnectDialog({ channelTitle, onClose, onConfirm }: Disconnec
             <ul className="text-base text-zinc-300 space-y-2 list-disc pl-5">
               <li>We remove our access to your channel at Google.</li>
               <li>We stop the daily report YouTube was preparing for us.</li>
-              <li>We delete the saved connection and the reports in this tab.</li>
+              <li>We delete the saved connection, your saved competitors and the reports in this tab.</li>
             </ul>
             <p className="text-sm text-zinc-400">You can connect again any time.</p>
             {error && <p className="text-sm text-rose-400">{error}</p>}

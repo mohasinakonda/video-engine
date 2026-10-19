@@ -94,6 +94,8 @@ export interface SearchOptions {
   maxResults?: number;
   /** Admin's daily cap on search.list calls for the whole app. */
   dailyLimit: number;
+  /** The caller already reserved this call from the budget (a run reserves all its calls up front). */
+  prepaid?: boolean;
 }
 
 export interface SearchHit {
@@ -106,7 +108,7 @@ export interface SearchHit {
  * throws QuotaBudgetError when it's used up, so the shared 100/day bucket is never overrun.
  */
 export async function searchVideos(accessToken: string, options: SearchOptions): Promise<SearchHit[]> {
-  if (!(await consumeQuota(SEARCH_BUCKET, 1, options.dailyLimit))) {
+  if (!options.prepaid && !(await consumeQuota(SEARCH_BUCKET, 1, options.dailyLimit))) {
     throw new QuotaBudgetError('global', 'Today’s YouTube search limit for our app is used up.');
   }
   const params = new URLSearchParams({

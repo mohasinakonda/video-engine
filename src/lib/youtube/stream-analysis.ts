@@ -4,6 +4,7 @@ import { deductCreditsRemote, grantCreditsRemote } from '@/lib/supabase-service'
 import { NotConnectedError, ReauthRequiredError, getValidAccessToken } from './connection-service';
 import { ChannelMismatchError } from './fetcher';
 import { GoogleApiError } from './google-fetch';
+import { UserFacingError } from './errors';
 import { QuotaBudgetError } from './quota-budget';
 import { acquireRun } from './run-guard';
 import { getChannelDoctorSettings, getUserAccess, type ChannelDoctorSettings } from './settings';
@@ -50,15 +51,20 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
   run,
 }: StreamOptions<S>): Promise<Response> {
   const settings = await getChannelDoctorSettings();
-  const enabled = feature === 'discover' ? settings.discover.enabled : settings.enabled;
-  if (!enabled) {
-    const name = feature === 'discover' ? 'Discover' : 'Channel Doctor';
-    return NextResponse.json({ error: `${name} is temporarily unavailable.` }, { status: 503 });
-  }
   const access = await getUserAccess(userId, settings);
-  if (!(feature === 'discover' ? access.hasDiscoverAccess : access.hasAccess)) {
-    const what = feature === 'discover' ? 'Discover' : 'Channel analysis';
-    return NextResponse.json({ error: `${what} is not included in your current plan.`, code: 'plan' }, { status: 403 });
+  if (feature === 'discover') {
+    if (!access.hasDiscoverAccess) {
+      return settings.discover.enabled
+        ? NextResponse.json({ error: 'Discover is not included in your current plan.', code: 'plan' }, { status: 403 })
+        : NextResponse.json({ error: 'Discover is not available yet.' }, { status: 503 });
+    }
+  } else {
+    if (!settings.enabled) {
+      return NextResponse.json({ error: 'Channel Doctor is temporarily unavailable.' }, { status: 503 });
+    }
+    if (!access.hasAccess) {
+      return NextResponse.json({ error: 'Channel analysis is not included in your current plan.', code: 'plan' }, { status: 403 });
+    }
   }
 
   let token: Token;
@@ -142,9 +148,6 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
     },
   });
 }
-
-/** An error whose message is written for the user and safe to show as-is. */
-export class UserFacingError extends Error {}
 
 function userMessage(err: unknown): string {
   if (err instanceof ChannelMismatchError || err instanceof VideoNotOwnedError || err instanceof UserFacingError) return err.message;

@@ -224,7 +224,7 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
 export async function getUserAccess(userId: string, settings: ChannelDoctorSettings) {
   const { data } = await getServiceClient()
     .from('profiles')
-    .select('tier, subscription_expires_at')
+    .select('tier, subscription_expires_at, role')
     .eq('id', userId)
     .maybeSingle();
   const tier = profileEffectiveTier(
@@ -235,10 +235,13 @@ export async function getUserAccess(userId: string, settings: ChannelDoctorSetti
         }
       : null
   );
+  // Admins can use Discover while it is switched off for users (testing before launch).
+  const isAdmin = data?.role === 'admin';
   return {
     tier,
+    isAdmin,
     hasAccess: settings.enabled && settings.allowedPlans.includes(tier),
-    hasDiscoverAccess: settings.discover.enabled && settings.discover.allowedPlans.includes(tier),
+    hasDiscoverAccess: isAdmin || (settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
   };
 }
 

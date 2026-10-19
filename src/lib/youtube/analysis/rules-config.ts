@@ -83,3 +83,37 @@ export const TRAFFIC_LABELS: Record<string, string> = {
   LIVE_REDIRECT: 'Live redirects',
   PRODUCT_PAGE: 'Product pages',
 };
+
+/** Thresholds for Discover (docs/discover-plan.md). Tuned on real channels; every user-facing claim states its numbers. */
+export const DISCOVER_RULES = {
+  /**
+   * Cosine at or above which two titles count as the same topic, per embedding model.
+   * bge-m3, measured 19 Oct 2026 against a wildlife channel: unrelated channels (cooking,
+   * MrBeast, Kurzgesagt) score 0.38–0.50, a related one (BBC Earth) 0.53–0.63.
+   */
+  titleMatch: { 'BAAI/bge-m3': 0.57, default: 0.6 } as Record<string, number>,
+  /** Models that pair English and Bangla titles well; others cap confidence at medium. */
+  strongEmbeddingModels: ['BAAI/bge-m3'],
+  discovery: {
+    /** Search looks back this far, so found channels are active now. */
+    searchWindowDays: 90,
+    /** Channels kept from search results before fetching their uploads. */
+    maxCandidates: 30,
+    /** Suggestions shown to the user. */
+    maxSuggestions: 20,
+    /** Recent uploads read per candidate. */
+    titlesPerCandidate: 15,
+    /** Your uploads used to describe your topics. */
+    yourTitles: 50,
+    minYourTitles: 3,
+    /** Videos up to this long count as likely Shorts (the public API has no Shorts flag). */
+    shortsMaxSec: 180,
+    /** Share of a candidate's titles matching yours. */
+    directOverlap: 0.4,
+    adjacentOverlap: 0.15,
+    /** Shorts shares closer than this count as a similar format mix. */
+    formatMixTolerance: 0.3,
+    relevanceHigh: 0.6,
+    relevanceMedium: 0.3,
+  },
+} as const;

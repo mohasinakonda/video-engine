@@ -15,7 +15,7 @@ export async function GET() {
 
   const settings = await getChannelDoctorSettings();
   const { discover } = settings;
-  const [{ tier, hasDiscoverAccess }, searchUsed, userRuns] = await Promise.all([
+  const [{ tier, hasDiscoverAccess, isAdmin }, searchUsed, userRuns] = await Promise.all([
     getUserAccess(auth.user.id, settings),
     quotaUsed(SEARCH_BUCKET),
     quotaUsed(userDiscoveryBucket(auth.user.id)),
@@ -28,6 +28,8 @@ export async function GET() {
   return NextResponse.json({
     enabled: discover.enabled,
     hasAccess: hasDiscoverAccess,
+    /** True when only the admin bypass gives access (Discover is off for users). */
+    adminPreview: isAdmin && !discover.enabled,
     tier,
     allowedPlans: discover.allowedPlans,
     costs: {
@@ -38,6 +40,7 @@ export async function GET() {
     maxCompetitors: discover.maxCompetitors,
     search: {
       available: searchCallsLeft >= discover.searchCallsPerDiscovery && userRunsLeft > 0,
+      phrasesPerRun: discover.searchCallsPerDiscovery,
       userRunsLeft,
       resetsAt: nextQuotaReset(),
     },
