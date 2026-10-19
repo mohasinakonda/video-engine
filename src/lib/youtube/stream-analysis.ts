@@ -4,6 +4,7 @@ import { deductCreditsRemote, grantCreditsRemote } from '@/lib/supabase-service'
 import { NotConnectedError, ReauthRequiredError, getValidAccessToken } from './connection-service';
 import { ChannelMismatchError } from './fetcher';
 import { GoogleApiError } from './google-fetch';
+import { QuotaBudgetError } from './quota-budget';
 import { acquireRun } from './run-guard';
 import { getChannelDoctorSettings, getUserAccess, type ChannelDoctorSettings } from './settings';
 import type { DiagnosisStage } from './types';
@@ -11,12 +12,28 @@ import { VideoNotOwnedError } from './video-analysis';
 
 type Token = Awaited<ReturnType<typeof getValidAccessToken>>;
 
-interface StreamOptions {
+/** Extra detail sent with a stage, e.g. how many channels or videos it is working on. */
+export interface StageDetail {
+  count?: number;
+}
+
+interface StreamOptions<S extends string> {
   userId: string;
+  /** Which admin switch and plan list gate this route. Default: Channel Doctor. */
+  feature?: 'doctor' | 'discover';
   /** Credits for this kind of analysis, read from the admin settings. */
   cost: (settings: ChannelDoctorSettings) => number;
   label: string;
-  run: (ctx: { token: Token; settings: ChannelDoctorSettings; onStage: (stage: DiagnosisStage) => void }) => Promise<unknown>;
+  /**
+   * Optional last check before credits are charged (e.g. a daily limit).
+   * Returns an error message to stop the run, or null to continue.
+   */
+  reserve?: (settings: ChannelDoctorSettings) => Promise<string | null>;
+  run: (ctx: {
+    token: Token;
+    settings: ChannelDoctorSettings;
+    onStage: (stage: S, detail?: StageDetail) => void;
+  }) => Promise<unknown>;
 }
 
 /**
@@ -24,14 +41,24 @@ interface StreamOptions {
  * credits charged up front, NDJSON progress stream, and a refund if no result is produced.
  * Nothing produced here is stored.
  */
-export async function streamAnalysis({ userId, cost: costFor, label, run }: StreamOptions): Promise<Response> {
+export async function streamAnalysis<S extends string = DiagnosisStage>({
+  userId,
+  feature = 'doctor',
+  cost: costFor,
+  label,
+  reserve,
+  run,
+}: StreamOptions<S>): Promise<Response> {
   const settings = await getChannelDoctorSettings();
-  if (!settings.enabled) {
-    return NextResponse.json({ error: 'Channel Doctor is temporarily unavailable.' }, { status: 503 });
+  const enabled = feature === 'discover' ? settings.discover.enabled : settings.enabled;
+  if (!enabled) {
+    const name = feature === 'discover' ? 'Discover' : 'Channel Doctor';
+    return NextResponse.json({ error: `${name} is temporarily unavailable.` }, { status: 503 });
   }
   const access = await getUserAccess(userId, settings);
-  if (!access.hasAccess) {
-    return NextResponse.json({ error: 'Channel analysis is not included in your current plan.', code: 'plan' }, { status: 403 });
+  if (!(feature === 'discover' ? access.hasDiscoverAccess : access.hasAccess)) {
+    const what = feature === 'discover' ? 'Discover' : 'Channel analysis';
+    return NextResponse.json({ error: `${what} is not included in your current plan.`, code: 'plan' }, { status: 403 });
   }
 
   let token: Token;
@@ -57,6 +84,14 @@ export async function streamAnalysis({ userId, cost: costFor, label, run }: Stre
     );
   }
 
+  if (reserve) {
+    const blocked = await reserve(settings);
+    if (blocked) {
+      guard.release();
+      return NextResponse.json({ error: blocked, code: 'limit' }, { status: 429 });
+    }
+  }
+
   const cost = costFor(settings);
   if (cost > 0) {
     // The user's session client: the RPC checks the balance atomically.
@@ -72,9 +107,9 @@ export async function streamAnalysis({ userId, cost: costFor, label, run }: Stre
     async start(controller) {
       const send = (event: object) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       try {
-        send({ type: 'stage', stage: 'connect' satisfies DiagnosisStage, charged: cost });
-        const result = await run({ token, settings, onStage: (stage) => send({ type: 'stage', stage }) });
-        send({ type: 'stage', stage: 'done' satisfies DiagnosisStage });
+        send({ type: 'stage', stage: 'connect', charged: cost });
+        const result = await run({ token, settings, onStage: (stage, detail) => send({ type: 'stage', stage, ...detail }) });
+        send({ type: 'stage', stage: 'done' });
         send({ type: 'result', data: result });
       } catch (err) {
         console.error(`[${label}] failed:`, err instanceof GoogleApiError ? err.message : (err as Error)?.message);
@@ -108,10 +143,16 @@ export async function streamAnalysis({ userId, cost: costFor, label, run }: Stre
   });
 }
 
+/** An error whose message is written for the user and safe to show as-is. */
+export class UserFacingError extends Error {}
+
 function userMessage(err: unknown): string {
-  if (err instanceof ChannelMismatchError || err instanceof VideoNotOwnedError) return err.message;
+  if (err instanceof ChannelMismatchError || err instanceof VideoNotOwnedError || err instanceof UserFacingError) return err.message;
+  if (err instanceof QuotaBudgetError) {
+    return `${err.message} You can still add competitors by pasting their channel link, or try again after the daily reset.`;
+  }
   if (err instanceof GoogleApiError) {
-    if (err.kind === 'quota') return 'The YouTube API limit was reached. Please try again later.';
+    if (err.kind === 'quota') return 'YouTube’s API limit for our app was reached. Try again later or reduce the research scope.';
     if (err.kind === 'auth') return 'YouTube authorization failed. Please reconnect YouTube.';
     if (err.kind === 'network' || err.kind === 'unavailable') return 'YouTube did not respond. Please try again.';
   }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { decryptToken, encryptToken } from './crypto';
 import { buildAuthUrl, hasRequiredScopes, statesMatch } from './oauth';
 import { aggregateReach, parseCsv } from './reporting-client';
-import { settingsUpdateSchema } from './settings';
+import { DEFAULT_DISCOVER_SETTINGS, settingsUpdateSchema } from './settings';
 import { isAllowedThumbnailUrl } from './analysis/thumbnails';
 import { safeReturnPath } from './config';
 import { toPublicConnection } from './connection-service';
@@ -116,6 +116,7 @@ describe('admin settings validation', () => {
     maxRetentionVideos: 8,
     maxThumbnails: 12,
     hourlyLimitPerUser: 10,
+    discover: DEFAULT_DISCOVER_SETTINGS,
   };
   it('accepts valid settings', () => expect(settingsUpdateSchema.safeParse(valid).success).toBe(true));
   it('rejects unknown plans, bad model ids and negative costs', () => {
@@ -123,6 +124,17 @@ describe('admin settings validation', () => {
     expect(settingsUpdateSchema.safeParse({ ...valid, textModels: ['not a model'] }).success).toBe(false);
     expect(settingsUpdateSchema.safeParse({ ...valid, diagnosisCreditCost: -1 }).success).toBe(false);
     expect(settingsUpdateSchema.safeParse({ ...valid, visionModels: [] }).success).toBe(false);
+  });
+  it('requires Discover score weights that add up to 100', () => {
+    const weights = { ...DEFAULT_DISCOVER_SETTINGS.weights, phase1: 6 };
+    expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...DEFAULT_DISCOVER_SETTINGS, weights } }).success).toBe(false);
+  });
+  it('caps Discover limits and rejects bad embedding ids', () => {
+    const d = DEFAULT_DISCOVER_SETTINGS;
+    expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...d, maxCompetitors: 0 } }).success).toBe(false);
+    expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...d, searchCallsPerDiscovery: 9 } }).success).toBe(false);
+    expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...d, embeddingModels: ['bge'] } }).success).toBe(false);
+    expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...d, researchCreditCost: -1 } }).success).toBe(false);
   });
 });
 

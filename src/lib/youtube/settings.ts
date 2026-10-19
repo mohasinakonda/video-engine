@@ -16,8 +16,65 @@ export interface ChannelDoctorSettings {
   maxRetentionVideos: number;
   maxThumbnails: number;
   hourlyLimitPerUser: number;
+  discover: DiscoverSettings;
   updatedAt: string | null;
 }
+
+/** Weights of the opportunity score dimensions (docs/discover-plan.md §7.2). They sum to 100. */
+export interface OpportunityWeights {
+  channelFit: number;
+  competitorPerformance: number;
+  momentum: number;
+  contentGap: number;
+  competition: number;
+  productionFit: number;
+  phase1: number;
+}
+
+/** Admin-controlled Discover (Phase 2) settings, stored on the same row. */
+export interface DiscoverSettings {
+  enabled: boolean;
+  allowedPlans: PlanTier[];
+  discoveryCreditCost: number;
+  researchCreditCost: number;
+  opportunityCreditCost: number;
+  maxCompetitors: number;
+  videosPerCompetitor: number;
+  searchCallsPerDiscovery: number;
+  /** Our share of YouTube's 100 search.list calls per day, for all users together. */
+  searchDailyGlobalLimit: number;
+  discoveryRunsPerUserDay: number;
+  /** Ordered: the first model is tried first, the rest are fallbacks. */
+  embeddingModels: string[];
+  maxCompetitorThumbnails: number;
+  weights: OpportunityWeights;
+}
+
+export const DEFAULT_WEIGHTS: OpportunityWeights = {
+  channelFit: 25,
+  competitorPerformance: 20,
+  momentum: 15,
+  contentGap: 15,
+  competition: 10,
+  productionFit: 10,
+  phase1: 5,
+};
+
+export const DEFAULT_DISCOVER_SETTINGS: DiscoverSettings = {
+  enabled: false,
+  allowedPlans: ['CREATOR', 'STUDIO'],
+  discoveryCreditCost: 5,
+  researchCreditCost: 15,
+  opportunityCreditCost: 3,
+  maxCompetitors: 10,
+  videosPerCompetitor: 50,
+  searchCallsPerDiscovery: 3,
+  searchDailyGlobalLimit: 80,
+  discoveryRunsPerUserDay: 2,
+  embeddingModels: ['BAAI/bge-m3', 'Qwen/Qwen3-Embedding-0.6B'],
+  maxCompetitorThumbnails: 10,
+  weights: DEFAULT_WEIGHTS,
+};
 
 export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   enabled: true,
@@ -30,11 +87,41 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   maxRetentionVideos: 8,
   maxThumbnails: 12,
   hourlyLimitPerUser: 10,
+  discover: DEFAULT_DISCOVER_SETTINGS,
   updatedAt: null,
 };
 
 const PLAN_TIERS = ['TRIAL', 'STARTER', 'CREATOR', 'STUDIO'] as const;
 const modelId = z.string().trim().min(3).max(120).regex(/^[\w.-]+\/[\w.:-]+$/, 'Use the DeepInfra model id, e.g. owner/model-name');
+
+const weight = z.number().int().min(0).max(100);
+export const weightsSchema = z
+  .object({
+    channelFit: weight,
+    competitorPerformance: weight,
+    momentum: weight,
+    contentGap: weight,
+    competition: weight,
+    productionFit: weight,
+    phase1: weight,
+  })
+  .refine((w) => Object.values(w).reduce((sum, v) => sum + v, 0) === 100, 'The weights must add up to 100');
+
+export const discoverSettingsSchema = z.object({
+  enabled: z.boolean(),
+  allowedPlans: z.array(z.enum(PLAN_TIERS)).max(4),
+  discoveryCreditCost: z.number().int().min(0).max(1000),
+  researchCreditCost: z.number().int().min(0).max(1000),
+  opportunityCreditCost: z.number().int().min(0).max(1000),
+  maxCompetitors: z.number().int().min(1).max(25),
+  videosPerCompetitor: z.number().int().min(15).max(100),
+  searchCallsPerDiscovery: z.number().int().min(1).max(5),
+  searchDailyGlobalLimit: z.number().int().min(0).max(100_000),
+  discoveryRunsPerUserDay: z.number().int().min(0).max(50),
+  embeddingModels: z.array(modelId).min(1).max(5),
+  maxCompetitorThumbnails: z.number().int().min(0).max(30),
+  weights: weightsSchema,
+});
 
 /** What an admin may save. Mirrors the database CHECK constraints. */
 export const settingsUpdateSchema = z.object({
@@ -48,6 +135,7 @@ export const settingsUpdateSchema = z.object({
   maxRetentionVideos: z.number().int().min(0).max(20),
   maxThumbnails: z.number().int().min(0).max(24),
   hourlyLimitPerUser: z.number().int().min(1).max(100),
+  discover: discoverSettingsSchema,
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
@@ -57,7 +145,7 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
   if (error || !data) return DEFAULT_SETTINGS;
   return {
     enabled: Boolean(data.enabled),
-    allowedPlans: (data.allowed_plans || []).filter((p: string): p is PlanTier => (PLAN_TIERS as readonly string[]).includes(p)),
+    allowedPlans: toPlans(data.allowed_plans),
     diagnosisCreditCost: data.diagnosis_credit_cost,
     videoAnalysisCreditCost: data.video_analysis_credit_cost,
     textModels: data.text_models?.length ? data.text_models : DEFAULT_SETTINGS.textModels,
@@ -66,7 +154,32 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     maxRetentionVideos: data.max_retention_videos,
     maxThumbnails: data.max_thumbnails,
     hourlyLimitPerUser: data.hourly_limit_per_user,
+    discover: readDiscover(data),
     updatedAt: data.updated_at,
+  };
+}
+
+const toPlans = (plans: string[] | null | undefined): PlanTier[] =>
+  (plans || []).filter((p): p is PlanTier => (PLAN_TIERS as readonly string[]).includes(p));
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readDiscover(data: Record<string, any>): DiscoverSettings {
+  const d = DEFAULT_DISCOVER_SETTINGS;
+  const weights = weightsSchema.safeParse(data.opportunity_weights);
+  return {
+    enabled: data.discover_enabled ?? d.enabled,
+    allowedPlans: data.discover_allowed_plans ? toPlans(data.discover_allowed_plans) : d.allowedPlans,
+    discoveryCreditCost: data.discovery_credit_cost ?? d.discoveryCreditCost,
+    researchCreditCost: data.research_credit_cost ?? d.researchCreditCost,
+    opportunityCreditCost: data.opportunity_credit_cost ?? d.opportunityCreditCost,
+    maxCompetitors: data.max_competitors ?? d.maxCompetitors,
+    videosPerCompetitor: data.videos_per_competitor ?? d.videosPerCompetitor,
+    searchCallsPerDiscovery: data.search_calls_per_discovery ?? d.searchCallsPerDiscovery,
+    searchDailyGlobalLimit: data.search_daily_global_limit ?? d.searchDailyGlobalLimit,
+    discoveryRunsPerUserDay: data.discovery_runs_per_user_day ?? d.discoveryRunsPerUserDay,
+    embeddingModels: data.embedding_models?.length ? data.embedding_models : d.embeddingModels,
+    maxCompetitorThumbnails: data.max_competitor_thumbnails ?? d.maxCompetitorThumbnails,
+    weights: weights.success ? weights.data : d.weights,
   };
 }
 
@@ -85,13 +198,29 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       max_retention_videos: update.maxRetentionVideos,
       max_thumbnails: update.maxThumbnails,
       hourly_limit_per_user: update.hourlyLimitPerUser,
+      discover_enabled: update.discover.enabled,
+      discover_allowed_plans: Array.from(new Set(update.discover.allowedPlans)),
+      discovery_credit_cost: update.discover.discoveryCreditCost,
+      research_credit_cost: update.discover.researchCreditCost,
+      opportunity_credit_cost: update.discover.opportunityCreditCost,
+      max_competitors: update.discover.maxCompetitors,
+      videos_per_competitor: update.discover.videosPerCompetitor,
+      search_calls_per_discovery: update.discover.searchCallsPerDiscovery,
+      search_daily_global_limit: update.discover.searchDailyGlobalLimit,
+      discovery_runs_per_user_day: update.discover.discoveryRunsPerUserDay,
+      embedding_models: update.discover.embeddingModels,
+      max_competitor_thumbnails: update.discover.maxCompetitorThumbnails,
+      opportunity_weights: update.discover.weights,
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(`Could not save settings (${error.code})`);
   return getChannelDoctorSettings();
 }
 
-/** The user's effective plan (an expired plan counts as TRIAL) and whether it may run analyses. */
+/**
+ * The user's effective plan (an expired plan counts as TRIAL) and whether it may run
+ * Channel Doctor analyses (`hasAccess`) and Discover research (`hasDiscoverAccess`).
+ */
 export async function getUserAccess(userId: string, settings: ChannelDoctorSettings) {
   const { data } = await getServiceClient()
     .from('profiles')
@@ -106,14 +235,18 @@ export async function getUserAccess(userId: string, settings: ChannelDoctorSetti
         }
       : null
   );
-  return { tier, hasAccess: settings.enabled && settings.allowedPlans.includes(tier) };
+  return {
+    tier,
+    hasAccess: settings.enabled && settings.allowedPlans.includes(tier),
+    hasDiscoverAccess: settings.discover.enabled && settings.discover.allowedPlans.includes(tier),
+  };
 }
 
-export type ModelKind = 'text' | 'vision';
+export type ModelKind = 'text' | 'vision' | 'embedding';
 
 /**
- * Checks a DeepInfra model before an admin saves it: it must exist, generate text and,
- * for the vision list, accept images. Stops images being sent to a text-only model.
+ * Checks a DeepInfra model before an admin saves it: it must exist, generate text (or, for
+ * the embedding list, embeddings) and, for the vision list, accept images. Stops images being sent to a text-only model.
  */
 export async function validateDeepInfraModel(id: string, kind: ModelKind): Promise<string | null> {
   let res: Response;
@@ -128,6 +261,9 @@ export async function validateDeepInfraModel(id: string, kind: ModelKind): Promi
   const info = await res.json().catch(() => null);
   if (!info) return `Could not read DeepInfra's details for "${id}".`;
   if (info.deprecated) return `"${id}" is deprecated on DeepInfra.`;
+  if (kind === 'embedding') {
+    return info.type === 'embeddings' ? null : `"${id}" is a ${info.type} model, not an embeddings model.`;
+  }
   if (info.type !== 'text-generation') return `"${id}" is a ${info.type} model, not a text-generation model.`;
   if (kind === 'vision' && !(info.tags || []).includes('multimodal')) {
     return `"${id}" does not accept images, so it can't analyze thumbnails.`;
