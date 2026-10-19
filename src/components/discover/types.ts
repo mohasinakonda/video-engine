@@ -30,3 +30,4 @@ export type { ChannelProfile, Outlier, ResearchResult, ResearchStage, ResearchWi
 export type { MarketPatterns, TopicSummary } from '@/lib/youtube/discover/types';
 export { FORMAT_LABELS, MECHANISM_LABELS } from '@/lib/youtube/discover/formats';
 export type { GapType, Level, Momentum, Opportunity } from '@/lib/youtube/discover/types';
+export type { OutputLanguage } from '@/lib/youtube/discover/types';

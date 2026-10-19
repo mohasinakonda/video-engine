@@ -8,7 +8,7 @@ import { CompareTable } from './compare-table';
 import { OutlierList } from './outlier-list';
 import { PatternTables } from './pattern-tables';
 import { TopicList } from './topic-list';
-import type { DiscoverConfig, ResearchResult, ResearchStage, ResearchWindow } from './types';
+import type { DiscoverConfig, OutputLanguage, ResearchResult, ResearchStage, ResearchWindow } from './types';
 
 const STEPS: ProgressStep<ResearchStage>[] = [
   { stage: 'connect', label: 'Connecting to YouTube' },
@@ -19,11 +19,21 @@ const STEPS: ProgressStep<ResearchStage>[] = [
   { stage: 'topics', label: (n) => (n ? `Grouping ${n} videos into topics` : 'Grouping videos into topics') },
   { stage: 'formats', label: 'Spotting formats and title styles' },
   { stage: 'opportunities', label: 'Finding gaps and scoring opportunities' },
+  { stage: 'angles', label: 'Writing original video ideas' },
 ];
 
-export function useResearch(userId: string, channelId: string, period: ResearchWindow) {
-  return useAnalysisStream<ResearchResult, ResearchStage>('/api/youtube/discover/research', reportKey(userId, channelId, `research-${period}`), { window: period });
+export function useResearch(userId: string, channelId: string, period: ResearchWindow, language: OutputLanguage) {
+  return useAnalysisStream<ResearchResult, ResearchStage>('/api/youtube/discover/research', reportKey(userId, channelId, `research-${period}`), {
+    window: period,
+    language,
+  });
 }
+
+const LANGUAGES: { id: OutputLanguage; label: string }[] = [
+  { id: 'auto', label: 'Same as my videos' },
+  { id: 'en', label: 'English' },
+  { id: 'bn', label: 'বাংলা' },
+];
 
 /** Market tab: one choice (period), one button, real progress, then what's working in the market. */
 export function ResearchPanel({
@@ -34,7 +44,11 @@ export function ResearchPanel({
   activeCompetitors,
   onAddCompetitors,
   onSeeOpportunities,
+  language,
+  onLanguageChange,
 }: {
+  language: OutputLanguage;
+  onLanguageChange: (l: OutputLanguage) => void;
   config: DiscoverConfig;
   research: ReturnType<typeof useResearch>;
   period: ResearchWindow;
@@ -87,6 +101,16 @@ export function ResearchPanel({
                     ))}
                   </div>
                 </div>
+                <label className="space-y-2 block">
+                  <span className="block text-sm text-zinc-400">Write ideas in</span>
+                  <select value={language} onChange={(e) => onLanguageChange(e.target.value as OutputLanguage)} className="input text-base py-2 w-auto">
+                    {LANGUAGES.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <div className="sm:ml-auto flex flex-col items-start sm:items-end gap-1.5">
                   <button type="button" onClick={research.run} className="btn-primary px-6 py-3 text-base font-semibold">
                     {result ? <RefreshCw size={18} /> : <Sparkles size={18} />}

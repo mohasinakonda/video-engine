@@ -78,7 +78,10 @@ export type ResearchStage =
   | 'topics'
   | 'formats'
   | 'opportunities'
+  | 'angles'
   | 'done';
+
+export type OutputLanguage = 'auto' | 'en' | 'bn';
 
 export type Momentum = 'recent' | 'durable' | 'one_off' | 'none';
 export type GapType = 'coverage' | 'audience_problem' | 'format' | 'packaging' | 'emerging';
@@ -250,6 +253,9 @@ export interface ResearchResult {
   opportunities: Opportunity[];
   /** Channel Doctor's main finding used to steer the ranking, if Analytics could be read. */
   phase1: { primary: string | null; available: boolean };
+  /** Language the angles were written in, and whether the model wrote them. */
+  language: 'Bangla' | 'English';
+  aiUsed: boolean;
   videosAnalyzed: number;
   embeddingModel: string | null;
   limitations: string[];

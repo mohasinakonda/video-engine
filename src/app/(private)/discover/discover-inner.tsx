@@ -7,7 +7,7 @@ import { AlertCircle, Compass, Lightbulb, Loader2, RefreshCw, TrendingUp, Users 
 import { CompetitorsPanel } from '@/components/discover/competitors-panel';
 import { NextVideos } from '@/components/discover/next-videos';
 import { ResearchPanel, useResearch } from '@/components/discover/research-panel';
-import type { DiscoverConfig, ResearchWindow } from '@/components/discover/types';
+import type { DiscoverConfig, OutputLanguage, ResearchWindow } from '@/components/discover/types';
 import type { ConnectionState } from '@/components/youtube-doctor/types';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -161,7 +161,8 @@ function DiscoverTabs({
   setTab: (t: Tab) => void;
 }) {
   const [period, setPeriod] = useState<ResearchWindow>('90d');
-  const research = useResearch(userId, channelId, period);
+  const [language, setLanguage] = useState<OutputLanguage>('auto');
+  const research = useResearch(userId, channelId, period, language);
 
   if (tab === 'competitors') {
     return <CompetitorsPanel userId={userId} channelId={channelId} config={config} onCountChange={onCountChange} />;
@@ -176,6 +177,8 @@ function DiscoverTabs({
         activeCompetitors={activeCompetitors}
         onAddCompetitors={() => setTab('competitors')}
         onSeeOpportunities={() => setTab('next')}
+        language={language}
+        onLanguageChange={setLanguage}
       />
     );
   }

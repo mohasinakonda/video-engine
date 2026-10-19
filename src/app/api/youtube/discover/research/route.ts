@@ -9,7 +9,7 @@ import { streamAnalysis } from '@/lib/youtube/stream-analysis';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const bodySchema = z.object({ window: z.enum(['30d', '90d']) });
+const bodySchema = z.object({ window: z.enum(['30d', '90d']), language: z.enum(['auto', 'en', 'bn']).default('auto') });
 
 /**
  * POST /api/youtube/discover/research — market research on the active watchlist, streamed
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         reportingJobId: token.reportingJobId,
         settings,
         window: parsed.data.window,
+        language: parsed.data.language,
         competitorIds,
         onStage,
       }),

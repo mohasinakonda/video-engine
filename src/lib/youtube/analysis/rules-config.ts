@@ -163,6 +163,14 @@ export const DISCOVER_RULES = {
     /** Opportunities shown (strongest first). */
     maxOpportunities: 8,
   },
+  originality: {
+    /** An angle is rejected as a copy at or above this word overlap (Jaccard)… */
+    maxWordOverlap: 0.6,
+    /** …or with more than this many identical words in a row… */
+    maxSharedRun: 5,
+    /** …or at this embedding similarity to a competitor title. */
+    maxEmbeddingSimilarity: 0.9,
+  },
   outliers: {
     /** Younger videos are still collecting views: not compared yet. */
     minAgeDays: 7,

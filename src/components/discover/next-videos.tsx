@@ -49,7 +49,8 @@ export function NextVideos({
         <p className="text-base text-zinc-400 mt-1">
           Ranked by our opportunity score (0–100). It’s our decision-support estimate from the evidence below, not a YouTube metric or a promise of views.
         </p>
-        {result.phase1.primary && (
+        <p className="text-sm text-zinc-500 mt-1">Video ideas are written by AI from the evidence and checked so they don’t copy competitor titles. Make them your own.</p>
+        {result.phase1?.primary && (
           <p className="text-sm text-emerald-300 mt-2">
             Adjusted to your Channel Doctor diagnosis: {DIAGNOSIS_TEXT[result.phase1.primary] ?? result.phase1.primary}.
           </p>
@@ -81,7 +82,11 @@ function OpportunityCard({ opportunity: o, rank }: { opportunity: Opportunity; r
         <span className="w-9 h-9 rounded-full bg-white text-zinc-950 text-base font-bold flex items-center justify-center shrink-0">{rank}</span>
         <div className="flex-1 min-w-0 space-y-1">
           <p className="text-xl font-bold text-white leading-snug">{o.recommendedAngle ?? o.topic}</p>
-          {o.recommendedAngle && <p className="text-sm text-zinc-400">Topic: {o.topic}</p>}
+          <p className="text-sm text-zinc-400">
+            Topic: {o.topic}
+            {o.audience && ` · For: ${o.audience}`}
+          </p>
+          {o.angleSource === 'fallback' && <p className="text-xs text-zinc-500">The AI writer couldn’t write an original idea for this one, so this is a plain starting point.</p>}
         </div>
         <div className="text-right shrink-0">
           <p className="text-2xl font-bold text-white tabular-nums">{o.scores.total}</p>

@@ -13,13 +13,14 @@ import { classifyWithAI } from './formats-ai';
 import { summarizePatterns, summarizeTopics, tagOutliers, type TaggedVideo } from './market-patterns';
 import { ageInDays } from './outliers';
 import { mainLanguage } from './queries';
+import { interpretOpportunities } from './ai/interpret';
 import { buildOpportunities, type EngineContext, type TopicDetail } from './opportunities';
 import { loadPhase1 } from './phase1';
 import { meanVector } from './clustering';
 import { buildTopics, type TopicInput } from './topics';
 import type { ContentFormat } from './formats';
 import { median } from '../analysis/stats';
-import type { ChannelProfile, CompetitorStatus, MarketVideo, Outlier, ResearchResult, ResearchStage, ResearchWindow } from './types';
+import type { ChannelProfile, CompetitorStatus, MarketVideo, OutputLanguage, Outlier, ResearchResult, ResearchStage, ResearchWindow } from './types';
 
 export const WINDOW_DAYS: Record<ResearchWindow, number> = { '30d': 30, '90d': 90 };
 
@@ -34,6 +35,8 @@ interface ResearchOptions {
   /** All admin settings: Discover limits and weights, plus the text models and Channel Doctor limits. */
   settings: ChannelDoctorSettings;
   window: ResearchWindow;
+  /** Language of angles and explanations; 'auto' follows your titles. */
+  language?: OutputLanguage;
   /** Active watchlist channel ids, read from the database by the route. */
   competitorIds: string[];
   onStage: (stage: ResearchStage, detail?: StageDetail) => void;
@@ -154,12 +157,14 @@ export async function runResearch(options: ResearchOptions): Promise<ResearchRes
     .filter((v) => ageInDays(v.publishedAt, now) <= DISCOVER_RULES.topics.maxAgeDays)
     .map((v) => ({ ...v, format: ruleFormats(v.title) }));
   const videosById = new Map(tagged.map((v) => [v.id, v]));
-  const language = mainLanguage(mine.data.map((v) => v.title));
+  const titleLanguage = mainLanguage(mine.data.map((v) => v.title));
+  const language = options.language === 'bn' ? 'Bangla' : options.language === 'en' ? 'English' : titleLanguage;
 
   onStage('topics', { count: tagged.length });
   const build = await buildTopics(
     tagged.map((v): TopicInput => ({ id: v.id, channelId: v.channelId, channelTitle: v.channelTitle, title: v.title, isYours: v.isYours })),
-    { embeddingModels: settings.embeddingModels, textModels, language }
+    // Topic names follow your titles' language; the user's choice applies to the advice text.
+    { embeddingModels: settings.embeddingModels, textModels, language: titleLanguage }
   );
   if (!build.embeddingModel) limitations.push('Topic matching was unavailable for this run, so topics are not shown.');
   else if (!(DISCOVER_RULES.strongEmbeddingModels as readonly string[]).includes(build.embeddingModel)) {
@@ -235,7 +240,24 @@ export async function runResearch(options: ResearchOptions): Promise<ResearchRes
     strongEmbedding: build.embeddingModel !== null && (DISCOVER_RULES.strongEmbeddingModels as readonly string[]).includes(build.embeddingModel),
     yourFormats,
   };
-  const opportunities = build.embeddingModel ? buildOpportunities(details, ctx) : [];
+  const scored = build.embeddingModel ? buildOpportunities(details, ctx) : [];
+
+  // Angles: the model writes text only; the originality guard and number checks decide what stays.
+  onStage('angles', { count: scored.length });
+  const competitorTitles = new Map(details.map((d) => [d.summary.id, d.theirs.map((v) => v.title)]));
+  const competitorVectors = new Map(details.map((d) => [d.summary.id, d.theirs.map((v) => build.vectors.get(v.id))]));
+  const { opportunities, aiUsed } = await interpretOpportunities({
+    channelTitle: me.title,
+    language,
+    yourTopics: topics.filter((t) => t.yourVideoCount > 0).map((t) => t.label),
+    diagnosis: phase1?.primary ? `Main problem found by Channel Doctor: ${phase1.primary}` : null,
+    opportunities: scored,
+    competitorTitles,
+    competitorVectors,
+    textModels,
+    embeddingModels: settings.embeddingModels,
+  });
+  if (scored.length > 0 && !aiUsed) limitations.push('The AI writer was unavailable, so ideas use plain topic names instead of written angles.');
 
   const patterns = summarizePatterns(
     tagged.filter((v) => !v.isYours && eligibleIds.has(v.id)),
@@ -266,6 +288,8 @@ export async function runResearch(options: ResearchOptions): Promise<ResearchRes
     patterns,
     opportunities,
     phase1: { primary: phase1?.primary ?? null, available: phase1 !== null },
+    language,
+    aiUsed,
     embeddingModel: build.embeddingModel,
     videosAnalyzed: [mine.data, ...Array.from(competitorVideos.values())].reduce((n, v) => n + v.length, 0),
     limitations,
