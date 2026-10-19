@@ -1,5 +1,5 @@
 import { median } from '../analysis/stats';
-import { ageInDays, findOutliers, publicBaselines, toBaseline } from './outliers';
+import { ageInDays, findOutliers, judgeVideo, publicBaselines, toBaseline } from './outliers';
 import type { ChannelProfile, MarketVideo, Outlier, PublicChannel } from './types';
 import { shortsShare } from './discovery';
 
@@ -15,8 +15,14 @@ export function profileChannel(
   videos: MarketVideo[],
   windowDays: number,
   now: Date
-): { profile: ChannelProfile; outliers: Outlier[]; eligibleIds: string[] } {
+): { profile: ChannelProfile; outliers: Outlier[]; eligibleIds: string[]; ratios: Map<string, number> } {
   const baselines = publicBaselines(videos, now);
+  // views ÷ baseline for every video that can be judged, any age (used for topic momentum).
+  const ratios = new Map<string, number>();
+  for (const v of videos) {
+    const j = judgeVideo(v, baselines, now);
+    if (j.ratio !== null) ratios.set(v.id, j.ratio);
+  }
   const { eligible, eligibleIds, outliers } = findOutliers(videos, baselines, windowDays, now, channel.title);
 
   const recent = videos
@@ -41,5 +47,6 @@ export function profileChannel(
     },
     outliers,
     eligibleIds,
+    ratios,
   };
 }

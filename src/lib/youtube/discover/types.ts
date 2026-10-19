@@ -69,7 +69,42 @@ export interface DiscoveryResult {
 
 export type ResearchWindow = '30d' | '90d';
 
-export type ResearchStage = 'connect' | 'your_channel' | 'competitors' | 'videos' | 'outliers' | 'topics' | 'formats' | 'done';
+export type ResearchStage =
+  | 'connect'
+  | 'your_channel'
+  | 'competitors'
+  | 'videos'
+  | 'outliers'
+  | 'topics'
+  | 'formats'
+  | 'opportunities'
+  | 'done';
+
+export type Momentum = 'recent' | 'durable' | 'one_off' | 'none';
+export type GapType = 'coverage' | 'audience_problem' | 'format' | 'packaging' | 'emerging';
+export type Level = 'low' | 'medium' | 'high';
+
+/** One reason behind an opportunity, built from measured numbers (never written by the model). */
+export interface OpportunityEvidence {
+  id: string;
+  statement: string;
+  source: 'youtube_public' | 'youtube_analytics' | 'calculated';
+  /** e.g. "Last 90 days". */
+  period: string;
+  /** How a calculated number was made, when there is one. */
+  calculation?: string;
+}
+
+export interface OpportunityScores {
+  total: number;
+  channelFit: number | null;
+  competitorPerformance: number | null;
+  momentum: number | null;
+  contentGap: number | null;
+  competition: number | null;
+  productionFit: number | null;
+  phase1: number | null;
+}
 
 /** Shorts are estimated from duration (≤ 3 min): the public API has no Shorts flag. */
 export type PublicFormat = 'short' | 'video';
@@ -211,7 +246,44 @@ export interface ResearchResult {
   /** Strongest first. Empty when topic matching was unavailable. */
   topics: TopicSummary[];
   patterns: MarketPatterns;
+  /** Ranked next-video opportunities (strongest first). */
+  opportunities: Opportunity[];
+  /** Channel Doctor's main finding used to steer the ranking, if Analytics could be read. */
+  phase1: { primary: string | null; available: boolean };
   videosAnalyzed: number;
   embeddingModel: string | null;
   limitations: string[];
+}
+
+/**
+ * A next-video opportunity. Versioned: Phase 3 (video brief → script → video) consumes it.
+ * Scores and confidence are calculated by us; only text fields marked AI come from the model.
+ */
+export interface Opportunity {
+  version: 1;
+  id: string;
+  topicId: string;
+  topic: string;
+  /** AI (D6); null until written. */
+  recommendedAngle: string | null;
+  angleSource: 'ai' | 'fallback' | null;
+  whyNow: string | null;
+  audience: string | null;
+  problem: string | null;
+  recommendedFormat: ContentFormat | null;
+  gapTypes: GapType[];
+  momentum: Momentum;
+  competition: Level;
+  channelFit: Level;
+  productionDifficulty: Level | null;
+  scores: OpportunityScores;
+  /** How many of the seven signals could be calculated. */
+  signalsUsed: number;
+  confidence: Confidence;
+  confidenceReasons: string[];
+  evidence: OpportunityEvidence[];
+  competitorSignals: { videoId: string; channelId: string; title: string; ratio: number; views: number; baselineViews: number; sampleSize: number }[];
+  yourVideoIds: string[];
+  window: ResearchWindow;
+  generatedAt: string;
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Compass, Lightbulb, Loader2, RefreshCw, TrendingUp, Users } from 'lucide-react';
 import { CompetitorsPanel } from '@/components/discover/competitors-panel';
+import { NextVideos } from '@/components/discover/next-videos';
 import { ResearchPanel, useResearch } from '@/components/discover/research-panel';
 import type { DiscoverConfig, ResearchWindow } from '@/components/discover/types';
 import type { ConnectionState } from '@/components/youtube-doctor/types';
@@ -174,21 +175,11 @@ function DiscoverTabs({
         onPeriodChange={setPeriod}
         activeCompetitors={activeCompetitors}
         onAddCompetitors={() => setTab('competitors')}
+        onSeeOpportunities={() => setTab('next')}
       />
     );
   }
-  // Next-video opportunities are built on top of research in the next milestones; nothing fake meanwhile.
-  return (
-    <section className="card space-y-3">
-      <h2 className="text-xl font-bold text-white">What should you make next?</h2>
-      <p className="text-base text-zinc-300">
-        Next-video ideas will combine your market research with what works on your channel. This part is being built.
-      </p>
-      <button type="button" onClick={() => setTab('market')} className="btn-primary btn-sm w-fit">
-        See your market
-      </button>
-    </section>
-  );
+  return <NextVideos config={config} research={research} onGoToMarket={() => setTab('market')} />;
 }
 
 function planLabel(tier: string) {

@@ -18,6 +18,7 @@ const STEPS: ProgressStep<ResearchStage>[] = [
   { stage: 'outliers', label: 'Comparing each video with its channel’s usual' },
   { stage: 'topics', label: (n) => (n ? `Grouping ${n} videos into topics` : 'Grouping videos into topics') },
   { stage: 'formats', label: 'Spotting formats and title styles' },
+  { stage: 'opportunities', label: 'Finding gaps and scoring opportunities' },
 ];
 
 export function useResearch(userId: string, channelId: string, period: ResearchWindow) {
@@ -32,6 +33,7 @@ export function ResearchPanel({
   onPeriodChange,
   activeCompetitors,
   onAddCompetitors,
+  onSeeOpportunities,
 }: {
   config: DiscoverConfig;
   research: ReturnType<typeof useResearch>;
@@ -39,6 +41,7 @@ export function ResearchPanel({
   onPeriodChange: (w: ResearchWindow) => void;
   activeCompetitors: number | null;
   onAddCompetitors: () => void;
+  onSeeOpportunities: () => void;
 }) {
   const result = research.saved?.result;
   const tooFew = activeCompetitors !== null && activeCompetitors < 2;
@@ -106,6 +109,19 @@ export function ResearchPanel({
           </div>
         )}
       </section>
+
+      {result && !research.running && (result.opportunities?.length ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={onSeeOpportunities}
+          className="w-full text-left p-5 rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/[0.05] hover:bg-emerald-500/[0.09]"
+        >
+          <p className="text-lg font-bold text-white">
+            {result.opportunities.length} next-video idea{result.opportunities.length === 1 ? '' : 's'} found →
+          </p>
+          <p className="text-base text-zinc-300">Ranked with the evidence behind each one.</p>
+        </button>
+      )}
 
       {result && !research.running && <ResearchResults result={result} analyzedAt={research.saved!.analyzedAt} />}
     </div>

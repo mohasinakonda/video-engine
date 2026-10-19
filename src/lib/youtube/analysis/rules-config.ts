@@ -132,6 +132,37 @@ export const DISCOVER_RULES = {
     /** Unclassified titles sent to the model for a format, per run. */
     maxAiFormatTitles: 300,
   },
+  momentum: {
+    /** Recent momentum: this many channels posted on the topic in the last 30 days… */
+    recentChannels: 2,
+    /** …and the last 30 days hold at least this share of the topic's last-90-day videos (an even spread is 0.33). */
+    recentShare: 0.5,
+    /** Durable demand: present in this many of the last 6 months, from 2+ channels, median ratio ≥ 1. */
+    durableMonths: 3,
+  },
+  gaps: {
+    /** Coverage gap: you have at most this many videos on the topic… */
+    maxYourVideos: 1,
+    /** …while this many standouts from this many channels cover it. */
+    minOutliers: 2,
+    minOutlierChannels: 2,
+    /** Audience-problem gap needs this many competitors on a problem-type topic. */
+    problemChannels: 3,
+    /** Format and packaging gaps: a format or title style shared by at least this share of the topic's standouts. */
+    dominantShare: 0.5,
+    /** Emerging topics are not yet crowded: at most this many competitor videos. */
+    emergingMaxVideos: 12,
+  },
+  scoring: {
+    /** Cosine between topic and channel centres mapped to 0–100 fit (bge-m3, stripped titles). */
+    fitFloor: 0.45,
+    fitCeiling: 0.85,
+    gapScores: { coverage: 90, emerging: 80, format: 70, packaging: 60, audience_problem: 50 },
+    momentumScores: { recent: 90, durable: 70, one_off: 30, none: 10 },
+    difficultyScores: { low: 90, medium: 60, high: 30 },
+    /** Opportunities shown (strongest first). */
+    maxOpportunities: 8,
+  },
   outliers: {
     /** Younger videos are still collecting views: not compared yet. */
     minAgeDays: 7,

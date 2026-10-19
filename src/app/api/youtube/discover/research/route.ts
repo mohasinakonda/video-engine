@@ -39,10 +39,11 @@ export async function POST(req: Request) {
     },
     run: ({ token, settings, onStage }) =>
       runResearch({
+        userId,
         accessToken: token.accessToken,
         connection: token.connection,
-        settings: settings.discover,
-        textModels: settings.textModels,
+        reportingJobId: token.reportingJobId,
+        settings,
         window: parsed.data.window,
         competitorIds,
         onStage,
