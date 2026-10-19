@@ -38,7 +38,7 @@ vi.mock('./projects', async (importOriginal) => {
       rows.set(id, row);
       return row;
     },
-    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string }) => {
+    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string; brief?: unknown }) => {
       if (changes.status && !canTransition(project.status, changes.status, project.archivedFrom)) throw new actual.TransitionError(project.status, changes.status);
       const row = rows.get(project.id)!;
       if (changes.status) {
@@ -46,12 +46,24 @@ vi.mock('./projects', async (importOriginal) => {
         row.status = changes.status;
       }
       if (changes.title) row.title = changes.title;
+      if (changes.brief !== undefined) row.brief = changes.brief;
       return row;
     },
     deleteProject: async (_u: string, id: string) => rows.delete(id),
   };
 });
 
+const ai = { result: null as unknown };
+const credits = { charged: 0, refunded: 0 };
+vi.mock('./ai/brief-interpreter', () => ({ interpretBrief: async () => ai.result }));
+vi.mock('@/lib/supabase-service', () => ({
+  deductCreditsRemote: async (_u: string, amount: number) => ((credits.charged += amount), true),
+  grantCreditsRemote: async (_u: string, amount: number) => ((credits.refunded += amount), true),
+}));
+vi.mock('@/lib/supabase/server', () => ({ createClient: () => ({}) }));
+
+import { emptyBrief } from './brief';
+import { POST as draftBrief, PUT as saveBrief } from '@/app/api/create/projects/[id]/brief/route';
 import { GET as list, POST as create } from '@/app/api/create/projects/route';
 import { DELETE as remove, GET as read, PATCH as rename } from '@/app/api/create/projects/[id]/route';
 import { POST as setStatus } from '@/app/api/create/projects/[id]/status/route';
@@ -122,5 +134,50 @@ describe('Create projects API', () => {
     expect(rows.get(MY_PROJECT)).toMatchObject({ status: 'ARCHIVED', archivedFrom: 'PACKAGED' });
     const restored = await setStatus(req({ action: 'unarchive' }), ctx(MY_PROJECT));
     expect((await restored.json()).project.status).toBe('PACKAGED');
+  });
+});
+
+/** Reads an NDJSON stream into its events. */
+async function events(res: Response) {
+  return (await res.text())
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+describe('brief API', () => {
+  const put = (body: unknown) => new Request('http://localhost/api', { method: 'PUT', body: JSON.stringify(body) });
+
+  it('saves a valid brief and marks the brief step done', async () => {
+    seed(MY_PROJECT, 'user-a', 'DRAFT');
+    const res = await saveBrief(put(emptyBrief('Deep sea', 'English')), ctx(MY_PROJECT));
+    expect(res.status).toBe(200);
+    expect(rows.get(MY_PROJECT)).toMatchObject({ status: 'BRIEF_READY' });
+  });
+
+  it('rejects invalid briefs, other users’ projects and published projects', async () => {
+    seed(MY_PROJECT, 'user-a', 'DRAFT');
+    expect((await saveBrief(put({ ...emptyBrief('x', 'English'), topic: '' }), ctx(MY_PROJECT))).status).toBe(400);
+    expect((await saveBrief(put(emptyBrief('x', 'English')), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
+    seed(MY_PROJECT, 'user-a', 'PUBLISHED');
+    expect((await saveBrief(put(emptyBrief('x', 'English')), ctx(MY_PROJECT))).status).toBe(409);
+  });
+
+  it('charges for an AI draft, saves it, and refunds when the AI gives nothing usable', async () => {
+    seed(MY_PROJECT, 'user-a', 'DRAFT');
+    credits.charged = 0;
+    credits.refunded = 0;
+    ai.result = emptyBrief('Deep sea', 'English');
+    const ok = await events(await draftBrief(req({}), ctx(MY_PROJECT)));
+    expect(ok.at(-1).type).toBe('result');
+    expect(rows.get(MY_PROJECT)?.status).toBe('BRIEF_READY');
+    expect(credits.charged).toBe(2);
+
+    seed(MY_PROJECT, 'user-a', 'DRAFT');
+    ai.result = null;
+    const failed = await events(await draftBrief(req({}), ctx(MY_PROJECT)));
+    expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
+    expect(credits.refunded).toBe(2);
+    expect(rows.get(MY_PROJECT)?.status).toBe('DRAFT');
   });
 });

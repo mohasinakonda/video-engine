@@ -57,6 +57,3 @@ export function findSavedOpportunity<R extends { opportunities?: { id: string }[
   }
   return null;
 }
-
-/** Key for a video brief handed to the (coming) creation flow. Cleared with the reports. */
-export const briefKey = (userId: string, opportunityId: string) => `${PREFIX}${userId}:brief:${opportunityId}`;

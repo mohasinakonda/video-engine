@@ -9,8 +9,7 @@ import { GAP_LABELS, LEVEL_TEXT, MOMENTUM_LABELS } from '@/components/discover/o
 import { CompetitorStandouts, ConfidenceReasons, EvidenceList, ScoreBreakdown } from '@/components/discover/opportunity-sections';
 import { FORMAT_LABELS, type Opportunity, type ResearchResult } from '@/components/discover/types';
 import { useAuth } from '@/contexts/auth-context';
-import { briefKey, findSavedOpportunity } from '@/lib/channel-doctor-storage';
-import { toBrief } from '@/lib/youtube/discover/brief';
+import { findSavedOpportunity } from '@/lib/channel-doctor-storage';
 
 const LABEL_TEXT = {
   outperformer: 'did better than your usual',
@@ -33,14 +32,26 @@ export default function OpportunityPage() {
     setState(saved && opportunity ? { opportunity, analyzedAt: saved.analyzedAt } : 'missing');
   }, [user, id]);
 
-  const createBrief = (o: Opportunity) => {
-    if (!user) return;
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  /** Starts a Create project from this idea. Only scores and labels are sent on; the server drops the rest. */
+  const createBrief = async (o: Opportunity) => {
+    setCreating(true);
+    setCreateError('');
     try {
-      window.sessionStorage.setItem(briefKey(user.id, o.id), JSON.stringify(toBrief(o)));
-    } catch {
-      // storage blocked: the brief page explains
+      const res = await fetch('/api/create/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin: 'opportunity', opportunity: o }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not start the video.');
+      router.push(`/create/${data.project.id}`);
+    } catch (err) {
+      setCreateError((err as Error).message);
+      setCreating(false);
     }
-    router.push(`/discover/brief?id=${encodeURIComponent(o.id)}`);
   };
 
   return (
@@ -66,14 +77,26 @@ export default function OpportunityPage() {
             </Link>
           </section>
         ) : (
-          <Detail opportunity={state.opportunity} analyzedAt={state.analyzedAt} onCreateBrief={createBrief} />
+          <Detail opportunity={state.opportunity} analyzedAt={state.analyzedAt} onCreateBrief={createBrief} creating={creating} createError={createError} />
         )}
       </div>
     </div>
   );
 }
 
-function Detail({ opportunity: o, analyzedAt, onCreateBrief }: { opportunity: Opportunity; analyzedAt: string; onCreateBrief: (o: Opportunity) => void }) {
+function Detail({
+  opportunity: o,
+  analyzedAt,
+  onCreateBrief,
+  creating,
+  createError,
+}: {
+  opportunity: Opportunity;
+  analyzedAt: string;
+  onCreateBrief: (o: Opportunity) => void;
+  creating: boolean;
+  createError: string;
+}) {
   const gapEvidence = o.evidence.filter((e) => e.source === 'calculated' && !e.calculation);
   return (
     <div className="space-y-6">
@@ -89,10 +112,11 @@ function Detail({ opportunity: o, analyzedAt, onCreateBrief }: { opportunity: Op
           <span className="text-sm text-zinc-400 mr-2">/ 100 · our opportunity score</span>
           <EvidenceBadge confidence={o.confidence} />
         </div>
-        <button type="button" onClick={() => onCreateBrief(o)} className="btn-primary px-6 py-3 text-base font-semibold">
-          <FileText size={18} />
+        <button type="button" onClick={() => onCreateBrief(o)} disabled={creating} className="btn-primary px-6 py-3 text-base font-semibold">
+          {creating ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
           Create video brief
         </button>
+        {createError && <p className="text-sm text-rose-300">{createError}</p>}
       </section>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

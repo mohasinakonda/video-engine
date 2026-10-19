@@ -20,7 +20,7 @@ const itemSchema = z.object({
 type AiItem = z.infer<typeof itemSchema>;
 
 /** Words a decision-support tool must not use (docs/discover-plan.md §11). */
-const BANNED = /\b(viral|guaranteed?|guarantee|hack|exploit|untapped|no competition|100\s*%|algorithm secret|blow up)\b|ভাইরাল|গ্যারান্টি/i;
+export const BANNED = /\b(viral|guaranteed?|guarantee|hack|exploit|untapped|no competition|100\s*%|algorithm secret|blow up)\b|ভাইরাল|গ্যারান্টি/i;
 
 const MOMENTUM_TEXT: Record<Opportunity['momentum'], string> = {
   recent: 'several channels posted on it recently',
