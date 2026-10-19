@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Compass, Lightbulb, Loader2, RefreshCw, TrendingUp, Users } from 'lucide-react';
 import { CompetitorsPanel } from '@/components/discover/competitors-panel';
-import type { DiscoverConfig } from '@/components/discover/types';
+import { ResearchPanel, useResearch } from '@/components/discover/research-panel';
+import type { DiscoverConfig, ResearchWindow } from '@/components/discover/types';
 import type { ConnectionState } from '@/components/youtube-doctor/types';
 import { useAuth } from '@/contexts/auth-context';
 
@@ -124,10 +125,15 @@ export default function DiscoverInner() {
               ))}
             </nav>
 
-            {tab === 'competitors' && (
-              <CompetitorsPanel userId={user.id} channelId={channelId} config={config} onCountChange={setActiveCompetitors} />
-            )}
-            {tab !== 'competitors' && <ResearchComingNext activeCompetitors={activeCompetitors} onAdd={() => setTab('competitors')} />}
+            <DiscoverTabs
+              tab={tab}
+              userId={user.id}
+              channelId={channelId}
+              config={config}
+              activeCompetitors={activeCompetitors}
+              onCountChange={setActiveCompetitors}
+              setTab={setTab}
+            />
           </>
         )}
       </div>
@@ -135,25 +141,52 @@ export default function DiscoverInner() {
   );
 }
 
-/** Market research arrives in the next milestone; say so plainly instead of showing anything fake. */
-function ResearchComingNext({ activeCompetitors, onAdd }: { activeCompetitors: number | null; onAdd: () => void }) {
-  const needMore = activeCompetitors !== null && activeCompetitors < 2;
+/** The three tabs. Research state lives here so switching tabs doesn't lose a running research. */
+function DiscoverTabs({
+  tab,
+  userId,
+  channelId,
+  config,
+  activeCompetitors,
+  onCountChange,
+  setTab,
+}: {
+  tab: Tab;
+  userId: string;
+  channelId: string;
+  config: DiscoverConfig;
+  activeCompetitors: number | null;
+  onCountChange: (n: number) => void;
+  setTab: (t: Tab) => void;
+}) {
+  const [period, setPeriod] = useState<ResearchWindow>('90d');
+  const research = useResearch(userId, channelId, period);
+
+  if (tab === 'competitors') {
+    return <CompetitorsPanel userId={userId} channelId={channelId} config={config} onCountChange={onCountChange} />;
+  }
+  if (tab === 'market') {
+    return (
+      <ResearchPanel
+        config={config}
+        research={research}
+        period={period}
+        onPeriodChange={setPeriod}
+        activeCompetitors={activeCompetitors}
+        onAddCompetitors={() => setTab('competitors')}
+      />
+    );
+  }
+  // Next-video opportunities are built on top of research in the next milestones; nothing fake meanwhile.
   return (
     <section className="card space-y-3">
       <h2 className="text-xl font-bold text-white">What should you make next?</h2>
       <p className="text-base text-zinc-300">
-        Market research compares your channel with your competitors to find topics that are working for them and missing on your channel.
+        Next-video ideas will combine your market research with what works on your channel. This part is being built.
       </p>
-      {needMore ? (
-        <>
-          <p className="text-base text-zinc-300">First, add at least 2 competitors.</p>
-          <button type="button" onClick={onAdd} className="btn-primary btn-sm w-fit">
-            Add competitors
-          </button>
-        </>
-      ) : (
-        <p className="text-sm text-zinc-400">Research is being built and will appear here soon.</p>
-      )}
+      <button type="button" onClick={() => setTab('market')} className="btn-primary btn-sm w-fit">
+        See your market
+      </button>
     </section>
   );
 }

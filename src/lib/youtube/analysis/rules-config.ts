@@ -116,4 +116,18 @@ export const DISCOVER_RULES = {
     relevanceHigh: 0.6,
     relevanceMedium: 0.3,
   },
+  outliers: {
+    /** Younger videos are still collecting views: not compared yet. */
+    minAgeDays: 7,
+    /** Older videos are left out of the baseline (a channel changes over a year). */
+    maxBaselineAgeDays: 365,
+    /** Same-format videos needed for a usable baseline, and for a strong one. */
+    minBaseline: 6,
+    highBaseline: 12,
+    /** Both must hold: views ≥ 2× the channel's usual, and a robust z-score ≥ 2 on log views. */
+    minRatio: 2,
+    minRobustZ: 2,
+    /** Outliers kept in the result (strongest first). */
+    maxReported: 40,
+  },
 } as const;

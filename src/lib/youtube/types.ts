@@ -32,6 +32,8 @@ export interface VideoMeta {
   categoryId?: string | null;
   /** First 300 characters, only when requested. */
   description?: string;
+  /** A live stream in progress or a scheduled premiere (no final length or views yet). */
+  liveOrUpcoming?: boolean;
 }
 
 export interface PeriodStats {

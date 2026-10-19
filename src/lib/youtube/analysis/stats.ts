@@ -37,3 +37,10 @@ export function minConfidence(a: Confidence, b: Confidence): Confidence {
 }
 
 export const round = (value: number, digits = 1) => Math.round(value * 10 ** digits) / 10 ** digits;
+
+/** Median absolute deviation (unscaled); null for an empty list. */
+export function mad(values: number[]): number | null {
+  const m = median(values);
+  if (m === null) return null;
+  return median(values.filter(Number.isFinite).map((v) => Math.abs(v - m)));
+}

@@ -25,3 +25,5 @@ export const GROUP_INFO = {
   adjacent: { label: 'Adjacent', help: 'Overlapping audience, different topics or formats' },
   format: { label: 'Format', help: 'Different topics, but a format or style worth learning from' },
 } as const;
+
+export type { ChannelProfile, Outlier, ResearchResult, ResearchStage, ResearchWindow } from '@/lib/youtube/discover/types';
