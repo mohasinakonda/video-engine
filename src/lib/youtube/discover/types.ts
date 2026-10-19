@@ -1,4 +1,5 @@
 import type { Confidence } from '../types';
+import type { ContentFormat, TitleMechanism } from './formats';
 
 /** The user's own grouping of a saved competitor (docs/discover-plan.md §3.1). */
 export type CompetitorGroup = 'direct' | 'adjacent' | 'format';
@@ -68,7 +69,7 @@ export interface DiscoveryResult {
 
 export type ResearchWindow = '30d' | '90d';
 
-export type ResearchStage = 'connect' | 'your_channel' | 'competitors' | 'videos' | 'outliers' | 'done';
+export type ResearchStage = 'connect' | 'your_channel' | 'competitors' | 'videos' | 'outliers' | 'topics' | 'formats' | 'done';
 
 /** Shorts are estimated from duration (≤ 3 min): the public API has no Shorts flag. */
 export type PublicFormat = 'short' | 'video';
@@ -112,6 +113,61 @@ export interface Outlier {
   ratio: number;
   sampleSize: number;
   confidence: Confidence;
+  /** Filled after topic and format analysis; null when the video fits no market topic / format. */
+  topicId?: string | null;
+  contentFormat?: ContentFormat | null;
+  mechanisms?: TitleMechanism[];
+}
+
+/** A topic several channels cover. Counts are ours; only the label may come from the model. */
+export interface TopicSummary {
+  id: string;
+  label: string;
+  labelSource: 'ai' | 'fallback';
+  problemOriented: boolean;
+  audienceProblem: string | null;
+  videoCount: number;
+  yourVideoCount: number;
+  competitorVideoCount: number;
+  competitorChannelCount: number;
+  /** Competitor videos in this topic from the last 30 days. */
+  competitorRecent30: number;
+  outlierCount: number;
+  outlierChannelCount: number;
+  /** Mean similarity of the topic's titles to its centre (1 = identical). Lower = looser topic. */
+  cohesion: number;
+  exampleTitles: string[];
+  topFormats: { format: ContentFormat; count: number }[];
+  yourVideoIds: string[];
+  outlierVideoIds: string[];
+}
+
+export interface FormatStat {
+  format: ContentFormat;
+  /** Competitor videos in the window old enough to judge. */
+  competitorVideos: number;
+  competitorOutliers: number;
+  yourVideos: number;
+}
+
+export interface MechanismStat {
+  mechanism: TitleMechanism;
+  /** Shares (0–1) of titles using it. */
+  outlierShare: number;
+  competitorShare: number;
+  yourShare: number;
+}
+
+export interface MarketPatterns {
+  formats: FormatStat[];
+  mechanisms: MechanismStat[];
+  /** Sample sizes behind the shares. */
+  competitorVideos: number;
+  outliers: number;
+  yourVideos: number;
+  /** Videos no rule or model could place in a format. */
+  unclassified: number;
+  aiClassified: number;
 }
 
 /** One channel's recent activity and performance, from public data only. */
@@ -152,6 +208,10 @@ export interface ResearchResult {
   statuses: CompetitorStatus[];
   /** Strongest competitor outliers in the window, highest ratio first. */
   outliers: Outlier[];
+  /** Strongest first. Empty when topic matching was unavailable. */
+  topics: TopicSummary[];
+  patterns: MarketPatterns;
   videosAnalyzed: number;
+  embeddingModel: string | null;
   limitations: string[];
 }

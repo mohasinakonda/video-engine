@@ -116,6 +116,22 @@ export const DISCOVER_RULES = {
     relevanceHigh: 0.6,
     relevanceMedium: 0.3,
   },
+  topics: {
+    /**
+     * Average-link threshold (mean pairwise cosine) per embedding model. bge-m3, measured
+     * 19 Oct 2026 on wildlife channels with channel names stripped from titles: 0.45 merged
+     * all wildlife into one cluster, 0.55 left almost nothing clustered, 0.5 gave specific topics.
+     */
+    clusterSimilarity: { 'BAAI/bge-m3': 0.5, default: 0.55 } as Record<string, number>,
+    /** A market topic needs this many videos from this many channels (yours counts). */
+    minVideos: 3,
+    minChannels: 2,
+    maxTopics: 25,
+    /** Videos older than this don't shape today's topics. */
+    maxAgeDays: 365,
+    /** Unclassified titles sent to the model for a format, per run. */
+    maxAiFormatTitles: 300,
+  },
   outliers: {
     /** Younger videos are still collecting views: not compared yet. */
     minAgeDays: 7,

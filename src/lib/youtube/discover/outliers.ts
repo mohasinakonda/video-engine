@@ -86,8 +86,9 @@ export function findOutliers(
   windowDays: number,
   now: Date,
   channelTitle: string
-): { eligible: number; outliers: Outlier[] } {
+): { eligible: number; eligibleIds: string[]; outliers: Outlier[] } {
   let eligible = 0;
+  const eligibleIds: string[] = [];
   const outliers: Outlier[] = [];
   for (const video of videos) {
     const age = ageInDays(video.publishedAt, now);
@@ -95,6 +96,7 @@ export function findOutliers(
     const j = judgeVideo(video, baselines, now);
     if (!j.eligible) continue;
     eligible += 1;
+    eligibleIds.push(video.id);
     if (!j.isOutlier) continue;
     const format = publicFormat(video.durationSec) as PublicFormat;
     outliers.push({
@@ -114,7 +116,7 @@ export function findOutliers(
     });
   }
   outliers.sort((a, b) => b.ratio - a.ratio);
-  return { eligible, outliers };
+  return { eligible, eligibleIds, outliers };
 }
 
 /** Strips the internal log statistics before results leave the server. */

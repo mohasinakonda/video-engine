@@ -42,6 +42,7 @@ export async function POST(req: Request) {
         accessToken: token.accessToken,
         connection: token.connection,
         settings: settings.discover,
+        textModels: settings.textModels,
         window: parsed.data.window,
         competitorIds,
         onStage,

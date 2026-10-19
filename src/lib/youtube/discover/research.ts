@@ -8,6 +8,12 @@ import type { DiscoverSettings } from '../settings';
 import type { StageDetail } from '../stream-analysis';
 import { profileChannel } from './competitor-analysis';
 import { toPublicChannel } from './discovery';
+import { ruleFormats } from './formats';
+import { classifyWithAI } from './formats-ai';
+import { summarizePatterns, summarizeTopics, tagOutliers, type TaggedVideo } from './market-patterns';
+import { ageInDays } from './outliers';
+import { mainLanguage } from './queries';
+import { buildTopics, type TopicInput } from './topics';
 import type { ChannelProfile, CompetitorStatus, MarketVideo, Outlier, ResearchResult, ResearchStage, ResearchWindow } from './types';
 
 export const WINDOW_DAYS: Record<ResearchWindow, number> = { '30d': 30, '90d': 90 };
@@ -19,6 +25,8 @@ interface ResearchOptions {
   accessToken: string;
   connection: PublicConnection;
   settings: DiscoverSettings;
+  /** Admin's text model list (topic names, formats the rules can't place). */
+  textModels: string[];
   window: ResearchWindow;
   /** Active watchlist channel ids, read from the database by the route. */
   competitorIds: string[];
@@ -110,12 +118,62 @@ export async function runResearch(options: ResearchOptions): Promise<ResearchRes
   const you = profileChannel(toPublicChannel(me), mine.data, windowDays, now).profile;
   const competitors: ChannelProfile[] = [];
   const outliers: Outlier[] = [];
+  const eligibleIds = new Set<string>();
   for (const c of readable) {
-    const { profile, outliers: found } = profileChannel(toPublicChannel(c), competitorVideos.get(c.id) as MarketVideo[], windowDays, now);
-    competitors.push(profile);
-    outliers.push(...found);
+    const result = profileChannel(toPublicChannel(c), competitorVideos.get(c.id) as MarketVideo[], windowDays, now);
+    competitors.push(result.profile);
+    outliers.push(...result.outliers);
+    result.eligibleIds.forEach((id) => eligibleIds.add(id));
   }
   outliers.sort((a, b) => b.ratio - a.ratio);
+  const outlierIds = new Set(outliers.map((o) => o.videoId));
+
+  // Every video of the last year, tagged with its format by rule (the model fills gaps below).
+  const tagged: TaggedVideo[] = [
+    ...mine.data.map((v) => ({ ...v, channelTitle: me.title, isYours: true })),
+    ...readable.flatMap((c) => (competitorVideos.get(c.id) as MarketVideo[]).map((v) => ({ ...v, channelTitle: c.title, isYours: false }))),
+  ]
+    .filter((v) => ageInDays(v.publishedAt, now) <= DISCOVER_RULES.topics.maxAgeDays)
+    .map((v) => ({ ...v, format: ruleFormats(v.title) }));
+  const videosById = new Map(tagged.map((v) => [v.id, v]));
+  const language = mainLanguage(mine.data.map((v) => v.title));
+
+  onStage('topics', { count: tagged.length });
+  const build = await buildTopics(
+    tagged.map((v): TopicInput => ({ id: v.id, channelId: v.channelId, channelTitle: v.channelTitle, title: v.title, isYours: v.isYours })),
+    { embeddingModels: settings.embeddingModels, textModels: options.textModels, language }
+  );
+  if (!build.embeddingModel) limitations.push('Topic matching was unavailable for this run, so topics are not shown.');
+  else if (!(DISCOVER_RULES.strongEmbeddingModels as readonly string[]).includes(build.embeddingModel)) {
+    limitations.push('A backup topic model was used, so topic groups are less reliable.');
+  }
+
+  // Formats: titles the rules can't place go to the model — those that matter for the
+  // comparisons (yours, and competitors' judged videos in the window), capped per run.
+  onStage('formats', { count: tagged.length });
+  const forAI = tagged
+    .filter((v) => !v.format.primary && (v.isYours || eligibleIds.has(v.id)))
+    .slice(0, DISCOVER_RULES.topics.maxAiFormatTitles);
+  const batches: TaggedVideo[][] = [];
+  for (let i = 0; i < forAI.length; i += 100) batches.push(forAI.slice(i, i + 100));
+  const aiResults = await mapLimit(batches, 3, (batch) => classifyWithAI(batch.map((v) => v.title), options.textModels));
+  batches.forEach((batch, b) => aiResults[b].forEach((tag, n) => (batch[n].format = tag)));
+
+  const topics = build.embeddingModel
+    ? summarizeTopics(
+        build.topics,
+        build.labels,
+        tagged.map((v) => ({ id: v.id, channelId: v.channelId, channelTitle: v.channelTitle, title: v.title, isYours: v.isYours })),
+        videosById,
+        outlierIds,
+        now
+      ).sort((a, b) => b.outlierCount - a.outlierCount || b.competitorChannelCount - a.competitorChannelCount || b.videoCount - a.videoCount)
+    : [];
+  const patterns = summarizePatterns(
+    tagged.filter((v) => !v.isYours && eligibleIds.has(v.id)),
+    outlierIds,
+    tagged.filter((v) => v.isYours)
+  );
 
   const thin = competitors.filter((p) => p.baselines.short.strength === 'insufficient' && p.baselines.video.strength === 'insufficient');
   if (thin.length > 0) {
@@ -135,7 +193,10 @@ export async function runResearch(options: ResearchOptions): Promise<ResearchRes
     you,
     competitors,
     statuses,
-    outliers: outliers.slice(0, DISCOVER_RULES.outliers.maxReported),
+    outliers: tagOutliers(outliers.slice(0, DISCOVER_RULES.outliers.maxReported), build.assignment, videosById),
+    topics,
+    patterns,
+    embeddingModel: build.embeddingModel,
     videosAnalyzed: [mine.data, ...Array.from(competitorVideos.values())].reduce((n, v) => n + v.length, 0),
     limitations,
   };

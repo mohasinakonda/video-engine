@@ -15,9 +15,9 @@ export function profileChannel(
   videos: MarketVideo[],
   windowDays: number,
   now: Date
-): { profile: ChannelProfile; outliers: Outlier[] } {
+): { profile: ChannelProfile; outliers: Outlier[]; eligibleIds: string[] } {
   const baselines = publicBaselines(videos, now);
-  const { eligible, outliers } = findOutliers(videos, baselines, windowDays, now, channel.title);
+  const { eligible, eligibleIds, outliers } = findOutliers(videos, baselines, windowDays, now, channel.title);
 
   const recent = videos
     .filter((v) => ageInDays(v.publishedAt, now) <= 90)
@@ -40,5 +40,6 @@ export function profileChannel(
       outlierRate: eligible > 0 ? outliers.length / eligible : null,
     },
     outliers,
+    eligibleIds,
   };
 }

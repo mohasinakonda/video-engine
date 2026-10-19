@@ -6,6 +6,8 @@ import { ProgressSteps, type ProgressStep } from '@/components/youtube-doctor/pr
 import { useAnalysisStream } from '@/components/youtube-doctor/use-diagnosis';
 import { CompareTable } from './compare-table';
 import { OutlierList } from './outlier-list';
+import { PatternTables } from './pattern-tables';
+import { TopicList } from './topic-list';
 import type { DiscoverConfig, ResearchResult, ResearchStage, ResearchWindow } from './types';
 
 const STEPS: ProgressStep<ResearchStage>[] = [
@@ -14,6 +16,8 @@ const STEPS: ProgressStep<ResearchStage>[] = [
   { stage: 'competitors', label: (n) => (n ? `Researching ${n} competitor${n === 1 ? '' : 's'}` : 'Researching your competitors') },
   { stage: 'videos', label: (n) => (n ? `Collecting up to ${n} recent videos` : 'Collecting recent videos') },
   { stage: 'outliers', label: 'Comparing each video with its channel’s usual' },
+  { stage: 'topics', label: (n) => (n ? `Grouping ${n} videos into topics` : 'Grouping videos into topics') },
+  { stage: 'formats', label: 'Spotting formats and title styles' },
 ];
 
 export function useResearch(userId: string, channelId: string, period: ResearchWindow) {
@@ -46,7 +50,7 @@ export function ResearchPanel({
           <>
             <p className="text-lg font-semibold text-white">Researching your market…</p>
             <ProgressSteps reached={research.stages} steps={STEPS} counts={research.counts} />
-            <p className="text-sm text-zinc-400">Usually under a minute. Please keep this tab open.</p>
+            <p className="text-sm text-zinc-400">Usually about a minute. Please keep this tab open.</p>
           </>
         ) : (
           <>
@@ -117,7 +121,11 @@ function ResearchResults({ result, analyzedAt }: { result: ResearchResult; analy
         {new Date(analyzedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
 
-      <OutlierList outliers={result.outliers} period={result.window} />
+      <TopicList topics={result.topics ?? []} />
+
+      <OutlierList outliers={result.outliers} period={result.window} topics={result.topics ?? []} />
+
+      {result.patterns && <PatternTables patterns={result.patterns} />}
 
       <CompareTable you={result.you} competitors={result.competitors} period={result.window} />
 

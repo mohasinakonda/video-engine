@@ -35,3 +35,18 @@ export function normalizeTitle(title: string): string {
     .trim()
     .toLowerCase();
 }
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The part of a title that says what the video is about. Channels often append
+ * " | Series | Channel name", which would make one channel's titles cluster together, so
+ * only the first segment is kept (two if the first is very short) and the channel name is removed.
+ */
+export function topicText(title: string, channelTitle: string): string {
+  const segments = title.split(/\s+[|｜•]\s+|\s+-\s+(?=[^-]*$)/).map((s) => s.trim()).filter(Boolean);
+  let main = segments[0] ?? title;
+  if (main.split(/\s+/).length < 3 && segments[1]) main = `${main} ${segments[1]}`;
+  if (channelTitle.trim().length >= 3) main = main.replace(new RegExp(escapeRegExp(channelTitle.trim()), 'gi'), ' ');
+  return normalizeTitle(main);
+}

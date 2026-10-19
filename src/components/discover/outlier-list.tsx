@@ -1,10 +1,11 @@
 import Image from 'next/image';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { formatCompact } from '@/components/youtube-doctor/format';
-import type { Outlier, ResearchWindow } from './types';
+import { FORMAT_LABELS, type Outlier, type ResearchWindow, type TopicSummary } from './types';
 
 /** The market's standout videos, each with the numbers behind "standout". */
-export function OutlierList({ outliers, period }: { outliers: Outlier[]; period: ResearchWindow }) {
+export function OutlierList({ outliers, period, topics }: { outliers: Outlier[]; period: ResearchWindow; topics: TopicSummary[] }) {
+  const topicLabel = new Map(topics.map((t) => [t.id, t.label]));
   return (
     <section className="space-y-4">
       <div>
@@ -53,6 +54,16 @@ export function OutlierList({ outliers, period }: { outliers: Outlier[]; period:
                   </span>
                   <EvidenceBadge confidence={o.confidence} />
                 </p>
+                {(o.topicId || o.contentFormat) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {o.topicId && topicLabel.get(o.topicId) && (
+                      <span className="px-2 py-0.5 rounded-md bg-bg-elevated border border-bg-border text-xs text-zinc-300">Topic: {topicLabel.get(o.topicId)}</span>
+                    )}
+                    {o.contentFormat && (
+                      <span className="px-2 py-0.5 rounded-md bg-bg-elevated border border-bg-border text-xs text-zinc-300">{FORMAT_LABELS[o.contentFormat]}</span>
+                    )}
+                  </div>
+                )}
               </div>
             </li>
           ))}
