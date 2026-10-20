@@ -10,6 +10,7 @@ import {
   Plus,
   Compass,
   PenLine,
+  ScanSearch,
   Save,
   Stethoscope,
   Trash2,
@@ -29,8 +30,26 @@ interface Settings {
   hourlyLimitPerUser: number;
   discover: DiscoverSettings;
   create: CreateSettings;
+  audit: AuditSettings;
   updatedAt: string | null;
 }
+
+interface AuditSettings {
+  enabled: boolean;
+  videoAuditCreditCost: number;
+  channelAuditCreditCost: number;
+  runsPerUserDay: number;
+  maxComments: number;
+  maxThumbnails: number;
+}
+
+const AUDIT_FIELDS: { key: Exclude<keyof AuditSettings, 'enabled'>; label: string; hint: string; min: number; max: number }[] = [
+  { key: 'videoAuditCreditCost', label: 'Video analysis (credits)', hint: 'Any public video', min: 0, max: 1000 },
+  { key: 'channelAuditCreditCost', label: 'Channel analysis (credits)', hint: 'Any public channel', min: 0, max: 1000 },
+  { key: 'runsPerUserDay', label: 'Analyses per user per day', hint: 'Protects the shared YouTube quota', min: 1, max: 500 },
+  { key: 'maxComments', label: 'Comments read per video', hint: '0 turns viewer themes off', min: 0, max: 100 },
+  { key: 'maxThumbnails', label: 'Thumbnails per channel analysis', hint: 'Vision calls', min: 0, max: 20 },
+];
 
 interface CreateSettings {
   enabled: boolean;
@@ -146,6 +165,8 @@ export default function AdminChannelDoctorPage() {
   const updateCreate = <K extends keyof CreateSettings>(key: K, value: CreateSettings[K]) =>
     setSettings((prev) => (prev ? { ...prev, create: { ...prev.create, [key]: value } } : prev));
   const toggleCreatePlan = (plan: string) => settings && updateCreate('allowedPlans', toggle(settings.create.allowedPlans, plan));
+  const updateAudit = <K extends keyof AuditSettings>(key: K, value: AuditSettings[K]) =>
+    setSettings((prev) => (prev ? { ...prev, audit: { ...prev.audit, [key]: value } } : prev));
 
   const save = async () => {
     if (!settings) return;
@@ -280,6 +301,8 @@ export default function AdminChannelDoctorPage() {
             />
 
             <CreateSection create={settings.create} update={updateCreate} togglePlan={toggleCreatePlan} />
+
+            <AuditSection audit={settings.audit} update={updateAudit} />
 
             {settings.updatedAt && (
               <p className="text-xs text-zinc-500">Last saved {new Date(settings.updatedAt).toLocaleString()}</p>
@@ -516,6 +539,34 @@ function CreateSection({
             max={10000}
             onChange={(v) => update('maxProjectsPerUser', v)}
           />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AuditSection({ audit, update }: { audit: AuditSettings; update: <K extends keyof AuditSettings>(key: K, value: AuditSettings[K]) => void }) {
+  return (
+    <div className="space-y-6 pt-6 border-t border-bg-border">
+      <div>
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <ScanSearch size={18} className="text-amber-300" />
+          Channel and video analysis
+        </h2>
+        <p className="text-xs text-zinc-400">Analyze any public channel or video from Discover. Follows Discover’s plans; needs Discover switched on too.</p>
+      </div>
+      <section className="card space-y-4">
+        <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <span>
+            <span className="block text-sm font-semibold text-white">Analysis enabled</span>
+            <span className="block text-xs text-zinc-400">Admins can use it while it is off for users.</span>
+          </span>
+          <input type="checkbox" checked={audit.enabled} onChange={(e) => update('enabled', e.target.checked)} className="w-5 h-5 accent-emerald-500" />
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-bg-border">
+          {AUDIT_FIELDS.map((f) => (
+            <NumberField key={f.key} label={f.label} hint={f.hint} value={audit[f.key]} min={f.min} max={f.max} onChange={(v) => update(f.key, v)} />
+          ))}
         </div>
       </section>
     </div>

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { decryptToken, encryptToken } from './crypto';
 import { buildAuthUrl, hasRequiredScopes, statesMatch } from './oauth';
 import { aggregateReach, parseCsv } from './reporting-client';
-import { DEFAULT_CREATE_SETTINGS, DEFAULT_DISCOVER_SETTINGS, settingsUpdateSchema } from './settings';
+import { DEFAULT_CREATE_SETTINGS, DEFAULT_AUDIT_SETTINGS, DEFAULT_DISCOVER_SETTINGS, settingsUpdateSchema } from './settings';
 import { isAllowedThumbnailUrl } from './analysis/thumbnails';
 import { safeReturnPath } from './config';
 import { toPublicConnection } from './connection-service';
@@ -118,7 +118,13 @@ describe('admin settings validation', () => {
     hourlyLimitPerUser: 10,
     discover: DEFAULT_DISCOVER_SETTINGS,
     create: DEFAULT_CREATE_SETTINGS,
+    audit: DEFAULT_AUDIT_SETTINGS,
   };
+  it('validates analysis prices and limits', () => {
+    expect(settingsUpdateSchema.safeParse({ ...valid, audit: { ...DEFAULT_AUDIT_SETTINGS, maxComments: 101 } }).success).toBe(false);
+    expect(settingsUpdateSchema.safeParse({ ...valid, audit: { ...DEFAULT_AUDIT_SETTINGS, videoAuditCreditCost: -1 } }).success).toBe(false);
+    expect(settingsUpdateSchema.safeParse({ ...valid, audit: { ...DEFAULT_AUDIT_SETTINGS, runsPerUserDay: 0 } }).success).toBe(false);
+  });
   it('accepts valid settings', () => expect(settingsUpdateSchema.safeParse(valid).success).toBe(true));
   it('rejects unknown plans, bad model ids and negative costs', () => {
     expect(settingsUpdateSchema.safeParse({ ...valid, allowedPlans: ['GOLD'] }).success).toBe(false);

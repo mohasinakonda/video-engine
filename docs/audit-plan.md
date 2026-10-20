@@ -41,6 +41,8 @@ Analyze any channel or video and say, with evidence, what works and where it is 
 1. `videos.list` (snippet, contentDetails, statistics) for the video.
 2. Its channel: the uploads playlist (`UU…`), `playlistItems.list`, then `videos.list` for up to 50 recent uploads (the baseline).
 3. `commentThreads.list` (`order=relevance`, `maxResults=100`, `textFormat=plainText`). Comments disabled → `403 commentsDisabled` → the comment section says so.
+   - **Comments need a server API key** (`YOUTUBE_API_KEY`, same Google Cloud project, restricted to the YouTube Data API v3). Tested on 20 Oct 2026: `commentThreads.list` returns `403 insufficientPermissions` with the user's `youtube.readonly` token. The scope that allows it (`youtube.force-ssl`) can also change the channel, which isn't worth asking users for.
+   - Without the key, the comment section is skipped, and the report says so.
 
 **Analysis.** Deterministic, reusing existing code; every finding carries its evidence and a confidence.
 

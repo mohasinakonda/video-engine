@@ -21,7 +21,7 @@ export interface StageDetail {
 interface StreamOptions<S extends string> {
   userId: string;
   /** Which admin switch and plan list gate this route. Default: Channel Doctor. */
-  feature?: 'doctor' | 'discover' | 'create';
+  feature?: 'doctor' | 'discover' | 'create' | 'audit';
   /**
    * Set false for work that doesn't call YouTube (writing a brief or script): no token is
    * fetched, so a missing or expired connection doesn't block it.
@@ -59,10 +59,10 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
 }: StreamOptions<S>): Promise<Response> {
   const settings = await getChannelDoctorSettings();
   const access = await getUserAccess(userId, settings);
-  if (feature === 'discover' || feature === 'create') {
-    const allowed = feature === 'discover' ? access.hasDiscoverAccess : access.hasCreateAccess;
-    const switchedOn = feature === 'discover' ? settings.discover.enabled : settings.create.enabled;
-    const name = feature === 'discover' ? 'Discover' : 'Create';
+  if (feature === 'discover' || feature === 'create' || feature === 'audit') {
+    const allowed = { discover: access.hasDiscoverAccess, create: access.hasCreateAccess, audit: access.hasAuditAccess }[feature];
+    const switchedOn = { discover: settings.discover.enabled, create: settings.create.enabled, audit: settings.audit.enabled && settings.discover.enabled }[feature];
+    const name = { discover: 'Discover', create: 'Create', audit: 'Analysis' }[feature];
     if (!allowed) {
       return switchedOn
         ? NextResponse.json({ error: `${name} is not included in your current plan.`, code: 'plan' }, { status: 403 })

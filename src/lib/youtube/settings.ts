@@ -18,8 +18,30 @@ export interface ChannelDoctorSettings {
   hourlyLimitPerUser: number;
   discover: DiscoverSettings;
   create: CreateSettings;
+  audit: AuditSettings;
   updatedAt: string | null;
 }
+
+/** Admin-controlled Audit settings (docs/audit-plan.md §7). Access follows Discover's plans. */
+export interface AuditSettings {
+  enabled: boolean;
+  videoAuditCreditCost: number;
+  channelAuditCreditCost: number;
+  runsPerUserDay: number;
+  /** Comments read per video for the viewer themes (0 turns them off). */
+  maxComments: number;
+  /** Thumbnails described per channel audit. */
+  maxThumbnails: number;
+}
+
+export const DEFAULT_AUDIT_SETTINGS: AuditSettings = {
+  enabled: false,
+  videoAuditCreditCost: 5,
+  channelAuditCreditCost: 10,
+  runsPerUserDay: 20,
+  maxComments: 100,
+  maxThumbnails: 8,
+};
 
 /** Admin-controlled Create (Phase 3) settings, stored on the same row. */
 export interface CreateSettings {
@@ -134,6 +156,7 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   hourlyLimitPerUser: 10,
   discover: DEFAULT_DISCOVER_SETTINGS,
   create: DEFAULT_CREATE_SETTINGS,
+  audit: DEFAULT_AUDIT_SETTINGS,
   updatedAt: null,
 };
 
@@ -187,6 +210,15 @@ export const createSettingsSchema = z.object({
   maxProjectsPerUser: z.number().int().min(1).max(10_000),
 });
 
+export const auditSettingsSchema = z.object({
+  enabled: z.boolean(),
+  videoAuditCreditCost: credit,
+  channelAuditCreditCost: credit,
+  runsPerUserDay: z.number().int().min(1).max(500),
+  maxComments: z.number().int().min(0).max(100),
+  maxThumbnails: z.number().int().min(0).max(20),
+});
+
 /** What an admin may save. Mirrors the database CHECK constraints. */
 export const settingsUpdateSchema = z.object({
   enabled: z.boolean(),
@@ -201,6 +233,7 @@ export const settingsUpdateSchema = z.object({
   hourlyLimitPerUser: z.number().int().min(1).max(100),
   discover: discoverSettingsSchema,
   create: createSettingsSchema,
+  audit: auditSettingsSchema,
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
@@ -221,12 +254,26 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     hourlyLimitPerUser: data.hourly_limit_per_user,
     discover: readDiscover(data),
     create: readCreate(data),
+    audit: readAudit(data),
     updatedAt: data.updated_at,
   };
 }
 
 const toPlans = (plans: string[] | null | undefined): PlanTier[] =>
   (plans || []).filter((p): p is PlanTier => (PLAN_TIERS as readonly string[]).includes(p));
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readAudit(data: Record<string, any>): AuditSettings {
+  const d = DEFAULT_AUDIT_SETTINGS;
+  return {
+    enabled: data.audit_enabled ?? d.enabled,
+    videoAuditCreditCost: data.video_audit_credit_cost ?? d.videoAuditCreditCost,
+    channelAuditCreditCost: data.channel_audit_credit_cost ?? d.channelAuditCreditCost,
+    runsPerUserDay: data.audit_runs_per_user_day ?? d.runsPerUserDay,
+    maxComments: data.audit_max_comments ?? d.maxComments,
+    maxThumbnails: data.audit_max_thumbnails ?? d.maxThumbnails,
+  };
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readCreate(data: Record<string, any>): CreateSettings {
@@ -302,6 +349,12 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       checkpoint_days: update.create.checkpointDays,
       learning_min_videos: update.create.learningMinVideos,
       max_projects_per_user: update.create.maxProjectsPerUser,
+      audit_enabled: update.audit.enabled,
+      video_audit_credit_cost: update.audit.videoAuditCreditCost,
+      channel_audit_credit_cost: update.audit.channelAuditCreditCost,
+      audit_runs_per_user_day: update.audit.runsPerUserDay,
+      audit_max_comments: update.audit.maxComments,
+      audit_max_thumbnails: update.audit.maxThumbnails,
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(`Could not save settings (${error.code})`);
@@ -334,6 +387,8 @@ export async function getUserAccess(userId: string, settings: ChannelDoctorSetti
     hasAccess: settings.enabled && settings.allowedPlans.includes(tier),
     hasDiscoverAccess: isAdmin || (settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
     hasCreateAccess: isAdmin || (settings.create.enabled && settings.create.allowedPlans.includes(tier)),
+    // The audit lives in Discover, so it follows Discover's plans and needs its own switch too.
+    hasAuditAccess: isAdmin || (settings.audit.enabled && settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
   };
 }
 
