@@ -36,6 +36,8 @@ const video = (over: Partial<AuditVideo> = {}): AuditVideo => ({
   likes: 40,
   comments: 5,
   liveOrUpcoming: false,
+  madeForKids: false,
+  wasStreamed: false,
   ...over,
 });
 
@@ -96,10 +98,32 @@ describe('auditVideo', () => {
     expect(t).toContain('cut off');
     expect(t).toContain('all-caps');
 
-    // 3 standout "why" videos on the channel; a weak "how" title is told so.
-    const standouts = [0, 1, 2].map((i) => peer(50 + i, { title: `Why thing ${i} breaks`, views: 9000 }));
+    // 4 standout "why" videos on the channel; a weak "how" title is told so.
+    const standouts = [0, 1, 2, 3].map((i) => peer(50 + i, { title: `Why thing ${i} breaks`, views: 9000 }));
     const weak = auditVideo(video({ views: 300 }), [...channel(), ...standouts], NOW);
-    expect(kinds(weak, 'title').join('\n')).toContain('weakness:Most of the channel’s standouts use');
+    expect(kinds(weak, 'pattern').join('\n')).toContain('weakness:Skips what works on this channel: “Why…” in the title');
+    // Polish like title length ranks below what explains the result.
+    expect(r.findings.find((f) => f.statement.includes('cut off'))?.impact).toBe('low');
+  });
+
+  it('reads what wins on the channel, made for kids, LIVE labels, description links and tags', () => {
+    const live = [0, 1, 2, 3].map((i) => peer(60 + i, { title: `🔴LIVE | ABC song ${i}`, views: 30000, durationSec: 1600, tags: ['abc song', 'kids songs'] } as Partial<MarketVideo>));
+    const r = auditVideo(
+      video({ title: '🔴LIVE | ABC Alphabet Song', durationSec: 1600, views: 40000, madeForKids: true, description: 'Lyrics:\nA B C\nhttps://www.youtube.com/playlist?list=PL1', tags: ['abc song'] }),
+      [...channel(), ...live],
+      NOW
+    );
+    expect(r.patterns?.patterns[0]).toMatchObject({ thisHas: true, withCount: 4, withoutCount: 12 });
+    expect(r.patterns?.chart.some((p) => p.isThis)).toBe(true);
+    const all = r.findings.map((f) => `${f.area}:${f.kind}:${f.statement}`).join('\n');
+    expect(all).toContain('pattern:strength:Follows what works on this channel: “LIVE” or 🔴 in the title, title split with | or [ ], a compilation, 15–40 minutes');
+    expect(all).toContain('audience:note:Set as made for kids');
+    expect(all).toContain('title:note:The title says LIVE, but it was uploaded as a regular video');
+    expect(all).toContain('metadata:strength:The description links 1 playlist');
+    expect(r.description).toMatchObject({ lyrics: true, playlists: 1 });
+    expect(r.tags).toMatchObject({ shared: ['abc song'], missing: ['kids songs'] });
+    // A real stream may say LIVE.
+    expect(auditVideo(video({ title: 'LIVE Q&A', wasStreamed: true }), channel(), NOW).findings.some((f) => f.statement.includes('says LIVE'))).toBe(false);
   });
 
   it('checks the description, chapters and hashtags', () => {

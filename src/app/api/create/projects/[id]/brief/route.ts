@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { mainLanguage } from '@/lib/youtube/discover/queries';
 import { briefFromThesis, briefSchema, emptyBrief, type VideoBrief } from '@/lib/youtube/create/brief';
+import { bump, runCost } from '@/lib/youtube/create/bundle';
 import { interpretBrief } from '@/lib/youtube/create/ai/brief-interpreter';
 import { statusAfterSaving } from '@/lib/youtube/create/project-state';
 import { updateProject } from '@/lib/youtube/create/projects';
@@ -23,6 +24,9 @@ function baseBrief(project: VideoProject, language?: VideoBrief['language']): Vi
   const lang = language ?? mainLanguage([project.thesis?.topic ?? project.title]);
   return project.thesis ? briefFromThesis(project.thesis, lang) : emptyBrief(project.title, lang);
 }
+
+const CONTENT: (keyof VideoBrief)[] = ['audience', 'problem', 'format', 'angle', 'corePromise', 'keyPoints', 'keyQuestions', 'titleDirections', 'thumbnailDirection'];
+const filledSomething = (before: VideoBrief, after: VideoBrief) => CONTENT.some((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
 
 const generateSchema = z.object({
   notes: z.string().trim().max(1500).optional(),
@@ -57,12 +61,16 @@ export async function POST(req: Request, { params }: Context) {
     feature: 'create',
     needsYouTube: false,
     label: 'create/brief',
-    cost: (settings) => settings.create.briefCreditCost,
+    // Included in the video's price while the allowance lasts.
+    cost: (settings) => runCost(project, settings.create, 'brief'),
     run: async ({ settings, onStage }) => {
       onStage('brief');
-      const filled = await interpretBrief(baseBrief(project, parsed.data.language), { notes: parsed.data.notes, models: settings.textModels });
+      const base = baseBrief(project, parsed.data.language);
+      const filled = await interpretBrief(base, { notes: parsed.data.notes, models: settings.textModels });
       if (!filled) throw new UserFacingError('The AI couldn’t write this brief right now. Your credits were returned; you can fill it in yourself or try again.');
-      const updated = await updateProject(userId, project, { brief: filled, status: nextStatus, lastError: null });
+      // A run that fills nothing isn't counted (or charged).
+      if (!filledSomething(base, filled)) throw new UserFacingError('The AI couldn’t fill the empty parts this time. This try wasn’t counted; you can try again or write them yourself.');
+      const updated = await updateProject(userId, project, { brief: filled, status: nextStatus, lastError: null, usage: bump(project, 'brief') });
       return { project: updated };
     },
   });

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
+import { IncludedNote } from '@/components/create/included-note';
 import { PerformanceView, type PerformanceResult } from '@/components/create/performance-view';
 import { ProjectHeader, ProjectPlaceholder } from '@/components/create/project-header';
 import { runStream, type StreamFailure } from '@/components/create/run-stream';
@@ -95,10 +96,16 @@ export default function MeasurePage() {
                           Compared with your own videos at the same age, at each checkpoint. YouTube reports with a delay of about 3 days.
                         </p>
                       </div>
-                      <button type="button" className="btn-primary px-5" disabled={running} onClick={() => measure()}>
-                        {running ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
-                        {result ? 'Check again' : 'Check performance'} · {(config as CreateConfig).costs.performance} credits
-                      </button>
+                      <div className="space-y-1">
+                        <button type="button" className="btn-primary px-5" disabled={running} onClick={() => measure()}>
+                          {running ? <Loader2 size={16} className="animate-spin" /> : <BarChart3 size={16} />}
+                          {result ? 'Check again' : 'Check performance'}
+                        </button>
+                        <IncludedNote
+                          included={!!loaded.unlockedAt}
+                          note={loaded.unlockedAt ? 'Included' : (config as CreateConfig).costs.performance > 0 ? `Uses ${(config as CreateConfig).costs.performance} credits` : null}
+                        />
+                      </div>
                     </div>
                     {loaded.status === 'LEARNED' && (
                       <p className="text-sm text-emerald-300 inline-flex items-center gap-1.5">

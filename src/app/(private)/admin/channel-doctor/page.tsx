@@ -64,6 +64,12 @@ interface CreateSettings {
   topicSearchCreditCost: number;
   topicSearchesPerUserDay: number;
   topicSearchBaselineChannels: number;
+  bundleCreditCost: number;
+  bundleBriefDrafts: number;
+  bundleScriptWrites: number;
+  bundleSectionRewrites: number;
+  bundlePackagingRuns: number;
+  bundleTopicSearches: number;
 }
 
 interface Weights {
@@ -498,7 +504,22 @@ function CreateSection({
       </section>
 
       <section className="card space-y-3">
-        <p className="text-sm font-semibold text-white">Credit cost</p>
+        <div>
+          <p className="text-sm font-semibold text-white">Price per video</p>
+          <p className="text-xs text-zinc-400">Charged once, when a video is started. It includes these AI runs; measuring is always included. Past an allowance, the per-step prices below apply.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <NumberField label="Credits per video" hint="Refunded if the project can’t be created" value={create.bundleCreditCost} min={0} max={1000} onChange={(v) => update('bundleCreditCost', v)} />
+          <NumberField label="AI briefs included" hint="Draft or fill empty parts" value={create.bundleBriefDrafts} min={0} max={50} onChange={(v) => update('bundleBriefDrafts', v)} />
+          <NumberField label="Full scripts included" hint="Write or write again" value={create.bundleScriptWrites} min={0} max={50} onChange={(v) => update('bundleScriptWrites', v)} />
+          <NumberField label="Part rewrites included" hint="Across the whole script" value={create.bundleSectionRewrites} min={0} max={200} onChange={(v) => update('bundleSectionRewrites', v)} />
+          <NumberField label="Packaging runs included" hint="Title and thumbnail ideas" value={create.bundlePackagingRuns} min={0} max={50} onChange={(v) => update('bundlePackagingRuns', v)} />
+          <NumberField label="Topic searches included" hint="Also limited per day" value={create.bundleTopicSearches} min={0} max={20} onChange={(v) => update('bundleTopicSearches', v)} />
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="text-sm font-semibold text-white">Per-step prices (past the allowance, or older videos)</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {CREATE_COSTS.map((cost) => (
             <NumberField key={cost.key} label={cost.label} hint={cost.hint} value={create[cost.key]} min={0} max={1000} onChange={(v) => update(cost.key, v)} />

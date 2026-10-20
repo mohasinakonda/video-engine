@@ -78,7 +78,7 @@ const io = { linked: null as { projectId: string; script: unknown } | null };
 vi.mock('./fetch', () => ({
   fetchAuditVideo: async () => ({
     id: 'v', channelId: 'c', channelTitle: '', title: 'A very long title that keeps going past the point where YouTube cuts it off',
-    description: '', tags: [], publishedAt: '2026-09-01T00:00:00Z', durationSec: 600, thumbnailUrl: null, views: 100, likes: 1, comments: 0, liveOrUpcoming: false,
+    description: '', tags: [], publishedAt: '2026-09-01T00:00:00Z', durationSec: 600, thumbnailUrl: null, views: 100, likes: 1, comments: 0, liveOrUpcoming: false, madeForKids: false, wasStreamed: false,
   }),
   fetchCommentTexts: async () => ({ texts: [], available: true, disabled: true }),
 }));

@@ -81,6 +81,11 @@ vi.mock('./route-helpers', async (o) => {
   const actual = await o<typeof import('./route-helpers')>();
   return { ...actual, ownedProject: async (_u: string, id: string) => (id === 'mine' ? { id, title: 'Deep sea light', brief: null, thesis: null } : (await import('next/server')).NextResponse.json({}, { status: 404 })) };
 });
+const saved = { usage: null as unknown };
+vi.mock('./projects', async (o) => ({
+  ...(await o<typeof import('./projects')>()),
+  updateProject: async (_u: string, project: object, changes: { usage?: unknown }) => ((saved.usage = changes.usage), { ...project, ...changes }),
+}));
 vi.mock('./topic-fetch', () => ({
   searchTopic: async (auth: unknown) => {
     state.auth = auth;
@@ -115,6 +120,8 @@ describe('topic search route', () => {
     expect(state.auth).toEqual({ token: 'tok' });
     expect(state.consumed).toEqual(['search', 'topic-search:user:user-a']);
     expect(state.credits.charged).toBe(3);
+    // The search is counted against the video's allowance.
+    expect(saved.usage).toEqual({ topicSearch: 1 });
   });
 
   it('uses the user’s own key without touching the shared budget', async () => {

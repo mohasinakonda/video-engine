@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { measureCost } from '@/lib/youtube/create/bundle';
 import { saveLearningRecord } from '@/lib/youtube/create/learning';
 import { checkpointStates, measureVideo } from '@/lib/youtube/create/measure';
 import { THESIS_MIN_DAYS, classify } from '@/lib/youtube/create/outcome';
@@ -60,7 +61,8 @@ export async function POST(req: Request, { params }: Context) {
     userId,
     feature: 'create',
     label: 'create/performance',
-    cost: (s) => s.create.performanceCreditCost,
+    // Measuring is included in the video's price.
+    cost: (s) => measureCost(project, s.create),
     run: async ({ token, settings, onStage }) => {
       onStage('measure');
       const video = await fetchVideoForLink(token.accessToken, linked.youtubeVideoId);

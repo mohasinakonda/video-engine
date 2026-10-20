@@ -58,6 +58,10 @@ export interface VideoProject {
   brief: unknown;
   script: unknown;
   packaging: unknown;
+  /** When the video's price was paid; null for projects made before, which pay per action. */
+  unlockedAt: string | null;
+  /** AI runs used of each kind, against the allowances the price includes. */
+  usage: Partial<Record<'brief' | 'script' | 'section' | 'packaging' | 'topicSearch', number>>;
   createdAt: string;
   updatedAt: string;
 }

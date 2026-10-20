@@ -233,3 +233,29 @@ Add to section 4: other channels' public data, including comment text, is read o
 | No logging in the audit code | Verified |
 | Privacy page covers public comments read for analysis (text only, without author names) | Done (A2) |
 | Typecheck, tests and production build | Passing |
+
+## 16. Video analysis V1: why it worked, and what to reuse
+
+The first version mostly checked hygiene (title length, chapters, hashtags), so a creator learned little. V1 explains the result from the channel's own data, at no extra quota.
+
+- **What wins on this channel** (`audit/patterns.ts`): the channel's same-format videos from the past year are grouped by:
+  - title traits (LIVE/🔴, emoji, separators, ALL CAPS, the title mechanisms);
+  - compilation;
+  - length band;
+  - up to 15 repeated topic words (a word must be in at least 4 titles and in at most 60% of them).
+  
+  Each group's median views are compared with the rest. The rules:
+  - Groups need 4 or more videos on each side, and a difference of 1.5× either way.
+  - Traits that mark the same videos are merged into one group.
+  - A "lacks X" result that mirrors a "has Y" result is dropped.
+  - The video's own choices that make little difference are listed too (`neutral`) and passed to the AI, so it never credits them.
+- **Fairness on age:** when the video is over 1.5× older than the median video it is compared with, a high-impact note says so and compares views per day.
+- **Made for kids** (`status.madeForKids`) and **streamed or uploaded** (`liveStreamingDetails`) come from the same `videos.list` call: it still costs 1 unit.
+- **Description parts:** lyrics, playlist, video, social and other links, sponsor codes, chapters and hashtags.
+- **Tags:** only tags that set the best videos apart count (on most standouts but not on most of the rest). Boilerplate tags are named as such.
+- **Impact:** every finding has `impact`. Low-impact findings (polish) go in a collapsed "Small things" section. "The main reasons" shows the top 3 non-low findings in the result's direction.
+- **Playbook:**
+  - the title shape (AI, placeholders);
+  - the reusable parts (winning traits the video has, length, description setup);
+  - "Start my version", which opens `/create/new?title=` with the AI's working title, or the video's own title without one.
+- **Limits:** these groups show what goes together on one channel, not causes. A topic the video isn't about is never reported as "skipped".

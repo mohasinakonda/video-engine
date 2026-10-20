@@ -11,9 +11,17 @@ import type { AuditFinding, PerformanceLabel } from '../video-audit';
 import type { ViewerTheme } from './comments';
 
 const aiSchema = z.object({
-  verdict: z.string().trim().min(10).max(260),
+  // Generous: a long but good verdict shouldn't throw away the lessons with it.
+  verdict: z.string().trim().min(10).max(420),
   lessons: z.array(z.string().trim().min(10).max(220)).max(6),
+  titleTemplate: z.string().trim().min(5).max(120).optional().catch(undefined),
+  myVersion: z.string().trim().min(5).max(120).optional().catch(undefined),
 });
+
+/** Video audits also get a reusable title shape and a starting title for the creator's own take. */
+const VIDEO_REPLY = `- titleTemplate: the video's title as a reusable shape, with the specific parts as [placeholders] (e.g. "🔴LIVE | [Song name] 🔤 | [What kids learn]"). Keep its separators, emoji and word order.
+- myVersion: a ready-to-use working title (no [placeholders], no channel name) for the creator's own video on the same topic, with a fresh angle. Don't copy the title.
+Reply only with JSON: {"verdict": "...", "lessons": ["...", "..."], "titleTemplate": "...", "myVersion": "..."}`;
 
 export const SYSTEM_VIDEO = `You explain a YouTube video audit to a creator who wants to learn from this video for their own channel.
 You get checked findings (performance against the video's own channel, title, thumbnail, description, length) and what viewers said.
@@ -21,7 +29,9 @@ You get checked findings (performance against the video's own channel, title, th
 - lessons: 2–4 short, concrete things the creator can copy or avoid on their own channel. Start each with a verb.
 - Use only facts from the input. Avoid numbers; if you use one, copy it exactly as the input writes it. No hype ("viral", "guaranteed", "hack").
 - Don't link two findings as cause and effect unless a finding says so (e.g. don't say the title caused fewer likes).
+- Only credit something for the result if a finding marks it a strength. Notes are context, not causes, and anything listed under noDifference made little difference on this channel: never credit it.
 - Don't claim to know click rate, retention or traffic: YouTube doesn't share them for other channels.
+- Don't claim how YouTube ranks or recommends videos, and don't suggest a setting (such as made for kids) as a way to grow, unless a finding says so.
 - Write in the language given as writeIn.
 Reply only with JSON: {"verdict": "...", "lessons": ["...", "..."]}`;
 
@@ -76,13 +86,16 @@ export function allowedNumbersOf(text: string): Set<string> {
  * Keeps only text that is hype-free and uses no number outside the input. Pure. A failing
  * verdict is dropped (null) without discarding good lessons; null overall when nothing passes.
  */
-export function checkLessons(raw: unknown, allowed: Set<string>): { verdict: string | null; lessons: string[] } | null {
+export function checkLessons(raw: unknown, allowed: Set<string>): { verdict: string | null; lessons: string[]; titleTemplate: string | null; myVersion: string | null } | null {
   const parsed = aiSchema.safeParse(raw);
   if (!parsed.success) return null;
   const ok = (text: string) => !BANNED.test(text) && numbersIn(withoutThousands(text)).every((n) => allowed.has(n));
   const verdict = ok(parsed.data.verdict) ? parsed.data.verdict : null;
   const lessons = parsed.data.lessons.filter(ok).slice(0, 4);
-  return verdict || lessons.length ? { verdict, lessons } : null;
+  const keep = (text: string | undefined) => (text && ok(text) ? text : null);
+  // A title idea may use its own numbers ("5 little…"); it states no fact, so only hype is refused.
+  const myVersion = parsed.data.myVersion && !BANNED.test(parsed.data.myVersion) && !/[[\]]/.test(parsed.data.myVersion) ? parsed.data.myVersion : null;
+  return verdict || lessons.length ? { verdict, lessons, titleTemplate: keep(parsed.data.titleTemplate), myVersion } : null;
 }
 
 /** Comparing the creator's video with another one: what to take from the other. */
@@ -107,11 +120,16 @@ export async function writeLessons(input: {
   themes: ViewerTheme[];
   language: 'English' | 'Bangla';
   models: string[];
-}): Promise<{ verdict: string; lessons: string[]; aiUsed: boolean }> {
+  /** The audited video's title, for the title shape (video audits only). */
+  title?: string;
+  /** Choices that made little difference on the channel, so the model doesn't credit them. */
+  noDifference?: string[];
+}): Promise<{ verdict: string; lessons: string[]; titleTemplate: string | null; myVersion: string | null; aiUsed: boolean }> {
   const facts = input.findings.map((f) => `[${f.kind}, ${f.area}] ${f.statement}${f.evidence ? ` (${f.evidence})` : ''}`);
   const viewers = input.themes.map((t) => `[${t.kind}] ${t.theme} (${t.count} comments)`);
-  const allowed = allowedNumbersOf([...facts, ...viewers].join(' '));
-  const fallback = { verdict: input.fallback ?? fallbackVerdict(input.label, input.language), lessons: [], aiUsed: false };
+  const allowed = allowedNumbersOf([...facts, ...viewers, ...(input.noDifference ?? []), input.title ?? ''].join(' '));
+  const fallback = { verdict: input.fallback ?? fallbackVerdict(input.label, input.language), lessons: [], titleTemplate: null, myVersion: null, aiUsed: false };
+  const video = !input.subject || input.subject === 'video';
   if (facts.length === 0) return fallback;
 
   const answer = await callLLM({
@@ -122,10 +140,20 @@ export async function writeLessons(input: {
     maxTokens: 1200,
     timeoutMs: 45_000,
     messages: [
-      { role: 'system', content: input.subject === 'channel' ? SYSTEM_CHANNEL : input.subject === 'compare' ? SYSTEM_COMPARE : SYSTEM_VIDEO },
-      { role: 'user', content: JSON.stringify({ writeIn: input.language, performance: input.label, findings: facts, viewers }) },
+      {
+        role: 'system',
+        content:
+          input.subject === 'channel'
+            ? SYSTEM_CHANNEL
+            : input.subject === 'compare'
+              ? SYSTEM_COMPARE
+              : SYSTEM_VIDEO.replace('Reply only with JSON: {"verdict": "...", "lessons": ["...", "..."]}', VIDEO_REPLY),
+      },
+      { role: 'user', content: JSON.stringify({ writeIn: input.language, performance: input.label, ...(video && input.title ? { title: input.title } : {}), findings: facts, noDifference: input.noDifference ?? [], viewers }) },
     ],
   });
   const checked = answer ? checkLessons(parseJsonObject(answer.content), allowed) : null;
-  return checked ? { verdict: checked.verdict ?? fallback.verdict, lessons: checked.lessons, aiUsed: true } : fallback;
+  return checked
+    ? { verdict: checked.verdict ?? fallback.verdict, lessons: checked.lessons, titleTemplate: video ? checked.titleTemplate : null, myVersion: video ? checked.myVersion : null, aiUsed: true }
+    : fallback;
 }

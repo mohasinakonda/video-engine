@@ -14,12 +14,18 @@ const audit = (over: Partial<VideoAuditOutput> & { title?: string } = {}): Video
   performance: { label: 'typical', ratio: 1, baselineViews: 1000, baselineSample: 12, likeRate: 0.03, baselineLikeRate: 0.03, commentRate: 0.001, baselineCommentRate: 0.001 },
   findings: [],
   limitations: [],
+  patterns: null,
+  description: { lyrics: false, playlists: 0, videoLinks: 0, socialLinks: 0, otherLinks: 0, sponsor: false, chapters: 0, hashtags: 0 },
+  tags: { all: [], shared: [], missing: [], boilerplate: [], from: null },
+  madeForKids: null,
   video: { id: 'v', title: over.title ?? 'How I fixed my laptop', channelId: 'c', channelTitle: 'Ch', thumbnailUrl: null, publishedAt: '', durationSec: 600, views: 1000 },
   isOwn: false,
   thumbnail: thumb(),
   viewers: null,
   verdict: '',
   lessons: [],
+  titleTemplate: null,
+  myVersion: null,
   ...over,
 });
 

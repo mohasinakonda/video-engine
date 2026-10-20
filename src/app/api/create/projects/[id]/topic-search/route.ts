@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { bump, runCost } from '@/lib/youtube/create/bundle';
+import { updateProject } from '@/lib/youtube/create/projects';
 import { briefSchema } from '@/lib/youtube/create/brief';
 import { ownedProject, projectErrorResponse } from '@/lib/youtube/create/route-helpers';
 import { channelInfo, recentUploads, searchTopic, videoDetails, type YouTubeAuth } from '@/lib/youtube/create/topic-fetch';
@@ -50,7 +52,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // With their own key, no connection is needed and our search budget isn't touched.
     needsYouTube: !ownKey,
     label: 'create/topic-search',
-    cost: (s) => s.create.topicSearchCreditCost,
+    // Included in the video's price while the allowance lasts.
+    cost: (s) => runCost(project, s.create, 'topicSearch'),
     reserve: async ({ create, discover }) => {
       const limit = create.topicSearchesPerUserDay;
       if (limit <= 0) return 'Topic search is turned off.';
@@ -81,7 +84,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         await mapLimit(picked, 5, async (v) => [v.id, usualRatio(v, await recentUploads(yt, v.channelId, 30).catch(() => []), now)] as [string, number | null])
       );
 
-      return { landscape: buildLandscape({ topic, plannedLines: planned, videos, channels, usual, now }), usedOwnKey: !!ownKey };
+      const landscape = buildLandscape({ topic, plannedLines: planned, videos, channels, usual, now });
+      const updated = await updateProject(userId, project, { usage: bump(project, 'topicSearch') });
+      return { landscape, usedOwnKey: !!ownKey, project: updated };
     },
   });
 }

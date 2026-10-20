@@ -19,6 +19,17 @@ export async function GET() {
     tier,
     allowedPlans: create.allowedPlans,
     topicSearchesPerDay: create.topicSearchesPerUserDay,
+    // One price per video, and the AI runs it includes (docs/create-plan.md §20).
+    bundle: {
+      cost: create.bundleCreditCost,
+      includes: {
+        brief: create.bundleBriefDrafts,
+        script: create.bundleScriptWrites,
+        section: create.bundleSectionRewrites,
+        packaging: create.bundlePackagingRuns,
+        topicSearch: create.bundleTopicSearches,
+      },
+    },
     costs: {
       brief: create.briefCreditCost,
       script: create.scriptCreditCost,

@@ -29,6 +29,9 @@ export interface VideoAuditOutput extends VideoAuditResult {
   viewers: ViewerThemes | null;
   verdict: string;
   lessons: string[];
+  /** The title as a reusable shape, and a starting title for the creator's own video (AI; null without). */
+  titleTemplate: string | null;
+  myVersion: string | null;
 }
 
 export async function runVideoAudit(options: {
@@ -80,9 +83,11 @@ export async function runVideoAudit(options: {
 
   let verdict = '';
   let lessons: string[] = [];
+  let titleTemplate: string | null = null;
+  let myVersion: string | null = null;
   if (options.withLessons !== false) {
     stage('lessons');
-    ({ verdict, lessons } = await writeLessons({ label: result.performance.label, findings: result.findings, themes: viewers?.themes ?? [], language, models: settings.textModels }));
+    ({ verdict, lessons, titleTemplate, myVersion } = await writeLessons({ label: result.performance.label, findings: result.findings, themes: viewers?.themes ?? [], language, models: settings.textModels, title: video.title, noDifference: (result.patterns?.neutral ?? []).map((p) => p.label) }));
   }
 
   return {
@@ -103,5 +108,7 @@ export async function runVideoAudit(options: {
     viewers,
     verdict,
     lessons,
+    titleTemplate,
+    myVersion,
   };
 }

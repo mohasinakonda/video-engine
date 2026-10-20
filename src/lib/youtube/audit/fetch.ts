@@ -23,7 +23,14 @@ export interface AuditVideo {
   comments: number | null;
   /** A live stream or upcoming premiere: no final length or views yet. */
   liveOrUpcoming: boolean;
+  /** Set as made for kids (comments, notifications, cards and end screens are off); null if not shared. */
+  madeForKids: boolean | null;
+  /** Streamed or premiered, as opposed to a plain upload. */
+  wasStreamed: boolean;
 }
+
+/** A channel video with its tags, for the channel's patterns. */
+export type AuditChannelVideo = MarketVideo & { tags: string[] };
 
 interface VideoItem {
   id: string;
@@ -38,6 +45,8 @@ interface VideoItem {
     thumbnails?: Record<string, { url?: string }>;
   };
   contentDetails?: { duration?: string };
+  status?: { madeForKids?: boolean };
+  liveStreamingDetails?: { actualStartTime?: string; scheduledStartTime?: string };
   statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
 }
 
@@ -46,10 +55,10 @@ const num = (v: string | undefined) => (v === undefined || !Number.isFinite(Numb
 /** The video, or null when YouTube doesn't return it (private, deleted or a bad id). 1 unit. */
 export async function fetchAuditVideo(accessToken: string, videoId: string): Promise<AuditVideo | null> {
   const params = new URLSearchParams({
-    part: 'snippet,contentDetails,statistics',
+    part: 'snippet,contentDetails,statistics,status,liveStreamingDetails',
     id: videoId,
     fields:
-      'items(id,snippet(channelId,channelTitle,title,description,tags,publishedAt,liveBroadcastContent,thumbnails/high/url,thumbnails/medium/url),contentDetails/duration,statistics(viewCount,likeCount,commentCount))',
+      'items(id,snippet(channelId,channelTitle,title,description,tags,publishedAt,liveBroadcastContent,thumbnails/high/url,thumbnails/medium/url),contentDetails/duration,statistics(viewCount,likeCount,commentCount),status/madeForKids,liveStreamingDetails(actualStartTime,scheduledStartTime))',
   });
   const data = await googleJson<{ items?: VideoItem[] }>(`${YOUTUBE_DATA_API}/videos?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } });
   const item = data.items?.[0];
@@ -69,11 +78,13 @@ export async function fetchAuditVideo(accessToken: string, videoId: string): Pro
     likes: num(item.statistics?.likeCount),
     comments: num(item.statistics?.commentCount),
     liveOrUpcoming: s.liveBroadcastContent === 'live' || s.liveBroadcastContent === 'upcoming',
+    madeForKids: typeof item.status?.madeForKids === 'boolean' ? item.status.madeForKids : null,
+    wasStreamed: !!(item.liveStreamingDetails?.actualStartTime || item.liveStreamingDetails?.scheduledStartTime),
   };
 }
 
 /** The channel's recent public uploads, for its usual. About 2 units per 50 videos. */
-export async function fetchChannelVideos(accessToken: string, channelId: string, max = 50): Promise<MarketVideo[]> {
+export async function fetchChannelVideos(accessToken: string, channelId: string, max = 50): Promise<AuditChannelVideo[]> {
   let ids: string[];
   try {
     ids = await fetchUploadIds(accessToken, `UU${channelId.slice(2)}`, max);
@@ -94,6 +105,7 @@ export async function fetchChannelVideos(accessToken: string, channelId: string,
       likes: v.likes,
       comments: v.comments,
       thumbnailUrl: v.thumbnailUrl,
+      tags: v.tags ?? [],
     }));
 }
 

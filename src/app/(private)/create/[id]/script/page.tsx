@@ -9,6 +9,8 @@ import { ProjectHeader, ProjectPlaceholder } from '@/components/create/project-h
 import { runStream, type StreamFailure } from '@/components/create/run-stream';
 import { LengthAndNotes, MINUTE_OPTIONS, ScriptEditor } from '@/components/create/script-editor';
 import type { CreateConfig, VideoBrief, VideoProject, VideoScript } from '@/components/create/types';
+import { IncludedNote } from '@/components/create/included-note';
+import { priceTag } from '@/components/create/pricing';
 import { useCreateConfig } from '@/components/create/use-create-config';
 import { useProject } from '@/components/create/use-project';
 import { StreamError } from '@/components/discover/stream-error';
@@ -86,6 +88,7 @@ export default function ScriptPage() {
                 />
               ) : (
                 <StartScript
+                  project={loaded}
                   brief={brief}
                   config={config as CreateConfig}
                   running={rewriting === 'all'}
@@ -117,12 +120,14 @@ function BriefFirst({ projectId, missing }: { projectId: string; missing: string
 
 /** First step: the AI writes every part from the brief, or the user writes them. */
 function StartScript({
+  project,
   brief,
   config,
   running,
   onAI,
   onManual,
 }: {
+  project: VideoProject;
   brief: VideoBrief;
   config: CreateConfig;
   running: boolean;
@@ -132,6 +137,7 @@ function StartScript({
   const suggested = defaultMinutes(brief.format);
   const [minutes, setMinutes] = useState(MINUTE_OPTIONS.includes(suggested) ? suggested : 8);
   const [notes, setNotes] = useState('');
+  const tag = priceTag(project, config, 'script');
 
   if (running) {
     return (
@@ -161,10 +167,13 @@ function StartScript({
         Facts the brief doesn’t back are marked “Check this”, so you can verify them before recording.
       </p>
       <div className="flex flex-col sm:flex-row gap-2">
-        <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(minutes, notes)}>
-          <Sparkles size={18} />
-          Write my script · {config.costs.script} credits
-        </button>
+        <div className="space-y-1">
+          <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(minutes, notes)}>
+            <Sparkles size={18} />
+            Write my script
+          </button>
+          <IncludedNote note={tag.note} included={tag.included} />
+        </div>
         <button type="button" className="btn-ghost" onClick={() => onManual(minutes)}>
           <PenLine size={16} />
           I’ll write it myself

@@ -9,6 +9,9 @@ import { GAP_LABELS, LEVEL_TEXT, MOMENTUM_LABELS } from '@/components/discover/o
 import { CompetitorStandouts, ConfidenceReasons, EvidenceList, ScoreBreakdown } from '@/components/discover/opportunity-sections';
 import { FORMAT_LABELS, type Opportunity, type ResearchResult } from '@/components/discover/types';
 import { useAuth } from '@/contexts/auth-context';
+import type { CreateConfig } from '@/components/create/types';
+import { useCreateConfig } from '@/components/create/use-create-config';
+import { VideoPrice } from '@/components/create/video-price';
 import { findSavedOpportunity } from '@/lib/channel-doctor-storage';
 
 const LABEL_TEXT = {
@@ -34,6 +37,8 @@ export default function OpportunityPage() {
 
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const { config: createAccess } = useCreateConfig();
+  const createConfig = createAccess?.hasAccess ? createAccess : null;
 
   /** Starts a Create project from this idea. Only scores and labels are sent on; the server drops the rest. */
   const createBrief = async (o: Opportunity) => {
@@ -47,6 +52,7 @@ export default function OpportunityPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not start the video.');
+      window.dispatchEvent(new Event('credits_updated'));
       router.push(`/create/${data.project.id}`);
     } catch (err) {
       setCreateError((err as Error).message);
@@ -77,7 +83,7 @@ export default function OpportunityPage() {
             </Link>
           </section>
         ) : (
-          <Detail opportunity={state.opportunity} analyzedAt={state.analyzedAt} onCreateBrief={createBrief} creating={creating} createError={createError} />
+          <Detail opportunity={state.opportunity} analyzedAt={state.analyzedAt} onCreateBrief={createBrief} creating={creating} createError={createError} createConfig={createConfig} />
         )}
       </div>
     </div>
@@ -89,12 +95,15 @@ function Detail({
   analyzedAt,
   onCreateBrief,
   creating,
+  createConfig,
   createError,
 }: {
   opportunity: Opportunity;
   analyzedAt: string;
   onCreateBrief: (o: Opportunity) => void;
   creating: boolean;
+  /** Create's price for one video; null while loading or without access. */
+  createConfig: CreateConfig | null;
   createError: string;
 }) {
   const gapEvidence = o.evidence.filter((e) => e.source === 'calculated' && !e.calculation);
@@ -114,8 +123,9 @@ function Detail({
         </div>
         <button type="button" onClick={() => onCreateBrief(o)} disabled={creating} className="btn-primary px-6 py-3 text-base font-semibold">
           {creating ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
-          Create video brief
+          Start this video
         </button>
+        {createConfig && <VideoPrice config={createConfig} />}
         {createError && <p className="text-sm text-rose-300">{createError}</p>}
       </section>
 

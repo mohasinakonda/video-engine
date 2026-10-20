@@ -31,14 +31,14 @@ vi.mock('./projects', async (importOriginal) => {
     ...actual,
     listProjects: async (userId: string) => mine(userId),
     getProject: async (userId: string, id: string) => mine(userId).find((r) => r.id === id) ?? null,
-    createProject: async (userId: string, input: { origin: 'manual' | 'opportunity'; title: string; thesis: unknown }, max: number) => {
+    createProject: async (userId: string, input: { origin: 'manual' | 'opportunity'; title: string; thesis: unknown; unlocked?: boolean }, max: number) => {
       if (mine(userId).length >= max) throw new actual.ProjectLimitError(max);
       const id = `33333333-3333-4333-8333-${String(rows.size).padStart(12, '0')}`;
-      const row = { id, userId, origin: input.origin, status: 'DRAFT', archivedFrom: null, lastError: null, title: input.title, thesis: input.thesis, brief: null, script: null, packaging: null, createdAt: '', updatedAt: '' } as VideoProject & { userId: string };
+      const row = { id, userId, origin: input.origin, status: 'DRAFT', archivedFrom: null, lastError: null, title: input.title, thesis: input.thesis, brief: null, script: null, packaging: null, unlockedAt: input.unlocked ? 'now' : null, usage: {}, createdAt: '', updatedAt: '' } as VideoProject & { userId: string };
       rows.set(id, row);
       return row;
     },
-    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string; brief?: unknown; script?: unknown; packaging?: unknown }) => {
+    updateProject: async (_userId: string, project: VideoProject, changes: { status?: VideoProject['status']; title?: string; brief?: unknown; script?: unknown; packaging?: unknown; unlockedAt?: string; usage?: VideoProject['usage'] }) => {
       if (changes.status && changes.status !== project.status && !canTransition(project.status, changes.status, project.archivedFrom)) throw new actual.TransitionError(project.status, changes.status);
       const row = rows.get(project.id)!;
       if (changes.status) {
@@ -49,6 +49,8 @@ vi.mock('./projects', async (importOriginal) => {
       if (changes.brief !== undefined) row.brief = changes.brief;
       if (changes.script !== undefined) row.script = changes.script;
       if (changes.packaging !== undefined) row.packaging = changes.packaging;
+      if (changes.unlockedAt !== undefined) row.unlockedAt = changes.unlockedAt;
+      if (changes.usage !== undefined) row.usage = changes.usage;
       return row;
     },
     deleteProject: async (_u: string, id: string) => rows.delete(id),
@@ -130,13 +132,14 @@ import { POST as measureRoute } from '@/app/api/create/projects/[id]/performance
 import { POST as writeScriptRoute, PUT as saveScript } from '@/app/api/create/projects/[id]/script/route';
 import { POST as draftBrief, PUT as saveBrief } from '@/app/api/create/projects/[id]/brief/route';
 import { GET as list, POST as create } from '@/app/api/create/projects/route';
+import { POST as unlockRoute } from '@/app/api/create/projects/[id]/unlock/route';
 import { DELETE as remove, GET as read, PATCH as rename } from '@/app/api/create/projects/[id]/route';
 import { POST as setStatus } from '@/app/api/create/projects/[id]/status/route';
 
 const req = (body?: unknown) => new Request('http://localhost/api', { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
 const ctx = (id: string) => ({ params: { id } });
 const seed = (id: string, userId: string, status: VideoProject['status'], archivedFrom: VideoProject['status'] | null = null) =>
-  rows.set(id, { id, userId, origin: 'manual', status, archivedFrom, lastError: null, title: 't', thesis: null, brief: null, script: null, packaging: null, createdAt: '', updatedAt: '' });
+  rows.set(id, { id, userId, origin: 'manual', status, archivedFrom, lastError: null, title: 't', thesis: null, brief: null, script: null, packaging: null, unlockedAt: null, usage: {}, createdAt: '', updatedAt: '' });
 
 beforeEach(() => {
   rows.clear();
@@ -232,7 +235,15 @@ describe('brief API', () => {
     seed(MY_PROJECT, 'user-a', 'DRAFT');
     credits.charged = 0;
     credits.refunded = 0;
+    // A run that fills nothing is refunded and not counted.
     ai.result = emptyBrief('Deep sea', 'English');
+    const nothing = await events(await draftBrief(req({}), ctx(MY_PROJECT)));
+    expect(nothing.at(-1)).toMatchObject({ type: 'error', refunded: true });
+    expect(rows.get(MY_PROJECT)?.status).toBe('DRAFT');
+    credits.charged = 0;
+    credits.refunded = 0;
+
+    ai.result = { ...emptyBrief('Deep sea', 'English'), corePromise: 'Meet the animals' };
     const ok = await events(await draftBrief(req({}), ctx(MY_PROJECT)));
     expect(ok.at(-1).type).toBe('result');
     expect(rows.get(MY_PROJECT)?.status).toBe('BRIEF_READY');
@@ -510,5 +521,62 @@ describe('performance API', () => {
     measured.result = { format: 'video', checkpoints: [{ days: 7, ready: true }, { days: 28, ready: true }], measurements: [m(7), m(28)], limitations: [] };
     await events(await measureRoute(req({}), ctx(MY_PROJECT)));
     expect(rows.get(MY_PROJECT)?.status).toBe('LEARNED');
+  });
+});
+
+describe('one price per video', () => {
+  const ready = { ...emptyBrief('Deep sea', 'English'), corePromise: 'Meet the animals', audience: 'Curious adults', keyPoints: ['Pressure'] };
+  const unlocked = (status: VideoProject['status'], usage: VideoProject['usage'] = {}) => {
+    seed(MY_PROJECT, 'user-a', status);
+    Object.assign(rows.get(MY_PROJECT)!, { unlockedAt: '2026-10-20T00:00:00Z', usage, brief: ready });
+  };
+
+  beforeEach(() => {
+    credits.charged = 0;
+    credits.refunded = 0;
+  });
+
+  it('charges the video price when a project starts, and refunds it if the project can’t be made', async () => {
+    rows.clear();
+    const res = await create(req({ origin: 'manual', title: 'Deep sea' }));
+    expect(res.status).toBe(201);
+    expect((await res.json()).project.unlockedAt).toBeTruthy();
+    expect(credits.charged).toBe(15);
+
+    // The test limit is 2 projects: the third is refused and its price returned.
+    await create(req({ origin: 'manual', title: 'Two' }));
+    const refused = await create(req({ origin: 'manual', title: 'Three' }));
+    expect(refused.status).toBe(409);
+    expect(credits.refunded).toBe(15);
+  });
+
+  it('includes AI runs while the allowance lasts, counts them, then charges the step price', async () => {
+    unlocked('DRAFT');
+    ai.result = emptyBrief('Deep sea', 'English');
+    await events(await draftBrief(req({}), ctx(MY_PROJECT)));
+    expect(credits.charged).toBe(0);
+    expect(rows.get(MY_PROJECT)?.usage).toEqual({ brief: 1 });
+
+    unlocked('DRAFT', { brief: 3 });
+    await events(await draftBrief(req({}), ctx(MY_PROJECT)));
+    expect(credits.charged).toBe(2);
+    expect(rows.get(MY_PROJECT)?.usage).toEqual({ brief: 4 });
+  });
+
+  it('doesn’t count a failed run against the allowance', async () => {
+    unlocked('DRAFT');
+    ai.result = null;
+    await events(await draftBrief(req({}), ctx(MY_PROJECT)));
+    expect(rows.get(MY_PROJECT)?.usage).toEqual({});
+  });
+
+  it('unlocks an older project once, for the video price', async () => {
+    seed(MY_PROJECT, 'user-a', 'BRIEF_READY');
+    const res = await unlockRoute(req(), ctx(MY_PROJECT));
+    expect(res.status).toBe(200);
+    expect(rows.get(MY_PROJECT)?.unlockedAt).toBeTruthy();
+    expect(credits.charged).toBe(15);
+    expect((await unlockRoute(req(), ctx(MY_PROJECT))).status).toBe(409);
+    expect((await unlockRoute(req(), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
   });
 });

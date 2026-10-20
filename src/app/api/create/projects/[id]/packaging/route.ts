@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { briefSchema } from '@/lib/youtube/create/brief';
+import { bump, runCost } from '@/lib/youtube/create/bundle';
 import { generatePackaging } from '@/lib/youtube/create/ai/packager';
 import { isComplete, packagingSchema, statusAfterPackaging, type VideoPackaging } from '@/lib/youtube/create/packaging';
 import { updateProject } from '@/lib/youtube/create/projects';
@@ -54,7 +55,8 @@ export async function POST(req: Request, { params }: Context) {
     feature: 'create',
     needsYouTube: false,
     label: 'create/packaging',
-    cost: (settings) => settings.create.packagingCreditCost,
+    // Included in the video's price while the allowance lasts.
+    cost: (settings) => runCost(project, settings.create, 'packaging'),
     run: async ({ settings, onStage }) => {
       onStage('packaging');
       const packaging = await generatePackaging(brief.data, script.data, {
@@ -63,7 +65,7 @@ export async function POST(req: Request, { params }: Context) {
         previous: previous.success ? previous.data : null,
       });
       if (!packaging) throw new UserFacingError('The AI couldn’t come up with usable titles right now. Your credits were returned; you can write your own or try again.');
-      const updated = await updateProject(userId, project, { packaging, lastError: null });
+      const updated = await updateProject(userId, project, { packaging, lastError: null, usage: bump(project, 'packaging') });
       return { project: updated };
     },
   });

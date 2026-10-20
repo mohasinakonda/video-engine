@@ -38,7 +38,7 @@ export function NextVideos({
         <p className="text-base text-zinc-300">Run market research first. We then compare what works for your competitors with your own channel.</p>
         <button type="button" onClick={onGoToMarket} className="btn-primary w-fit">
           <Sparkles size={16} />
-          Go to market research ({config.costs.research} credits)
+          Go to market research
         </button>
       </section>
     );

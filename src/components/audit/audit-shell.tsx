@@ -69,15 +69,18 @@ export function AuditShell({
                   </h1>
                   <p className="text-base text-zinc-400">{subtitle}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-start gap-2">
                   <select className="input text-sm py-1.5 w-auto" value={language} onChange={(e) => setLanguage(e.target.value as 'English' | 'Bangla')} aria-label="Language">
                     <option value="English">English</option>
                     <option value="Bangla">বাংলা</option>
                   </select>
-                  <button type="button" className="btn-primary px-5" disabled={stage !== null} onClick={() => onRun(language)}>
-                    {stage ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
-                    {hasReport ? 'Analyze again' : 'Analyze'} · {cost(config)} credits
-                  </button>
+                  <div className="space-y-1">
+                    <button type="button" className="btn-primary px-5" disabled={stage !== null} onClick={() => onRun(language)}>
+                      {stage ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
+                      {hasReport ? 'Analyze again' : 'Analyze'}
+                    </button>
+                    <p className="text-xs text-zinc-500 text-center">Uses {cost(config)} credits</p>
+                  </div>
                 </div>
               </div>
               {stage && <p className="text-sm text-zinc-300">{stages[stage] ?? 'Working…'} Usually under 30 seconds.</p>}

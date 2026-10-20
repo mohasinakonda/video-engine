@@ -22,6 +22,8 @@ import {
 } from '@/lib/youtube/create/packaging';
 import { scriptToText, type VideoScript } from '@/lib/youtube/create/script';
 import { Field, Section } from './brief-editor';
+import { IncludedNote } from './included-note';
+import { priceTag, type PriceTag } from './pricing';
 import type { CreateConfig, VideoProject } from './types';
 
 const RISK_TEXT: Record<TitleConcept['risk'], { label: string; className: string }> = {
@@ -223,7 +225,7 @@ export function PackagingEditor({
         </div>
       </Section>
 
-      <GenerateMore cost={config.costs.packaging} running={generating} disabled={dirty} onRun={onGenerate} />
+      <GenerateMore price={priceTag(project, config, 'packaging')} running={generating} disabled={dirty} onRun={onGenerate} />
 
       <div className="fixed bottom-0 inset-x-0 z-30 border-t border-bg-border bg-bg-base/95 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -385,7 +387,7 @@ function ThumbnailCard({
   );
 }
 
-function GenerateMore({ cost, running, disabled, onRun }: { cost: number; running: boolean; disabled: boolean; onRun: (notes: string) => void }) {
+function GenerateMore({ price, running, disabled, onRun }: { price: PriceTag; running: boolean; disabled: boolean; onRun: (notes: string) => void }) {
   const [notes, setNotes] = useState('');
   if (running)
     return (
@@ -409,9 +411,9 @@ function GenerateMore({ cost, running, disabled, onRun }: { cost: number; runnin
       />
       <button type="button" className="btn-secondary" disabled={disabled} onClick={() => onRun(notes)}>
         <Sparkles size={16} />
-        New ideas · {cost} credits
+        New ideas
       </button>
-      {disabled && <p className="text-sm text-amber-300">Save your changes first.</p>}
+      {disabled ? <p className="text-sm text-amber-300">Save your changes first.</p> : <IncludedNote note={price.note} included={price.included} />}
     </section>
   );
 }

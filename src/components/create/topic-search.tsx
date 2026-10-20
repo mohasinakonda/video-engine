@@ -13,7 +13,9 @@ import { loadReport, reportKey, saveReport } from '@/lib/channel-doctor-storage'
 import { getYouTubeApiKey } from '@/lib/store';
 import type { ChannelSize, TopicLandscape, TopicVideo } from '@/lib/youtube/create/topic-landscape';
 import { runStream, type StreamFailure } from './run-stream';
-import type { CreateConfig } from './types';
+import { IncludedNote } from './included-note';
+import { priceTag } from './pricing';
+import type { CreateConfig, VideoProject } from './types';
 
 type Sort = 'perDay' | 'usual' | 'newest' | 'views';
 
@@ -38,7 +40,9 @@ const times = (x: number | null) => (x === null ? null : x >= 100 ? '100×+' : `
  * "Who made videos on this": a YouTube search for the brief's topic, read on request and kept in
  * this tab only. Uses the user's own API key if they saved one in Settings.
  */
-export function TopicSearch({ projectId, topic, config }: { projectId: string; topic: string; config: CreateConfig }) {
+export function TopicSearch({ project, topic, config, onProject }: { project: VideoProject; topic: string; config: CreateConfig; onProject: (p: VideoProject) => void }) {
+  const projectId = project.id;
+  const tag = priceTag(project, config, 'topicSearch');
   const { user } = useAuth();
   const key = user ? reportKey(user.id, 'topic', projectId, topic.toLowerCase().slice(0, 80)) : null;
   const [saved, setSaved] = useState<{ result: { landscape: TopicLandscape }; analyzedAt: string } | null>(null);
@@ -59,9 +63,10 @@ export function TopicSearch({ projectId, topic, config }: { projectId: string; t
     setRunning(true);
     setFailure(null);
     const ownKey = (await getYouTubeApiKey().catch(() => '')) || undefined;
-    const out = await runStream<{ landscape: TopicLandscape }>(`/api/create/projects/${projectId}/topic-search`, { youtubeApiKey: ownKey });
+    const out = await runStream<{ landscape: TopicLandscape; project: VideoProject }>(`/api/create/projects/${projectId}/topic-search`, { youtubeApiKey: ownKey });
     setRunning(false);
     if (!out.ok) return setFailure(out.error);
+    onProject(out.data.project);
     if (key) saveReport(key, out.data);
     setSaved({ result: out.data, analyzedAt: new Date().toISOString() });
   };
@@ -88,10 +93,13 @@ export function TopicSearch({ projectId, topic, config }: { projectId: string; t
       {open && (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" className="btn-secondary" disabled={running} onClick={run}>
-              {running ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-              {l ? 'Search again' : 'Search YouTube'} · {config.costs.topicSearch} credits
-            </button>
+            <div className="space-y-1">
+              <button type="button" className="btn-secondary" disabled={running} onClick={run}>
+                {running ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                {l ? 'Search again' : 'Search YouTube'}
+              </button>
+              <IncludedNote note={tag.note} included={tag.included} />
+            </div>
             <span className="text-xs text-zinc-500">
               {config.topicSearchesPerDay} per day. {saved && `Searched ${new Date(saved.analyzedAt).toLocaleString()}; kept in this tab only.`}
             </span>

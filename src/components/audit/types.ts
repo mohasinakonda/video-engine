@@ -1,7 +1,7 @@
 /** Browser-side shapes for the audit (no server internals). */
 import type { ChannelAuditResult } from '@/lib/youtube/audit/channel-audit';
 
-export type { AuditFinding, FindingArea, PerformanceLabel } from '@/lib/youtube/audit/video-audit';
+export type { AuditFinding, FindingArea, FindingImpact, FindingKind, PerformanceLabel } from '@/lib/youtube/audit/video-audit';
 export type { ViewerTheme, ThemeKind } from '@/lib/youtube/audit/ai/comments';
 
 export type { VideoAuditOutput as VideoAuditReport } from '@/lib/youtube/audit/run-video';

@@ -9,6 +9,8 @@ import { PackagingEditor } from '@/components/create/packaging-editor';
 import { ProjectHeader, ProjectPlaceholder } from '@/components/create/project-header';
 import { runStream, type StreamFailure } from '@/components/create/run-stream';
 import type { CreateConfig, VideoProject } from '@/components/create/types';
+import { IncludedNote } from '@/components/create/included-note';
+import { priceTag } from '@/components/create/pricing';
 import { useCreateConfig } from '@/components/create/use-create-config';
 import { useProject } from '@/components/create/use-project';
 import { StreamError } from '@/components/discover/stream-error';
@@ -95,6 +97,7 @@ export default function PackagePage() {
                 />
               ) : (
                 <StartPackaging
+                  project={loaded}
                   config={config as CreateConfig}
                   running={generating}
                   onAI={generate}
@@ -109,8 +112,9 @@ export default function PackagePage() {
   );
 }
 
-function StartPackaging({ config, running, onAI, onManual }: { config: CreateConfig; running: boolean; onAI: (notes: string) => void; onManual: () => void }) {
+function StartPackaging({ project, config, running, onAI, onManual }: { project: VideoProject; config: CreateConfig; running: boolean; onAI: (notes: string) => void; onManual: () => void }) {
   const [notes, setNotes] = useState('');
+  const tag = priceTag(project, config, 'packaging');
 
   if (running) {
     return (
@@ -143,10 +147,13 @@ function StartPackaging({ config, running, onAI, onManual }: { config: CreateCon
         />
       </label>
       <div className="flex flex-col sm:flex-row gap-2">
-        <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(notes)}>
-          <Sparkles size={18} />
-          Make packaging ideas · {config.costs.packaging} credits
-        </button>
+        <div className="space-y-1">
+          <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(notes)}>
+            <Sparkles size={18} />
+            Make packaging ideas
+          </button>
+          <IncludedNote note={tag.note} included={tag.included} />
+        </div>
         <button type="button" className="btn-ghost" onClick={onManual}>
           <PenLine size={16} />
           I’ll write my own

@@ -61,6 +61,13 @@ export interface CreateSettings {
   topicSearchesPerUserDay: number;
   /** Channels whose usual views are read, so the top results show "× its usual". */
   topicSearchBaselineChannels: number;
+  /** One price per video, paid when the project starts, and the AI runs it includes. */
+  bundleCreditCost: number;
+  bundleBriefDrafts: number;
+  bundleScriptWrites: number;
+  bundleSectionRewrites: number;
+  bundlePackagingRuns: number;
+  bundleTopicSearches: number;
 }
 
 export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
@@ -76,6 +83,12 @@ export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
   topicSearchCreditCost: 3,
   topicSearchesPerUserDay: 3,
   topicSearchBaselineChannels: 10,
+  bundleCreditCost: 15,
+  bundleBriefDrafts: 3,
+  bundleScriptWrites: 2,
+  bundleSectionRewrites: 20,
+  bundlePackagingRuns: 3,
+  bundleTopicSearches: 1,
 };
 
 /** Weights of the opportunity score dimensions (docs/discover-plan.md §7.2). They sum to 100. */
@@ -219,6 +232,12 @@ export const createSettingsSchema = z.object({
   topicSearchCreditCost: credit,
   topicSearchesPerUserDay: z.number().int().min(0).max(100),
   topicSearchBaselineChannels: z.number().int().min(0).max(20),
+  bundleCreditCost: credit,
+  bundleBriefDrafts: z.number().int().min(0).max(50),
+  bundleScriptWrites: z.number().int().min(0).max(50),
+  bundleSectionRewrites: z.number().int().min(0).max(200),
+  bundlePackagingRuns: z.number().int().min(0).max(50),
+  bundleTopicSearches: z.number().int().min(0).max(20),
 });
 
 export const auditSettingsSchema = z.object({
@@ -302,6 +321,12 @@ function readCreate(data: Record<string, any>): CreateSettings {
     topicSearchCreditCost: data.topic_search_credit_cost ?? d.topicSearchCreditCost,
     topicSearchesPerUserDay: data.topic_searches_per_user_day ?? d.topicSearchesPerUserDay,
     topicSearchBaselineChannels: data.topic_search_baseline_channels ?? d.topicSearchBaselineChannels,
+    bundleCreditCost: data.bundle_credit_cost ?? d.bundleCreditCost,
+    bundleBriefDrafts: data.bundle_brief_drafts ?? d.bundleBriefDrafts,
+    bundleScriptWrites: data.bundle_script_writes ?? d.bundleScriptWrites,
+    bundleSectionRewrites: data.bundle_section_rewrites ?? d.bundleSectionRewrites,
+    bundlePackagingRuns: data.bundle_packaging_runs ?? d.bundlePackagingRuns,
+    bundleTopicSearches: data.bundle_topic_searches ?? d.bundleTopicSearches,
   };
 }
 
@@ -366,6 +391,12 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       topic_search_credit_cost: update.create.topicSearchCreditCost,
       topic_searches_per_user_day: update.create.topicSearchesPerUserDay,
       topic_search_baseline_channels: update.create.topicSearchBaselineChannels,
+      bundle_credit_cost: update.create.bundleCreditCost,
+      bundle_brief_drafts: update.create.bundleBriefDrafts,
+      bundle_script_writes: update.create.bundleScriptWrites,
+      bundle_section_rewrites: update.create.bundleSectionRewrites,
+      bundle_packaging_runs: update.create.bundlePackagingRuns,
+      bundle_topic_searches: update.create.bundleTopicSearches,
       audit_enabled: update.audit.enabled,
       video_audit_credit_cost: update.audit.videoAuditCreditCost,
       channel_audit_credit_cost: update.audit.channelAuditCreditCost,

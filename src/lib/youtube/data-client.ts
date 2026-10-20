@@ -128,6 +128,7 @@ interface VideosResponse {
       categoryId?: string;
       description?: string;
       liveBroadcastContent?: string;
+      tags?: string[];
     };
     contentDetails?: { duration?: string };
     statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
@@ -150,7 +151,7 @@ export function parseIsoDuration(value: string | undefined): number | null {
 export async function fetchVideoDetails(accessToken: string, ids: string[], options: { public?: boolean } = {}): Promise<VideoMeta[]> {
   const videos: VideoMeta[] = [];
   const snippetFields = options.public
-    ? 'title,publishedAt,channelId,categoryId,description,liveBroadcastContent,thumbnails/medium/url,thumbnails/high/url'
+    ? 'title,publishedAt,channelId,categoryId,description,tags,liveBroadcastContent,thumbnails/medium/url,thumbnails/high/url'
     : 'title,publishedAt,thumbnails/medium/url,thumbnails/high/url';
   for (let i = 0; i < ids.length; i += 50) {
     const params = new URLSearchParams({
@@ -176,6 +177,7 @@ export async function fetchVideoDetails(accessToken: string, ids: string[], opti
           channelId: item.snippet?.channelId,
           categoryId: item.snippet?.categoryId ?? null,
           description: (item.snippet?.description || '').slice(0, 300),
+          tags: (item.snippet?.tags ?? []).slice(0, 60),
           liveOrUpcoming: item.snippet?.liveBroadcastContent === 'live' || item.snippet?.liveBroadcastContent === 'upcoming',
         }),
       });

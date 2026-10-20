@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
+import { VideoPrice } from '@/components/create/video-price';
 import { useCreateConfig } from '@/components/create/use-create-config';
 
 /** Start a video from your own idea. Ideas from Discover start from the idea's page instead. */
@@ -14,6 +15,12 @@ export default function NewProjectPage() {
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  // A starting title passed from elsewhere (e.g. "Start my version" on a video analysis).
+  useEffect(() => {
+    const passed = new URLSearchParams(window.location.search).get('title');
+    if (passed) setTitle(passed.slice(0, 200));
+  }, []);
 
   const create = async () => {
     setBusy(true);
@@ -26,6 +33,7 @@ export default function NewProjectPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Could not create the project.');
+      window.dispatchEvent(new Event('credits_updated'));
       router.push(`/create/${data.project.id}`);
     } catch (err) {
       setMessage((err as Error).message);
@@ -57,12 +65,13 @@ export default function NewProjectPage() {
             <div className="flex flex-wrap gap-2">
               <button type="button" className="btn-primary px-5" disabled={!title.trim() || busy} onClick={create}>
                 {busy && <Loader2 size={16} className="animate-spin" />}
-                Start planning
+                Start this video
               </button>
               <Link href="/discover?tab=next" className="btn-ghost">
                 Or pick an idea from Discover
               </Link>
             </div>
+            {config && <VideoPrice config={config} />}
           </section>
         </AccessGate>
       </div>

@@ -16,6 +16,8 @@ import {
   targetWords,
   wordCount,
 } from '@/lib/youtube/create/script';
+import { IncludedNote } from './included-note';
+import { priceTag, type PriceTag } from './pricing';
 import type { ClaimKind, CreateConfig, ScriptSection, VideoBrief, VideoProject, VideoScript } from './types';
 
 export const CLAIM_LABELS: Record<ClaimKind, { label: string; hint: string; className: string }> = {
@@ -153,7 +155,7 @@ export function ScriptEditor({
             language={script.language}
             target={targets.get(s.id) ?? 100}
             issues={issues.get(s.id) ?? []}
-            cost={config.costs.scriptSection}
+            price={priceTag(project, config, 'section')}
             dirty={dirty}
             rewriting={rewriting === s.id}
             busy={busy}
@@ -163,7 +165,7 @@ export function ScriptEditor({
         ))}
       </ol>
 
-      <RewriteAll script={initial} cost={config.costs.script} running={rewriting === 'all'} disabled={busy || dirty} onRun={onRewriteAll} />
+      <RewriteAll script={initial} price={priceTag(project, config, 'script')} running={rewriting === 'all'} disabled={busy || dirty} onRun={onRewriteAll} />
 
       <div className="fixed bottom-0 inset-x-0 z-30 border-t border-bg-border bg-bg-base/95 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -205,7 +207,7 @@ function SectionCard({
   language,
   target,
   issues,
-  cost,
+  price,
   dirty,
   rewriting,
   busy,
@@ -217,7 +219,7 @@ function SectionCard({
   language: VideoScript['language'];
   target: number;
   issues: (keyof typeof ISSUE_TEXT)[];
-  cost: number;
+  price: PriceTag;
   dirty: boolean;
   rewriting: boolean;
   busy: boolean;
@@ -295,13 +297,14 @@ function SectionCard({
               }}
             >
               <Sparkles size={14} />
-              Rewrite · {cost} credits
+              Rewrite
             </button>
             <button type="button" className="btn-ghost btn-sm" onClick={() => setAsking(false)}>
               Cancel
             </button>
             {dirty && <span className="text-sm text-amber-300 self-center">Save your changes first.</span>}
           </div>
+          {!dirty && <IncludedNote note={price.note} included={price.included} />}
         </div>
       ) : (
         <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => setAsking(true)}>
@@ -359,7 +362,7 @@ function Claims({ claims, onChange }: { claims: ScriptSection['claims']; onChang
   );
 }
 
-function RewriteAll({ script, cost, running, disabled, onRun }: { script: VideoScript; cost: number; running: boolean; disabled: boolean; onRun: (minutes: number, notes: string) => void }) {
+function RewriteAll({ script, price, running, disabled, onRun }: { script: VideoScript; price: PriceTag; running: boolean; disabled: boolean; onRun: (minutes: number, notes: string) => void }) {
   const [open, setOpen] = useState(false);
   const [minutes, setMinutes] = useState(MINUTE_OPTIONS.includes(script.targetMinutes) ? script.targetMinutes : 8);
   const [notes, setNotes] = useState('');
@@ -393,8 +396,9 @@ function RewriteAll({ script, cost, running, disabled, onRun }: { script: VideoS
         }}
       >
         <Sparkles size={16} />
-        Write again · {cost} credits
+        Write again
       </button>
+      <IncludedNote note={price.note} included={price.included} />
       {disabled && <p className="text-sm text-amber-300">Save your changes first.</p>}
     </section>
   ) : (

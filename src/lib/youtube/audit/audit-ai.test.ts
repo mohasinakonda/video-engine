@@ -71,10 +71,16 @@ describe('lessons', () => {
     expect(checkLessons({ verdict: 'It did 2.4× its usual thanks to a clear title.', lessons: ['Use a clear subject in the title.', 'Aim for 90% retention.'] }, allowed)).toEqual({
       verdict: 'It did 2.4× its usual thanks to a clear title.',
       lessons: ['Use a clear subject in the title.'],
+      titleTemplate: null,
+      myVersion: null,
     });
     expect(checkLessons({ verdict: 'A viral hit with 5 million views.', lessons: [] }, allowed)).toBeNull();
     // A bad verdict doesn't throw away good lessons.
-    expect(checkLessons({ verdict: 'It got 9 million views.', lessons: ['Use a clear subject in the title.'] }, allowed)).toEqual({ verdict: null, lessons: ['Use a clear subject in the title.'] });
+    expect(checkLessons({ verdict: 'It got 9 million views.', lessons: ['Use a clear subject in the title.'] }, allowed)).toEqual({ verdict: null, lessons: ['Use a clear subject in the title.'], titleTemplate: null, myVersion: null });
+    // The title shape and starting title follow the same checks.
+    const shaped = checkLessons({ verdict: 'A clear title did well here.', lessons: [], titleTemplate: '🔴LIVE | [Song name] | [What kids learn]', myVersion: 'The 7 best ABC songs' }, allowed);
+    expect(shaped).toMatchObject({ titleTemplate: '🔴LIVE | [Song name] | [What kids learn]', myVersion: 'The 7 best ABC songs' });
+    expect(checkLessons({ verdict: 'A clear title did well here.', lessons: [], myVersion: 'The most viral ABC song' }, allowed)?.myVersion).toBeNull();
     expect(checkLessons({ wrong: 1 }, allowed)).toBeNull();
   });
 
