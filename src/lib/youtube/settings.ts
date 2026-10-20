@@ -17,8 +17,36 @@ export interface ChannelDoctorSettings {
   maxThumbnails: number;
   hourlyLimitPerUser: number;
   discover: DiscoverSettings;
+  create: CreateSettings;
   updatedAt: string | null;
 }
+
+/** Admin-controlled Create (Phase 3) settings, stored on the same row. */
+export interface CreateSettings {
+  enabled: boolean;
+  allowedPlans: PlanTier[];
+  briefCreditCost: number;
+  scriptCreditCost: number;
+  packagingCreditCost: number;
+  performanceCreditCost: number;
+  /** Days after publishing when performance is compared with the channel's usual. */
+  checkpointDays: number[];
+  /** Measured videos needed before a learning pattern is shown. */
+  learningMinVideos: number;
+  maxProjectsPerUser: number;
+}
+
+export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
+  enabled: false,
+  allowedPlans: ['CREATOR', 'STUDIO'],
+  briefCreditCost: 2,
+  scriptCreditCost: 5,
+  packagingCreditCost: 5,
+  performanceCreditCost: 2,
+  checkpointDays: [1, 2, 7, 28],
+  learningMinVideos: 3,
+  maxProjectsPerUser: 100,
+};
 
 /** Weights of the opportunity score dimensions (docs/discover-plan.md §7.2). They sum to 100. */
 export interface OpportunityWeights {
@@ -29,6 +57,8 @@ export interface OpportunityWeights {
   competition: number;
   productionFit: number;
   phase1: number;
+  /** How the creator's own measured videos in this format or topic did (Create). */
+  trackRecord: number;
 }
 
 /** Admin-controlled Discover (Phase 2) settings, stored on the same row. */
@@ -51,14 +81,29 @@ export interface DiscoverSettings {
 }
 
 export const DEFAULT_WEIGHTS: OpportunityWeights = {
-  channelFit: 25,
-  competitorPerformance: 20,
+  channelFit: 20,
+  competitorPerformance: 15,
   momentum: 15,
   contentGap: 15,
   competition: 10,
   productionFit: 10,
   phase1: 5,
+  trackRecord: 10,
 };
+
+/** The defaults before the track record existed. */
+const PREVIOUS_DEFAULT_WEIGHTS = { channelFit: 25, competitorPerformance: 20, momentum: 15, contentGap: 15, competition: 10, productionFit: 10, phase1: 5 };
+
+/**
+ * Weights saved before the track record existed: untouched defaults move to the new defaults;
+ * weights an admin tuned are kept as they are, with the track record at 0 until they set it.
+ */
+export function upgradeWeights(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || 'trackRecord' in raw) return raw;
+  const old = raw as Record<string, unknown>;
+  const untouched = Object.entries(PREVIOUS_DEFAULT_WEIGHTS).every(([k, v]) => old[k] === v);
+  return untouched ? DEFAULT_WEIGHTS : { ...old, trackRecord: 0 };
+}
 
 export const DEFAULT_DISCOVER_SETTINGS: DiscoverSettings = {
   enabled: false,
@@ -88,6 +133,7 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   maxThumbnails: 12,
   hourlyLimitPerUser: 10,
   discover: DEFAULT_DISCOVER_SETTINGS,
+  create: DEFAULT_CREATE_SETTINGS,
   updatedAt: null,
 };
 
@@ -104,6 +150,7 @@ export const weightsSchema = z
     competition: weight,
     productionFit: weight,
     phase1: weight,
+    trackRecord: weight,
   })
   .refine((w) => Object.values(w).reduce((sum, v) => sum + v, 0) === 100, 'The weights must add up to 100');
 
@@ -123,6 +170,23 @@ export const discoverSettingsSchema = z.object({
   weights: weightsSchema,
 });
 
+const credit = z.number().int().min(0).max(1000);
+export const createSettingsSchema = z.object({
+  enabled: z.boolean(),
+  allowedPlans: z.array(z.enum(PLAN_TIERS)).max(4),
+  briefCreditCost: credit,
+  scriptCreditCost: credit,
+  packagingCreditCost: credit,
+  performanceCreditCost: credit,
+  checkpointDays: z
+    .array(z.number().int().min(1).max(90))
+    .min(1)
+    .max(8)
+    .transform((days) => Array.from(new Set(days)).sort((a, b) => a - b)),
+  learningMinVideos: z.number().int().min(2).max(50),
+  maxProjectsPerUser: z.number().int().min(1).max(10_000),
+});
+
 /** What an admin may save. Mirrors the database CHECK constraints. */
 export const settingsUpdateSchema = z.object({
   enabled: z.boolean(),
@@ -136,6 +200,7 @@ export const settingsUpdateSchema = z.object({
   maxThumbnails: z.number().int().min(0).max(24),
   hourlyLimitPerUser: z.number().int().min(1).max(100),
   discover: discoverSettingsSchema,
+  create: createSettingsSchema,
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
@@ -155,6 +220,7 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     maxThumbnails: data.max_thumbnails,
     hourlyLimitPerUser: data.hourly_limit_per_user,
     discover: readDiscover(data),
+    create: readCreate(data),
     updatedAt: data.updated_at,
   };
 }
@@ -163,9 +229,25 @@ const toPlans = (plans: string[] | null | undefined): PlanTier[] =>
   (plans || []).filter((p): p is PlanTier => (PLAN_TIERS as readonly string[]).includes(p));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readCreate(data: Record<string, any>): CreateSettings {
+  const d = DEFAULT_CREATE_SETTINGS;
+  return {
+    enabled: data.create_enabled ?? d.enabled,
+    allowedPlans: data.create_allowed_plans ? toPlans(data.create_allowed_plans) : d.allowedPlans,
+    briefCreditCost: data.brief_credit_cost ?? d.briefCreditCost,
+    scriptCreditCost: data.script_credit_cost ?? d.scriptCreditCost,
+    packagingCreditCost: data.packaging_credit_cost ?? d.packagingCreditCost,
+    performanceCreditCost: data.performance_credit_cost ?? d.performanceCreditCost,
+    checkpointDays: data.checkpoint_days?.length ? data.checkpoint_days : d.checkpointDays,
+    learningMinVideos: data.learning_min_videos ?? d.learningMinVideos,
+    maxProjectsPerUser: data.max_projects_per_user ?? d.maxProjectsPerUser,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readDiscover(data: Record<string, any>): DiscoverSettings {
   const d = DEFAULT_DISCOVER_SETTINGS;
-  const weights = weightsSchema.safeParse(data.opportunity_weights);
+  const weights = weightsSchema.safeParse(upgradeWeights(data.opportunity_weights));
   return {
     enabled: data.discover_enabled ?? d.enabled,
     allowedPlans: data.discover_allowed_plans ? toPlans(data.discover_allowed_plans) : d.allowedPlans,
@@ -211,6 +293,15 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       embedding_models: update.discover.embeddingModels,
       max_competitor_thumbnails: update.discover.maxCompetitorThumbnails,
       opportunity_weights: update.discover.weights,
+      create_enabled: update.create.enabled,
+      create_allowed_plans: Array.from(new Set(update.create.allowedPlans)),
+      brief_credit_cost: update.create.briefCreditCost,
+      script_credit_cost: update.create.scriptCreditCost,
+      packaging_credit_cost: update.create.packagingCreditCost,
+      performance_credit_cost: update.create.performanceCreditCost,
+      checkpoint_days: update.create.checkpointDays,
+      learning_min_videos: update.create.learningMinVideos,
+      max_projects_per_user: update.create.maxProjectsPerUser,
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(`Could not save settings (${error.code})`);
@@ -242,6 +333,7 @@ export async function getUserAccess(userId: string, settings: ChannelDoctorSetti
     isAdmin,
     hasAccess: settings.enabled && settings.allowedPlans.includes(tier),
     hasDiscoverAccess: isAdmin || (settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
+    hasCreateAccess: isAdmin || (settings.create.enabled && settings.create.allowedPlans.includes(tier)),
   };
 }
 

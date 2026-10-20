@@ -9,6 +9,7 @@ import {
   Loader2,
   Plus,
   Compass,
+  PenLine,
   Save,
   Stethoscope,
   Trash2,
@@ -27,7 +28,20 @@ interface Settings {
   maxThumbnails: number;
   hourlyLimitPerUser: number;
   discover: DiscoverSettings;
+  create: CreateSettings;
   updatedAt: string | null;
+}
+
+interface CreateSettings {
+  enabled: boolean;
+  allowedPlans: string[];
+  briefCreditCost: number;
+  scriptCreditCost: number;
+  packagingCreditCost: number;
+  performanceCreditCost: number;
+  checkpointDays: number[];
+  learningMinVideos: number;
+  maxProjectsPerUser: number;
 }
 
 interface Weights {
@@ -37,6 +51,7 @@ interface Weights {
   contentGap: number;
   competition: number;
   productionFit: number;
+  trackRecord: number;
   phase1: number;
 }
 
@@ -89,6 +104,13 @@ const DISCOVER_LIMITS: { key: NumberKey<DiscoverSettings>; label: string; hint: 
   { key: 'maxCompetitorThumbnails', label: 'Competitor thumbnails analyzed', hint: 'Sent to the vision model per run', min: 0, max: 30 },
 ];
 
+const CREATE_COSTS: { key: NumberKey<CreateSettings>; label: string; hint: string }[] = [
+  { key: 'briefCreditCost', label: 'Video brief', hint: 'AI fills the brief from an idea' },
+  { key: 'scriptCreditCost', label: 'Script', hint: 'Full script; one section costs half' },
+  { key: 'packagingCreditCost', label: 'Packaging', hint: 'Title and thumbnail concepts' },
+  { key: 'performanceCreditCost', label: 'Performance check', hint: 'Per analysis of a published video' },
+];
+
 const WEIGHTS: { key: keyof Weights; label: string }[] = [
   { key: 'channelFit', label: 'Channel fit' },
   { key: 'competitorPerformance', label: 'Competitor performance' },
@@ -97,6 +119,7 @@ const WEIGHTS: { key: keyof Weights; label: string }[] = [
   { key: 'competition', label: 'Competition (lower is better)' },
   { key: 'productionFit', label: 'Production fit' },
   { key: 'phase1', label: 'Channel Doctor diagnosis' },
+  { key: 'trackRecord', label: 'Your track record (measured Create videos)' },
 ];
 
 export default function AdminChannelDoctorPage() {
@@ -120,6 +143,9 @@ export default function AdminChannelDoctorPage() {
   const toggle = (plans: string[], plan: string) => (plans.includes(plan) ? plans.filter((p) => p !== plan) : [...plans, plan]);
   const togglePlan = (plan: string) => settings && update('allowedPlans', toggle(settings.allowedPlans, plan));
   const toggleDiscoverPlan = (plan: string) => settings && updateDiscover('allowedPlans', toggle(settings.discover.allowedPlans, plan));
+  const updateCreate = <K extends keyof CreateSettings>(key: K, value: CreateSettings[K]) =>
+    setSettings((prev) => (prev ? { ...prev, create: { ...prev.create, [key]: value } } : prev));
+  const toggleCreatePlan = (plan: string) => settings && updateCreate('allowedPlans', toggle(settings.create.allowedPlans, plan));
 
   const save = async () => {
     if (!settings) return;
@@ -252,6 +278,8 @@ export default function AdminChannelDoctorPage() {
               update={updateDiscover}
               togglePlan={toggleDiscoverPlan}
             />
+
+            <CreateSection create={settings.create} update={updateCreate} togglePlan={toggleCreatePlan} />
 
             {settings.updatedAt && (
               <p className="text-xs text-zinc-500">Last saved {new Date(settings.updatedAt).toLocaleString()}</p>
@@ -396,6 +424,98 @@ function DiscoverSection({
               onChange={(v) => update('weights', { ...discover.weights, [w.key]: v })}
             />
           ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/** Create (Phase 3): switch, plans, prices, measurement checkpoints and limits. */
+function CreateSection({
+  create,
+  update,
+  togglePlan,
+}: {
+  create: CreateSettings;
+  update: <K extends keyof CreateSettings>(key: K, value: CreateSettings[K]) => void;
+  togglePlan: (plan: string) => void;
+}) {
+  const [daysText, setDaysText] = useState(create.checkpointDays.join(', '));
+  const parseDays = (text: string) =>
+    text
+      .split(/[,\s]+/)
+      .map((t) => Number(t))
+      .filter((n) => Number.isInteger(n) && n >= 1 && n <= 90);
+
+  return (
+    <div className="space-y-6 pt-6 border-t border-bg-border">
+      <div>
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <PenLine size={18} className="text-sky-400" />
+          Create
+        </h2>
+        <p className="text-xs text-zinc-400">Brief, script, packaging, linking published videos, measuring and learning. Uses the report models above.</p>
+      </div>
+
+      <section className="card space-y-4">
+        <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <span>
+            <span className="block text-sm font-semibold text-white">Create enabled</span>
+            <span className="block text-xs text-zinc-400">Admins can use it while it is off for users.</span>
+          </span>
+          <input type="checkbox" checked={create.enabled} onChange={(e) => update('enabled', e.target.checked)} className="w-5 h-5 accent-emerald-500" />
+        </label>
+        <div className="pt-4 border-t border-bg-border">
+          <p className="text-sm font-semibold text-white mb-3">Plans that can use Create</p>
+          <PlanPicker selected={create.allowedPlans} onToggle={togglePlan} />
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="text-sm font-semibold text-white">Credit cost</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {CREATE_COSTS.map((cost) => (
+            <NumberField key={cost.key} label={cost.label} hint={cost.hint} value={create[cost.key]} min={0} max={1000} onChange={(v) => update(cost.key, v)} />
+          ))}
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <p className="text-sm font-semibold text-white">Measuring and learning</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="block">
+            <span className="block text-xs font-semibold text-zinc-300 mb-1">Checkpoints (days after publishing)</span>
+            <input
+              type="text"
+              value={daysText}
+              onChange={(e) => {
+                setDaysText(e.target.value);
+                const days = parseDays(e.target.value);
+                if (days.length > 0) update('checkpointDays', days);
+              }}
+              className="input text-sm font-mono"
+              placeholder="1, 2, 7, 28"
+            />
+            <span className="block text-[11px] text-zinc-500 mt-1">
+              Comma-separated, 1–90. YouTube Analytics is daily and arrives 2–3 days late. Saved: {create.checkpointDays.join(', ')}
+            </span>
+          </label>
+          <NumberField
+            label="Videos before a pattern is shown"
+            hint="Measured videos needed for “what works”"
+            value={create.learningMinVideos}
+            min={2}
+            max={50}
+            onChange={(v) => update('learningMinVideos', v)}
+          />
+          <NumberField
+            label="Projects per user"
+            hint="Active (not archived) projects"
+            value={create.maxProjectsPerUser}
+            min={1}
+            max={10000}
+            onChange={(v) => update('maxProjectsPerUser', v)}
+          />
         </div>
       </section>
     </div>

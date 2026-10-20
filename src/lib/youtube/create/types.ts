@@ -1,0 +1,63 @@
+import type { ContentFormat } from '../discover/formats';
+import type { GapType, Level, Momentum, OpportunityScores, ResearchWindow } from '../discover/types';
+import type { Confidence } from '../types';
+
+export const PROJECT_STATUSES = [
+  'DRAFT',
+  'BRIEF_READY',
+  'SCRIPT_READY',
+  'PACKAGED',
+  'IN_PRODUCTION',
+  'PUBLISHED',
+  'ANALYZING',
+  'LEARNED',
+  'ARCHIVED',
+] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+/**
+ * What Discover expected when the project started, kept to test it after publishing.
+ * Scores, levels and labels only: no competitor titles, views or ratios (YouTube's 30-day
+ * rule for other channels' data).
+ */
+export interface Thesis {
+  version: 1;
+  opportunityId: string;
+  topic: string;
+  recommendedAngle: string | null;
+  recommendedFormat: ContentFormat | null;
+  gapTypes: GapType[];
+  momentum: Momentum;
+  competition: Level;
+  channelFit: Level;
+  productionDifficulty: Level | null;
+  confidence: Confidence;
+  scores: OpportunityScores;
+  signalsUsed: number;
+  window: ResearchWindow;
+  researchedAt: string;
+}
+
+export interface ProjectError {
+  step: string;
+  code: string;
+  message: string;
+  at: string;
+}
+
+/** A project as the browser sees it. */
+export interface VideoProject {
+  id: string;
+  origin: 'opportunity' | 'manual';
+  status: ProjectStatus;
+  archivedFrom: ProjectStatus | null;
+  lastError: ProjectError | null;
+  title: string;
+  thesis: Thesis | null;
+  /** Filled by later milestones (brief C2, script C3, packaging C4). */
+  brief: unknown;
+  script: unknown;
+  packaging: unknown;
+  createdAt: string;
+  updatedAt: string;
+}

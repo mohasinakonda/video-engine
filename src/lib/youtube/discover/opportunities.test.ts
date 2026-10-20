@@ -108,8 +108,8 @@ describe('gaps', () => {
 
 describe('scoring', () => {
   it('weights the signals as configured', () => {
-    const all = { channelFit: 100, competitorPerformance: 0, momentum: 0, contentGap: 0, competition: 0, productionFit: 0, phase1: 0 };
-    expect(weightedTotal(all, DEFAULT_WEIGHTS)).toEqual({ total: 25, used: 7 });
+    const all = { channelFit: 100, competitorPerformance: 0, momentum: 0, contentGap: 0, competition: 0, productionFit: 0, phase1: 0, trackRecord: 0 };
+    expect(weightedTotal(all, DEFAULT_WEIGHTS)).toEqual({ total: 20, used: 8 });
   });
 
   it('drops missing signals and renormalizes the rest', () => {

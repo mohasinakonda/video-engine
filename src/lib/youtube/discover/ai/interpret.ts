@@ -8,6 +8,7 @@ import { callLLM, embed, parseJsonObject } from '@/lib/llm-providers';
 import { FORMAT_LABELS } from '../formats';
 import { cosine } from '../similarity';
 import type { Opportunity } from '../types';
+import { numbersIn } from '../numbers';
 import { tooCloseTo } from './originality';
 
 const itemSchema = z.object({
@@ -20,7 +21,7 @@ const itemSchema = z.object({
 type AiItem = z.infer<typeof itemSchema>;
 
 /** Words a decision-support tool must not use (docs/discover-plan.md §11). */
-const BANNED = /\b(viral|guaranteed?|guarantee|hack|exploit|untapped|no competition|100\s*%|algorithm secret|blow up)\b|ভাইরাল|গ্যারান্টি/i;
+export const BANNED = /\b(viral|guaranteed?|guarantee|hack|exploit|untapped|no competition|100\s*%|algorithm secret|blow up)\b|ভাইরাল|গ্যারান্টি/i;
 
 const MOMENTUM_TEXT: Record<Opportunity['momentum'], string> = {
   recent: 'several channels posted on it recently',
@@ -38,13 +39,7 @@ export function withConfidenceNote(whyNow: string, confidence: Opportunity['conf
   return /^(early signal|প্রাথমিক ইঙ্গিত)/i.test(whyNow) ? whyNow : `${prefix}${whyNow.charAt(0).toLowerCase()}${whyNow.slice(1)}`;
 }
 
-const BANGLA_DIGITS = '০১২৩৪৫৬৭৮৯';
-const toAsciiDigits = (s: string) => s.replace(/[০-৯]/g, (d) => String(BANGLA_DIGITS.indexOf(d)));
-
-/** Numbers in a text, normalized ("4.0" and "4" match; Bangla digits count too). */
-export function numbersIn(text: string): string[] {
-  return (toAsciiDigits(text).match(/\d+(?:[.,]\d+)?/g) || []).map((n) => String(Number(n.replace(',', '.'))));
-}
+export { numbersIn };
 
 /** True when every number in `text` appears in the allowed facts. Stops invented statistics. */
 export function onlyKnownNumbers(text: string, allowed: Set<string>): boolean {

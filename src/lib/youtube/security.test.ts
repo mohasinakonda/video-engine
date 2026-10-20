@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { decryptToken, encryptToken } from './crypto';
 import { buildAuthUrl, hasRequiredScopes, statesMatch } from './oauth';
 import { aggregateReach, parseCsv } from './reporting-client';
-import { DEFAULT_DISCOVER_SETTINGS, settingsUpdateSchema } from './settings';
+import { DEFAULT_CREATE_SETTINGS, DEFAULT_DISCOVER_SETTINGS, settingsUpdateSchema } from './settings';
 import { isAllowedThumbnailUrl } from './analysis/thumbnails';
 import { safeReturnPath } from './config';
 import { toPublicConnection } from './connection-service';
@@ -117,6 +117,7 @@ describe('admin settings validation', () => {
     maxThumbnails: 12,
     hourlyLimitPerUser: 10,
     discover: DEFAULT_DISCOVER_SETTINGS,
+    create: DEFAULT_CREATE_SETTINGS,
   };
   it('accepts valid settings', () => expect(settingsUpdateSchema.safeParse(valid).success).toBe(true));
   it('rejects unknown plans, bad model ids and negative costs', () => {
@@ -129,6 +130,15 @@ describe('admin settings validation', () => {
     const weights = { ...DEFAULT_DISCOVER_SETTINGS.weights, phase1: 6 };
     expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...DEFAULT_DISCOVER_SETTINGS, weights } }).success).toBe(false);
   });
+  it('validates Create prices and checkpoints, and orders the checkpoints', () => {
+    const c = DEFAULT_CREATE_SETTINGS;
+    expect(settingsUpdateSchema.safeParse({ ...valid, create: { ...c, scriptCreditCost: -1 } }).success).toBe(false);
+    expect(settingsUpdateSchema.safeParse({ ...valid, create: { ...c, checkpointDays: [] } }).success).toBe(false);
+    expect(settingsUpdateSchema.safeParse({ ...valid, create: { ...c, checkpointDays: [0] } }).success).toBe(false);
+    const parsed = settingsUpdateSchema.parse({ ...valid, create: { ...c, checkpointDays: [28, 7, 7, 1] } });
+    expect(parsed.create.checkpointDays).toEqual([1, 7, 28]);
+  });
+
   it('caps Discover limits and rejects bad embedding ids', () => {
     const d = DEFAULT_DISCOVER_SETTINGS;
     expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...d, maxCompetitors: 0 } }).success).toBe(false);

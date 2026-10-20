@@ -16,6 +16,8 @@ import { mainLanguage } from './queries';
 import { interpretOpportunities } from './ai/interpret';
 import { buildOpportunities, type EngineContext, type TopicDetail } from './opportunities';
 import { loadPhase1 } from './phase1';
+import { buildTrackRecordInput } from '../create/track-record-input';
+import type { LearningRow } from '../create/track-record';
 import { meanVector } from './clustering';
 import { buildTopics, type TopicInput } from './topics';
 import type { ContentFormat } from './formats';
@@ -39,6 +41,8 @@ interface ResearchOptions {
   language?: OutputLanguage;
   /** Active watchlist channel ids, read from the database by the route. */
   competitorIds: string[];
+  /** The creator's learning records (Create), read by the route. */
+  learning?: LearningRow[];
   onStage: (stage: ResearchStage, detail?: StageDetail) => void;
   now?: Date;
 }
@@ -228,6 +232,10 @@ export async function runResearch(options: ResearchOptions): Promise<ResearchRes
       outliers: allTaggedOutliers.filter((o) => o.topicId === summary.id),
     };
   });
+  // Your measured Create videos (labels only, read by the route); a failure never blocks the research.
+  const trackRecord = options.learning?.length
+    ? await buildTrackRecordInput(options.learning, options.settings.create.learningMinVideos, build.embeddingModel).catch(() => null)
+    : null;
   const ctx: EngineContext = {
     window: options.window,
     now,
@@ -239,6 +247,7 @@ export async function runResearch(options: ResearchOptions): Promise<ResearchRes
     unavailableShare: statuses.length ? statuses.filter((st) => st.status === 'unavailable').length / statuses.length : 0,
     strongEmbedding: build.embeddingModel !== null && (DISCOVER_RULES.strongEmbeddingModels as readonly string[]).includes(build.embeddingModel),
     yourFormats,
+    trackRecord,
   };
   const scored = build.embeddingModel ? buildOpportunities(details, ctx) : [];
 

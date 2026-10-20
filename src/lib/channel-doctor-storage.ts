@@ -26,15 +26,24 @@ export function saveReport<T>(key: string, result: T) {
   }
 }
 
-/** Clears every saved report (on disconnect, sign-out or channel change). */
+/** Browser-only data from Create that holds the user's analytics or video ids. */
+const CREATE_SESSION_PREFIX = 'create:performance:';
+const CREATE_LOCAL_PREFIX = 'create:publish-reminders:';
+
+const removeWhere = (storage: Storage, test: (key: string) => boolean) => {
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const key = storage.key(i);
+    if (key && test(key)) keys.push(key);
+  }
+  keys.forEach((key) => storage.removeItem(key));
+};
+
+/** Clears every saved report (on disconnect, sign-out or channel change), including Create's measurements and reminders. */
 export function clearAllReports() {
   try {
-    const keys: string[] = [];
-    for (let i = 0; i < window.sessionStorage.length; i++) {
-      const key = window.sessionStorage.key(i);
-      if (key?.startsWith(PREFIX)) keys.push(key);
-    }
-    keys.forEach((key) => window.sessionStorage.removeItem(key));
+    removeWhere(window.sessionStorage, (key) => key.startsWith(PREFIX) || key.startsWith(CREATE_SESSION_PREFIX));
+    removeWhere(window.localStorage, (key) => key.startsWith(CREATE_LOCAL_PREFIX));
   } catch {
     // nothing to clear
   }
@@ -57,6 +66,3 @@ export function findSavedOpportunity<R extends { opportunities?: { id: string }[
   }
   return null;
 }
-
-/** Key for a video brief handed to the (coming) creation flow. Cleared with the reports. */
-export const briefKey = (userId: string, opportunityId: string) => `${PREFIX}${userId}:brief:${opportunityId}`;
