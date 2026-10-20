@@ -157,7 +157,16 @@ vi.mock('./ai/lessons', async (importOriginal) => ({
   writeLessons: async () => ({ verdict: 'A standout.', lessons: [], aiUsed: false }),
 }));
 
+const channelState = { found: true };
+vi.mock('../data-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../data-client')>()),
+  fetchChannelsById: async (_t: string, ids: string[]) =>
+    channelState.found ? ids.map((id) => ({ id, title: 'Theirs', thumbnail: null, customUrl: null, url: '', subscriberCount: 10, videoCount: 12, uploadsPlaylistId: null })) : [],
+  fetchChannelByHandle: async () => null,
+}));
+
 import { POST as auditRoute } from '@/app/api/youtube/audit/video/route';
+import { POST as channelRoute } from '@/app/api/youtube/audit/channel/route';
 
 const post = (link: string) => new Request('http://localhost/api', { method: 'POST', body: JSON.stringify({ link }) });
 const events = async (res: Response) => (await res.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l));
@@ -202,5 +211,34 @@ describe('video audit route', () => {
     const failed = await events(await auditRoute(post('https://youtu.be/dQw4w9WgXcQ')));
     expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
     expect(state.credits.refunded).toBe(5);
+  });
+});
+
+describe('channel audit route', () => {
+  const postChannel = (channel: string) => new Request('http://localhost/api', { method: 'POST', body: JSON.stringify({ channel }) });
+
+  beforeEach(() => {
+    state.access = { ...state.access, hasAuditAccess: true };
+    state.underCap = true;
+    state.credits = { charged: 0, refunded: 0 };
+    channelState.found = true;
+  });
+
+  it('refuses video links and junk before charging', async () => {
+    expect((await channelRoute(postChannel('https://youtu.be/dQw4w9WgXcQ'))).status).toBe(400);
+    expect((await channelRoute(postChannel('hello'))).status).toBe(400);
+    expect(state.credits.charged).toBe(0);
+  });
+
+  it('audits a channel at the channel price, and refunds an unknown one', async () => {
+    const ok = await events(await channelRoute(postChannel(`https://youtube.com/channel/${CHANNEL}`)));
+    const result = ok.at(-1);
+    expect(result.type).toBe('result');
+    expect(result.data).toMatchObject({ isOwn: false, channel: { id: CHANNEL }, stats: { videosRead: 12 }, verdict: 'A standout.' });
+    expect(state.credits.charged).toBe(10);
+
+    channelState.found = false;
+    const failed = await events(await channelRoute(postChannel(`https://youtube.com/channel/${CHANNEL}`)));
+    expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
   });
 });

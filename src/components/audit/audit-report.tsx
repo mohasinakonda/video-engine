@@ -23,6 +23,9 @@ const AREA: Record<FindingArea, string> = {
   metadata: 'Description',
   format: 'Length',
   viewers: 'Viewers',
+  pattern: 'Pattern',
+  rhythm: 'Upload rhythm',
+  comparison: 'You vs them',
 };
 
 const THEMES: { kind: ThemeKind; title: string; icon: typeof ThumbsUp; className: string; hint: string }[] = [
@@ -32,7 +35,7 @@ const THEMES: { kind: ThemeKind; title: string; icon: typeof ThumbsUp; className
   { kind: 'discussion', title: 'What viewers debated', icon: MessagesSquare, className: 'text-zinc-300', hint: 'How much the topic moved people' },
 ];
 
-function FindingList({ title, findings, icon: Icon, className }: { title: string; findings: AuditFinding[]; icon: typeof Info; className: string }) {
+export function FindingList({ title, findings, icon: Icon, className }: { title: string; findings: AuditFinding[]; icon: typeof Info; className: string }) {
   if (!findings.length) return null;
   return (
     <section className="space-y-2">

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ScanSearch } from 'lucide-react';
 import { resolveTarget } from '@/lib/youtube/audit/resolve';
 
-/** Paste any YouTube video link to analyze it. Channel analysis comes later (A4). */
+/** Paste any YouTube video or channel link (or @handle) to analyze it. */
 export function AnalyzeLink({ from }: { from: 'competitors' | 'market' }) {
   const router = useRouter();
   const [link, setLink] = useState('');
@@ -13,9 +13,9 @@ export function AnalyzeLink({ from }: { from: 'competitors' | 'market' }) {
 
   const go = () => {
     const target = resolveTarget(link);
-    if (!target) return setError('Paste a YouTube video link, like youtube.com/watch?v=… or youtu.be/…');
-    if (target.kind !== 'video') return setError('That’s a channel. For now, paste a link to one of its videos.');
-    router.push(`/discover/video/${target.videoId}?from=${from}`);
+    if (!target) return setError('Paste a YouTube video or channel link, or an @handle.');
+    if (target.kind === 'video') router.push(`/discover/video/${target.videoId}?from=${from}`);
+    else router.push(`/discover/channel/${encodeURIComponent(target.kind === 'channel' ? target.channelId : target.handle)}?from=${from}`);
   };
 
   return (
@@ -23,9 +23,9 @@ export function AnalyzeLink({ from }: { from: 'competitors' | 'market' }) {
       <div>
         <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
           <ScanSearch size={17} className="text-amber-300" />
-          Analyze any video
+          Analyze any video or channel
         </h3>
-        <p className="text-sm text-zinc-400">See why a video did well or badly: its title, thumbnail, description and what viewers say.</p>
+        <p className="text-sm text-zinc-400">A video: why it did well or badly. A channel: what works there, and how it compares with yours.</p>
       </div>
       <form
         className="flex flex-col sm:flex-row gap-2"
@@ -37,7 +37,7 @@ export function AnalyzeLink({ from }: { from: 'competitors' | 'market' }) {
         <input
           className="input text-base flex-1"
           value={link}
-          placeholder="https://youtu.be/…"
+          placeholder="Video link, channel link or @handle"
           onChange={(e) => {
             setLink(e.target.value);
             setError('');

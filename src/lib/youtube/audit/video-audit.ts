@@ -11,7 +11,7 @@ import type { MarketVideo, PublicFormat } from '../discover/types';
 import type { Confidence } from '../types';
 import type { AuditVideo } from './fetch';
 
-export type FindingArea = 'performance' | 'title' | 'thumbnail' | 'metadata' | 'format' | 'viewers';
+export type FindingArea = 'performance' | 'title' | 'thumbnail' | 'metadata' | 'format' | 'viewers' | 'pattern' | 'rhythm' | 'comparison';
 export type FindingKind = 'strength' | 'weakness' | 'note';
 
 export interface AuditFinding {

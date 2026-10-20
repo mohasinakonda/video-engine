@@ -174,3 +174,21 @@ Add to section 4: other channels' public data, including comment text, is read o
 - **Verdict and lessons:** written from the checked findings and themes only. Any number not in the input is rejected; "21,326,354" is read as one number, and rounded millions of an input number are allowed. The model is told not to link findings as cause and effect. Without a usable answer, a plain verdict is built from the performance label, in English or Bangla.
 - **Theme kinds:** liked, complaint (about the video itself), question (unanswered, i.e. ideas for the next video), and discussion (debate about the subject). In testing, opinions about the topic were filed as complaints until "discussion" was added.
 - Tested with real AI on 20 Oct 2026: two Kurzgesagt videos and one TerraLore video, in English and Bangla, including 100 real comments per video through `YOUTUBE_API_KEY`. Reading the comments takes about 0.5 s; grouping them takes 8–17 s.
+
+## 13. A4 notes (20 Oct 2026)
+
+- **Channel audit:**
+  - It reads up to 100 recent uploads (about 4 quota units).
+  - Each video is judged against the channel's own usual for its format: standouts at 2× or more, weak below 0.5×.
+  - A trait is stated only when it splits the two groups by 40 points or more, with at least 3 videos on each side.
+- **Thumbnails:** up to `audit_max_thumbnails` (8) long-form thumbnails, half standouts and half weakest, with at least 3 on each side. Shorts are left out.
+- **You vs them:**
+  - Their standouts' main title mechanism, and how many of your last 10 titles use it.
+  - Their Shorts share vs yours.
+  - Their upload frequency vs yours.
+- **Lessons:** the channel prompt is the video prompt adapted. Lessons are phrased as things to test, never rules, because the patterns are correlations from a few videos.
+- **Entry points:** "Analyze" on each competitor (Competitors tab), and the paste box, which now accepts channel links and @handles too.
+- **Pages:** `/discover/channel/[ref]` (channel id or @handle), sharing the run, cache and frame code (`useAudit`, `AuditShell`) with the video page.
+- **Tested with real data on 20 Oct 2026:**
+  - Kurzgesagt: 100 videos, 3 standouts, about 6 s.
+  - Veritasium: 99 judged, 5 standouts (17× "Can you swim in shade balls?"), about 7 s.

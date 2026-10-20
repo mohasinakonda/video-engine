@@ -15,7 +15,7 @@ const aiSchema = z.object({
   lessons: z.array(z.string().trim().min(10).max(220)).max(6),
 });
 
-const SYSTEM = `You explain a YouTube video audit to a creator who wants to learn from this video for their own channel.
+export const SYSTEM_VIDEO = `You explain a YouTube video audit to a creator who wants to learn from this video for their own channel.
 You get checked findings (performance against the video's own channel, title, thumbnail, description, length) and what viewers said.
 - verdict: one or two sentences on why this video did what it did, using only the findings.
 - lessons: 2–4 short, concrete things the creator can copy or avoid on their own channel. Start each with a verb.
@@ -24,6 +24,19 @@ You get checked findings (performance against the video's own channel, title, th
 - Don't claim to know click rate, retention or traffic: YouTube doesn't share them for other channels.
 - Write in the language given as writeIn.
 Reply only with JSON: {"verdict": "...", "lessons": ["...", "..."]}`;
+
+/** The same rules for a whole channel: what its standouts share, its rhythm, and how it compares with the creator. */
+export const SYSTEM_CHANNEL = SYSTEM_VIDEO.replace('a YouTube video audit', 'a YouTube channel audit')
+  .replace('learn from this video', 'learn from this channel')
+  .replace(
+    "checked findings (performance against the video's own channel, title, thumbnail, description, length) and what viewers said",
+    "checked findings: how often its videos beat its own usual, what its standouts share versus its weakest videos (titles, formats, thumbnails, length), its upload rhythm, and how it compares with the creator"
+  )
+  .replace('why this video did what it did', 'what makes this channel work, or not')
+  .replace(
+    '- lessons: 2–4 short, concrete things the creator can copy or avoid on their own channel. Start each with a verb.',
+    '- lessons: 2–4 short things the creator could try on their own channel. These patterns come from a few videos and show what goes together, not causes: phrase each as something to test ("Try…", "Test…"), never as a rule. Start each with a verb.'
+  );
 
 const FALLBACK: Record<PerformanceLabel, string> = {
   standout: 'This video is a standout for its channel.',
@@ -69,6 +82,9 @@ export function checkLessons(raw: unknown, allowed: Set<string>): { verdict: str
 }
 
 export async function writeLessons(input: {
+  subject?: 'video' | 'channel';
+  /** Used when the model gives nothing usable; defaults to the video verdict for `label`. */
+  fallback?: string;
   label: PerformanceLabel;
   findings: AuditFinding[];
   themes: ViewerTheme[];
@@ -78,7 +94,7 @@ export async function writeLessons(input: {
   const facts = input.findings.map((f) => `[${f.kind}, ${f.area}] ${f.statement}${f.evidence ? ` (${f.evidence})` : ''}`);
   const viewers = input.themes.map((t) => `[${t.kind}] ${t.theme} (${t.count} comments)`);
   const allowed = allowedNumbersOf([...facts, ...viewers].join(' '));
-  const fallback = { verdict: fallbackVerdict(input.label, input.language), lessons: [], aiUsed: false };
+  const fallback = { verdict: input.fallback ?? fallbackVerdict(input.label, input.language), lessons: [], aiUsed: false };
   if (facts.length === 0) return fallback;
 
   const answer = await callLLM({
@@ -89,7 +105,7 @@ export async function writeLessons(input: {
     maxTokens: 1200,
     timeoutMs: 45_000,
     messages: [
-      { role: 'system', content: SYSTEM },
+      { role: 'system', content: input.subject === 'channel' ? SYSTEM_CHANNEL : SYSTEM_VIDEO },
       { role: 'user', content: JSON.stringify({ writeIn: input.language, performance: input.label, findings: facts, viewers }) },
     ],
   });
