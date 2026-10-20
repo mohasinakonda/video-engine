@@ -194,7 +194,7 @@ export function PackagingEditor({
           </div>
           <div className="flex flex-wrap gap-1.5">
             {p.tags.map((tag) => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-bg-elevated border border-bg-border text-sm text-zinc-200">
+              <span key={tag} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 rounded-full bg-white/[0.07] text-xs text-zinc-200">
                 {tag}
                 <button type="button" aria-label={`Remove ${tag}`} className="text-zinc-500 hover:text-rose-300" onClick={() => set('tags', p.tags.filter((x) => x !== tag))}>
                   <X size={12} />

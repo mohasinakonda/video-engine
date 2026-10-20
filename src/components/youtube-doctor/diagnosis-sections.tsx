@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { CheckCircle2, ChevronDown, Info, Lightbulb, Target, TriangleAlert } from 'lucide-react';
 import type { DiagnosisResult } from '@/lib/youtube/diagnosis';
 import type { Confidence, Evidence, ReportAction, ReportBottleneck, VideoAnalysis } from '@/lib/youtube/types';
+import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { formatCompact, formatDuration } from './format';
 
 /*
@@ -15,15 +16,15 @@ import { formatCompact, formatDuration } from './format';
  *   4. Everything else (evidence, numbers) is one click away.
  */
 
-const EVIDENCE_LABEL: Record<Confidence, { text: string; className: string }> = {
-  high: { text: 'Strong evidence', className: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30' },
-  medium: { text: 'Good evidence', className: 'bg-sky-500/15 text-sky-200 border-sky-500/30' },
-  low: { text: 'Early signal', className: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30' },
+const EVIDENCE_LABEL: Record<Confidence, { text: string; tone: BadgeTone }> = {
+  high: { text: 'Strong evidence', tone: 'good' },
+  medium: { text: 'Good evidence', tone: 'info' },
+  low: { text: 'Early signal', tone: 'neutral' },
 };
 
 export function EvidenceBadge({ confidence }: { confidence: Confidence }) {
-  const { text, className } = EVIDENCE_LABEL[confidence];
-  return <span className={`px-2 py-0.5 rounded-full border text-xs font-medium ${className}`}>{text}</span>;
+  const { text, tone } = EVIDENCE_LABEL[confidence];
+  return <Badge tone={tone}>{text}</Badge>;
 }
 
 /** Kept for places that show a confidence next to a measured statement. */
@@ -31,9 +32,9 @@ export const ConfidenceBadge = EvidenceBadge;
 
 function WorthCheckingBadge() {
   return (
-    <span className="px-2 py-0.5 rounded-full border text-xs font-medium bg-amber-500/15 text-amber-200 border-amber-500/30" title="The numbers line up, but they don't prove the cause.">
+    <Badge tone="warn" title="The numbers line up, but they don't prove the cause.">
       Worth checking
-    </span>
+    </Badge>
   );
 }
 

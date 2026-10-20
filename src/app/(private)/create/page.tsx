@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, ArchiveRestore, GraduationCap, Loader2, PenLine, Plus, Search } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
+import { Segmented } from '@/components/ui/segmented';
 import { LIBRARY_TABS, nextStepOf, type LibraryTab } from '@/components/create/next-step';
 import { PublishReminders } from '@/components/create/publish-reminders';
 import { STATUS_LABELS, type VideoProject } from '@/components/create/types';
@@ -121,20 +122,19 @@ export default function CreateLibraryPage() {
               <PublishReminders hasWaiting={projects.some((p) => p.status === 'IN_PRODUCTION')} onLinked={load} />
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex flex-wrap gap-1.5" role="tablist">
-                  {LIBRARY_TABS.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={tab === t.id}
-                      onClick={() => chooseTab(t.id)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${tab === t.id ? 'bg-white text-zinc-950 border-white' : 'bg-bg-elevated text-zinc-300 border-bg-border hover:border-zinc-500'}`}
-                    >
-                      {t.label} <span className="tabular-nums opacity-70">{counts[t.id]}</span>
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  label="Show videos"
+                  value={tab}
+                  onChange={chooseTab}
+                  options={LIBRARY_TABS.map((t) => ({
+                    id: t.id,
+                    label: (
+                      <>
+                        {t.label} <span className="tabular-nums opacity-60">{counts[t.id]}</span>
+                      </>
+                    ),
+                  }))}
+                />
                 <label className="relative sm:ml-auto sm:w-64">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                   <input className="input text-sm pl-9 py-1.5" value={query} placeholder="Search titles" onChange={(e) => setQuery(e.target.value)} />

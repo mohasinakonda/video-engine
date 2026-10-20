@@ -1,6 +1,6 @@
 import Image from 'next/image';
-import Link from 'next/link';
-import { ScanSearch } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { TextLink } from '@/components/ui/text-link';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { formatAgo, formatCompact } from '@/components/youtube-doctor/format';
 import { FORMAT_LABELS, type Outlier, type ResearchWindow, type TopicSummary } from './types';
@@ -57,18 +57,15 @@ export function OutlierList({ outliers, period, topics, canAnalyze = false }: { 
                   <EvidenceBadge confidence={o.confidence} />
                 </p>
                 {canAnalyze && (
-                  <Link href={`/discover/video/${o.videoId}?from=market`} className="btn-ghost btn-xs text-amber-300 w-fit">
-                    <ScanSearch size={13} />
-                    Why did this work?
-                  </Link>
+                  <TextLink href={`/discover/video/${o.videoId}?from=market`}>Why did this work?</TextLink>
                 )}
                 {(o.topicId || o.contentFormat) && (
                   <div className="flex flex-wrap gap-1.5">
                     {o.topicId && topicLabel.get(o.topicId) && (
-                      <span className="px-2 py-0.5 rounded-md bg-bg-elevated border border-bg-border text-xs text-zinc-300">Topic: {topicLabel.get(o.topicId)}</span>
+                      <Badge dot={false}>Topic: {topicLabel.get(o.topicId)}</Badge>
                     )}
                     {o.contentFormat && (
-                      <span className="px-2 py-0.5 rounded-md bg-bg-elevated border border-bg-border text-xs text-zinc-300">{FORMAT_LABELS[o.contentFormat]}</span>
+                      <Badge dot={false}>{FORMAT_LABELS[o.contentFormat]}</Badge>
                     )}
                   </div>
                 )}

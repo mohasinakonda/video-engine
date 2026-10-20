@@ -3,18 +3,19 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, ExternalLink, HelpCircle, Info, Lightbulb, MessageCircle, MessagesSquare, Scale, Stethoscope, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { formatAgo, formatCompact } from '@/components/youtube-doctor/format';
 import type { AuditFinding, FindingArea, PerformanceLabel, ThemeKind, VideoAuditReport } from './types';
 import type { ViewerThemes } from '@/lib/youtube/audit/ai/comments';
 
-const PERFORMANCE: Record<PerformanceLabel, { label: string; className: string }> = {
-  standout: { label: 'Standout for its channel', className: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30' },
-  above: { label: 'Above its channel’s usual', className: 'bg-emerald-500/10 text-emerald-200 border-emerald-500/30' },
-  typical: { label: 'About its channel’s usual', className: 'bg-white/5 text-zinc-200 border-bg-border' },
-  below: { label: 'Below its channel’s usual', className: 'bg-amber-500/10 text-amber-200 border-amber-500/30' },
-  well_below: { label: 'Well below its channel’s usual', className: 'bg-rose-500/10 text-rose-200 border-rose-500/30' },
-  not_comparable: { label: 'Can’t compare yet', className: 'bg-white/5 text-zinc-400 border-bg-border' },
+const PERFORMANCE: Record<PerformanceLabel, { label: string; tone: BadgeTone }> = {
+  standout: { label: 'Standout for its channel', tone: 'good' },
+  above: { label: 'Above its channel’s usual', tone: 'good' },
+  typical: { label: 'About its channel’s usual', tone: 'neutral' },
+  below: { label: 'Below its channel’s usual', tone: 'warn' },
+  well_below: { label: 'Well below its channel’s usual', tone: 'bad' },
+  not_comparable: { label: 'Can’t compare yet', tone: 'neutral' },
 };
 
 const AREA: Record<FindingArea, string> = {
@@ -48,7 +49,7 @@ export function FindingList({ title, findings, icon: Icon, className }: { title:
         {findings.map((f) => (
           <li key={f.id} className="rounded-xl border border-bg-border bg-bg-surface p-4 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded-md bg-white/5 border border-bg-border text-xs text-zinc-300">{AREA[f.area]}</span>
+              <Badge dot={false}>{AREA[f.area]}</Badge>
               <EvidenceBadge confidence={f.confidence} />
             </div>
             <p className="text-base text-zinc-100">{f.statement}</p>
@@ -136,10 +137,12 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
             {video.channelTitle} · {video.views !== null ? `${formatCompact(video.views)} views · ` : ''}
             {formatAgo(report.ageDays)} · {report.format === 'short' ? 'Short' : 'Video'}
           </p>
-          <span className={`inline-block px-2.5 py-1 rounded-lg border text-sm font-medium ${perf.className}`}>
-            {perf.label}
-            {p.ratio !== null && ` · ${p.ratio}×`}
-          </span>
+          <div>
+            <Badge tone={perf.tone}>
+              {perf.label}
+              {p.ratio !== null && ` · ${p.ratio}×`}
+            </Badge>
+          </div>
           {p.baselineViews !== null && p.label !== 'not_comparable' && (
             <p className="text-xs text-zinc-500">
               Its channel usually gets {formatCompact(p.baselineViews)} views ({p.baselineSample} of its {report.format === 'short' ? 'Shorts' : 'videos'} from the past year).

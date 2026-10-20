@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Check, Clock, Flag, Stethoscope } from 'lucide-react';
+import { Badge, type BadgeTone } from '@/components/ui/badge';
+import { Segmented } from '@/components/ui/segmented';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import type { CheckpointState } from '@/lib/youtube/create/measure';
 import { THESIS_MIN_DAYS, expectationText, type Measurement, type Outcome, type SignalBucket, type ViewsBucket } from '@/lib/youtube/create/outcome';
@@ -16,13 +18,13 @@ export interface PerformanceResult {
   limitations: string[];
 }
 
-const BUCKET_STYLE: Record<ViewsBucket | SignalBucket, { label: string; className: string }> = {
-  well_above: { label: 'Well above usual', className: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/30' },
-  above: { label: 'Above usual', className: 'text-emerald-200 bg-emerald-500/10 border-emerald-500/30' },
-  typical: { label: 'Usual', className: 'text-zinc-200 bg-white/5 border-bg-border' },
-  below: { label: 'Below usual', className: 'text-amber-200 bg-amber-500/10 border-amber-500/30' },
-  well_below: { label: 'Well below usual', className: 'text-rose-200 bg-rose-500/10 border-rose-500/30' },
-  unknown: { label: 'Not enough data', className: 'text-zinc-400 bg-white/5 border-bg-border' },
+const BUCKET_STYLE: Record<ViewsBucket | SignalBucket, { label: string; tone: BadgeTone }> = {
+  well_above: { label: 'Well above usual', tone: 'good' },
+  above: { label: 'Above usual', tone: 'good' },
+  typical: { label: 'Usual', tone: 'neutral' },
+  below: { label: 'Below usual', tone: 'warn' },
+  well_below: { label: 'Well below usual', tone: 'bad' },
+  unknown: { label: 'Not enough data', tone: 'neutral' },
 };
 
 const fmt = (n: number | null, digits = 0) => (n === null ? '—' : n.toLocaleString(undefined, { maximumFractionDigits: digits }));
@@ -31,7 +33,7 @@ const date = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(un
 
 function Bucket({ value }: { value: ViewsBucket | SignalBucket }) {
   const s = BUCKET_STYLE[value];
-  return <span className={`px-2 py-0.5 rounded-md border text-xs font-medium whitespace-nowrap ${s.className}`}>{s.label}</span>;
+  return <Badge tone={s.tone}>{s.label}</Badge>;
 }
 
 /** One measured checkpoint at a time; the timeline switches between them. */
@@ -42,28 +44,26 @@ export function PerformanceView({ result, thesis, videoId }: { result: Performan
 
   return (
     <div className="space-y-5">
-      <ol className="flex flex-wrap gap-1.5" aria-label="Checkpoints">
-        {result.checkpoints.map((c) => {
+      <Segmented
+        label="Checkpoint"
+        value={String(selected)}
+        onChange={(id) => setSelected(Number(id))}
+        options={result.checkpoints.map((c) => {
           const index = result.outcomes.findIndex((o) => o.days === c.days);
-          const active = index === selected;
-          return (
-            <li key={c.days}>
-              <button
-                type="button"
-                disabled={index < 0}
-                onClick={() => setSelected(index)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium inline-flex items-center gap-1.5 border ${
-                  active ? 'bg-white text-zinc-950 border-white' : index >= 0 ? 'bg-bg-elevated text-zinc-200 border-bg-border hover:border-zinc-400' : 'bg-bg-elevated text-zinc-500 border-bg-border'
-                }`}
-              >
+          return {
+            id: String(index >= 0 ? index : `pending-${c.days}`),
+            disabled: index < 0,
+            title: index < 0 ? `Data expected ${date(c.readyOn)}` : undefined,
+            label: (
+              <>
                 {index >= 0 ? <Check size={14} /> : <Clock size={14} />}
                 Day {c.days}
                 {index < 0 && <span className="font-normal">· {date(c.readyOn)}</span>}
-              </button>
-            </li>
-          );
+              </>
+            ),
+          };
         })}
-      </ol>
+      />
 
       {outcome && m && (
         <>

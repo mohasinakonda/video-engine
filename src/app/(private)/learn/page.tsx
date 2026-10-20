@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { GraduationCap, Loader2, TrendingDown, TrendingUp } from 'lucide-react';
+import { TextLink } from '@/components/ui/text-link';
 import { AccessGate } from '@/components/create/access-gate';
 import { useCreateConfig } from '@/components/create/use-create-config';
 import { FORMAT_LABELS, MECHANISM_LABELS, type ContentFormat, type TitleMechanism } from '@/lib/youtube/discover/formats';
@@ -41,12 +42,12 @@ function Tendency({ dimension, stat, good }: { dimension: keyof typeof DIMENSION
       <p className="text-sm text-zinc-400">
         {stat.above} of {stat.n} did better and {stat.below} did worse, each compared with your own videos at the same age.
       </p>
-      <ul className="flex flex-wrap gap-1.5">
+      <ul className="flex flex-wrap gap-x-4 gap-y-1">
         {stat.videos.map((v) => (
           <li key={v.projectId}>
-            <Link href={`/create/${v.projectId}/measure`} className="text-xs px-2 py-1 rounded-md bg-white/5 border border-bg-border text-zinc-300 hover:text-white">
+            <TextLink href={`/create/${v.projectId}/measure`} className="text-zinc-300">
               {v.title}
-            </Link>
+            </TextLink>
           </li>
         ))}
       </ul>

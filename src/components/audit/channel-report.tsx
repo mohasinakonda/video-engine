@@ -2,8 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, ExternalLink, Info, Lightbulb, ScanSearch, Stethoscope } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ExternalLink, Info, Lightbulb, Stethoscope } from 'lucide-react';
 import { formatCompact } from '@/components/youtube-doctor/format';
+import { TextLink } from '@/components/ui/text-link';
 import { FindingList } from './audit-report';
 import type { ChannelAuditReport, RankedVideo } from './types';
 
@@ -28,10 +29,7 @@ function VideoList({ title, videos, hint }: { title: string; videos: RankedVideo
               <p className="text-xs text-zinc-400">
                 <span className="font-semibold text-zinc-200 tabular-nums">{v.ratio}×</span> its usual · {formatCompact(v.views)} views · {v.format === 'short' ? 'Short' : 'Video'}
               </p>
-              <Link href={`/discover/video/${v.id}?from=competitors`} className="text-xs text-amber-300 hover:underline inline-flex items-center gap-1">
-                <ScanSearch size={12} />
-                Analyze this video
-              </Link>
+              <TextLink href={`/discover/video/${v.id}?from=competitors`}>Analyze this video</TextLink>
             </div>
           </li>
         ))}

@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { AlertTriangle, ChevronDown, ChevronUp, Loader2, ScanSearch, Search } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Search } from 'lucide-react';
+import { Badge, type BadgeTone } from '@/components/ui/badge';
+import { Segmented } from '@/components/ui/segmented';
+import { TextLink } from '@/components/ui/text-link';
 import { formatAgo, formatCompact } from '@/components/youtube-doctor/format';
 import { StreamError } from '@/components/discover/stream-error';
 import { useAuth } from '@/contexts/auth-context';
@@ -23,10 +25,10 @@ const SORTS: { id: Sort; label: string; by: (v: TopicVideo) => number }[] = [
 ];
 
 const SIZE: Record<ChannelSize, string> = { tiny: 'under 10K', small: '10K–100K', mid: '100K–1M', big: '1M+', unknown: 'hidden' };
-const CROWD = {
-  quiet: { label: 'Quiet', className: 'bg-emerald-500/10 text-emerald-200 border-emerald-500/30' },
-  active: { label: 'Active', className: 'bg-sky-500/10 text-sky-200 border-sky-500/30' },
-  crowded: { label: 'Crowded', className: 'bg-amber-500/10 text-amber-200 border-amber-500/30' },
+const CROWD: Record<TopicLandscape['summary']['crowd'], { label: string; tone: BadgeTone }> = {
+  quiet: { label: 'Quiet', tone: 'good' },
+  active: { label: 'Active', tone: 'info' },
+  crowded: { label: 'Crowded', tone: 'warn' },
 };
 
 /** "21,206×" says nothing; past 100× it's simply far beyond. */
@@ -100,7 +102,7 @@ export function TopicSearch({ projectId, topic, config }: { projectId: string; t
           {l && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-lg border text-sm font-medium ${CROWD[l.summary.crowd].className}`}>{CROWD[l.summary.crowd].label}</span>
+                <Badge tone={CROWD[l.summary.crowd].tone}>{CROWD[l.summary.crowd].label}</Badge>
                 <span className="text-sm text-zinc-300">
                   {l.summary.found} videos from {l.summary.channels} channels · {l.summary.last90} in the last 90 days
                   {l.summary.medianViews !== null && ` · typical ${formatCompact(l.summary.medianViews)} views`}
@@ -131,18 +133,9 @@ export function TopicSearch({ projectId, topic, config }: { projectId: string; t
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs text-zinc-500 mr-1">Sort</span>
-                {SORTS.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSort(s.id)}
-                    className={`px-2.5 py-1 rounded-lg text-xs border ${sort === s.id ? 'bg-white text-zinc-950 border-white' : 'bg-bg-elevated text-zinc-300 border-bg-border'}`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-zinc-500">Sort by</span>
+                <Segmented size="sm" label="Sort by" value={sort} onChange={setSort} options={SORTS.map((x) => ({ id: x.id, label: x.label }))} />
               </div>
 
               <ul className="space-y-2">
@@ -174,10 +167,7 @@ export function TopicSearch({ projectId, topic, config }: { projectId: string; t
                         {v.perSubscriber !== null && <span className={v.perSubscriber >= 2 ? 'text-emerald-300' : 'text-zinc-400'}>{times(v.perSubscriber)} its subscribers</span>}
                         {v.usualRatio !== null && <span className={v.usualRatio >= 2 ? 'text-emerald-300' : 'text-zinc-400'}>{times(v.usualRatio)} its usual</span>}
                       </p>
-                      <Link href={`/discover/video/${v.id}`} className="text-xs text-amber-300 hover:underline inline-flex items-center gap-1">
-                        <ScanSearch size={12} />
-                        Why did this work?
-                      </Link>
+                      <TextLink href={`/discover/video/${v.id}`}>Why did this work?</TextLink>
                     </div>
                   </li>
                 ))}

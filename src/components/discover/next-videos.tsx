@@ -8,6 +8,7 @@ import { GAP_LABELS, LEVEL_TEXT, MOMENTUM_LABELS } from './opportunity-labels';
 import { ConfidenceReasons, EvidenceList } from './opportunity-sections';
 import type { useResearch } from './research-panel';
 import { FORMAT_LABELS, type DiscoverConfig, type Opportunity } from './types';
+import { Badge } from '@/components/ui/badge';
 
 const DIAGNOSIS_TEXT: Record<string, string> = {
   retention: 'viewers leave early',
@@ -99,9 +100,9 @@ function OpportunityCard({ opportunity: o, rank }: { opportunity: Opportunity; r
 
       <div className="flex flex-wrap gap-1.5">
         {o.gapTypes.map((g) => (
-          <span key={g} title={GAP_LABELS[g].help} className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm text-amber-100">
+          <Badge key={g} tone="warn" title={GAP_LABELS[g].help}>
             {GAP_LABELS[g].text}
-          </span>
+          </Badge>
         ))}
         <Chip>{MOMENTUM_LABELS[o.momentum]}</Chip>
         <Chip>Competition: {LEVEL_TEXT[o.competition]}</Chip>
@@ -142,5 +143,5 @@ function OpportunityCard({ opportunity: o, rank }: { opportunity: Opportunity; r
 }
 
 function Chip({ children }: { children: React.ReactNode }) {
-  return <span className="px-2.5 py-1 rounded-lg bg-bg-elevated border border-bg-border text-sm text-zinc-300">{children}</span>;
+  return <Badge dot={false}>{children}</Badge>;
 }
