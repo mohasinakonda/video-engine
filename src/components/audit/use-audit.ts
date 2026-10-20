@@ -6,13 +6,13 @@ import { useAuth } from '@/contexts/auth-context';
 import { loadReport, reportKey, saveReport } from '@/lib/channel-doctor-storage';
 import type { AuditConfig } from './types';
 
-const NO_ACCESS: AuditConfig = { enabled: false, hasAccess: false, costs: { video: 0, channel: 0 } };
+const NO_ACCESS: AuditConfig = { enabled: false, hasAccess: false, costs: { video: 0, channel: 0, compare: 0 } };
 
 /**
  * Runs one audit on request and keeps the result in this tab (cleared on sign-out and
  * disconnect, like Channel Doctor's reports). Nothing runs, or is charged, until `run`.
  */
-export function useAudit<T>(kind: 'video' | 'channel', ref: string, endpoint: string, body: (language: 'English' | 'Bangla') => object) {
+export function useAudit<T>(kind: 'video' | 'channel' | 'compare', ref: string, endpoint: string, body: (language: 'English' | 'Bangla') => object) {
   const { user } = useAuth();
   const [config, setConfig] = useState<AuditConfig | null>(null);
   const [report, setReport] = useState<{ result: T; analyzedAt: string } | null>(null);

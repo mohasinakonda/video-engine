@@ -202,3 +202,34 @@ Add to section 4: other channels' public data, including comment text, is read o
 - **Transcript paste** (videos not made with Create): an SRT/VTT file or plain text is matched to the retention drops in the browser only, never sent or stored. Plain text is placed by word count and the page says so.
 - Reports saved before A5 have no `extras`, and the page shows them as before.
 - Tested on 20 Oct 2026 on a real TerraLore video: packaging findings correct; it has no comments; it isn't a Create video, so there was no script timeline. The script timeline is tested with fixtures only until a Create video is published and linked.
+
+## 15. A6: compare mode and hardening (20 Oct 2026)
+
+**Compare mode** (`/discover/compare`, `POST /api/youtube/audit/compare`):
+- **Input:** your video (it must be on your connected channel) next to any other video.
+- **Pipeline:** both videos go through the full video pipeline (`runVideoAudit`, shared with the video route) without their own lessons. Each is judged against its own channel's usual, so a small and a big channel compare fairly.
+- **Output:**
+  - a side-by-side table (performance, title, thumbnail traits, length, chapters, likes, comment themes), with the rows that differ clearly highlighted;
+  - the clear differences;
+  - a verdict and "try on your next video" lessons.
+- **Lessons input:**
+  - Each side's standing against its own channel is given as context.
+  - Viewer themes are labelled "Your viewers" / "Their viewers". Without the labels, the model attributed the other channel's complaints to the creator; this was caught in testing.
+  - A verdict that fails the number or hype check no longer discards the lessons that pass: the plain verdict is used instead.
+- **Price and cap:** it costs two video analyses (2 × the admin's video price), and counts as two against the daily cap.
+- **Entry point:** "Compare with one of my videos" on any non-own video report.
+
+**Hardening checklist:**
+
+| Check | Status |
+|---|---|
+| Every audit route requires a session, the audit gate (switch, plus Discover plans, or admin) and the per-user daily cap before charging | Verified |
+| Credits up front, refunded on any failure (video not found, private, not yours in compare, AI down) | Tested per route |
+| Nothing about other channels is stored server-side; the audit code has no database writes besides the daily-cap counter | Verified |
+| Comment requests ask for the text field only: no author names, ids or avatars | Verified |
+| Thumbnails are sent to the vision model only from allow-listed `i.ytimg.com` hosts | Reused from Phase 1 |
+| `YOUTUBE_API_KEY` is server-only. Kit Studio's existing `getYouTubeApiKey` runs in the browser, so it can't read it; setting the key doesn't change Kit Studio | Verified |
+| Reports are kept in the tab only, under Channel Doctor's prefix, so sign-out and disconnect clear them | Verified |
+| No logging in the audit code | Verified |
+| Privacy page covers public comments read for analysis (text only, without author names) | Done (A2) |
+| Typecheck, tests and production build | Passing |

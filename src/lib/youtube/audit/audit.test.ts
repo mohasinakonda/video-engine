@@ -142,7 +142,7 @@ vi.mock('@/lib/supabase/server', () => ({ createClient: () => ({}) }));
 vi.mock('../quota-budget', async (importOriginal) => ({ ...(await importOriginal<typeof import('../quota-budget')>()), consumeQuota: async () => state.underCap }));
 vi.mock('../run-guard', () => ({ acquireRun: () => ({ ok: true, release: () => undefined }) }));
 vi.mock('./fetch', () => ({
-  fetchAuditVideo: async () => state.video,
+  fetchAuditVideo: async (_t: string, id: string) => (state.video ? { ...state.video, id, channelId: id === 'mineVideo01' ? 'UC' + 'm'.repeat(22) : state.video.channelId } : null),
   fetchChannelVideos: async () => channel(),
   fetchCommentTexts: async () => ({ texts: [], available: false, disabled: false }),
 }));
@@ -167,6 +167,7 @@ vi.mock('../data-client', async (importOriginal) => ({
 
 import { POST as auditRoute } from '@/app/api/youtube/audit/video/route';
 import { POST as channelRoute } from '@/app/api/youtube/audit/channel/route';
+import { POST as compareRoute } from '@/app/api/youtube/audit/compare/route';
 
 const post = (link: string) => new Request('http://localhost/api', { method: 'POST', body: JSON.stringify({ link }) });
 const events = async (res: Response) => (await res.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l));
@@ -203,7 +204,7 @@ describe('video audit route', () => {
     const ok = await events(await auditRoute(post('https://youtu.be/dQw4w9WgXcQ')));
     const result = ok.at(-1);
     expect(result.type).toBe('result');
-    expect(result.data).toMatchObject({ isOwn: false, performance: { label: 'standout' }, video: { id: 'targetVid01' }, verdict: 'A standout.' });
+    expect(result.data).toMatchObject({ isOwn: false, performance: { label: 'standout' }, video: { id: 'dQw4w9WgXcQ' }, verdict: 'A standout.' });
     expect(result.data.limitations.join(' ')).toContain('comment reading isn’t set up');
     expect(state.credits.charged).toBe(5);
 
@@ -240,5 +241,37 @@ describe('channel audit route', () => {
     channelState.found = false;
     const failed = await events(await channelRoute(postChannel(`https://youtube.com/channel/${CHANNEL}`)));
     expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
+  });
+});
+
+describe('compare route', () => {
+  const postCompare = (yours: string, theirs: string) => new Request('http://localhost/api', { method: 'POST', body: JSON.stringify({ yours, theirs }) });
+
+  beforeEach(() => {
+    state.access = { ...state.access, hasAuditAccess: true };
+    state.video = video({ views: 5000 });
+    state.underCap = true;
+    state.credits = { charged: 0, refunded: 0 };
+  });
+
+  it('needs two different video links', async () => {
+    expect((await compareRoute(postCompare('https://youtu.be/mineVideo01', 'https://youtube.com/@x'))).status).toBe(400);
+    expect((await (await compareRoute(postCompare('https://youtu.be/mineVideo01', 'mineVideo01'))).json()).code).toBe('same_video');
+    expect(state.credits.charged).toBe(0);
+  });
+
+  it('compares your video with theirs at twice the video price', async () => {
+    const out = await events(await compareRoute(postCompare('https://youtu.be/mineVideo01', 'https://youtu.be/otherVideo1')));
+    const result = out.at(-1);
+    expect(result.type).toBe('result');
+    expect(result.data.yours.isOwn).toBe(true);
+    expect(result.data.rows.length).toBeGreaterThan(5);
+    expect(state.credits.charged).toBe(10);
+  });
+
+  it('refunds when the first video isn’t yours', async () => {
+    const out = await events(await compareRoute(postCompare('https://youtu.be/otherVideo2', 'https://youtu.be/otherVideo1')));
+    expect(out.at(-1)).toMatchObject({ type: 'error', refunded: true });
+    expect(out.at(-1).error).toContain('needs to be one of yours');
   });
 });

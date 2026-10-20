@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { SEARCH_BUCKET, nextQuotaReset, quotaUsed, userDiscoveryBucket } from '@/lib/youtube/quota-budget';
 import { getChannelDoctorSettings, getUserAccess } from '@/lib/youtube/settings';
+import { compareCost } from '@/lib/youtube/audit/pricing';
 import { requireUser } from '@/lib/youtube/route-auth';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,7 @@ export async function GET() {
     audit: {
       enabled: settings.audit.enabled,
       hasAccess: hasAuditAccess,
-      costs: { video: settings.audit.videoAuditCreditCost, channel: settings.audit.channelAuditCreditCost },
+      costs: { video: settings.audit.videoAuditCreditCost, channel: settings.audit.channelAuditCreditCost, compare: compareCost(settings.audit) },
     },
     search: {
       available: searchCallsLeft >= discover.searchCallsPerDiscovery && userRunsLeft > 0,

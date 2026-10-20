@@ -73,6 +73,8 @@ describe('lessons', () => {
       lessons: ['Use a clear subject in the title.'],
     });
     expect(checkLessons({ verdict: 'A viral hit with 5 million views.', lessons: [] }, allowed)).toBeNull();
+    // A bad verdict doesn't throw away good lessons.
+    expect(checkLessons({ verdict: 'It got 9 million views.', lessons: ['Use a clear subject in the title.'] }, allowed)).toEqual({ verdict: null, lessons: ['Use a clear subject in the title.'] });
     expect(checkLessons({ wrong: 1 }, allowed)).toBeNull();
   });
 

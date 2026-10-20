@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, ExternalLink, HelpCircle, Info, Lightbulb, MessageCircle, MessagesSquare, Stethoscope, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ExternalLink, HelpCircle, Info, Lightbulb, MessageCircle, MessagesSquare, Scale, Stethoscope, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { formatCompact } from '@/components/youtube-doctor/format';
 import type { AuditFinding, FindingArea, PerformanceLabel, ThemeKind, VideoAuditReport } from './types';
@@ -177,6 +177,13 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
           </div>
         )}
       </section>
+
+      {!report.isOwn && (
+        <Link href={`/discover/compare?theirs=${video.id}`} className="btn-secondary btn-sm w-fit">
+          <Scale size={14} />
+          Compare with one of my videos
+        </Link>
+      )}
 
       <FindingList title="Weak points" findings={weaknesses} icon={AlertTriangle} className="text-amber-300" />
       <FindingList title="What works" findings={strengths} icon={CheckCircle2} className="text-emerald-300" />

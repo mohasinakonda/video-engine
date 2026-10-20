@@ -72,17 +72,34 @@ export function allowedNumbersOf(text: string): Set<string> {
   return out;
 }
 
-/** Keeps only text that is hype-free and uses no number outside the input. Pure. */
-export function checkLessons(raw: unknown, allowed: Set<string>): { verdict: string; lessons: string[] } | null {
+/**
+ * Keeps only text that is hype-free and uses no number outside the input. Pure. A failing
+ * verdict is dropped (null) without discarding good lessons; null overall when nothing passes.
+ */
+export function checkLessons(raw: unknown, allowed: Set<string>): { verdict: string | null; lessons: string[] } | null {
   const parsed = aiSchema.safeParse(raw);
   if (!parsed.success) return null;
   const ok = (text: string) => !BANNED.test(text) && numbersIn(withoutThousands(text)).every((n) => allowed.has(n));
-  if (!ok(parsed.data.verdict)) return null;
-  return { verdict: parsed.data.verdict, lessons: parsed.data.lessons.filter(ok).slice(0, 4) };
+  const verdict = ok(parsed.data.verdict) ? parsed.data.verdict : null;
+  const lessons = parsed.data.lessons.filter(ok).slice(0, 4);
+  return verdict || lessons.length ? { verdict, lessons } : null;
 }
 
+/** Comparing the creator's video with another one: what to take from the other. */
+export const SYSTEM_COMPARE = SYSTEM_VIDEO.replace('a YouTube video audit', 'a comparison of two YouTube videos, the creator’s own and another channel’s')
+  .replace('learn from this video', 'learn from the other video')
+  .replace(
+    "checked findings (performance against the video's own channel, title, thumbnail, description, length) and what viewers said",
+    'the clear differences between the two videos (each judged against its own channel’s usual), and what viewers said about each'
+  )
+  .replace('why this video did what it did', 'the main difference that matters')
+  .replace(
+    '- lessons: 2–4 short, concrete things the creator can copy or avoid on their own channel. Start each with a verb.',
+    '- lessons: 2–4 short changes the creator could try on their next video, taken from the differences. Start each with a verb.'
+  );
+
 export async function writeLessons(input: {
-  subject?: 'video' | 'channel';
+  subject?: 'video' | 'channel' | 'compare';
   /** Used when the model gives nothing usable; defaults to the video verdict for `label`. */
   fallback?: string;
   label: PerformanceLabel;
@@ -105,10 +122,10 @@ export async function writeLessons(input: {
     maxTokens: 1200,
     timeoutMs: 45_000,
     messages: [
-      { role: 'system', content: input.subject === 'channel' ? SYSTEM_CHANNEL : SYSTEM_VIDEO },
+      { role: 'system', content: input.subject === 'channel' ? SYSTEM_CHANNEL : input.subject === 'compare' ? SYSTEM_COMPARE : SYSTEM_VIDEO },
       { role: 'user', content: JSON.stringify({ writeIn: input.language, performance: input.label, findings: facts, viewers }) },
     ],
   });
   const checked = answer ? checkLessons(parseJsonObject(answer.content), allowed) : null;
-  return checked ? { ...checked, aiUsed: true } : fallback;
+  return checked ? { verdict: checked.verdict ?? fallback.verdict, lessons: checked.lessons, aiUsed: true } : fallback;
 }

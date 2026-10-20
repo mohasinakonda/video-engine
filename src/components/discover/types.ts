@@ -19,7 +19,7 @@ export interface DiscoverConfig {
   maxCompetitors: number;
   search: { available: boolean; phrasesPerRun: number; userRunsLeft: number; resetsAt: string };
   /** Analyzing any channel or video; missing on older servers. */
-  audit?: { enabled: boolean; hasAccess: boolean; costs: { video: number; channel: number } };
+  audit?: { enabled: boolean; hasAccess: boolean; costs: { video: number; channel: number; compare: number } };
 }
 
 export const GROUP_INFO = {
