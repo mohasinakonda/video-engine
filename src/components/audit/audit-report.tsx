@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, HelpCircle, Info, Lightbulb,
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { formatCompact } from '@/components/youtube-doctor/format';
 import type { AuditFinding, FindingArea, PerformanceLabel, ThemeKind, VideoAuditReport } from './types';
+import type { ViewerThemes } from '@/lib/youtube/audit/ai/comments';
 
 const PERFORMANCE: Record<PerformanceLabel, { label: string; className: string }> = {
   standout: { label: 'Standout for its channel', className: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30' },
@@ -59,6 +60,55 @@ export function FindingList({ title, findings, icon: Icon, className }: { title:
   );
 }
 
+/** What viewers say, grouped by kind, with counts and real example comments. */
+export function ViewerThemesView({ viewers }: { viewers: ViewerThemes }) {
+  const themes = viewers.themes;
+  return (
+    <section className="space-y-3">
+      <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
+        <MessageCircle size={17} />
+        What viewers say
+      </h3>
+      <p className="text-sm text-zinc-400 -mt-1">From the {viewers.read} most relevant comments. Counts are comments; names are never read.</p>
+      {themes.length === 0 ? (
+        <p className="text-base text-zinc-400">No clear themes in the comments.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {THEMES.map(({ kind, title, icon: Icon, className, hint }) => {
+            const list = themes.filter((t) => t.kind === kind);
+            if (!list.length) return null;
+            return (
+              <div key={kind} className="rounded-xl border border-bg-border bg-bg-surface p-4 space-y-3">
+                <div>
+                  <p className={`text-sm font-semibold inline-flex items-center gap-1.5 ${className}`}>
+                    <Icon size={15} />
+                    {title}
+                  </p>
+                  <p className="text-xs text-zinc-500">{hint}</p>
+                </div>
+                <ul className="space-y-3">
+                  {list.map((t) => (
+                    <li key={t.theme} className="space-y-1">
+                      <p className="text-base text-zinc-100">
+                        {t.theme} <span className="text-sm text-zinc-500 tabular-nums">· {t.count}</span>
+                      </p>
+                      {t.examples.map((e) => (
+                        <p key={e} className="text-sm text-zinc-400 border-l-2 border-bg-border pl-2">
+                          “{e}”
+                        </p>
+                      ))}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** One video's audit: the verdict first, then what to learn, then the evidence. */
 export function AuditReport({ report }: { report: VideoAuditReport }) {
   const { video, performance: p } = report;
@@ -66,7 +116,6 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
   const weaknesses = report.findings.filter((f) => f.kind === 'weakness');
   const strengths = report.findings.filter((f) => f.kind === 'strength');
   const notes = report.findings.filter((f) => f.kind === 'note');
-  const themes = report.viewers?.themes ?? [];
 
   return (
     <div className="space-y-6">
@@ -132,50 +181,7 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
       <FindingList title="Weak points" findings={weaknesses} icon={AlertTriangle} className="text-amber-300" />
       <FindingList title="What works" findings={strengths} icon={CheckCircle2} className="text-emerald-300" />
 
-      {report.viewers && (
-        <section className="space-y-3">
-          <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
-            <MessageCircle size={17} />
-            What viewers say
-          </h3>
-          <p className="text-sm text-zinc-400 -mt-1">From the {report.viewers.read} most relevant comments. Counts are comments; names are never read.</p>
-          {themes.length === 0 ? (
-            <p className="text-base text-zinc-400">No clear themes in the comments.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {THEMES.map(({ kind, title, icon: Icon, className, hint }) => {
-                const list = themes.filter((t) => t.kind === kind);
-                if (!list.length) return null;
-                return (
-                  <div key={kind} className="rounded-xl border border-bg-border bg-bg-surface p-4 space-y-3">
-                    <div>
-                      <p className={`text-sm font-semibold inline-flex items-center gap-1.5 ${className}`}>
-                        <Icon size={15} />
-                        {title}
-                      </p>
-                      <p className="text-xs text-zinc-500">{hint}</p>
-                    </div>
-                    <ul className="space-y-3">
-                      {list.map((t) => (
-                        <li key={t.theme} className="space-y-1">
-                          <p className="text-base text-zinc-100">
-                            {t.theme} <span className="text-sm text-zinc-500 tabular-nums">· {t.count}</span>
-                          </p>
-                          {t.examples.map((e) => (
-                            <p key={e} className="text-sm text-zinc-400 border-l-2 border-bg-border pl-2">
-                              “{e}”
-                            </p>
-                          ))}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      )}
+      {report.viewers && <ViewerThemesView viewers={report.viewers} />}
 
       <FindingList title="Notes" findings={notes} icon={Info} className="text-zinc-300" />
 

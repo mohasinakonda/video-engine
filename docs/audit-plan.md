@@ -192,3 +192,13 @@ Add to section 4: other channels' public data, including comment text, is read o
 - **Tested with real data on 20 Oct 2026:**
   - Kurzgesagt: 100 videos, 3 standouts, about 6 s.
   - Veritasium: 99 judged, 5 standouts (17× "Can you swim in shade balls?"), about 7 s.
+
+## 14. A5 notes (20 Oct 2026)
+
+- **Where:** inside Channel Doctor's existing video check-up (same route and price). After the Analytics analysis, `ownVideoExtras` adds:
+  - **Packaging rules:** title and description findings from the video audit, plus thumbnail rules on the check-up's existing thumbnail description. Performance is left out here, because the check-up already has it from Analytics.
+  - **What viewers say:** comment themes in the title's language.
+  - **Retention on the script:** for a video made with Create and linked, each script part is timed by its share of the script's words, scaled to the real length. The part that lost the most viewers is highlighted, and the times are labelled as estimates.
+- **Transcript paste** (videos not made with Create): an SRT/VTT file or plain text is matched to the retention drops in the browser only, never sent or stored. Plain text is placed by word count and the page says so.
+- Reports saved before A5 have no `extras`, and the page shows them as before.
+- Tested on 20 Oct 2026 on a real TerraLore video: packaging findings correct; it has no comments; it isn't a Create video, so there was no script timeline. The script timeline is tested with fixtures only until a Create video is published and linked.

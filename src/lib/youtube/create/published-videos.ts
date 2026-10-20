@@ -153,3 +153,17 @@ export async function updateLinkFromVideo(userId: string, link: PublishedLink, v
   if (error) throw error;
   return toLink(data);
 }
+
+/** The Create script behind one of the user's videos, if it was made with Create and linked. */
+export async function scriptForVideo(userId: string, videoId: string): Promise<{ projectId: string; script: unknown } | null> {
+  const { data, error } = await getServiceClient()
+    .from(TABLE)
+    .select('project_id, video_projects!inner(script)')
+    .eq('user_id', userId)
+    .eq('youtube_video_id', videoId)
+    .maybeSingle();
+  if (error || !data) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const project = (data as any).video_projects;
+  return { projectId: data.project_id, script: (Array.isArray(project) ? project[0] : project)?.script ?? null };
+}

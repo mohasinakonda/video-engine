@@ -15,6 +15,9 @@ import { formatCompact, formatDate, formatDuration } from '@/components/youtube-
 import { RetentionChart } from '@/components/youtube-doctor/retention-chart';
 import type { ConnectionState, DoctorConfig } from '@/components/youtube-doctor/types';
 import { useAnalysisStream } from '@/components/youtube-doctor/use-diagnosis';
+import { ViewerThemesView } from '@/components/audit/audit-report';
+import { PackagingFindings, ScriptRetention, TranscriptMatch } from '@/components/audit/own-video-sections';
+import type { OwnVideoExtras } from '@/lib/youtube/audit/own-video';
 
 export default function VideoAnalysisPage() {
   return (
@@ -102,8 +105,10 @@ function VideoAnalysisInner() {
   );
 }
 
-function VideoReport({ result }: { result: VideoAnalysisResult }) {
+function VideoReport({ result }: { result: VideoAnalysisResult & { extras?: OwnVideoExtras } }) {
   const { video, stats, baseline } = result;
+  // Packaging rules, viewer themes and script timing; missing on reports saved before they existed.
+  const extras = result.extras;
   const compare = (value: number | null, base: number | null, format: (v: number) => string) =>
     value === null ? 'Not available' : base === null ? format(value) : `${format(value)}  (usual ${format(base)})`;
 
@@ -195,6 +200,12 @@ function VideoReport({ result }: { result: VideoAnalysisResult }) {
         </section>
       )}
 
+      {extras?.script ? (
+        <ScriptRetention timeline={extras.script.timeline} projectId={extras.script.projectId} />
+      ) : (
+        result.retention && <TranscriptMatch anomalies={result.retentionAnomalies} durationSec={video.durationSec} />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {result.traffic && <TrafficBars traffic={result.traffic} />}
         <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-3">
@@ -234,8 +245,11 @@ function VideoReport({ result }: { result: VideoAnalysisResult }) {
               <p className="text-zinc-500">{video.format === 'short' ? 'Thumbnails are not analyzed for Shorts.' : 'The thumbnail could not be analyzed.'}</p>
             )}
           </dl>
+          {extras && <PackagingFindings findings={extras.packaging} />}
         </section>
       </div>
+
+      {extras?.viewers && <ViewerThemesView viewers={extras.viewers} />}
 
       <LimitationsCard limitations={result.limitations} aiSource={result.source} />
     </div>
