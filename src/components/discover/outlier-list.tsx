@@ -1,10 +1,12 @@
 import Image from 'next/image';
+import Link from 'next/link';
+import { ScanSearch } from 'lucide-react';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { formatCompact } from '@/components/youtube-doctor/format';
 import { FORMAT_LABELS, type Outlier, type ResearchWindow, type TopicSummary } from './types';
 
 /** The market's standout videos, each with the numbers behind "standout". */
-export function OutlierList({ outliers, period, topics }: { outliers: Outlier[]; period: ResearchWindow; topics: TopicSummary[] }) {
+export function OutlierList({ outliers, period, topics, canAnalyze = false }: { outliers: Outlier[]; period: ResearchWindow; topics: TopicSummary[]; canAnalyze?: boolean }) {
   const topicLabel = new Map(topics.map((t) => [t.id, t.label]));
   return (
     <section className="space-y-4">
@@ -54,6 +56,12 @@ export function OutlierList({ outliers, period, topics }: { outliers: Outlier[];
                   </span>
                   <EvidenceBadge confidence={o.confidence} />
                 </p>
+                {canAnalyze && (
+                  <Link href={`/discover/video/${o.videoId}?from=market`} className="btn-ghost btn-xs text-amber-300 w-fit">
+                    <ScanSearch size={13} />
+                    Why did this work?
+                  </Link>
+                )}
                 {(o.topicId || o.contentFormat) && (
                   <div className="flex flex-wrap gap-1.5">
                     {o.topicId && topicLabel.get(o.topicId) && (

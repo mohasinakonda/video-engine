@@ -15,7 +15,7 @@ export async function GET() {
 
   const settings = await getChannelDoctorSettings();
   const { discover } = settings;
-  const [{ tier, hasDiscoverAccess, isAdmin }, searchUsed, userRuns] = await Promise.all([
+  const [{ tier, hasDiscoverAccess, hasAuditAccess, isAdmin }, searchUsed, userRuns] = await Promise.all([
     getUserAccess(auth.user.id, settings),
     quotaUsed(SEARCH_BUCKET),
     quotaUsed(userDiscoveryBucket(auth.user.id)),
@@ -38,6 +38,12 @@ export async function GET() {
       opportunity: discover.opportunityCreditCost,
     },
     maxCompetitors: discover.maxCompetitors,
+    // Analyzing any channel or video (docs/audit-plan.md).
+    audit: {
+      enabled: settings.audit.enabled,
+      hasAccess: hasAuditAccess,
+      costs: { video: settings.audit.videoAuditCreditCost, channel: settings.audit.channelAuditCreditCost },
+    },
     search: {
       available: searchCallsLeft >= discover.searchCallsPerDiscovery && userRunsLeft > 0,
       phrasesPerRun: discover.searchCallsPerDiscovery,
