@@ -70,10 +70,10 @@ export default function PrivacyPage() {
           <section id="youtube-data" className="space-y-3">
             <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
               <Youtube size={18} className="text-[#E05A30]" />
-              4. YouTube Data (Channel Doctor and Discover)
+              4. YouTube Data (Channel Doctor, Discover and Create)
             </h2>
             <p>
-              Channel Doctor and Discover use YouTube API Services. If you choose to connect your YouTube channel, you authorize read-only access
+              Channel Doctor, Discover and Create use YouTube API Services. If you choose to connect your YouTube channel, you authorize read-only access
               with two Google permissions: <code>youtube.readonly</code> (your channel and video details) and{' '}
               <code>yt-analytics.readonly</code> (your channel&apos;s YouTube Analytics and reach reports, including impressions and
               click-through rate). We cannot upload, edit or delete anything on your channel.
@@ -84,6 +84,14 @@ export default function PrivacyPage() {
                 access and refresh tokens, encrypted at rest. We also keep the ID of a YouTube reporting job that prepares your
                 impressions data. For Discover, we store the channel IDs of the competitors you choose to follow, with your optional
                 label and group, until you remove them or disconnect.
+              </li>
+              <li>
+                <strong>Create:</strong> the video plans you make (title, brief, script, packaging ideas) are your content and are stored
+                until you delete them. When you link a published video to a plan, we store only the link: the video ID, your channel ID,
+                its publish time and how it was linked. To check its performance, we read your Analytics on demand and do not store the
+                numbers; from day 7 we keep only labels (for example &quot;above your usual&quot; or &quot;click rate was the weak
+                point&quot;) with the number of videos compared, so we can show what tends to work on your channel. The latest check stays
+                in your browser tab for the day.
               </li>
               <li>
                 <strong>What we do not store:</strong> your analytics, video statistics, retention curves, thumbnails and the reports we
@@ -99,10 +107,11 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>AI processing:</strong> to write a report or research ideas, we send video titles, thumbnail images and summary
-                metrics (not your tokens or raw API data) to our AI provider, DeepInfra, for processing.
+                metrics (not your tokens or raw API data) to our AI provider, DeepInfra, for processing. To write a brief, script or
+                packaging ideas in Create, we send your plan&apos;s text; your YouTube analytics are not sent.
               </li>
               <li>
-                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis and market research. We do not sell it, use it for
+                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis, market research and how your planned videos performed. We do not sell it, use it for
                 advertising, or share it with anyone except as described here. Our use of information received from Google APIs adheres
                 to the{' '}
                 <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
@@ -112,7 +121,8 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Disconnect and deletion:</strong> disconnecting in Channel Doctor stops the reporting job, asks Google to revoke our
-                access and deletes the stored connection, tokens and your followed competitors. Deleting your account deletes them too. You can also revoke access at
+                access and deletes the stored connection, tokens, your followed competitors, and Create&apos;s links to your videos with the
+                labels learned from them (your video plans stay). Deleting your account deletes all of it. You can also revoke access at
                 any time at{' '}
                 <a href="https://myaccount.google.com/permissions" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
                   myaccount.google.com/permissions

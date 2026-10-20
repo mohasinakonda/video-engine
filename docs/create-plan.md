@@ -599,3 +599,26 @@ Pages:
 - Weights: the new default gives the track record 10 (channel fit 25 → 20, competitor performance 20 → 15). Weights saved as the old untouched defaults move to the new defaults; weights an admin tuned are kept, with the track record at 0 until it is set in the admin panel.
 - Discover's research stays database-free (its privacy test enforces this): the research route reads the learning labels and passes them in.
 - No AI interpreter for /learn: tendencies are worded deterministically from the counts.
+
+## 19. C9 hardening checklist (20 Oct 2026)
+
+| Check | Status |
+|---|---|
+| Every Create route requires a session; project routes go through `ownedProject` (another user's project → 404) | Done, tested per route |
+| Plan and admin switch: `requireCreate` on direct routes, `streamAnalysis` on AI and measure routes | Done |
+| RLS on `video_projects`, `published_videos`, `learning_records`: users may only SELECT their own rows; all writes go through the server | Verified on the database |
+| Every service-client query and insert is filtered by, or sets, `user_id` | Reviewed |
+| Video links re-checked with YouTube (connected channel, not linked twice) | Done, tested |
+| Credits charged up front, refunded on failure; nothing charged for refusals (incomplete brief, too early to measure) | Done, tested |
+| Nothing raw stored: no analytics numbers, competitor data, prompts or AI answers. Learning records hold labels only | Reviewed |
+| Logs: only operation names and error codes; no titles, scripts or prompts | Reviewed |
+| Disconnect: deletes video links and their learning labels; projects waiting on a link go back to PACKAGED; plans stay | Done, tested |
+| Sign-out and disconnect clear Create's browser data (today's measurement, reminder state) | Done |
+| Account deletion cascades to all three tables (`on delete cascade` from `auth.users`) | In the migration |
+| Discover research stays database-free (track record passed in by the route) | Enforced by its privacy test |
+| Privacy page covers Create: what is stored, what isn't, AI processing, disconnect | Done |
+| Typecheck, tests and production build | Passing |
+
+**Known limits:**
+- If a user revokes access at Google directly (not through Disconnect), links and labels stay until the next request notices the revoked token and the user disconnects. This is the same as Channel Doctor's existing behaviour.
+- The thesis keeps Discover's scores and labels (no competitor titles or numbers). Whether derived scores fall under the 30-day rule should be confirmed in the YouTube API audit.

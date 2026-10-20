@@ -269,7 +269,12 @@ export function LinkedVideo({ project, onUnlinked }: { project: VideoProject; on
       </section>
     );
   }
-  if (!data.link) return <section className="card text-base text-zinc-300">No video is linked to this project.</section>;
+  if (!data.link)
+    return (
+      <section className="card text-base text-zinc-300">
+        No video is linked any more. Links are removed when YouTube is disconnected; the results this project taught were removed with them.
+      </section>
+    );
 
   const waiting = data.link.status === 'waiting_public';
   return (
