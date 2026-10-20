@@ -103,12 +103,14 @@ export default function PrivacyPage() {
                 the channels you follow or that YouTube search returns (names, video titles, view counts, durations, thumbnails). Competitor
                 channels never sign in to our app. This data is processed in memory for each research run and is not saved on our servers;
                 results stay in your browser tab. Scores, ratios and relevance labels shown in Discover are calculated by us and are not
-                YouTube metrics.
+                YouTube metrics. When you analyze a channel or video, we read the same kind of public information plus up to 100 of the
+                video&apos;s public comments (the comment text only, without author names), on your request and in memory only.
               </li>
               <li>
                 <strong>AI processing:</strong> to write a report or research ideas, we send video titles, thumbnail images and summary
                 metrics (not your tokens or raw API data) to our AI provider, DeepInfra, for processing. To write a brief, script or
-                packaging ideas in Create, we send your plan&apos;s text; your YouTube analytics are not sent.
+                packaging ideas in Create, we send your plan&apos;s text; your YouTube analytics are not sent. To summarise what viewers
+                say about an analyzed video, we send its public comment text without author names.
               </li>
               <li>
                 <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis, market research and how your planned videos performed. We do not sell it, use it for

@@ -166,3 +166,11 @@ Add to section 4: other channels' public data, including comment text, is read o
 
 1. **Plans:** the audit follows Discover's plans (Creator and Studio by default). The admin can change them, as with any feature.
 2. **Comment analysis is on by default.** The privacy-page addition (§8) ships in the same milestone as the comment analysis (A2), before the audit is switched on for users.
+
+## 12. A2 notes (20 Oct 2026)
+
+- **Comment themes:** the model returns comment *numbers* per theme, not counts or quotes. Counts and the two example quotes are taken from the real comments, so nothing can be invented. Reused or unknown numbers are dropped, and a theme needs at least 3 comments. Lines with links, repeats and one-word lines are removed before sending.
+- **Thumbnail:** rules judge the vision model's description (readable at phone size, words on the image, subject size, contrast, busy background, text repeating the title). Everything from vision is medium confidence at most. Faces aren't reported: in testing the model called animal faces human.
+- **Verdict and lessons:** written from the checked findings and themes only. Any number not in the input is rejected; "21,326,354" is read as one number, and rounded millions of an input number are allowed. The model is told not to link findings as cause and effect. Without a usable answer, a plain verdict is built from the performance label, in English or Bangla.
+- **Theme kinds:** liked, complaint (about the video itself), question (unanswered, i.e. ideas for the next video), and discussion (debate about the subject). In testing, opinions about the topic were filed as complaints until "discussion" was added.
+- Tested with real AI on 20 Oct 2026: two Kurzgesagt videos and one TerraLore video, in English and Bangla, including 100 real comments per video through `YOUTUBE_API_KEY`. Reading the comments takes about 0.5 s; grouping them takes 8–17 s.

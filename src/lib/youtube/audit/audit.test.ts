@@ -147,6 +147,16 @@ vi.mock('./fetch', () => ({
   fetchCommentTexts: async () => ({ texts: [], available: false, disabled: false }),
 }));
 
+vi.mock('../analysis/thumbnails', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../analysis/thumbnails')>()),
+  describeThumbnail: async () => null,
+}));
+vi.mock('./ai/comments', async (importOriginal) => ({ ...(await importOriginal<typeof import('./ai/comments')>()), viewerThemes: async () => ({ read: 0, themes: [] }) }));
+vi.mock('./ai/lessons', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./ai/lessons')>()),
+  writeLessons: async () => ({ verdict: 'A standout.', lessons: [], aiUsed: false }),
+}));
+
 import { POST as auditRoute } from '@/app/api/youtube/audit/video/route';
 
 const post = (link: string) => new Request('http://localhost/api', { method: 'POST', body: JSON.stringify({ link }) });
@@ -184,7 +194,8 @@ describe('video audit route', () => {
     const ok = await events(await auditRoute(post('https://youtu.be/dQw4w9WgXcQ')));
     const result = ok.at(-1);
     expect(result.type).toBe('result');
-    expect(result.data).toMatchObject({ isOwn: false, performance: { label: 'standout' }, video: { id: 'targetVid01' } });
+    expect(result.data).toMatchObject({ isOwn: false, performance: { label: 'standout' }, video: { id: 'targetVid01' }, verdict: 'A standout.' });
+    expect(result.data.limitations.join(' ')).toContain('comment reading isn’t set up');
     expect(state.credits.charged).toBe(5);
 
     state.video = null;

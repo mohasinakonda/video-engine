@@ -86,6 +86,13 @@ export const hashtagsIn = (text: string) => text.match(HASHTAG)?.length ?? 0;
 /** The part of the description shown before "more". */
 export const visibleDescription = (description: string) => description.trim().split('\n').slice(0, 2).join(' ').slice(0, 150);
 
+/** Weaknesses first, then strengths, then notes; higher confidence first within each. In place. */
+export function sortFindings(findings: AuditFinding[]): AuditFinding[] {
+  const order: Record<FindingKind, number> = { weakness: 0, strength: 1, note: 2 };
+  const conf: Record<Confidence, number> = { high: 0, medium: 1, low: 2 };
+  return findings.sort((a, b) => order[a.kind] - order[b.kind] || conf[a.confidence] - conf[b.confidence]);
+}
+
 const rate = (part: number | null, views: number | null) => (part === null || views === null || views <= 0 ? null : part / views);
 
 export function auditVideo(video: AuditVideo, channelVideos: MarketVideo[], now: Date): VideoAuditResult {
@@ -207,10 +214,7 @@ export function auditVideo(video: AuditVideo, channelVideos: MarketVideo[], now:
 
   limitations.push('YouTube doesn’t share another channel’s click rate, retention or traffic sources, so those parts are judged from public signals only.');
 
-  // Weaknesses first, then strengths, then notes; higher confidence first within each.
-  const order: Record<FindingKind, number> = { weakness: 0, strength: 1, note: 2 };
-  const conf: Record<Confidence, number> = { high: 0, medium: 1, low: 2 };
-  findings.sort((a, b) => order[a.kind] - order[b.kind] || conf[a.confidence] - conf[b.confidence]);
+  sortFindings(findings);
 
   return {
     format,
