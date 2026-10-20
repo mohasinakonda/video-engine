@@ -18,12 +18,14 @@ export async function GET() {
     adminPreview: isAdmin && !create.enabled,
     tier,
     allowedPlans: create.allowedPlans,
+    topicSearchesPerDay: create.topicSearchesPerUserDay,
     costs: {
       brief: create.briefCreditCost,
       script: create.scriptCreditCost,
       scriptSection: sectionCost(create.scriptCreditCost),
       packaging: create.packagingCreditCost,
       performance: create.performanceCreditCost,
+      topicSearch: create.topicSearchCreditCost,
     },
   });
 }

@@ -10,7 +10,8 @@ export interface CreateConfig {
   adminPreview: boolean;
   tier: string;
   allowedPlans: string[];
-  costs: { brief: number; script: number; scriptSection: number; packaging: number; performance: number };
+  topicSearchesPerDay: number;
+  costs: { brief: number; script: number; scriptSection: number; packaging: number; performance: number; topicSearch: number };
 }
 
 export const STATUS_LABELS = {

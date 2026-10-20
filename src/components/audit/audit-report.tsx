@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, ExternalLink, HelpCircle, Info, Lightbulb, MessageCircle, MessagesSquare, Scale, Stethoscope, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
-import { formatCompact } from '@/components/youtube-doctor/format';
+import { formatAgo, formatCompact } from '@/components/youtube-doctor/format';
 import type { AuditFinding, FindingArea, PerformanceLabel, ThemeKind, VideoAuditReport } from './types';
 import type { ViewerThemes } from '@/lib/youtube/audit/ai/comments';
 
@@ -134,7 +134,7 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
           </a>
           <p className="text-sm text-zinc-400">
             {video.channelTitle} · {video.views !== null ? `${formatCompact(video.views)} views · ` : ''}
-            {report.ageDays} days ago · {report.format === 'short' ? 'Short' : 'Video'}
+            {formatAgo(report.ageDays)} · {report.format === 'short' ? 'Short' : 'Video'}
           </p>
           <span className={`inline-block px-2.5 py-1 rounded-lg border text-sm font-medium ${perf.className}`}>
             {perf.label}

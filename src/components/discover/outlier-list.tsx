@@ -2,7 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ScanSearch } from 'lucide-react';
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
-import { formatCompact } from '@/components/youtube-doctor/format';
+import { formatAgo, formatCompact } from '@/components/youtube-doctor/format';
 import { FORMAT_LABELS, type Outlier, type ResearchWindow, type TopicSummary } from './types';
 
 /** The market's standout videos, each with the numbers behind "standout". */
@@ -47,7 +47,7 @@ export function OutlierList({ outliers, period, topics, canAnalyze = false }: { 
                   </a>
                 </div>
                 <p className="text-sm text-zinc-400">
-                  {o.channelTitle} · {o.format === 'short' ? 'Short' : 'Video'} · {o.ageDays} days ago
+                  {o.channelTitle} · {o.format === 'short' ? 'Short' : 'Video'} · {formatAgo(o.ageDays)}
                 </p>
                 <p className="text-sm text-zinc-300 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span>

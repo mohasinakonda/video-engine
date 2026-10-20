@@ -61,6 +61,9 @@ interface CreateSettings {
   checkpointDays: number[];
   learningMinVideos: number;
   maxProjectsPerUser: number;
+  topicSearchCreditCost: number;
+  topicSearchesPerUserDay: number;
+  topicSearchBaselineChannels: number;
 }
 
 interface Weights {
@@ -539,6 +542,18 @@ function CreateSection({
             max={10000}
             onChange={(v) => update('maxProjectsPerUser', v)}
           />
+        </div>
+      </section>
+
+      <section className="card space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-white">Topic search in the brief</p>
+          <p className="text-xs text-zinc-400">“Who made videos on this”: one YouTube search (100 quota units) per run, from the shared daily search budget unless the user brings their own API key.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <NumberField label="Credits per search" hint="Charged up front, refunded on failure" value={create.topicSearchCreditCost} min={0} max={1000} onChange={(v) => update('topicSearchCreditCost', v)} />
+          <NumberField label="Searches per user per day" hint="0 turns it off" value={create.topicSearchesPerUserDay} min={0} max={100} onChange={(v) => update('topicSearchesPerUserDay', v)} />
+          <NumberField label="Channels compared with their usual" hint="About 2 quota units each" value={create.topicSearchBaselineChannels} min={0} max={20} onChange={(v) => update('topicSearchBaselineChannels', v)} />
         </div>
       </section>
     </div>

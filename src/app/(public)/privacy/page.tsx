@@ -104,7 +104,8 @@ export default function PrivacyPage() {
                 channels never sign in to our app. This data is processed in memory for each research run and is not saved on our servers;
                 results stay in your browser tab. Scores, ratios and relevance labels shown in Discover are calculated by us and are not
                 YouTube metrics. When you analyze a channel or video, we read the same kind of public information plus up to 100 of the
-                video&apos;s public comments (the comment text only, without author names), on your request and in memory only.
+                video&apos;s public comments (the comment text only, without author names), on your request and in memory only. The
+                same applies when you search a video plan&apos;s topic in Create to see who made videos on it.
               </li>
               <li>
                 <strong>AI processing:</strong> to write a report or research ideas, we send video titles, thumbnail images and summary

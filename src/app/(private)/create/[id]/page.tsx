@@ -12,6 +12,7 @@ import { type CreateConfig, type VideoBrief, type VideoProject } from '@/compone
 import { useCreateConfig } from '@/components/create/use-create-config';
 import { useProject } from '@/components/create/use-project';
 import { StreamError } from '@/components/discover/stream-error';
+import { TopicSearch } from '@/components/create/topic-search';
 import { briefFromThesis, briefSchema, emptyBrief } from '@/lib/youtube/create/brief';
 
 /** Bangla when the text is mostly Bangla script (kept here: the server helper pulls in AI code). */
@@ -68,6 +69,8 @@ export default function ProjectPage() {
               <ProjectHeader project={project} active="brief" />
 
               {failure && <StreamError error={failure} />}
+
+              <TopicSearch projectId={project.id} topic={brief?.topic || project.thesis?.topic || project.title} config={config as CreateConfig} />
 
               {brief ? (
                 <BriefEditor project={project} brief={brief} config={config as CreateConfig} saving={saving} aiRunning={aiRunning} onSave={save} onFillWithAI={(n) => fillWithAI(n)} />

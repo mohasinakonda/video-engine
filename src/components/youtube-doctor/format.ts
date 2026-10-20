@@ -4,6 +4,18 @@ const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFracti
 const whole = new Intl.NumberFormat('en');
 
 export const formatCompact = (n: number) => compact.format(n);
+
+const relative = new Intl.RelativeTimeFormat('en', { numeric: 'always' });
+
+/** An age in days as "1 day ago", "2 weeks ago", "3 months ago", "1 year ago" (whole units, rounded down). */
+export function formatAgo(days: number): string {
+  const d = Math.max(0, Math.floor(days));
+  if (d < 1) return 'today';
+  if (d < 7) return relative.format(-d, 'day');
+  if (d < 30) return relative.format(-Math.floor(d / 7), 'week');
+  if (d < 365) return relative.format(-Math.floor(d / 30), 'month');
+  return relative.format(-Math.floor(d / 365), 'year');
+}
 export const formatWhole = (n: number) => whole.format(Math.round(n));
 
 export function formatDuration(seconds: number): string {

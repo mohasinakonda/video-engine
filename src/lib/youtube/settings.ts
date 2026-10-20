@@ -56,6 +56,11 @@ export interface CreateSettings {
   /** Measured videos needed before a learning pattern is shown. */
   learningMinVideos: number;
   maxProjectsPerUser: number;
+  /** "Who made videos on this" in the brief: one YouTube search (100 quota units) per run. */
+  topicSearchCreditCost: number;
+  topicSearchesPerUserDay: number;
+  /** Channels whose usual views are read, so the top results show "× its usual". */
+  topicSearchBaselineChannels: number;
 }
 
 export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
@@ -68,6 +73,9 @@ export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
   checkpointDays: [1, 2, 7, 28],
   learningMinVideos: 3,
   maxProjectsPerUser: 100,
+  topicSearchCreditCost: 3,
+  topicSearchesPerUserDay: 3,
+  topicSearchBaselineChannels: 10,
 };
 
 /** Weights of the opportunity score dimensions (docs/discover-plan.md §7.2). They sum to 100. */
@@ -208,6 +216,9 @@ export const createSettingsSchema = z.object({
     .transform((days) => Array.from(new Set(days)).sort((a, b) => a - b)),
   learningMinVideos: z.number().int().min(2).max(50),
   maxProjectsPerUser: z.number().int().min(1).max(10_000),
+  topicSearchCreditCost: credit,
+  topicSearchesPerUserDay: z.number().int().min(0).max(100),
+  topicSearchBaselineChannels: z.number().int().min(0).max(20),
 });
 
 export const auditSettingsSchema = z.object({
@@ -288,6 +299,9 @@ function readCreate(data: Record<string, any>): CreateSettings {
     checkpointDays: data.checkpoint_days?.length ? data.checkpoint_days : d.checkpointDays,
     learningMinVideos: data.learning_min_videos ?? d.learningMinVideos,
     maxProjectsPerUser: data.max_projects_per_user ?? d.maxProjectsPerUser,
+    topicSearchCreditCost: data.topic_search_credit_cost ?? d.topicSearchCreditCost,
+    topicSearchesPerUserDay: data.topic_searches_per_user_day ?? d.topicSearchesPerUserDay,
+    topicSearchBaselineChannels: data.topic_search_baseline_channels ?? d.topicSearchBaselineChannels,
   };
 }
 
@@ -349,6 +363,9 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       checkpoint_days: update.create.checkpointDays,
       learning_min_videos: update.create.learningMinVideos,
       max_projects_per_user: update.create.maxProjectsPerUser,
+      topic_search_credit_cost: update.create.topicSearchCreditCost,
+      topic_searches_per_user_day: update.create.topicSearchesPerUserDay,
+      topic_search_baseline_channels: update.create.topicSearchBaselineChannels,
       audit_enabled: update.audit.enabled,
       video_audit_credit_cost: update.audit.videoAuditCreditCost,
       channel_audit_credit_cost: update.audit.channelAuditCreditCost,
