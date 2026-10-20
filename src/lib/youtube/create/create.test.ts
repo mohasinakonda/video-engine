@@ -94,3 +94,17 @@ describe('thesis', () => {
     expect(opportunityInputSchema.safeParse({ ...opportunity, recommendedFormat: 'vlog' }).success).toBe(false);
   });
 });
+
+describe('library next steps', () => {
+  it('points every live status at its page, and none for archived', async () => {
+    const { nextStepOf, LIBRARY_TABS } = await import('@/components/create/next-step');
+    const { PROJECT_STATUSES } = await import('./types');
+    expect(nextStepOf({ id: 'p', status: 'DRAFT' })?.href).toBe('/create/p');
+    expect(nextStepOf({ id: 'p', status: 'SCRIPT_READY' })?.href).toBe('/create/p/package');
+    expect(nextStepOf({ id: 'p', status: 'IN_PRODUCTION' })?.href).toBe('/create/p/publish');
+    expect(nextStepOf({ id: 'p', status: 'ARCHIVED' })).toBeNull();
+    // Every status appears in exactly one library tab.
+    const tabbed = LIBRARY_TABS.flatMap((t) => t.statuses as readonly string[]);
+    expect([...tabbed].sort()).toEqual([...PROJECT_STATUSES].sort());
+  });
+});

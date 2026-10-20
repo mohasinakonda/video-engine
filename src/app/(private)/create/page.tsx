@@ -1,22 +1,36 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { GraduationCap, Loader2, PenLine, Plus } from 'lucide-react';
+import { ArrowRight, ArchiveRestore, GraduationCap, Loader2, PenLine, Plus, Search } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
+import { LIBRARY_TABS, nextStepOf, type LibraryTab } from '@/components/create/next-step';
 import { PublishReminders } from '@/components/create/publish-reminders';
 import { STATUS_LABELS, type VideoProject } from '@/components/create/types';
 import { useCreateConfig } from '@/components/create/use-create-config';
+import { FLOW } from '@/lib/youtube/create/project-state';
 
-/** The Create library. A fuller view (performance, filters) comes with measurement. */
+const STEP_COUNT = 5;
+/** Steps done (brief, script, packaging, publish, measure), from the status. */
+const stepsDone = (p: VideoProject) => {
+  const status = p.status === 'ARCHIVED' ? p.archivedFrom ?? 'DRAFT' : p.status;
+  return Math.min(STEP_COUNT, Math.max(0, [1, 2, 3, 3, 4, 4, 5][FLOW.indexOf(status) - 1] ?? 0));
+};
+
+const TAB_KEY = 'create:library:tab';
+
+/** The Create library: every planned video, what's next on each, and new uploads to link. */
 export default function CreateLibraryPage() {
   const { config, error } = useCreateConfig();
   const [projects, setProjects] = useState<VideoProject[] | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [tab, setTab] = useState<LibraryTab>('progress');
+  const [query, setQuery] = useState('');
+  const [restoring, setRestoring] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetch('/api/create/projects')
-      .then(async (r) => ((r.ok ? r.json() : Promise.reject(new Error((await r.json().catch(() => ({}))).error)))))
+      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json().catch(() => ({}))).error))))
       .then((d) => setProjects(d.projects))
       .catch((e) => setLoadError(e.message || 'Could not load your projects.'));
   }, []);
@@ -25,7 +39,39 @@ export default function CreateLibraryPage() {
     if (config?.hasAccess) load();
   }, [config?.hasAccess, load]);
 
-  const active = projects?.filter((p) => p.status !== 'ARCHIVED') ?? [];
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(TAB_KEY) as LibraryTab | null;
+      if (saved && LIBRARY_TABS.some((t) => t.id === saved)) setTab(saved);
+    } catch {
+      // storage blocked: default tab
+    }
+  }, []);
+  const chooseTab = (id: LibraryTab) => {
+    setTab(id);
+    try {
+      window.localStorage.setItem(TAB_KEY, id);
+    } catch {
+      // storage blocked
+    }
+  };
+
+  const counts = useMemo(
+    () => Object.fromEntries(LIBRARY_TABS.map((t) => [t.id, (projects ?? []).filter((p) => (t.statuses as readonly string[]).includes(p.status)).length])) as Record<LibraryTab, number>,
+    [projects]
+  );
+  const shown = useMemo(() => {
+    const statuses = LIBRARY_TABS.find((t) => t.id === tab)?.statuses as readonly string[];
+    const q = query.trim().toLowerCase();
+    return (projects ?? []).filter((p) => statuses.includes(p.status) && (!q || p.title.toLowerCase().includes(q) || p.thesis?.topic.toLowerCase().includes(q)));
+  }, [projects, tab, query]);
+
+  const restore = async (p: VideoProject) => {
+    setRestoring(p.id);
+    const res = await fetch(`/api/create/projects/${p.id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unarchive' }) });
+    setRestoring(null);
+    if (res.ok) load();
+  };
 
   return (
     <div className="page-shell">
@@ -57,7 +103,7 @@ export default function CreateLibraryPage() {
             <div className="card flex justify-center py-12">
               <Loader2 size={20} className="animate-spin text-zinc-400" />
             </div>
-          ) : active.length === 0 ? (
+          ) : projects.length === 0 ? (
             <section className="card space-y-3">
               <h2 className="text-xl font-bold text-white">No videos planned yet</h2>
               <p className="text-base text-zinc-300">Start from a next-video idea in Discover, or from your own idea.</p>
@@ -72,22 +118,68 @@ export default function CreateLibraryPage() {
             </section>
           ) : (
             <div className="space-y-4">
-              <PublishReminders hasWaiting={active.some((p) => p.status === 'IN_PRODUCTION')} onLinked={load} />
-              <ul className="space-y-2">
-                {active.map((p) => (
-                  <li key={p.id}>
-                    <Link href={`/create/${p.id}`} className="flex flex-col sm:flex-row sm:items-center gap-2 p-4 rounded-xl border border-bg-border bg-bg-surface hover:border-zinc-600">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-semibold text-white truncate">{p.title}</p>
-                        <p className="text-sm text-zinc-400">
-                          {p.origin === 'opportunity' ? `From Discover: ${p.thesis?.topic}` : 'Your own idea'} · updated {new Date(p.updatedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-lg bg-bg-elevated border border-bg-border text-sm text-zinc-200 w-fit">{STATUS_LABELS[p.status]}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <PublishReminders hasWaiting={projects.some((p) => p.status === 'IN_PRODUCTION')} onLinked={load} />
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex flex-wrap gap-1.5" role="tablist">
+                  {LIBRARY_TABS.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={tab === t.id}
+                      onClick={() => chooseTab(t.id)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border ${tab === t.id ? 'bg-white text-zinc-950 border-white' : 'bg-bg-elevated text-zinc-300 border-bg-border hover:border-zinc-500'}`}
+                    >
+                      {t.label} <span className="tabular-nums opacity-70">{counts[t.id]}</span>
+                    </button>
+                  ))}
+                </div>
+                <label className="relative sm:ml-auto sm:w-64">
+                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input className="input text-sm pl-9 py-1.5" value={query} placeholder="Search titles" onChange={(e) => setQuery(e.target.value)} />
+                </label>
+              </div>
+
+              {shown.length === 0 ? (
+                <p className="card text-base text-zinc-400">{query ? 'No videos match your search.' : 'Nothing here yet.'}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {shown.map((p) => {
+                    const next = nextStepOf(p);
+                    const done = stepsDone(p);
+                    return (
+                      <li key={p.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border border-bg-border bg-bg-surface hover:border-zinc-600">
+                        <Link href={`/create/${p.id}`} className="flex-1 min-w-0 space-y-1.5">
+                          <p className="text-base font-semibold text-white truncate">{p.title}</p>
+                          <p className="text-sm text-zinc-400 truncate">
+                            {STATUS_LABELS[p.status === 'ARCHIVED' ? p.archivedFrom ?? 'DRAFT' : p.status]} ·{' '}
+                            {p.origin === 'opportunity' ? `From Discover: ${p.thesis?.topic}` : 'Your own idea'} · updated {new Date(p.updatedAt).toLocaleDateString()}
+                          </p>
+                          <span className="flex gap-1" aria-label={`${done} of ${STEP_COUNT} steps done`}>
+                            {Array.from({ length: STEP_COUNT }, (_, i) => (
+                              <span key={i} className={`h-1.5 w-8 rounded-full ${i < done ? 'bg-emerald-400/80' : 'bg-white/10'}`} />
+                            ))}
+                          </span>
+                        </Link>
+                        {p.status === 'ARCHIVED' ? (
+                          <button type="button" className="btn-secondary btn-sm shrink-0" disabled={restoring === p.id} onClick={() => restore(p)}>
+                            {restoring === p.id ? <Loader2 size={14} className="animate-spin" /> : <ArchiveRestore size={14} />}
+                            Restore
+                          </button>
+                        ) : (
+                          next && (
+                            <Link href={next.href} className="btn-secondary btn-sm shrink-0">
+                              {next.label}
+                              <ArrowRight size={14} />
+                            </Link>
+                          )
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           )}
         </AccessGate>

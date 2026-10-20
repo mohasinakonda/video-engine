@@ -23,6 +23,7 @@ import {
   Stethoscope,
   Compass,
   PenLine,
+  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
@@ -36,6 +37,7 @@ const navItems = [
   { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
   { href: '/discover', label: 'Discover', icon: Compass },
   { href: '/create', label: 'Create', icon: PenLine },
+  { href: '/learn', label: 'Learn', icon: GraduationCap },
   // { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
 ];
@@ -61,9 +63,9 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
     enabled('/api/youtube/discover/config').then(setDiscoverOn);
     enabled('/api/create/config').then(setCreateOn);
   }, [isLoggedIn]);
-  // Discover and Create are listed once the admin switches them on (admins always see them, to test).
+  // Discover, Create and Learn are listed once the admin switches them on (admins always see them, to test).
   const showItem = (href: string) =>
-    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && (href !== '/create' || isAdmin || createOn);
+    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && ((href !== '/create' && href !== '/learn') || isAdmin || createOn);
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
