@@ -177,7 +177,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         <div className="flex items-center gap-2.5">
           <AppLogo className="w-8 h-8 rounded-lg shadow-sm" />
           <div>
-            <p className="text-sm font-semibold text-zinc-100 leading-tight">AI Video</p>
+            <p className="text-sm font-semibold text-zinc-100 leading-tight">Rendoza AI</p>
             <p className="text-2xs text-zinc-400 leading-tight">Studio Web</p>
           </div>
         </div>

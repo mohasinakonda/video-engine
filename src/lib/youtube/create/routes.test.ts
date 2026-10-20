@@ -354,12 +354,12 @@ describe('packaging API', () => {
     expect(ok.at(-1).type).toBe('result');
     expect(rows.get(MY_PROJECT)?.status).toBe('SCRIPT_READY');
     expect(packager.previous).toEqual(previous);
-    expect(credits.charged).toBe(5);
+    expect(credits.charged).toBe(10);
 
     packager.result = null;
     const failed = await events(await packageRoute(req({}), ctx(MY_PROJECT)));
     expect(failed.at(-1)).toMatchObject({ type: 'error', refunded: true });
-    expect(credits.refunded).toBe(5);
+    expect(credits.refunded).toBe(10);
   });
 
   it('marks PACKAGED when a title and thumbnail are chosen, and un-finishes when the choice is cleared', async () => {

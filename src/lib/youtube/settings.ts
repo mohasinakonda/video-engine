@@ -41,7 +41,7 @@ export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
   allowedPlans: ['CREATOR', 'STUDIO'],
   briefCreditCost: 2,
   scriptCreditCost: 5,
-  packagingCreditCost: 5,
+  packagingCreditCost: 10,
   performanceCreditCost: 2,
   checkpointDays: [1, 2, 7, 28],
   learningMinVideos: 3,
