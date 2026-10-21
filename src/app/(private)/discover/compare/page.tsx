@@ -31,7 +31,7 @@ function CompareInner() {
   const [yours, setYours] = useState(params.get('yours') ?? '');
   const ids = [resolveTarget(yours), resolveTarget(theirs)].map((t) => (t?.kind === 'video' ? t.videoId : null));
   const ready = !!ids[0] && !!ids[1] && ids[0] !== ids[1];
-  const audit = useAudit<Report>('compare', `${ids[0]}:${ids[1]}`, '/api/youtube/audit/compare', (language) => ({ yours, theirs, language }));
+  const audit = useAudit<Report>('compare', `${ids[0]}:${ids[1]}`, '/api/youtube/audit/compare', () => ({ yours, theirs }));
 
   return (
     <AuditShell
@@ -45,7 +45,7 @@ function CompareInner() {
       stage={audit.stage}
       stages={STAGES}
       failure={audit.failure}
-      onRun={(language) => ready && audit.run(language)}
+      onRun={() => ready && audit.run()}
     >
       <section className="card grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block space-y-1.5">

@@ -18,7 +18,7 @@ const STAGES: Record<string, string> = {
 /** A channel's audit, by channel id or @handle. Nothing runs (or is charged) until the creator asks. */
 export default function ChannelAuditPage() {
   const ref = decodeURIComponent(useParams<{ ref: string }>().ref);
-  const audit = useAudit<ChannelAuditReport>('channel', ref, '/api/youtube/audit/channel', (language) => ({ channel: ref, language }));
+  const audit = useAudit<ChannelAuditReport>('channel', ref, '/api/youtube/audit/channel', () => ({ channel: ref }));
 
   return (
     <AuditShell
@@ -33,6 +33,12 @@ export default function ChannelAuditPage() {
       stages={STAGES}
       failure={audit.failure}
       onRun={audit.run}
+      preview={[
+        'Its profile, niche, first video and how often it uploads',
+        'Its best and weakest videos, and what sets them apart',
+        'How its videos do over time, by length, and how viewers react',
+        'The tags it uses, ready to copy, and what you could try',
+      ]}
     >
       {audit.report && <ChannelReport report={audit.report.result} />}
     </AuditShell>

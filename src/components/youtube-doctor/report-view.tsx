@@ -5,6 +5,7 @@ import type { DiagnosisResult } from '@/lib/youtube/diagnosis';
 import type { RetentionAnomaly } from '@/lib/youtube/types';
 import {
   ActionPlan,
+  AudienceCard,
   LimitationsCard,
   OtherProblems,
   StrengthList,
@@ -121,7 +122,9 @@ export function ReportView({
 
         {result.traffic && <TrafficBars traffic={result.traffic} />}
 
-        <VideoTable videos={result.videos} onSelect={onSelectVideo} />
+        <AudienceCard result={result} />
+
+        <VideoTable videos={result.videos} periodDays={result.current.days} onSelect={onSelectVideo} />
 
         <LimitationsCard limitations={result.limitations} aiSource={report.source} />
       </div>

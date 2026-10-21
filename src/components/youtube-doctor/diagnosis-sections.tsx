@@ -189,7 +189,7 @@ const LABEL_STYLE: Record<VideoAnalysis['label'], { text: string; className: str
 };
 
 /** Videos ranked by how they did compared with similar videos on the channel, not by raw views. */
-export function VideoTable({ videos, onSelect }: { videos: VideoAnalysis[]; onSelect?: (id: string) => void }) {
+export function VideoTable({ videos, periodDays, onSelect }: { videos: VideoAnalysis[]; periodDays: number; onSelect?: (id: string) => void }) {
   const [filter, setFilter] = useState<'all' | 'video' | 'short'>('all');
   const rows = videos
     .filter((v) => filter === 'all' || v.format === filter)
@@ -200,7 +200,9 @@ export function VideoTable({ videos, onSelect }: { videos: VideoAnalysis[]; onSe
       <div className="flex flex-wrap items-end justify-between gap-3 p-5">
         <div>
           <h3 className="text-lg font-semibold text-white">Your videos, best to weakest</h3>
-          <p className="text-sm text-zinc-400 mt-0.5">Compared with your other videos of the same type and age.{onSelect ? ' Tap a video for its own check-up.' : ''}</p>
+          <p className="text-sm text-zinc-400 mt-0.5">
+            Views in the last {periodDays} days, compared with your other videos of the same type and age.{onSelect ? ' Tap a video for its own check-up.' : ''}
+          </p>
         </div>
         <div className="flex gap-1 p-1 rounded-lg bg-bg-elevated border border-bg-border">
           {(['all', 'video', 'short'] as const).map((key) => (
@@ -228,7 +230,9 @@ export function VideoTable({ videos, onSelect }: { videos: VideoAnalysis[]; onSe
               <div className="flex-1 min-w-0 space-y-1">
                 <p className="text-base text-zinc-100 font-medium line-clamp-2">{v.title}</p>
                 <p className="text-sm text-zinc-400">
-                  {v.format === 'short' ? 'Short' : 'Video'} · {v.stats ? `${formatCompact(v.stats.views)} views` : 'No views this period'}
+                  {v.format === 'short' ? 'Short' : 'Video'}
+                  {v.lifetimeViews != null && ` · ${formatCompact(v.lifetimeViews)} views`}
+                  {` · ${v.stats ? formatCompact(v.stats.views) : 0} in the last ${periodDays} days`}
                   {v.stats?.avgViewDurationSec != null && ` · watched ${formatDuration(v.stats.avgViewDurationSec)} on average`}
                 </p>
               </div>
@@ -282,6 +286,79 @@ export function TrafficBars({ traffic }: { traffic: NonNullable<DiagnosisResult[
 }
 
 /** What couldn't be measured: important for honesty, but folded so it doesn't scare. */
+const countryNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+function countryName(code: string): string {
+  try {
+    return countryNames.of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+/** "age25-34" → "25–34", "age65-" → "65+". */
+function ageLabel(group: string): string {
+  const [from, to] = group.replace(/^age/, '').split('-');
+  return to ? `${from}–${to}` : `${from}+`;
+}
+
+function ShareBar({ label, pct }: { label: string; pct: number }) {
+  return (
+    <li>
+      <div className="flex justify-between text-sm text-zinc-200 mb-1.5">
+        <span>{label}</span>
+        <span className="tabular-nums font-semibold">{pct < 1 ? '<1' : pct.toFixed(0)}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-bg-elevated overflow-hidden">
+        <div className="h-full rounded-full bg-sky-400/80" style={{ width: `${Math.max(1, pct)}%` }} />
+      </div>
+    </li>
+  );
+}
+
+/** Viewer ages and countries, straight from YouTube Analytics. */
+export function AudienceCard({ result }: { result: DiagnosisResult }) {
+  // Reports saved before this section existed have neither field.
+  if (result.ageGroups === undefined && result.countries === undefined) return null;
+  const ages = (result.ageGroups ?? []).filter((r) => r.viewerPct > 0);
+  const countries = (result.countries ?? []).slice(0, 6);
+
+  return (
+    <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-5">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Who watches you</h3>
+        <p className="text-sm text-zinc-400 mt-0.5">Last {result.current.days} days, from YouTube Analytics.</p>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-zinc-300">Age</h4>
+          {ages.length > 0 ? (
+            <ul className="space-y-3">
+              {ages.map((r) => (
+                <ShareBar key={r.ageGroup} label={ageLabel(r.ageGroup)} pct={r.viewerPct} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-zinc-500">YouTube shares viewer ages only after enough signed-in viewers have watched.</p>
+          )}
+        </div>
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-zinc-300">Top countries</h4>
+          {countries.length > 0 ? (
+            <ul className="space-y-3">
+              {countries.map((r) => (
+                <ShareBar key={r.country} label={countryName(r.country)} pct={r.sharePct} />
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-zinc-500">YouTube shared no country data for this period.</p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function LimitationsCard({ limitations, aiSource }: { limitations: string[]; aiSource: 'ai' | 'fallback' }) {
   const [open, setOpen] = useState(false);
   const items = aiSource === 'fallback' ? ['The AI write-up was unavailable, so this report shows the measured findings only.', ...limitations] : limitations;

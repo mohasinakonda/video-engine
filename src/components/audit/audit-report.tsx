@@ -2,14 +2,26 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, ChevronDown, ExternalLink, HelpCircle, Info, Lightbulb, MessageCircle, MessagesSquare, Stethoscope, ThumbsDown, ThumbsUp, Wrench } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ExternalLink, FileText, HelpCircle, Info, Lightbulb, MessageCircle, MessagesSquare, Stethoscope, ThumbsDown, ThumbsUp, TrendingUp, Wrench } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/components/ui/badge';
-import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { formatAgo, formatCompact } from '@/components/youtube-doctor/format';
 import { ChannelPatterns } from './channel-patterns';
 import { DescriptionAndTags, Playbook } from './playbook';
 import type { AuditFinding, FindingArea, FindingImpact, FindingKind, PerformanceLabel, ThemeKind, VideoAuditReport } from './types';
 import type { ViewerThemes } from '@/lib/youtube/audit/ai/comments';
+import type { Confidence } from '@/lib/youtube/types';
+
+/** How sure a finding is, in plain words. */
+const SURE: Record<Confidence, { text: string; tone: BadgeTone }> = {
+  high: { text: 'Very likely', tone: 'good' },
+  medium: { text: 'Likely', tone: 'info' },
+  low: { text: 'Not sure yet', tone: 'neutral' },
+};
+
+export function SureBadge({ confidence }: { confidence: Confidence }) {
+  const { text, tone } = SURE[confidence];
+  return <Badge tone={tone}>{text}</Badge>;
+}
 
 const PERFORMANCE: Record<PerformanceLabel, { label: string; tone: BadgeTone }> = {
   standout: { label: 'Standout for its channel', tone: 'good' },
@@ -21,13 +33,13 @@ const PERFORMANCE: Record<PerformanceLabel, { label: string; tone: BadgeTone }> 
 };
 
 const AREA: Record<FindingArea, string> = {
-  performance: 'Performance',
+  performance: 'Views',
   title: 'Title',
   thumbnail: 'Thumbnail',
   metadata: 'Description',
   format: 'Length',
   viewers: 'Viewers',
-  pattern: 'Pattern',
+  pattern: 'On this channel',
   rhythm: 'Upload rhythm',
   comparison: 'You vs them',
   audience: 'Audience',
@@ -40,20 +52,22 @@ const THEMES: { kind: ThemeKind; title: string; icon: typeof ThumbsUp; className
   { kind: 'discussion', title: 'What viewers debated', icon: MessagesSquare, className: 'text-zinc-300', hint: 'How much the topic moved people' },
 ];
 
-export function FindingList({ title, findings, icon: Icon, className }: { title: string; findings: AuditFinding[]; icon: typeof Info; className: string }) {
+export function FindingList({ title, findings, icon: Icon, className, bare = false }: { title: string; findings: AuditFinding[]; icon: typeof Info; className: string; bare?: boolean }) {
   if (!findings.length) return null;
   return (
     <section className="space-y-2">
-      <h3 className={`text-base font-semibold inline-flex items-center gap-2 ${className}`}>
-        <Icon size={17} />
-        {title}
-      </h3>
+      {!bare && (
+        <h3 className={`text-base font-semibold inline-flex items-center gap-2 ${className}`}>
+          <Icon size={17} />
+          {title}
+        </h3>
+      )}
       <ul className="space-y-2">
         {findings.map((f) => (
           <li key={f.id} className="rounded-xl border border-bg-border bg-bg-surface p-4 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <Badge dot={false}>{AREA[f.area]}</Badge>
-              <EvidenceBadge confidence={f.confidence} />
+              <SureBadge confidence={f.confidence} />
             </div>
             <p className="text-base text-zinc-100">{f.statement}</p>
             {f.evidence && <p className="text-sm text-zinc-400">{f.evidence}</p>}
@@ -65,15 +79,17 @@ export function FindingList({ title, findings, icon: Icon, className }: { title:
 }
 
 /** What viewers say, grouped by kind, with counts and real example comments. */
-export function ViewerThemesView({ viewers }: { viewers: ViewerThemes }) {
+export function ViewerThemesView({ viewers, bare = false }: { viewers: ViewerThemes; bare?: boolean }) {
   const themes = viewers.themes;
   return (
     <section className="space-y-3">
-      <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
-        <MessageCircle size={17} />
-        What viewers say
-      </h3>
-      <p className="text-sm text-zinc-400 -mt-1">From the {viewers.read} most relevant comments. Counts are comments; names are never read.</p>
+      {!bare && (
+        <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
+          <MessageCircle size={17} />
+          What viewers say
+        </h3>
+      )}
+      <p className={`text-sm text-zinc-400 ${bare ? '' : '-mt-1'}`}>From the {viewers.read} most relevant comments. Names are never read.</p>
       {themes.length === 0 ? (
         <p className="text-base text-zinc-400">No clear themes in the comments.</p>
       ) : (
@@ -94,7 +110,10 @@ export function ViewerThemesView({ viewers }: { viewers: ViewerThemes }) {
                   {list.map((t) => (
                     <li key={t.theme} className="space-y-1">
                       <p className="text-base text-zinc-100">
-                        {t.theme} <span className="text-sm text-zinc-500 tabular-nums">· {t.count}</span>
+                        {t.theme}{' '}
+                        <span className="text-sm text-zinc-500 tabular-nums">
+                          · {t.count} {t.count === 1 ? 'comment' : 'comments'}
+                        </span>
                       </p>
                       {t.examples.map((e) => (
                         <p key={e} className="text-sm text-zinc-400 border-l-2 border-bg-border pl-2">
@@ -113,7 +132,7 @@ export function ViewerThemesView({ viewers }: { viewers: ViewerThemes }) {
   );
 }
 
-const IMPACT_DOTS: Record<FindingImpact, number> = { high: 3, medium: 2, low: 1 };
+const IMPACT_TEXT: Record<FindingImpact, string> = { high: 'Big effect', medium: 'Some effect', low: 'Small effect' };
 
 /** The findings that best explain the result: in its direction, biggest impact first. */
 function mainReasons(report: VideoAuditReport): AuditFinding[] {
@@ -127,18 +146,57 @@ function mainReasons(report: VideoAuditReport): AuditFinding[] {
     .slice(0, 3);
 }
 
-function ImpactDots({ impact }: { impact: FindingImpact }) {
-  const n = IMPACT_DOTS[impact];
+const fmtViews = (n: number) => `${formatCompact(n)} ${n === 1 ? 'view' : 'views'}`;
+
+/** The result in one plain sentence. */
+function resultSentence(report: VideoAuditReport): string {
+  const { performance: p, video } = report;
+  const kind = report.format === 'short' ? 'Shorts' : 'videos';
+  const usual = p.baselineViews !== null ? fmtViews(p.baselineViews) : null;
+  const views = video.views !== null ? fmtViews(video.views) : null;
+  switch (p.label) {
+    case 'standout':
+    case 'above':
+      return usual && views && p.ratio !== null
+        ? `This video got ${p.ratio}× the views this channel’s ${kind} usually get: ${views}, when they usually get ${usual}.`
+        : `This video did better than this channel’s ${kind} usually do.`;
+    case 'typical':
+      return usual ? `This video got about as many views as this channel’s ${kind} usually get (${usual}).` : `This video did about as well as this channel’s ${kind} usually do.`;
+    case 'below':
+    case 'well_below':
+      return usual && views
+        ? `This video got fewer views than this channel’s ${kind} usually get: ${views}, when they usually get ${usual}.`
+        : `This video did worse than this channel’s ${kind} usually do.`;
+    default:
+      return `It can’t be compared yet: the video is too new, or the channel has too few ${kind} to compare it with.`;
+  }
+}
+
+/** A closed-by-default section for the details behind the answer. */
+function Fold({ title, hint, icon: Icon, className, children }: { title: string; hint: string; icon: typeof Info; className: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-0.5" title={`${impact} impact`} aria-label={`${impact} impact`}>
-      {[0, 1, 2].map((i) => (
-        <span key={i} className={`w-1.5 h-1.5 rounded-full ${i < n ? 'bg-amber-300' : 'bg-zinc-700'}`} />
-      ))}
-    </span>
+    <details className="rounded-2xl border border-bg-border bg-bg-surface p-5 group">
+      <summary className="cursor-pointer list-none flex items-center justify-between gap-3">
+        <span>
+          <span className="flex text-base font-semibold text-white items-center gap-2">
+            <Icon size={16} className={className} />
+            {title}
+          </span>
+          <span className="block text-sm text-zinc-400">{hint}</span>
+        </span>
+        <ChevronDown size={18} className="text-zinc-400 shrink-0 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="mt-4">{children}</div>
+    </details>
   );
 }
 
-/** One video's audit: why it did what it did, what to reuse, then the evidence; polish last. */
+const count = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/**
+ * One video's audit: the result in a sentence, the main reasons and the next steps first, then
+ * how to make your own version; the details behind it are folded away.
+ */
 export function AuditReport({ report }: { report: VideoAuditReport }) {
   const { video, performance: p } = report;
   const perf = PERFORMANCE[p.label];
@@ -149,6 +207,7 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
   const strengths = major.filter((f) => f.kind === 'strength');
   const notes = major.filter((f) => f.kind === 'note');
   const small = report.findings.filter((f) => f.impact === 'low');
+  const hasTags = !!report.description && !!report.tags;
 
   return (
     <div className="space-y-6">
@@ -172,14 +231,12 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
             {report.madeForKids && ' · Made for kids'}
           </p>
           <div>
-            <Badge tone={perf.tone}>
-              {perf.label}
-              {p.ratio !== null && ` · ${p.ratio}×`}
-            </Badge>
+            <Badge tone={perf.tone}>{perf.label}</Badge>
           </div>
+          <p className="text-base text-zinc-100">{resultSentence(report)}</p>
           {p.baselineViews !== null && p.label !== 'not_comparable' && (
             <p className="text-xs text-zinc-500">
-              Its channel usually gets {formatCompact(p.baselineViews)} views ({p.baselineSample} of its {report.format === 'short' ? 'Shorts' : 'videos'} from the past year).
+              “Usually” is the middle of its {count(p.baselineSample, report.format === 'short' ? 'Short' : 'video')} from the past year: half got more, half got fewer.
             </p>
           )}
         </div>
@@ -208,9 +265,9 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
                     <p className="text-base text-zinc-100">{f.statement}</p>
                     {f.evidence && <p className="text-sm text-zinc-400">{f.evidence}</p>}
                     <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                      <ImpactDots impact={f.impact ?? 'medium'} />
-                      <span>{AREA[f.area]}</span>
-                      <EvidenceBadge confidence={f.confidence} />
+                      <SureBadge confidence={f.confidence} />
+                      <span>{IMPACT_TEXT[f.impact ?? 'medium']}</span>
+                      <span>· {AREA[f.area]}</span>
                     </div>
                   </div>
                 </li>
@@ -218,71 +275,93 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
             </ol>
           </div>
         )}
-        {report.lessons.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-zinc-300 inline-flex items-center gap-1.5">
-              <Lightbulb size={15} className="text-amber-300" />
-              For your channel
-            </p>
-            <ul className="space-y-1.5">
-              {report.lessons.map((l) => (
-                <li key={l} className="text-base text-zinc-200 flex gap-2">
-                  <span className="text-amber-300">→</span>
-                  {l}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </section>
+
+      {report.lessons.length > 0 && (
+        <section className="rounded-2xl border-2 border-amber-400/30 bg-amber-400/[0.04] p-5 space-y-3">
+          <h3 className="text-lg font-semibold text-white inline-flex items-center gap-2">
+            <Lightbulb size={18} className="text-amber-300" />
+            Your next steps
+          </h3>
+          <ol className="space-y-2">
+            {report.lessons.map((l, i) => (
+              <li key={l} className="flex gap-3 text-base text-zinc-100">
+                <span className="w-6 h-6 rounded-full bg-amber-400/15 text-amber-200 text-sm font-semibold flex items-center justify-center shrink-0">{i + 1}</span>
+                <span className="pt-0.5">{l}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <Playbook report={report} />
 
-      {report.patterns && <ChannelPatterns patterns={report.patterns} />}
-
-      <FindingList title="Weak points" findings={weaknesses} icon={AlertTriangle} className="text-amber-300" />
-      <FindingList title="What works" findings={strengths} icon={CheckCircle2} className="text-emerald-300" />
-
-      {report.viewers && <ViewerThemesView viewers={report.viewers} />}
-
-      <FindingList title="Notes" findings={notes} icon={Info} className="text-zinc-300" />
-
-      <DescriptionAndTags report={report} />
-
-      {small.length > 0 && (
-        <details className="rounded-2xl border border-bg-border bg-bg-surface p-5 group">
-          <summary className="cursor-pointer list-none flex items-center justify-between gap-3">
-            <span>
-              <span className="flex text-base font-semibold text-white items-center gap-2">
-                <Wrench size={16} className="text-zinc-400" />
-                Small things ({small.length})
-              </span>
-              <span className="block text-sm text-zinc-400">Polish worth knowing, but not why the video did what it did.</span>
-            </span>
-            <ChevronDown size={18} className="text-zinc-400 transition-transform group-open:rotate-180" />
-          </summary>
-          <ul className="mt-4 space-y-2">
-            {small.map((f) => (
-              <li key={f.id} className="text-base text-zinc-300 space-y-0.5">
-                <p>
-                  <span className={f.kind === 'weakness' ? 'text-amber-300' : f.kind === 'strength' ? 'text-emerald-300' : 'text-zinc-500'}>
-                    {f.kind === 'weakness' ? '△' : f.kind === 'strength' ? '✓' : '·'}
-                  </span>{' '}
-                  {f.statement}
-                </p>
-                {f.evidence && <p className="text-sm text-zinc-500 pl-4">{f.evidence}</p>}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-base font-semibold text-white">The details</h3>
+          <p className="text-sm text-zinc-400">What the answer above is based on. Open any part to see more.</p>
+        </div>
+        {report.patterns && (
+          <Fold title="What wins on this channel" hint="What its successful videos have in common" icon={TrendingUp} className="text-emerald-300">
+            <ChannelPatterns patterns={report.patterns} bare />
+          </Fold>
+        )}
+        {weaknesses.length > 0 && (
+          <Fold title={`Weak points (${weaknesses.length})`} hint="What held it back" icon={AlertTriangle} className="text-amber-300">
+            <FindingList title="Weak points" findings={weaknesses} icon={AlertTriangle} className="text-amber-300" bare />
+          </Fold>
+        )}
+        {strengths.length > 0 && (
+          <Fold title={`What works (${strengths.length})`} hint="What helped it" icon={CheckCircle2} className="text-emerald-300">
+            <FindingList title="What works" findings={strengths} icon={CheckCircle2} className="text-emerald-300" bare />
+          </Fold>
+        )}
+        {report.viewers && (
+          <Fold title="What viewers say" hint="What the comments liked, disliked and asked" icon={MessageCircle} className="text-sky-300">
+            <ViewerThemesView viewers={report.viewers} bare />
+          </Fold>
+        )}
+        {notes.length > 0 && (
+          <Fold title={`Notes (${notes.length})`} hint="Worth knowing" icon={Info} className="text-zinc-300">
+            <FindingList title="Notes" findings={notes} icon={Info} className="text-zinc-300" bare />
+          </Fold>
+        )}
+        {hasTags && (
+          <Fold title="Description and tags" hint="What the description has, and its tags to copy" icon={FileText} className="text-sky-300">
+            <DescriptionAndTags report={report} bare />
+          </Fold>
+        )}
+        {small.length > 0 && (
+          <Fold title={`Small things (${small.length})`} hint="Polish worth knowing, but not why the video did what it did" icon={Wrench} className="text-zinc-400">
+            <ul className="space-y-2">
+              {small.map((f) => (
+                <li key={f.id} className="text-base text-zinc-300 space-y-0.5">
+                  <p>
+                    <span className={f.kind === 'weakness' ? 'text-amber-300' : f.kind === 'strength' ? 'text-emerald-300' : 'text-zinc-500'}>
+                      {f.kind === 'weakness' ? '△' : f.kind === 'strength' ? '✓' : '·'}
+                    </span>{' '}
+                    {f.statement}
+                  </p>
+                  {f.evidence && <p className="text-sm text-zinc-500 pl-4">{f.evidence}</p>}
+                </li>
+              ))}
+            </ul>
+          </Fold>
+        )}
+      </div>
 
       {report.limitations.length > 0 && (
-        <ul className="space-y-1 text-sm text-zinc-500">
-          {report.limitations.map((l) => (
-            <li key={l}>· {l}</li>
-          ))}
-        </ul>
+        <section className="rounded-xl border border-bg-border bg-bg-elevated p-4 space-y-1.5">
+          <p className="text-sm font-semibold text-zinc-300 inline-flex items-center gap-1.5">
+            <Info size={15} />
+            Good to know
+          </p>
+          <ul className="space-y-1 text-sm text-zinc-400">
+            {report.limitations.map((l) => (
+              <li key={l}>· {l}</li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

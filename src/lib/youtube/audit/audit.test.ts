@@ -23,6 +23,8 @@ const peer = (i: number, over: Partial<MarketVideo> = {}): MarketVideo => ({
 });
 
 const video = (over: Partial<AuditVideo> = {}): AuditVideo => ({
+  audioLanguage: null,
+  metadataLanguage: null,
   id: 'targetVid01',
   channelId: CHANNEL,
   channelTitle: 'Theirs',

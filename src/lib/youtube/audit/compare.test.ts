@@ -9,6 +9,7 @@ const thumb = (over: Partial<ThumbnailFindings> = {}): ThumbnailFindings => ({
 });
 
 const audit = (over: Partial<VideoAuditOutput> & { title?: string } = {}): VideoAuditOutput => ({
+  language: 'English',
   format: 'video',
   ageDays: 30,
   performance: { label: 'typical', ratio: 1, baselineViews: 1000, baselineSample: 12, likeRate: 0.03, baselineLikeRate: 0.03, commentRate: 0.001, baselineCommentRate: 0.001 },

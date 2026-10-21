@@ -10,6 +10,7 @@ import {
   packagingSchema,
   packagingToText,
   statusAfterPackaging,
+  thumbnailPrompt,
   type VideoPackaging,
 } from './packaging';
 
@@ -99,5 +100,26 @@ describe('AI output checks', () => {
 
   it('removes hype, unbacked numbers, links and hashtags from the description', () => {
     expect(cleanDescription('Meet 5 glowing animals. 90% of the sea is dark.\n\nVisit https://x.y now. #ocean rocks. Smash that like button.', allowed)).toBe('Meet 5 glowing animals.');
+  });
+});
+
+describe('thumbnailPrompt', () => {
+  const idea = { ...blankThumbnail(), mainSubject: 'An anglerfish', supportingObject: 'its glowing lure', composition: 'close up, left third', background: 'pitch black water' };
+
+  it('describes the idea and asks for text the model can draw', () => {
+    const { prompt, textLeftOut } = thumbnailPrompt({ ...idea, text: 'Living light' });
+    expect(prompt).toContain('An anglerfish');
+    expect(prompt).toContain('with its glowing lure');
+    expect(prompt).toContain('Background: pitch black water');
+    expect(prompt).toContain('"Living light"');
+    expect(textLeftOut).toBe(false);
+  });
+
+  it('leaves out text it can’t draw, and asks for no text when there is none', () => {
+    const bangla = thumbnailPrompt({ ...idea, text: 'আলোর মাছ' });
+    expect(bangla.prompt).not.toContain('আলোর');
+    expect(bangla.prompt).toContain('No text or letters');
+    expect(bangla.textLeftOut).toBe(true);
+    expect(thumbnailPrompt(idea).textLeftOut).toBe(false);
   });
 });

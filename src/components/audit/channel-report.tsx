@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink, Info, Lightbulb, Stethoscope
 import { formatCompact } from '@/components/youtube-doctor/format';
 import { TextLink } from '@/components/ui/text-link';
 import { FindingList } from './audit-report';
+import { ChannelOverviewSections } from './channel-overview';
 import type { ChannelAuditReport, RankedVideo } from './types';
 
 function VideoList({ title, videos, hint }: { title: string; videos: RankedVideo[]; hint: string }) {
@@ -111,6 +112,8 @@ export function ChannelReport({ report }: { report: ChannelAuditReport }) {
           </div>
         )}
       </section>
+
+      {report.overview && <ChannelOverviewSections overview={report.overview} />}
 
       <FindingList title="What works" findings={strengths} icon={CheckCircle2} className="text-emerald-300" />
       <FindingList title="Weak points" findings={weaknesses} icon={AlertTriangle} className="text-amber-300" />

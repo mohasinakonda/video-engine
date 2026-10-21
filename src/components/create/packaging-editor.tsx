@@ -22,6 +22,7 @@ import {
 } from '@/lib/youtube/create/packaging';
 import { scriptToText, type VideoScript } from '@/lib/youtube/create/script';
 import { Field, Section } from './brief-editor';
+import { ThumbnailMaker, useThumbnailImage, type ThumbnailLink } from './thumbnail-maker';
 import { IncludedNote } from './included-note';
 import { priceTag, type PriceTag } from './pricing';
 import type { CreateConfig, VideoProject } from './types';
@@ -56,6 +57,7 @@ export function PackagingEditor({
   generating,
   onSave,
   onGenerate,
+  onLinkThumbnail,
 }: {
   project: VideoProject;
   script: VideoScript;
@@ -64,9 +66,21 @@ export function PackagingEditor({
   saving: boolean;
   generating: boolean;
   onSave: (packaging: VideoPackaging) => void;
-  onGenerate: (notes: string) => void;
+  /** `only` asks for new titles or new thumbnails alone; the other part is kept. */
+  onGenerate: (notes: string, only?: 'titles' | 'thumbnails') => void;
+  /** Links a saved thumbnail idea to its image or Canva design; resolves to an error message or null. */
+  onLinkThumbnail: (index: number, mainSubject: string, link: ThumbnailLink) => Promise<string | null>;
 }) {
   const [p, setP] = useState(initial);
+  const [part, setPart] = useState<'titles' | 'thumbnails' | 'all' | null>(null);
+  useEffect(() => {
+    if (!generating) setPart(null);
+  }, [generating]);
+  const price = priceTag(project, config, 'packaging');
+  const regenerate = (only: 'titles' | 'thumbnails') => {
+    setPart(only);
+    onGenerate('', only);
+  };
   const [tagInput, setTagInput] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
   useEffect(() => setP(initial), [initial]);
@@ -112,9 +126,12 @@ export function PackagingEditor({
         </div>
       )}
 
-      <Preview title={chosenTitle?.title ?? null} thumb={chosenThumb} />
+      <Preview projectId={project.id} title={chosenTitle?.title ?? null} thumb={chosenThumb} />
 
-      <Section title="1. Choose a title">
+      <Section
+        title="1. Choose a title"
+        action={<RegenerateButton label="New title ideas" running={generating && part === 'titles'} disabled={generating || dirty} price={price} onRun={() => regenerate('titles')} />}
+      >
         <p className="text-sm text-zinc-400 -mt-2">Different ways to earn the click. The video has to deliver what the title promises.</p>
         <div className="space-y-3">
           {p.titles.map((t, i) => (
@@ -142,13 +159,41 @@ export function PackagingEditor({
         )}
       </Section>
 
-      <Section title="2. Choose a thumbnail">
+      <Section
+        title="2. Choose a thumbnail"
+        action={
+          p.thumbnails.length > 0 && (
+            <RegenerateButton label="New thumbnail ideas" running={generating && part === 'thumbnails'} disabled={generating || dirty} price={price} onRun={() => regenerate('thumbnails')} />
+          )
+        }
+      >
         <p className="text-sm text-zinc-400 -mt-2">A brief to shoot or design from. It works with the title: don’t repeat the title’s words on it.</p>
+        {p.thumbnails.length === 0 && (
+          <div className="rounded-xl border border-dashed border-bg-border p-5 space-y-3 text-center">
+            <p className="text-base text-zinc-200">No thumbnail ideas yet.</p>
+            <p className="text-sm text-zinc-400">Get 3 ideas made from your script, or describe your own below.</p>
+            <div className="flex flex-col items-center gap-1">
+              <button type="button" className="btn-primary" disabled={generating || dirty} onClick={() => regenerate('thumbnails')}>
+                {generating && part === 'thumbnails' ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                {generating && part === 'thumbnails' ? 'Making thumbnail ideas…' : 'Make thumbnail ideas'}
+              </button>
+              {dirty ? <p className="text-sm text-amber-300">Save your changes first.</p> : <IncludedNote note={price.note} included={price.included} />}
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {p.thumbnails.map((t, i) => (
             <ThumbnailCard
               key={i}
               concept={t}
+              maker={
+                <ThumbnailMaker
+                  projectId={project.id}
+                  concept={initial.thumbnails[i] ?? t}
+                  locked={dirty || !initial.thumbnails[i]}
+                  onLink={(link) => onLinkThumbnail(i, initial.thumbnails[i].mainSubject, link)}
+                />
+              }
               selected={p.selectedThumbnail === i}
               onSelect={() => set('selectedThumbnail', p.selectedThumbnail === i ? null : i)}
               onChange={(c) => set('thumbnails', p.thumbnails.map((x, j) => (j === i ? { ...x, ...c } : x)))}
@@ -225,7 +270,15 @@ export function PackagingEditor({
         </div>
       </Section>
 
-      <GenerateMore price={priceTag(project, config, 'packaging')} running={generating} disabled={dirty} onRun={onGenerate} />
+      <GenerateMore
+        price={price}
+        running={generating && (part === 'all' || part === null)}
+        disabled={dirty || generating}
+        onRun={(notes) => {
+          setPart('all');
+          onGenerate(notes);
+        }}
+      />
 
       <div className="fixed bottom-0 inset-x-0 z-30 border-t border-bg-border bg-bg-base/95 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -258,13 +311,17 @@ export function PackagingEditor({
 }
 
 /** How the choice looks together, roughly as in a feed. */
-function Preview({ title, thumb }: { title: string | null; thumb: ThumbnailConcept | null }) {
+function Preview({ projectId, title, thumb }: { projectId: string; title: string | null; thumb: ThumbnailConcept | null }) {
+  const image = useThumbnailImage(projectId, thumb?.imageId);
   return (
     <section className="rounded-2xl border border-bg-border bg-bg-surface p-5">
       <p className="text-sm font-semibold text-zinc-300 mb-3">Your package</p>
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative w-full sm:w-72 aspect-video rounded-xl bg-gradient-to-br from-zinc-700 to-zinc-900 border border-bg-border overflow-hidden shrink-0 flex items-end p-3">
-          {thumb ? (
+          {image ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a local blob URL
+            <img src={image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          ) : thumb ? (
             <>
               <p className="absolute inset-0 p-3 text-xs text-zinc-300/80 leading-snug">{thumb.mainSubject}</p>
               {thumb.text && <p className="relative text-xl font-black text-white uppercase leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">{thumb.text}</p>}
@@ -338,12 +395,15 @@ function TitleCard({
 
 function ThumbnailCard({
   concept,
+  maker,
   selected,
   onSelect,
   onChange,
   onRemove,
 }: {
   concept: ThumbnailConcept;
+  /** Image, Canva and download for this idea. */
+  maker: React.ReactNode;
   selected: boolean;
   onSelect: () => void;
   onChange: (c: Partial<ThumbnailConcept>) => void;
@@ -370,6 +430,7 @@ function ThumbnailCard({
           <Trash2 size={13} />
         </button>
       </div>
+      {maker}
       {THUMBNAIL_FIELDS.map((f) => (
         <label key={f.key} className="block">
           <span className="block text-xs font-semibold text-zinc-400">{f.label}</span>
@@ -387,6 +448,16 @@ function ThumbnailCard({
   );
 }
 
+/** New ideas for one part, next to that part's heading. */
+function RegenerateButton({ label, running, disabled, price, onRun }: { label: string; running: boolean; disabled: boolean; price: PriceTag; onRun: () => void }) {
+  return (
+    <button type="button" className="btn-ghost btn-sm shrink-0" disabled={disabled} onClick={onRun} title={price.note ?? undefined}>
+      {running ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+      {running ? 'Making ideas…' : label}
+    </button>
+  );
+}
+
 function GenerateMore({ price, running, disabled, onRun }: { price: PriceTag; running: boolean; disabled: boolean; onRun: (notes: string) => void }) {
   const [notes, setNotes] = useState('');
   if (running)
@@ -400,8 +471,8 @@ function GenerateMore({ price, running, disabled, onRun }: { price: PriceTag; ru
     );
   return (
     <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-3">
-      <p className="text-base font-semibold text-white">More ideas</p>
-      <p className="text-sm text-zinc-400">New titles and thumbnails replace the ones you haven’t chosen. Your chosen ones, description and tags are kept.</p>
+      <p className="text-base font-semibold text-white">New titles and thumbnails together</p>
+      <p className="text-sm text-zinc-400">Replaces the titles and thumbnails you haven’t chosen. Your chosen ones, description and tags are kept. For just one part, use the buttons next to “Choose a title” or “Choose a thumbnail”.</p>
       <input
         className="input text-sm"
         value={notes}

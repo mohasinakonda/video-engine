@@ -50,6 +50,8 @@ export function makeDataset(overrides: Partial<ChannelDataset> = {}): ChannelDat
     perVideo: { ok: true, data: perVideo },
     traffic: { ok: true, data: [{ source: 'SUBSCRIBER', views: 8000, minutesWatched: 20000 }, { source: 'YT_SEARCH', views: 4000, minutesWatched: 10000 }] },
     formatViews: { ok: true, data: { short: 0, video: 12000 } },
+    ageGroups: { ok: true, data: [] },
+    countries: { ok: true, data: [] },
     retention: {},
     reach: { ok: true, data: { byVideo: {}, totalImpressions: 0, ctr: null, coveredDays: 0, totalDays: 28, availableFrom: '2026-10-21' } },
     ...overrides,

@@ -71,6 +71,19 @@ export interface TrafficRow {
   minutesWatched: number | null;
 }
 
+export interface AgeGroupRow {
+  /** YouTube's value, e.g. "age25-34". */
+  ageGroup: string;
+  viewerPct: number;
+}
+
+export interface CountryRow {
+  /** ISO 3166-1 alpha-2 code. */
+  country: string;
+  views: number;
+  minutesWatched: number;
+}
+
 export interface RetentionPoint {
   /** 0–1, position in the video. */
   ratio: number;
@@ -117,6 +130,8 @@ export interface ChannelDataset {
   previousTotals: Result<ChannelTotals>;
   perVideo: Result<Record<string, PeriodStats>>;
   traffic: Result<TrafficRow[]>;
+  ageGroups: Result<AgeGroupRow[]>;
+  countries: Result<CountryRow[]>;
   formatViews: Result<Record<VideoFormat, number>>;
   retention: Record<string, Result<RetentionPoint[]>>;
   reach: Result<ReachData>;
@@ -180,6 +195,8 @@ export interface VideoAnalysis {
   format: VideoFormat | null;
   durationSec: number | null;
   ageDays: number;
+  /** All-time views from the Data API; missing on reports saved before it was added. */
+  lifetimeViews?: number | null;
   stats: PeriodStats | null;
   impressions: number | null;
   ctr: number | null;

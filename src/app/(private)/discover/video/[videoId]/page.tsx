@@ -20,7 +20,7 @@ const STAGES: Record<string, string> = {
 export default function VideoAuditPage() {
   const { videoId } = useParams<{ videoId: string }>();
   const from = useSearchParams().get('from');
-  const audit = useAudit<VideoAuditReport>('video', videoId, '/api/youtube/audit/video', (language) => ({ link: videoId, language }));
+  const audit = useAudit<VideoAuditReport>('video', videoId, '/api/youtube/audit/video', () => ({ link: videoId }));
 
   return (
     <AuditShell
@@ -35,6 +35,12 @@ export default function VideoAuditPage() {
       stages={STAGES}
       failure={audit.failure}
       onRun={audit.run}
+      preview={[
+        'Whether it did better or worse than this channel’s other videos, in one sentence',
+        'The main reasons, and the next steps for your own videos',
+        'Its title, thumbnail, length, description and tags, checked',
+        'What viewers said in the comments',
+      ]}
     >
       {audit.report && <AuditReport report={audit.report.result} />}
     </AuditShell>

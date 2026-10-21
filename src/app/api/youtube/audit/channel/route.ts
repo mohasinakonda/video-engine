@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { describeThumbnail, isAllowedThumbnailUrl } from '@/lib/youtube/analysis/thumbnails';
 import { writeLessons } from '@/lib/youtube/audit/ai/lessons';
+import { buildChannelOverview, fetchChannelProfile, fetchUploadHistory } from '@/lib/youtube/audit/channel-overview';
+import { detectReportLanguage } from '@/lib/youtube/audit/language';
 import { MIN_GROUP, auditChannel, thumbnailSplit, type RankedVideo } from '@/lib/youtube/audit/channel-audit';
 import { fetchChannelVideos } from '@/lib/youtube/audit/fetch';
 import { resolveTarget } from '@/lib/youtube/audit/resolve';
@@ -19,7 +21,7 @@ export const maxDuration = 180;
 
 const bodySchema = z.object({ channel: z.string().trim().min(1).max(300), language: z.enum(['English', 'Bangla']).optional() });
 
-/** Uploads read for a channel audit (about 4 quota units). */
+/** Uploads read for a channel audit (about 4 quota units; the overview adds 1 plus 1 per 50 uploads, up to 1,000). */
 const VIDEOS = 100;
 
 const FALLBACK = {
@@ -41,7 +43,6 @@ export async function POST(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: 'Paste a YouTube channel link or @handle.' }, { status: 400 });
   const target = resolveTarget(parsed.data.channel);
   if (!target || target.kind === 'video') return NextResponse.json({ error: 'That doesn’t look like a YouTube channel link or @handle.', code: 'bad_link' }, { status: 400 });
-  const language = parsed.data.language ?? 'English';
 
   return streamAnalysis<'connect' | 'channel' | 'videos' | 'analyze' | 'thumbnails' | 'lessons' | 'done'>({
     userId,
@@ -58,14 +59,23 @@ export async function POST(req: Request) {
       const isOwn = channel.id === token.connection.channelId;
 
       onStage('videos');
-      const [videos, mine] = await Promise.all([
+      // The profile and upload history only add the overview: if they fail, the audit still runs.
+      const [videos, mine, profile, history] = await Promise.all([
         fetchChannelVideos(token.accessToken, channel.id, VIDEOS),
         isOwn ? Promise.resolve(null) : fetchChannelVideos(token.accessToken, token.connection.channelId, 50).catch(() => null),
+        fetchChannelProfile(token.accessToken, channel.id).catch(() => null),
+        fetchUploadHistory(token.accessToken, channel.id).catch(() => null),
       ]);
       if (videos.length === 0) throw new UserFacingError('This channel has no public videos to analyze. Your credits were returned.');
 
+      // Written in the language this channel works in.
+      const language = parsed.data.language ?? detectReportLanguage([channel.title, ...videos.slice(0, 30).map((v) => v.title)], [profile?.language, identity.defaultLanguage]);
+
       onStage('analyze');
-      const result = auditChannel(channel, videos, new Date(), mine);
+      const now = new Date();
+      const result = auditChannel(channel, videos, now, mine);
+      const overview = profile && history ? buildChannelOverview(profile, history, videos, now) : null;
+      if (!overview) result.limitations.push('The channel overview could not be loaded this time.');
 
       // Thumbnails of the long-form standouts vs the weakest (Shorts are found by swiping).
       onStage('thumbnails');
@@ -86,7 +96,7 @@ export async function POST(req: Request) {
       const fallback = result.stats.hitRate === null || result.stats.judged < 6 ? f.unknown : result.stats.hitRate >= 0.15 ? f.often : f.rare;
       const { verdict, lessons } = await writeLessons({ subject: 'channel', fallback, label: 'not_comparable', findings: result.findings, themes: [], language, models: settings.textModels });
 
-      return { ...result, isOwn, verdict, lessons };
+      return { ...result, overview, isOwn, verdict, lessons };
     },
   });
 }

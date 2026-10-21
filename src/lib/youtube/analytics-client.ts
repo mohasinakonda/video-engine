@@ -1,7 +1,9 @@
 import { YOUTUBE_ANALYTICS_API } from './config';
 import { googleJson } from './google-fetch';
 import type {
+  AgeGroupRow,
   ChannelTotals,
+  CountryRow,
   DailyPoint,
   DateRange,
   PeriodStats,
@@ -144,5 +146,25 @@ export async function fetchRetention(accessToken: string, range: DateRange, vide
       row.relativeRetentionPerformance === undefined || row.relativeRetentionPerformance === null
         ? null
         : num(row.relativeRetentionPerformance),
+  }));
+}
+
+/** Share of viewers per age group (signed-in viewers only; YouTube may return no rows for small channels). */
+export async function fetchAgeGroups(accessToken: string, range: DateRange): Promise<AgeGroupRow[]> {
+  const rows = await query(accessToken, range, { dimensions: 'ageGroup', metrics: 'viewerPercentage', sort: 'ageGroup' });
+  return rows.map((row) => ({ ageGroup: String(row.ageGroup), viewerPct: num(row.viewerPercentage) }));
+}
+
+/** Views per viewer country, most first. */
+export async function fetchCountries(accessToken: string, range: DateRange): Promise<CountryRow[]> {
+  const rows = await query(accessToken, range, {
+    dimensions: 'country',
+    metrics: 'views,estimatedMinutesWatched',
+    sort: '-views',
+  });
+  return rows.map((row) => ({
+    country: String(row.country),
+    views: num(row.views),
+    minutesWatched: num(row.estimatedMinutesWatched),
   }));
 }

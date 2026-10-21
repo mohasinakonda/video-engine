@@ -7,19 +7,11 @@ import type { ChannelPatterns as Patterns, ChartPoint } from '@/lib/youtube/audi
 const times = (x: number) => (x >= 10 ? `${Math.round(x)}×` : `${x.toFixed(1)}×`);
 
 /** What goes with more (or fewer) views on the video's own channel, and where this video sits. */
-export function ChannelPatterns({ patterns }: { patterns: Patterns }) {
+export function ChannelPatterns({ patterns, bare = false }: { patterns: Patterns; bare?: boolean }) {
   const formatName = patterns.format === 'short' ? 'Shorts' : 'videos';
-  return (
-    <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold text-white inline-flex items-center gap-2">
-          <TrendingUp size={18} className="text-emerald-300" />
-          What wins on this channel
-        </h3>
-        <p className="text-sm text-zinc-400">
-          Its {patterns.sample} {formatName} from the past year, grouped by what they have in common. These show what goes together here, not what causes views.
-        </p>
-      </div>
+  const hint = `What its ${patterns.sample} ${formatName} from the past year have in common when they do well or badly. It shows what goes together here; it doesn’t prove that’s why.`;
+  const body = (
+    <>
 
       {patterns.patterns.length === 0 ? (
         <p className="text-base text-zinc-400">No clear pattern: groups of its videos get about the same views.</p>
@@ -33,7 +25,7 @@ export function ChannelPatterns({ patterns }: { patterns: Patterns }) {
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-base text-zinc-100">{p.label}</p>
                   <span className={`shrink-0 text-sm font-semibold tabular-nums ${up ? 'text-emerald-300' : 'text-amber-300'}`}>
-                    {up ? `${times(p.lift)} views` : `${times(1 / p.lift)} fewer`}
+                    {up ? `${times(p.lift)} more views` : `${times(1 / p.lift)} fewer views`}
                   </span>
                 </div>
                 <div className="h-1.5 rounded-full bg-bg-surface overflow-hidden">
@@ -41,7 +33,7 @@ export function ChannelPatterns({ patterns }: { patterns: Patterns }) {
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
                   <span>
-                    Median {formatCompact(p.withMedian)} for {p.withCount} with it · {formatCompact(p.withoutMedian)} for {p.withoutCount} without
+                    With it: usually {formatCompact(p.withMedian)} views ({p.withCount} videos) · without: {formatCompact(p.withoutMedian)} ({p.withoutCount})
                   </span>
                   <span className={`inline-flex items-center gap-1 ${p.thisHas ? 'text-zinc-200' : 'text-zinc-500'}`}>
                     {p.thisHas ? <Check size={12} /> : <Minus size={12} />}
@@ -62,7 +54,7 @@ export function ChannelPatterns({ patterns }: { patterns: Patterns }) {
               <li key={p.traits.join('+')} className="text-sm text-zinc-400 flex flex-wrap justify-between gap-x-3">
                 <span className="text-zinc-200">{p.label}</span>
                 <span className="tabular-nums">
-                  {formatCompact(p.withMedian)} with ({p.withCount}) · {formatCompact(p.withoutMedian)} without ({p.withoutCount})
+                  usually {formatCompact(p.withMedian)} views with it ({p.withCount}) · {formatCompact(p.withoutMedian)} without ({p.withoutCount})
                 </span>
               </li>
             ))}
@@ -70,67 +62,94 @@ export function ChannelPatterns({ patterns }: { patterns: Patterns }) {
         </div>
       )}
 
-      {patterns.chart.length >= 5 && <ViewsByLength points={patterns.chart} />}
+      {patterns.chart.length >= 5 && <ViewsByLength points={patterns.chart} format={patterns.format} />}
+    </>
+  );
+  if (bare)
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-zinc-400">{hint}</p>
+        {body}
+      </div>
+    );
+  return (
+    <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold text-white inline-flex items-center gap-2">
+          <TrendingUp size={18} className="text-emerald-300" />
+          What wins on this channel
+        </h3>
+        <p className="text-sm text-zinc-400">{hint}</p>
+      </div>
+      {body}
     </section>
   );
 }
 
-const W = 600;
-const H = 220;
-const PAD = { l: 44, r: 12, t: 10, b: 28 };
+const LENGTHS = {
+  short: [
+    { label: 'Under 30 sec', max: 30 },
+    { label: '30–60 sec', max: 60 },
+    { label: '1–3 min', max: Infinity },
+  ],
+  video: [
+    { label: 'Under 8 min', max: 480 },
+    { label: '8–15 min', max: 900 },
+    { label: '15–30 min', max: 1800 },
+    { label: '30–60 min', max: 3600 },
+    { label: '1 hour+', max: Infinity },
+  ],
+} as const;
 
-/** Each video by length and views (log scale); this video is highlighted. */
-function ViewsByLength({ points }: { points: ChartPoint[] }) {
-  const minutes = points.map((p) => p.durationSec / 60);
-  const logs = points.map((p) => Math.log10(Math.max(1, p.views)));
-  const xMax = Math.max(1, ...minutes) * 1.05;
-  const yMin = Math.floor(Math.min(...logs));
-  const yMax = Math.ceil(Math.max(...logs)) || 1;
-  const x = (m: number) => PAD.l + (m / xMax) * (W - PAD.l - PAD.r);
-  const y = (l: number) => H - PAD.b - ((l - yMin) / Math.max(1, yMax - yMin)) * (H - PAD.t - PAD.b);
-  const ticks = Array.from({ length: yMax - yMin + 1 }, (_, i) => yMin + i);
-  const xTicks = [0, xMax / 2, xMax].map((m) => Math.round(m));
-  const ordered = [...points].sort((a, b) => Number(a.isThis) - Number(b.isThis));
+function middle(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** Typical views per length range, with the range this video is in marked. */
+function ViewsByLength({ points, format }: { points: ChartPoint[]; format: Patterns['format'] }) {
+  const ranges = LENGTHS[format === 'short' ? 'short' : 'video'];
+  const rangeOf = (sec: number) => ranges.findIndex((r) => sec < r.max);
+  const self = points.find((p) => p.isThis);
+  const groups = ranges
+    .map((r, i) => {
+      const views = points.filter((p) => !p.isThis && rangeOf(p.durationSec) === i).map((p) => p.views);
+      return { label: r.label, count: views.length, median: views.length ? middle(views) : null, hasThis: !!self && rangeOf(self.durationSec) === i };
+    })
+    .filter((g) => g.count > 0 || g.hasThis);
+  const max = Math.max(1, ...groups.map((g) => g.median ?? 0));
 
   return (
-    <figure className="space-y-1">
-      <figcaption className="text-sm font-semibold text-zinc-300">Views by length</figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Each of the channel’s videos by length and views; this video is highlighted">
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} className="stroke-zinc-800" strokeWidth={1} />
-            <text x={PAD.l - 6} y={y(t) + 4} textAnchor="end" className="fill-zinc-500 text-[11px]">
-              {formatCompact(10 ** t)}
-            </text>
-          </g>
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-zinc-300">Views by length</p>
+        <p className="text-xs text-zinc-500">Typical views of its other videos in each length range. Older videos had more time to collect views.</p>
+      </div>
+      <ul className="space-y-2.5">
+        {groups.map((g) => (
+          <li key={g.label} className="space-y-1">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+              <span className={g.hasThis ? 'text-amber-200 font-semibold' : 'text-zinc-200'}>
+                {g.label}
+                {g.hasThis && ' · this video’s length'}
+              </span>
+              <span className="tabular-nums text-zinc-400">
+                {g.median === null ? 'no other videos' : `${formatCompact(g.median)} typical · ${g.count} ${g.count === 1 ? 'video' : 'videos'}`}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-bg-elevated overflow-hidden">
+              <div className={`h-full rounded-full ${g.hasThis ? 'bg-amber-300/80' : 'bg-sky-400/70'}`} style={{ width: `${g.median ? Math.max(2, (g.median / max) * 100) : 0}%` }} />
+            </div>
+          </li>
         ))}
-        {xTicks.map((m) => (
-          <text key={m} x={x(m)} y={H - 8} textAnchor="middle" className="fill-zinc-500 text-[11px]">
-            {m} min
-          </text>
-        ))}
-        {ordered.map((p) => (
-          <circle
-            key={p.id}
-            cx={x(p.durationSec / 60)}
-            cy={y(Math.log10(Math.max(1, p.views)))}
-            r={p.isThis ? 7 : 4}
-            className={p.isThis ? 'fill-amber-300 stroke-zinc-950' : 'fill-sky-400/50'}
-            strokeWidth={p.isThis ? 2 : 0}
-          >
-            <title>{`${p.isThis ? 'This video: ' : ''}${p.title} · ${formatCompact(p.views)} views · ${Math.round(p.durationSec / 60)} min`}</title>
-          </circle>
-        ))}
-      </svg>
-      <p className="text-xs text-zinc-500 inline-flex items-center gap-3">
-        <span className="inline-flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-300" /> This video
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-sky-400/50" /> Its other videos
-        </span>
-        Older videos had more time to collect views.
-      </p>
-    </figure>
+      </ul>
+      {self && (
+        <p className="text-sm text-zinc-300">
+          This video: <span className="font-semibold text-white tabular-nums">{formatCompact(self.views)} views</span> at{' '}
+          {self.durationSec < 60 ? `${self.durationSec} sec` : `${Math.round(self.durationSec / 60)} min`}.
+        </p>
+      )}
+    </div>
   );
 }

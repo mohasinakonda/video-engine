@@ -12,7 +12,7 @@ const NO_ACCESS: AuditConfig = { enabled: false, hasAccess: false, costs: { vide
  * Runs one audit on request and keeps the result in this tab (cleared on sign-out and
  * disconnect, like Channel Doctor's reports). Nothing runs, or is charged, until `run`.
  */
-export function useAudit<T>(kind: 'video' | 'channel' | 'compare', ref: string, endpoint: string, body: (language: 'English' | 'Bangla') => object) {
+export function useAudit<T>(kind: 'video' | 'channel' | 'compare', ref: string, endpoint: string, body: () => object) {
   const { user } = useAuth();
   const [config, setConfig] = useState<AuditConfig | null>(null);
   const [report, setReport] = useState<{ result: T; analyzedAt: string } | null>(null);
@@ -31,10 +31,10 @@ export function useAudit<T>(kind: 'video' | 'channel' | 'compare', ref: string, 
     if (key) setReport(loadReport<T>(key));
   }, [key]);
 
-  const run = async (language: 'English' | 'Bangla') => {
+  const run = async () => {
     setFailure(null);
     setStage('connect');
-    const out = await runStream<T>(endpoint, body(language), setStage);
+    const out = await runStream<T>(endpoint, body(), setStage);
     setStage(null);
     if (!out.ok) return setFailure(out.error);
     if (key) saveReport(key, out.data);

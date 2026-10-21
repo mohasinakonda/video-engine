@@ -35,7 +35,6 @@ export async function POST(req: Request) {
   const [yours, theirs] = [resolveTarget(parsed.data.yours), resolveTarget(parsed.data.theirs)];
   if (yours?.kind !== 'video' || theirs?.kind !== 'video') return NextResponse.json({ error: 'Both links need to be YouTube videos.', code: 'bad_link' }, { status: 400 });
   if (yours.videoId === theirs.videoId) return NextResponse.json({ error: 'Pick two different videos.', code: 'same_video' }, { status: 400 });
-  const language = parsed.data.language ?? 'English';
 
   return streamAnalysis<'connect' | 'yours' | 'theirs' | 'compare' | 'done'>({
     userId,
@@ -46,12 +45,14 @@ export async function POST(req: Request) {
     reserve: async ({ audit }) =>
       (await consumeQuota(`audit:user:${userId}`, 2, audit.runsPerUserDay)) ? null : `You’ve reached today’s limit of ${audit.runsPerUserDay} analyses. It resets tomorrow.`,
     run: async ({ token, settings, onStage }) => {
-      const base = { accessToken: token.accessToken, myChannelId: token.connection.channelId, settings, language, withLessons: false };
+      const base = { accessToken: token.accessToken, myChannelId: token.connection.channelId, settings, withLessons: false };
       onStage('yours');
-      const mine = await runVideoAudit({ ...base, videoId: yours.videoId });
+      // Written in the language of the creator's own channel.
+      const mine = await runVideoAudit({ ...base, language: parsed.data.language, videoId: yours.videoId });
       if (!mine.isOwn) throw new UserFacingError('The first video needs to be one of yours (on your connected channel). Your credits were returned.');
+      const language = mine.language;
       onStage('theirs');
-      const other = await runVideoAudit({ ...base, videoId: theirs.videoId });
+      const other = await runVideoAudit({ ...base, language, videoId: theirs.videoId });
 
       onStage('compare');
       const { rows, differences } = compareVideos(mine, other);

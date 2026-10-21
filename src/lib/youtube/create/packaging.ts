@@ -44,6 +44,10 @@ export const thumbnailConceptSchema = z.object({
   contrast: text(200),
   hierarchy: text(240),
   source: z.enum(['ai', 'manual']),
+  /** The made image, kept in this browser only (media never reaches our servers). */
+  imageId: z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional(),
+  /** The Canva design it's being edited in. */
+  canvaDesignId: z.string().regex(/^[A-Za-z0-9_-]{4,100}$/).optional(),
 });
 export type ThumbnailConcept = z.infer<typeof thumbnailConceptSchema>;
 
@@ -145,7 +149,7 @@ export const blankThumbnail = (): ThumbnailConcept => ({
   source: 'manual',
 });
 
-export const THUMBNAIL_FIELDS: { key: Exclude<keyof ThumbnailConcept, 'source'>; label: string }[] = [
+export const THUMBNAIL_FIELDS: { key: Exclude<keyof ThumbnailConcept, 'source' | 'imageId' | 'canvaDesignId'>; label: string }[] = [
   { key: 'mainSubject', label: 'Main subject' },
   { key: 'supportingObject', label: 'Supporting object' },
   { key: 'emotionOrAction', label: 'Emotion or action' },
@@ -166,4 +170,27 @@ export function packagingToText(p: VideoPackaging): string {
   else lines.push('(not chosen yet)');
   lines.push('', '## Description', p.description || '(empty)', '', '## Tags', p.tags.join(', ') || '(none)');
   return lines.join('\n') + '\n';
+}
+
+/** Thumbnail text the image model can draw: Latin letters only (it can't write Bangla). */
+export const drawableText = (text: string) => /^[A-Za-zÀ-ɏ\d\s!?'’&:,.-]+$/.test(text.trim());
+
+/**
+ * An image prompt from a thumbnail idea. Text the model can't draw is left out, to be added in
+ * Canva instead.
+ */
+export function thumbnailPrompt(c: ThumbnailConcept): { prompt: string; textLeftOut: boolean } {
+  const parts = [
+    'YouTube thumbnail, 16:9',
+    c.mainSubject,
+    c.supportingObject && `with ${c.supportingObject}`,
+    c.emotionOrAction,
+    c.composition && `Composition: ${c.composition}`,
+    c.background && `Background: ${c.background}`,
+    c.contrast,
+  ];
+  const text = c.text.trim();
+  const draw = !!text && drawableText(text);
+  parts.push(draw ? `Bold, large, easy-to-read headline text that says "${text}"` : 'No text or letters in the image');
+  return { prompt: parts.filter(Boolean).join('. ').replace(/\.\./g, '.'), textLeftOut: !!text && !draw };
 }

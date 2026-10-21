@@ -17,12 +17,13 @@ export const maxDuration = 300;
 
 type Context = { params: { id: string } };
 
-const generateSchema = z.object({ notes: z.string().trim().max(1500).optional() });
+const generateSchema = z.object({ notes: z.string().trim().max(1500).optional(), only: z.enum(['titles', 'thumbnails']).optional() });
 
 const NOT_EDITABLE = 'Packaging can be made once the script is saved, and changed until the video is published.';
 
 /**
  * POST /api/create/projects/:id/packaging — the AI proposes titles, thumbnails and a description
+ * (or, with `only`, new titles or new thumbnails alone)
  * (streamed; credits charged up front, refunded if nothing usable comes back). Chosen concepts
  * are kept; the status doesn't move until the user chooses and saves.
  */
@@ -63,8 +64,12 @@ export async function POST(req: Request, { params }: Context) {
         notes: parsed.data.notes,
         models: settings.textModels,
         previous: previous.success ? previous.data : null,
+        only: parsed.data.only,
       });
-      if (!packaging) throw new UserFacingError('The AI couldn’t come up with usable titles right now. Your credits were returned; you can write your own or try again.');
+      if (!packaging) {
+        const what = parsed.data.only === 'thumbnails' ? 'thumbnail ideas' : 'titles';
+        throw new UserFacingError(`The AI couldn’t come up with usable ${what} right now. Your credits were returned; you can write your own or try again.`);
+      }
       const updated = await updateProject(userId, project, { packaging, lastError: null, usage: bump(project, 'packaging') });
       return { project: updated };
     },

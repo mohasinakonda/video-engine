@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, ScanSearch } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, ScanSearch } from 'lucide-react';
 import { StreamError } from '@/components/discover/stream-error';
 import type { StreamFailure } from '@/components/create/run-stream';
 import type { AuditConfig } from './types';
 
-/** The frame around an audit: back link, access, language, the run button with its price, progress and errors. */
+/**
+ * The frame around an audit: back link, access, what the run gives, the run button with its price,
+ * progress and errors. Reports are written in the language the analyzed channel works in.
+ */
 export function AuditShell({
   back,
   title,
@@ -20,6 +22,7 @@ export function AuditShell({
   stages,
   failure,
   onRun,
+  preview,
   children,
 }: {
   back: string;
@@ -32,10 +35,11 @@ export function AuditShell({
   stage: string | null;
   stages: Record<string, string>;
   failure: StreamFailure | null;
-  onRun: (language: 'English' | 'Bangla') => void;
+  onRun: () => void;
+  /** What the run gives, shown until the first report. */
+  preview?: string[];
   children: React.ReactNode;
 }) {
-  const [language, setLanguage] = useState<'English' | 'Bangla'>('English');
   return (
     <div className="page-shell">
       <div className="page-container max-w-4xl space-y-6">
@@ -69,22 +73,34 @@ export function AuditShell({
                   </h1>
                   <p className="text-base text-zinc-400">{subtitle}</p>
                 </div>
-                <div className="flex items-start gap-2">
-                  <select className="input text-sm py-1.5 w-auto" value={language} onChange={(e) => setLanguage(e.target.value as 'English' | 'Bangla')} aria-label="Language">
-                    <option value="English">English</option>
-                    <option value="Bangla">বাংলা</option>
-                  </select>
-                  <div className="space-y-1">
-                    <button type="button" className="btn-primary px-5" disabled={stage !== null} onClick={() => onRun(language)}>
-                      {stage ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
-                      {hasReport ? 'Analyze again' : 'Analyze'}
-                    </button>
-                    <p className="text-xs text-zinc-500 text-center">Uses {cost(config)} credits</p>
-                  </div>
+                <div className="space-y-1">
+                  <button type="button" className="btn-primary px-5" disabled={stage !== null} onClick={onRun}>
+                    {stage ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
+                    {hasReport ? 'Analyze again' : 'Analyze'}
+                  </button>
+                  <p className="text-xs text-zinc-500 text-center">Uses {cost(config)} credits</p>
                 </div>
               </div>
+              {!hasReport && !stage && preview && preview.length > 0 && (
+                <div className="space-y-2 border-t border-bg-border pt-4">
+                  <p className="text-sm font-semibold text-zinc-300">What you’ll get</p>
+                  <ul className="space-y-1.5">
+                    {preview.map((p) => (
+                      <li key={p} className="text-sm text-zinc-300 flex gap-2">
+                        <Check size={15} className="text-emerald-400 shrink-0 mt-0.5" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-zinc-500">The report stays on this page until you close the tab. Analyzing again uses credits again.</p>
+                </div>
+              )}
               {stage && <p className="text-sm text-zinc-300">{stages[stage] ?? 'Working…'} Usually under 30 seconds.</p>}
-              {analyzedAt && !stage && <p className="text-xs text-zinc-500">Analyzed {new Date(analyzedAt).toLocaleString()}. Kept in this tab only.</p>}
+              {analyzedAt && !stage && (
+                <p className="text-xs text-zinc-500">
+                  Analyzed {new Date(analyzedAt).toLocaleString()}. It stays here until you close this tab; analyzing again uses credits again.
+                </p>
+              )}
             </section>
 
             {failure && <StreamError error={failure} />}

@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, PenLine, Sparkles } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
 import { PackagingEditor } from '@/components/create/packaging-editor';
+import type { ThumbnailLink } from '@/components/create/thumbnail-maker';
 import { ProjectHeader, ProjectPlaceholder } from '@/components/create/project-header';
 import { runStream, type StreamFailure } from '@/components/create/run-stream';
 import type { CreateConfig, VideoProject } from '@/components/create/types';
@@ -48,11 +49,24 @@ export default function PackagePage() {
     setDraft(null);
   };
 
-  const generate = async (notes: string) => {
+  const linkThumbnail = async (index: number, mainSubject: string, link: ThumbnailLink): Promise<string | null> => {
+    if (!loaded) return 'The project isn’t loaded.';
+    const res = await fetch(`/api/create/projects/${loaded.id}/packaging/thumbnail`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index, mainSubject, ...link }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return data.error || 'Couldn’t save the image link.';
+    setProject(data.project);
+    return null;
+  };
+
+  const generate = async (notes: string, only?: 'titles' | 'thumbnails') => {
     if (!loaded) return;
     setGenerating(true);
     setFailure(null);
-    const result = await runStream<{ project: VideoProject }>(`/api/create/projects/${loaded.id}/packaging`, { notes: notes || undefined });
+    const result = await runStream<{ project: VideoProject }>(`/api/create/projects/${loaded.id}/packaging`, { notes: notes || undefined, only });
     setGenerating(false);
     if (!result.ok) return setFailure(result.error);
     setProject(result.data.project);
@@ -94,6 +108,7 @@ export default function PackagePage() {
                   generating={generating}
                   onSave={save}
                   onGenerate={generate}
+                  onLinkThumbnail={linkThumbnail}
                 />
               ) : (
                 <StartPackaging

@@ -1,4 +1,6 @@
 import {
+  fetchAgeGroups,
+  fetchCountries,
   fetchDaily,
   fetchFormatViews,
   fetchPerVideo,
@@ -105,7 +107,7 @@ export async function fetchChannelDataset(options: FetchOptions): Promise<Channe
     }
   }
 
-  const [daily, totals, previousTotals, shorts, longForm, traffic, formatViews, reach] = await Promise.all([
+  const [daily, totals, previousTotals, shorts, longForm, traffic, formatViews, ageGroups, countries, reach] = await Promise.all([
     settle(fetchDaily(accessToken, current), 'daily trends'),
     settle(fetchTotals(accessToken, current), 'channel totals').then(nullToMissing('channel totals')),
     settle(fetchTotals(accessToken, previous), 'previous-period totals').then(nullToMissing('previous-period totals')),
@@ -113,6 +115,8 @@ export async function fetchChannelDataset(options: FetchOptions): Promise<Channe
     settle(fetchPerVideo(accessToken, current, 'video'), 'video performance'),
     settle(fetchTraffic(accessToken, current), 'traffic sources'),
     settle(fetchFormatViews(accessToken, current), 'Shorts vs videos split'),
+    settle(fetchAgeGroups(accessToken, current), 'viewer ages'),
+    settle(fetchCountries(accessToken, current), 'viewer countries'),
     jobId
       ? settle(fetchReach(accessToken, jobId, jobCreatedAt, current), 'impressions and CTR')
       : Promise.resolve<Result<never>>({ ok: false, reason: 'Impressions and CTR reporting could not be started for this channel.' }),
@@ -166,6 +170,8 @@ export async function fetchChannelDataset(options: FetchOptions): Promise<Channe
     perVideo,
     traffic,
     formatViews,
+    ageGroups,
+    countries,
     retention,
     reach,
   };

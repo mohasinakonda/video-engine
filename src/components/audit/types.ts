@@ -14,7 +14,11 @@ export interface AuditConfig {
 
 export type { RankedVideo } from '@/lib/youtube/audit/channel-audit';
 
+export type { ChannelOverview, OverviewVideo } from '@/lib/youtube/audit/channel-overview';
+
 export interface ChannelAuditReport extends ChannelAuditResult {
+  /** Missing on reports saved before it was added; null when it could not be loaded. */
+  overview?: import('@/lib/youtube/audit/channel-overview').ChannelOverview | null;
   isOwn: boolean;
   verdict: string;
   lessons: string[];

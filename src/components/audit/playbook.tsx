@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Check, ClipboardCopy, FileText, Hash, ListChecks, Scale } from 'lucide-react';
 import { lowerFirst } from '@/lib/youtube/audit/patterns';
+import { CopyButton } from '@/components/ui/copy-button';
 import type { VideoAuditReport } from './types';
 
 /** "Make your own version": what to copy from this video, and a start in Create. */
@@ -94,7 +95,7 @@ function recipe(r: VideoAuditReport): string[] {
 }
 
 /** The description's setup and the uploader's tags (public, shown as-is). */
-export function DescriptionAndTags({ report }: { report: VideoAuditReport }) {
+export function DescriptionAndTags({ report, bare = false }: { report: VideoAuditReport; bare?: boolean }) {
   const { description: d, tags } = report;
   if (!d || !tags) return null;
   const chips = [
@@ -111,12 +112,8 @@ export function DescriptionAndTags({ report }: { report: VideoAuditReport }) {
   const best = tags.from === 'standouts' ? 'its standout videos' : 'its most-viewed videos';
   if (!chips.length && !tags.all.length) return null;
 
-  return (
-    <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-4">
-      <h3 className="text-lg font-semibold text-white inline-flex items-center gap-2">
-        <Hash size={18} className="text-sky-300" />
-        Description and tags
-      </h3>
+  const body = (
+    <>
       {chips.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-sm text-zinc-400">What the description has</p>
@@ -131,9 +128,12 @@ export function DescriptionAndTags({ report }: { report: VideoAuditReport }) {
       )}
       {tags.all.length > 0 ? (
         <div className="space-y-1.5">
-          <p className="text-sm text-zinc-400">
-            Its {tags.all.length} tags{tags.shared.length > 0 && <> · <span className="text-emerald-300">green</span> ones set {best} apart</>}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-zinc-400">
+              Its {tags.all.length} tags{tags.shared.length > 0 && <> · <span className="text-emerald-300">green</span> ones set {best} apart</>}
+            </p>
+            <CopyButton text={tags.all.join(', ')} label="Copy tags" />
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {tags.all.map((t) => (
               <span key={t} className={`text-sm px-2.5 py-1 rounded-full ${shared.has(t.trim().toLowerCase()) ? 'bg-emerald-500/15 text-emerald-200' : 'bg-bg-elevated text-zinc-300'}`}>
@@ -142,9 +142,12 @@ export function DescriptionAndTags({ report }: { report: VideoAuditReport }) {
             ))}
           </div>
           {tags.missing.length > 0 && (
-            <p className="text-sm text-zinc-400">
-              On most of {best} (and not the rest) but not here: <span className="text-zinc-200">{tags.missing.join(', ')}</span>
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm text-zinc-400">
+                On most of {best} (and not the rest) but not here: <span className="text-zinc-200">{tags.missing.join(', ')}</span>
+              </p>
+              <CopyButton text={tags.missing.join(', ')} />
+            </div>
           )}
           {(tags.boilerplate?.length ?? 0) > 0 && (
             <p className="text-sm text-zinc-400">{tags.boilerplate.length} of them are on most of the channel’s videos: its standard set, so they don’t explain this one.</p>
@@ -154,6 +157,16 @@ export function DescriptionAndTags({ report }: { report: VideoAuditReport }) {
       ) : (
         <p className="text-sm text-zinc-400">This video has no tags.</p>
       )}
+    </>
+  );
+  if (bare) return <div className="space-y-4">{body}</div>;
+  return (
+    <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-4">
+      <h3 className="text-lg font-semibold text-white inline-flex items-center gap-2">
+        <Hash size={18} className="text-sky-300" />
+        Description and tags
+      </h3>
+      {body}
     </section>
   );
 }

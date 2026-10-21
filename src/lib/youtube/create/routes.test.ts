@@ -125,6 +125,7 @@ import { emptyBrief } from './brief';
 import { emptyScript } from './script';
 import { blankThumbnail, emptyPackaging } from './packaging';
 import { POST as packageRoute, PUT as savePackaging } from '@/app/api/create/projects/[id]/packaging/route';
+import { PATCH as linkThumbnail } from '@/app/api/create/projects/[id]/packaging/thumbnail/route';
 import { DELETE as unlink, GET as readLink, POST as linkVideo } from '@/app/api/create/projects/[id]/publish/route';
 import { GET as candidatesRoute } from '@/app/api/create/projects/[id]/publish-candidates/route';
 import { GET as remindersRoute } from '@/app/api/create/publish-reminders/route';
@@ -382,6 +383,24 @@ describe('packaging API', () => {
     expect((await savePackaging(put(pack(false)), ctx(MY_PROJECT))).status).toBe(200);
     expect(rows.get(MY_PROJECT)?.status).toBe('SCRIPT_READY');
     expect(credits.charged).toBe(0);
+  });
+
+  it('links a thumbnail idea to its image and Canva design without touching the status', async () => {
+    const saved = { ...pack(true), scriptUpdatedAt: '2026-01-01T00:00:00.000Z' };
+    at('PACKAGED', true, saved);
+    const patch = (body: unknown) => new Request('http://localhost/api', { method: 'PATCH', body: JSON.stringify(body) });
+    const imageId = '0b4f2c1e-9a7d-4c3b-8e21-5f6a7b8c9d0e';
+
+    expect((await linkThumbnail(patch({ index: 0, mainSubject: 'An anglerfish', imageId, canvaDesignId: 'DAF123abc' }), ctx(MY_PROJECT))).status).toBe(200);
+    expect(rows.get(MY_PROJECT)).toMatchObject({ status: 'PACKAGED', packaging: { scriptUpdatedAt: '2026-01-01T00:00:00.000Z', thumbnails: [{ imageId, canvaDesignId: 'DAF123abc' }] } });
+
+    expect((await linkThumbnail(patch({ index: 0, mainSubject: 'An anglerfish', canvaDesignId: null }), ctx(MY_PROJECT))).status).toBe(200);
+    expect((rows.get(MY_PROJECT)?.packaging as { thumbnails: object[] }).thumbnails[0]).toEqual(expect.not.objectContaining({ canvaDesignId: expect.anything() }));
+
+    // The idea changed since the page loaded, a bad id, or someone else's project.
+    expect((await linkThumbnail(patch({ index: 0, mainSubject: 'Something else', imageId }), ctx(MY_PROJECT))).status).toBe(409);
+    expect((await linkThumbnail(patch({ index: 0, mainSubject: 'An anglerfish', imageId: '../../x' }), ctx(MY_PROJECT))).status).toBe(400);
+    expect((await linkThumbnail(patch({ index: 0, mainSubject: 'An anglerfish', imageId }), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
   });
 
   it('rejects invalid packaging and locked projects', async () => {

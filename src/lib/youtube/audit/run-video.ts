@@ -8,6 +8,7 @@ import type { ChannelDoctorSettings } from '../settings';
 import { viewerThemes, type ViewerThemes } from './ai/comments';
 import { writeLessons } from './ai/lessons';
 import { fetchAuditVideo, fetchChannelVideos, fetchCommentTexts } from './fetch';
+import { detectReportLanguage, type ReportLanguage } from './language';
 import { thumbnailFindings } from './thumbnail-audit';
 import { auditVideo, sortFindings, type VideoAuditResult } from './video-audit';
 
@@ -32,6 +33,8 @@ export interface VideoAuditOutput extends VideoAuditResult {
   /** The title as a reusable shape, and a starting title for the creator's own video (AI; null without). */
   titleTemplate: string | null;
   myVersion: string | null;
+  /** The language the written parts are in. */
+  language: ReportLanguage;
 }
 
 export async function runVideoAudit(options: {
@@ -39,12 +42,13 @@ export async function runVideoAudit(options: {
   myChannelId: string;
   videoId: string;
   settings: ChannelDoctorSettings;
-  language: 'English' | 'Bangla';
+  /** Defaults to the language the video's channel works in. */
+  language?: ReportLanguage;
   /** False when the caller writes its own conclusions (compare mode). */
   withLessons?: boolean;
   onStage?: (stage: AuditStage) => void;
 }): Promise<VideoAuditOutput> {
-  const { accessToken, settings, language } = options;
+  const { accessToken, settings } = options;
   const stage = options.onStage ?? (() => undefined);
 
   stage('video');
@@ -54,6 +58,8 @@ export async function runVideoAudit(options: {
 
   stage('channel');
   const channelVideos = await fetchChannelVideos(accessToken, video.channelId, 50);
+  const language =
+    options.language ?? detectReportLanguage([video.title, video.description.slice(0, 500), ...channelVideos.slice(0, 20).map((v) => v.title)], [video.audioLanguage, video.metadataLanguage]);
 
   stage('analyze');
   const result = auditVideo(video, channelVideos, new Date());
@@ -110,5 +116,6 @@ export async function runVideoAudit(options: {
     lessons,
     titleTemplate,
     myVersion,
+    language,
   };
 }

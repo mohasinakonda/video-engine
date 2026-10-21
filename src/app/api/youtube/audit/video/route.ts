@@ -28,7 +28,6 @@ export async function POST(req: Request) {
   if (!target) return NextResponse.json({ error: 'That doesn’t look like a YouTube video link.', code: 'bad_link' }, { status: 400 });
   if (target.kind !== 'video') return NextResponse.json({ error: 'That’s a channel link. Paste a link to one video.', code: 'not_video' }, { status: 400 });
 
-  const language = parsed.data.language ?? 'English';
 
   return streamAnalysis<'connect' | 'video' | 'channel' | 'analyze' | 'thumbnail' | 'comments' | 'lessons' | 'done'>({
     userId,
@@ -39,6 +38,6 @@ export async function POST(req: Request) {
     reserve: async ({ audit }) =>
       (await consumeQuota(auditBucket(userId), 1, audit.runsPerUserDay)) ? null : `You’ve reached today’s limit of ${audit.runsPerUserDay} analyses. It resets tomorrow.`,
     run: ({ token, settings, onStage }) =>
-      runVideoAudit({ accessToken: token.accessToken, myChannelId: token.connection.channelId, videoId: target.videoId, settings, language, onStage }),
+      runVideoAudit({ accessToken: token.accessToken, myChannelId: token.connection.channelId, videoId: target.videoId, settings, language: parsed.data.language, onStage }),
   });
 }
