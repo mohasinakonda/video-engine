@@ -26,6 +26,8 @@ import { PromoCodeBar } from '@/components/pricing/promo-code-bar';
 import { PricingPlansGrid } from '@/components/pricing/pricing-plans-grid';
 import { CreatorTrustPillars } from '@/components/pricing/creator-trust-pillars';
 import { ComparisonTableSection } from '@/components/pricing/comparison-table-section';
+import { GrowthToolsSection } from '@/components/pricing/growth-tools-section';
+import { usePricingCatalog } from '@/hooks/use-pricing-catalog';
 import { FaqSection } from '@/components/pricing/faq-section';
 import { WhatsAppCtaSection } from '@/components/pricing/whatsapp-cta-section';
 import { PaymentCheckoutModal } from '@/components/pricing/payment-checkout-modal';
@@ -50,6 +52,7 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
     submissions,
     setSubmissions,
   } = usePricing({ initialUser });
+  const catalog = usePricingCatalog();
 
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -283,6 +286,8 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
       <div className="max-w-6xl mx-auto space-y-14">
         <PricingHeader />
 
+        <GrowthToolsSection catalog={catalog} />
+
         <CreditsExplainerSection />
 
         <RoiCalculatorSection
@@ -318,6 +323,8 @@ export default function PricingClient({ initialUser }: PricingClientProps) {
         <ComparisonTableSection
           showComparison={showComparison}
           setShowComparison={setShowComparison}
+          plans={plans}
+          catalog={catalog}
         />
 
         <FaqSection openFaq={openFaq} setOpenFaq={setOpenFaq} />

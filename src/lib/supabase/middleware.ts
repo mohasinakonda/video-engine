@@ -63,6 +63,7 @@ export async function updateSession(request: NextRequest) {
   // (New routes are therefore protected by default.)
   const PUBLIC_API_PREFIXES = [
     '/api/models',
+    '/api/pricing/catalog',
     '/api/styles',
     '/api/voice/models',
     '/api/voice/voices',
@@ -78,6 +79,9 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/storyboard') ||
     pathname.startsWith('/voice-studio') ||
     pathname.startsWith('/youtube-kit-studio') ||
+    pathname.startsWith('/youtube-doctor') ||
+    pathname.startsWith('/discover') ||
+    pathname.startsWith('/create') ||
     pathname.startsWith('/export') ||
     pathname.startsWith('/settings');
 

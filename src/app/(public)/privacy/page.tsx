@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Lock, Eye, FileText } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, FileText, Youtube } from 'lucide-react';
 
 export const metadata = {
   title: 'Privacy Policy | Rendoza AI',
@@ -67,9 +67,83 @@ export default function PrivacyPage() {
             </p>
           </section>
 
+          <section id="youtube-data" className="space-y-3">
+            <h2 className="text-base font-bold text-zinc-950 flex items-center gap-2">
+              <Youtube size={18} className="text-[#E05A30]" />
+              4. YouTube Data (Channel Doctor, Discover and Create)
+            </h2>
+            <p>
+              Channel Doctor, Discover and Create use YouTube API Services. If you choose to connect your YouTube channel, you authorize read-only access
+              with two Google permissions: <code>youtube.readonly</code> (your channel and video details) and{' '}
+              <code>yt-analytics.readonly</code> (your channel&apos;s YouTube Analytics and reach reports, including impressions and
+              click-through rate). We cannot upload, edit or delete anything on your channel.
+            </p>
+            <ul className="list-disc pl-5 space-y-1.5 text-zinc-600">
+              <li>
+                <strong>What we store:</strong> your channel ID, name and profile image, the permissions you granted, and your Google
+                access and refresh tokens, encrypted at rest. We also keep the ID of a YouTube reporting job that prepares your
+                impressions data. For Discover, we store the channel IDs of the competitors you choose to follow, with your optional
+                label and group, until you remove them or disconnect.
+              </li>
+              <li>
+                <strong>Create:</strong> the video plans you make (title, brief, script, packaging ideas) are your content and are stored
+                until you delete them. They contain no YouTube analytics.
+              </li>
+              <li>
+                <strong>What we do not store:</strong> your analytics, video statistics, retention curves, thumbnails and the reports we
+                generate are processed on demand and are not saved on our servers. A finished report is kept only in your browser tab
+                (session storage) until you close it, sign out or disconnect.
+              </li>
+              <li>
+                <strong>Other channels&apos; public data (Discover):</strong> to research your market, we read public information about
+                the channels you follow or that YouTube search returns (names, video titles, view counts, durations, thumbnails). Competitor
+                channels never sign in to our app. This data is processed in memory for each research run and is not saved on our servers;
+                results stay in your browser tab. Scores, ratios and relevance labels shown in Discover are calculated by us and are not
+                YouTube metrics. When you analyze a channel or video, we read the same kind of public information plus up to 100 of the
+                video&apos;s public comments (the comment text only, without author names), on your request and in memory only. The
+                same applies when you search a video plan&apos;s topic in Create to see who made videos on it.
+              </li>
+              <li>
+                <strong>AI processing:</strong> to write a report or research ideas, we send video titles, thumbnail images and summary
+                metrics (not your tokens or raw API data) to our AI provider, DeepInfra, for processing. To write a brief, script or
+                packaging ideas in Create, we send your plan&apos;s text; your YouTube analytics are not sent. To summarise what viewers
+                say about an analyzed video, we send its public comment text without author names.
+              </li>
+              <li>
+                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis, video and channel analyses, and market research. We do not sell it, use it for
+                advertising, or share it with anyone except as described here. Our use of information received from Google APIs adheres
+                to the{' '}
+                <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                  Google API Services User Data Policy
+                </a>
+                , including the Limited Use requirements.
+              </li>
+              <li>
+                <strong>Disconnect and deletion:</strong> disconnecting in Channel Doctor stops the reporting job, asks Google to revoke our
+                access and deletes the stored connection, tokens and your followed competitors (your video plans stay). Deleting your account deletes all of it. You can also revoke access at
+                any time at{' '}
+                <a href="https://myaccount.google.com/permissions" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                  myaccount.google.com/permissions
+                </a>
+                .
+              </li>
+            </ul>
+            <p>
+              By connecting YouTube you also agree to the{' '}
+              <a href="https://www.youtube.com/t/terms" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                YouTube Terms of Service
+              </a>{' '}
+              and the{' '}
+              <a href="https://policies.google.com/privacy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                Google Privacy Policy
+              </a>
+              .
+            </p>
+          </section>
+
           <section className="space-y-3 border-t border-[#E5E0D8] pt-6">
             <h2 className="text-base font-bold text-zinc-950">
-              4. Contact Us
+              5. Contact Us
             </h2>
             <p>
               If you have any questions or data privacy inquiries, please reach out to our privacy officer via our official WhatsApp Support channel or email us at support@rendoza.ai.

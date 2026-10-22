@@ -1897,3 +1897,230 @@ begin
   return true;
 end;
 $function$;
+
+-- Channel Doctor (YouTube channel diagnosis), Phase 1.
+-- Only the YouTube connection and the admin configuration are stored.
+-- Channel analytics, reports and AI output are never written to the database.
+
+-- One YouTube connection per app user. Tokens are encrypted by the app (AES-256-GCM)
+-- with a key that lives in the server environment, not in the database.
+create table if not exists public.youtube_connections (
+  id                       uuid primary key default gen_random_uuid(),
+  user_id                  uuid not null unique references auth.users(id) on delete cascade,
+  channel_id               text not null,
+  channel_title            text,
+  channel_thumbnail        text,
+  access_token_enc         text,
+  refresh_token_enc        text,
+  token_expires_at         timestamptz,
+  scopes                   text[] not null default '{}',
+  status                   text not null default 'active'
+                           check (status in ('active', 'needs_reauth', 'revoked')),
+  reporting_job_id         text,
+  reporting_job_created_at timestamptz,
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now()
+);
+
+-- RLS on with no policies: only the server's service-role client can read or write,
+-- always filtered by the signed-in user's id. Token columns never reach the browser.
+alter table public.youtube_connections enable row level security;
+
+-- Admin-controlled settings (single row).
+create table if not exists public.channel_doctor_settings (
+  id                         int primary key default 1 check (id = 1),
+  enabled                    boolean not null default true,
+  allowed_plans              text[]  not null default '{STARTER,CREATOR,STUDIO}',
+  diagnosis_credit_cost      int     not null default 10 check (diagnosis_credit_cost >= 0),
+  video_analysis_credit_cost int     not null default 3  check (video_analysis_credit_cost >= 0),
+  text_models                text[]  not null default '{deepseek-ai/DeepSeek-V4-Flash-0731,nvidia/NVIDIA-Nemotron-3.5-Lightning}',
+  vision_models              text[]  not null default '{Qwen/Qwen3-VL-30B-A3B-Instruct,google/gemma-3-27b-it}',
+  max_videos                 int     not null default 100 check (max_videos between 10 and 200),
+  max_retention_videos       int     not null default 8   check (max_retention_videos between 0 and 20),
+  max_thumbnails             int     not null default 12  check (max_thumbnails between 0 and 24),
+  hourly_limit_per_user      int     not null default 10  check (hourly_limit_per_user between 1 and 100),
+  updated_at                 timestamptz not null default now()
+);
+
+insert into public.channel_doctor_settings (id) values (1) on conflict (id) do nothing;
+
+alter table public.channel_doctor_settings enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'channel_doctor_settings'
+      and policyname = 'Admins manage channel doctor settings'
+  ) then
+    create policy "Admins manage channel doctor settings" on public.channel_doctor_settings
+      for all using (public.is_admin()) with check (public.is_admin());
+  end if;
+end $$;
+
+-- Discover (Phase 2): competitor watchlist, shared YouTube search budget, admin settings.
+-- Only user configuration and counters are stored. No competitor titles, stats,
+-- thumbnails, search results or reports (see docs/discover-plan.md §3).
+
+-- ─── Competitor watchlist ────────────────────────────────────────────────────
+create table if not exists public.discover_competitors (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  channel_id  text not null check (channel_id ~ '^UC[A-Za-z0-9_-]{22}$'),
+  label       text check (label is null or char_length(label) <= 60),
+  grouping    text not null default 'direct' check (grouping in ('direct', 'adjacent', 'format')),
+  active      boolean not null default true,
+  added_at    timestamptz not null default now(),
+  unique (user_id, channel_id)
+);
+
+create index if not exists discover_competitors_user_idx on public.discover_competitors (user_id);
+
+alter table public.discover_competitors enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'discover_competitors' and policyname = 'Users manage own competitors'
+  ) then
+    create policy "Users manage own competitors" on public.discover_competitors
+      for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ─── Shared YouTube quota budget (search.list has its own 100 calls/day bucket) ──
+create table if not exists public.youtube_quota_usage (
+  day     date not null,
+  bucket  text not null check (char_length(bucket) <= 80),
+  used    integer not null default 0 check (used >= 0),
+  primary key (day, bucket)
+);
+
+-- Service role only: RLS on, no policies.
+alter table public.youtube_quota_usage enable row level security;
+
+-- Atomically adds p_amount to today's (Pacific time) counter unless that would pass p_limit.
+-- Returns true when the amount was reserved. Rows are tiny (one per day per bucket);
+-- old days can be pruned manually if the table ever grows.
+create or replace function public.consume_youtube_quota(p_bucket text, p_amount int, p_limit int)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_day date := (now() at time zone 'America/Los_Angeles')::date;
+  v_used int;
+begin
+  if p_amount <= 0 then
+    return true;
+  end if;
+  if p_amount > p_limit then
+    return false;
+  end if;
+
+  -- On conflict the WHERE skips the update when the limit would be passed, so nothing is returned.
+  insert into public.youtube_quota_usage as q (day, bucket, used)
+  values (v_day, p_bucket, p_amount)
+  on conflict (day, bucket) do update
+    set used = q.used + excluded.used
+    where q.used + excluded.used <= p_limit
+  returning used into v_used;
+
+  return v_used is not null;
+end;
+$$;
+
+revoke all on function public.consume_youtube_quota(text, int, int) from public, anon, authenticated;
+grant execute on function public.consume_youtube_quota(text, int, int) to service_role;
+
+-- ─── Admin settings for Discover (same single-row table as Channel Doctor) ────
+alter table public.channel_doctor_settings
+  add column if not exists discover_enabled             boolean not null default false,
+  add column if not exists discover_allowed_plans       text[]  not null default '{CREATOR,STUDIO}',
+  add column if not exists discovery_credit_cost        int     not null default 5  check (discovery_credit_cost between 0 and 1000),
+  add column if not exists research_credit_cost         int     not null default 15 check (research_credit_cost between 0 and 1000),
+  add column if not exists opportunity_credit_cost      int     not null default 3  check (opportunity_credit_cost between 0 and 1000),
+  add column if not exists max_competitors              int     not null default 10 check (max_competitors between 1 and 25),
+  add column if not exists videos_per_competitor        int     not null default 50 check (videos_per_competitor between 15 and 100),
+  add column if not exists search_calls_per_discovery   int     not null default 3  check (search_calls_per_discovery between 1 and 5),
+  add column if not exists search_daily_global_limit    int     not null default 80 check (search_daily_global_limit between 0 and 100000),
+  add column if not exists discovery_runs_per_user_day  int     not null default 2  check (discovery_runs_per_user_day between 0 and 50),
+  add column if not exists embedding_models             text[]  not null default '{BAAI/bge-m3,Qwen/Qwen3-Embedding-0.6B}',
+  add column if not exists max_competitor_thumbnails    int     not null default 10 check (max_competitor_thumbnails between 0 and 30),
+  add column if not exists opportunity_weights          jsonb   not null default
+    '{"channelFit":25,"competitorPerformance":20,"momentum":15,"contentGap":15,"competition":10,"productionFit":10,"phase1":5}';
+
+-- Create (Phase 3): video projects and admin settings.
+-- Stores user-owned content (brief, script, packaging) and relationships only. No raw analytics,
+-- competitor data, prompts or media (see docs/create-plan.md §2).
+
+-- ─── Video projects ──────────────────────────────────────────────────────────
+create table if not exists public.video_projects (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  origin            text not null check (origin in ('opportunity', 'manual')),
+  status            text not null default 'DRAFT' check (status in (
+                      'DRAFT', 'BRIEF_READY', 'SCRIPT_READY', 'PACKAGED', 'ARCHIVED')),
+  -- Status to return to when un-archiving.
+  archived_from     text,
+  last_error        jsonb,
+  title             text not null check (char_length(title) between 1 and 200),
+  thesis            jsonb,
+  brief             jsonb,
+  script            jsonb,
+  packaging         jsonb,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+create index if not exists video_projects_user_idx on public.video_projects (user_id, updated_at desc);
+alter table public.video_projects enable row level security;
+
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'video_projects' and policyname = 'Users read own video projects') then
+    -- Read-only for users: every write goes through the server, which enforces the state machine.
+    create policy "Users read own video projects" on public.video_projects
+      for select using (auth.uid() = user_id);
+  end if;
+end $$;
+
+-- ─── Admin settings for Create (same single-row table) ───────────────────────
+alter table public.channel_doctor_settings
+  add column if not exists create_enabled           boolean not null default false,
+  add column if not exists create_allowed_plans     text[]  not null default '{CREATOR,STUDIO}',
+  add column if not exists brief_credit_cost        int     not null default 2 check (brief_credit_cost between 0 and 1000),
+  add column if not exists script_credit_cost       int     not null default 5 check (script_credit_cost between 0 and 1000),
+  add column if not exists packaging_credit_cost    int     not null default 5 check (packaging_credit_cost between 0 and 1000),
+  add column if not exists max_projects_per_user    int     not null default 100 check (max_projects_per_user between 1 and 10000);
+-- Audit (docs/audit-plan.md §7): admin settings on the shared settings row.
+-- Audits store nothing else: other channels' data is processed in memory per request.
+alter table public.channel_doctor_settings
+  add column if not exists audit_enabled             boolean not null default false,
+  add column if not exists video_audit_credit_cost   int     not null default 5  check (video_audit_credit_cost between 0 and 1000),
+  add column if not exists channel_audit_credit_cost int     not null default 10 check (channel_audit_credit_cost between 0 and 1000),
+  add column if not exists audit_runs_per_user_day   int     not null default 20 check (audit_runs_per_user_day between 1 and 500),
+  add column if not exists audit_max_comments        int     not null default 100 check (audit_max_comments between 0 and 100),
+  add column if not exists audit_max_thumbnails      int     not null default 8  check (audit_max_thumbnails between 0 and 20);
+-- Topic search in the Create brief: who made videos on this topic and how they perform.
+-- Admin-controlled price and limits; results are never stored.
+alter table public.channel_doctor_settings
+  add column if not exists topic_search_credit_cost       int not null default 3  check (topic_search_credit_cost between 0 and 1000),
+  add column if not exists topic_searches_per_user_day    int not null default 3  check (topic_searches_per_user_day between 0 and 100),
+  add column if not exists topic_search_baseline_channels int not null default 10 check (topic_search_baseline_channels between 0 and 20);
+-- Create: one price per video, charged when the project starts (docs/create-plan.md §20).
+-- unlocked_at: when the video's price was paid (null for projects made before, which still pay per action).
+-- usage: how many AI runs of each kind the project used, against the included allowances.
+alter table public.video_projects
+  add column if not exists unlocked_at timestamptz,
+  add column if not exists usage jsonb not null default '{}'::jsonb;
+
+alter table public.channel_doctor_settings
+  add column if not exists bundle_credit_cost      int not null default 15 check (bundle_credit_cost between 0 and 1000),
+  add column if not exists bundle_brief_drafts     int not null default 3  check (bundle_brief_drafts between 0 and 50),
+  add column if not exists bundle_script_writes    int not null default 2  check (bundle_script_writes between 0 and 50),
+  add column if not exists bundle_section_rewrites int not null default 20 check (bundle_section_rewrites between 0 and 200),
+  add column if not exists bundle_packaging_runs   int not null default 3  check (bundle_packaging_runs between 0 and 50),
+  add column if not exists bundle_topic_searches   int not null default 1  check (bundle_topic_searches between 0 and 20);

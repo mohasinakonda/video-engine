@@ -42,11 +42,10 @@ export const LandingNavbar: React.FC = () => {
 
         {/* Navigation Links */}
         <nav className="hidden md:flex items-center gap-7 text-xs font-medium text-zinc-600">
-          <Link href="/#how-it-works" className="hover:text-zinc-950 transition-colors">How it works</Link>
-          <Link href="/#scene-builder" className="hover:text-zinc-950 transition-colors">Scene Builder</Link>
-          <Link href="/#storyboard" className="hover:text-zinc-950 transition-colors">Storyboard</Link>
-          <Link href="/#styles" className="hover:text-zinc-950 transition-colors">Styles</Link>
-          <Link href="/#key-features" className="hover:text-zinc-950 transition-colors">Features</Link>
+          <Link href="/#growth-loop" className="hover:text-zinc-950 transition-colors">How it works</Link>
+          <Link href="/#growth-tools" className="hover:text-zinc-950 transition-colors">Growth tools</Link>
+          <Link href="/#key-features" className="hover:text-zinc-950 transition-colors">Video maker</Link>
+          <Link href="/#bangla" className="hover:text-zinc-950 transition-colors">For Bangla creators</Link>
           <Link href="/pricing" className="hover:text-zinc-950 transition-colors">Pricing</Link>
         </nav>
 

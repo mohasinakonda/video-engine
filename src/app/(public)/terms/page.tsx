@@ -66,9 +66,27 @@ export default function TermsPage() {
             </p>
           </section>
 
+          <section className="space-y-3">
+            <h2 className="text-base font-bold text-zinc-950">
+              5. YouTube API Services
+            </h2>
+            <p>
+              Channel Doctor, Discover, Create and video and channel analysis use YouTube API Services. By using them you agree to be bound by the{' '}
+              <a href="https://www.youtube.com/t/terms" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                YouTube Terms of Service
+              </a>
+              . Google&apos;s handling of your data is described in the{' '}
+              <a href="https://policies.google.com/privacy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
+                Google Privacy Policy
+              </a>
+              , and ours in our <a href="/privacy#youtube-data" className="text-[#E05A30] underline">Privacy Policy</a>. Channel Doctor reports
+              are analysis and suggestions based on the data YouTube provides; they do not guarantee any change in views or growth.
+            </p>
+          </section>
+
           <section className="space-y-3 border-t border-[#E5E0D8] pt-6">
             <h2 className="text-base font-bold text-zinc-950">
-              5. Governing Law
+              6. Governing Law
             </h2>
             <p>
               These Terms are governed by and construed in accordance with the applicable laws of Bangladesh and international copyright standards.

@@ -39,7 +39,6 @@ const LANGUAGE_OPTIONS = [
     'Hindi',
     'Portuguese',
     'Chinese',
-    'Bengali',
     'Russian',
     'Arabic',
 ];

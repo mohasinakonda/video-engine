@@ -352,6 +352,19 @@ export default function VoicePage() {
       .catch(() => { });
   }, []);
 
+  // A script handed over from Create's script page. Read once and removed, so it never lingers.
+  useEffect(() => {
+    try {
+      const handed = sessionStorage.getItem('pending_voice_script');
+      if (!handed) return;
+      sessionStorage.removeItem('pending_voice_script');
+      setText(handed);
+      setMode('longform');
+    } catch {
+      // Storage blocked: keep the default text.
+    }
+  }, []);
+
 
   const loadCustomVoices = useCallback(async () => {
     try {

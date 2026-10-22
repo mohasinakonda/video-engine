@@ -57,6 +57,11 @@ export function estimateCostPerVideo(price: number, credits: number): number {
   return Math.round(price / (credits / EST_CREDITS_PER_VIDEO.avg));
 }
 
+/** Taka per credit for a top-up pack, always worked out from its price and credits (never stored separately). */
+export function perCreditBDT(priceBDT: number, credits: number): number {
+  return credits > 0 ? Math.round((priceBDT / credits) * 100) / 100 : 0;
+}
+
 /** Percent saved by paying quarterly instead of 3× monthly (0 when no saving). */
 export function quarterlySavingsPercent(plan: Pick<SubscriptionPlan, 'priceMonthly' | 'priceQuarterly'>): number {
   const full = plan.priceMonthly * 3;

@@ -19,7 +19,8 @@ import type { BaseStylePreset } from '@/types';
 import { SUB_STYLES_CATALOG } from '@/lib/style-taxonomy';
 import type { VoicePreset } from '@/lib/voice-catalog';
 import { VOICE_PRESETS } from '@/lib/voice-catalog';
-import { defaultQuarterlyPrice, getPlanPrice } from '@/lib/plan-pricing';
+import { defaultQuarterlyPrice, getPlanPrice, perCreditBDT } from '@/lib/plan-pricing';
+import { clearAllReports } from '@/lib/channel-doctor-storage';
 
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -105,6 +106,8 @@ export async function signOutUser() {
   if (!isSupabaseConfigured()) return;
   cachedAdminUserId = null;
   cachedIsAdmin = null;
+  // Channel Doctor reports are kept per browser tab; don't leave them for the next user.
+  if (typeof window !== 'undefined') clearAllReports();
   const supabase = createClient();
   return supabase.auth.signOut();
 }
@@ -346,7 +349,7 @@ export async function fetchTopupPacksRemote(clientOverride?: any): Promise<Credi
       name: row.name,
       credits: row.credits,
       priceBDT: row.price_bdt,
-      perCreditBDT: Number(row.per_credit_bdt),
+      perCreditBDT: perCreditBDT(row.price_bdt, row.credits),
       popular: row.popular,
     }));
   } catch (err) {
@@ -365,7 +368,7 @@ export async function saveTopupPacksRemote(packs: CreditTopupPack[], clientOverr
       name: p.name,
       credits: p.credits,
       price_bdt: p.priceBDT,
-      per_credit_bdt: p.perCreditBDT,
+      per_credit_bdt: perCreditBDT(p.priceBDT, p.credits),
       popular: Boolean(p.popular),
     }));
 

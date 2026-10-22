@@ -207,7 +207,7 @@ export function CompetitorResearchCard() {
           ))
         ) : (
           <p className="text-xs text-zinc-500 col-span-4 p-4 text-center">
-            No competitor videos found for &quot;{competitorSearchInput}&quot;. Try typing a different search query above.
+            No competitor videos found for &quot;{competitorSearchInput}&quot;. Try a different search, or connect your channel in Channel Doctor (or add your own YouTube API key in Settings) to enable YouTube search.
           </p>
         )}
       </div>

@@ -20,6 +20,9 @@ import {
   AudioLines,
   Flame,
   ChevronsUpDown,
+  Stethoscope,
+  Compass,
+  PenLine,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
@@ -30,6 +33,9 @@ const navItems = [
   { href: '/projects', label: 'Projects', icon: Video },
   { href: '/voice-studio', label: 'Voice Studio', icon: AudioLines },
   { href: '/youtube-kit-studio', label: 'YouTube Kit Studio', icon: Flame },
+  { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
+  { href: '/discover', label: 'Discover', icon: Compass },
+  { href: '/create', label: 'Create', icon: PenLine },
   // { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
 ];
@@ -43,6 +49,21 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
+  const [discoverOn, setDiscoverOn] = useState(false);
+  const [createOn, setCreateOn] = useState(false);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const enabled = (url: string) =>
+      fetch(url)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((cfg) => Boolean(cfg?.enabled))
+        .catch(() => false);
+    enabled('/api/youtube/discover/config').then(setDiscoverOn);
+    enabled('/api/create/config').then(setCreateOn);
+  }, [isLoggedIn]);
+  // Discover and Create are listed once the admin switches them on (admins always see them, to test).
+  const showItem = (href: string) =>
+    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && (href !== '/create' || isAdmin || createOn);
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -82,7 +103,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const expanded = !collapsed || hovered || profileMenuOpen;
 
   if (!expanded) {
-    const visibleNav = navItems.filter(({ href }) => href !== '/admin' || isAdmin);
+    const visibleNav = navItems.filter(({ href }) => showItem(href));
     return (
       <aside
         className="absolute left-0 top-0 h-full w-14 flex flex-col items-center bg-bg-base border-r border-bg-border z-40 py-4 gap-3"
@@ -154,7 +175,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         <div className="flex items-center gap-2.5">
           <AppLogo className="w-8 h-8 rounded-lg shadow-sm" />
           <div>
-            <p className="text-sm font-semibold text-zinc-100 leading-tight">AI Video</p>
+            <p className="text-sm font-semibold text-zinc-100 leading-tight">Rendoza AI</p>
             <p className="text-2xs text-zinc-400 leading-tight">Studio Web</p>
           </div>
         </div>
@@ -176,7 +197,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
       {/* Navigation */}
       <nav className="flex-1 px-3 pt-4 space-y-1 overflow-y-auto">
         {navItems
-          .filter(({ href }) => href !== '/admin' || isAdmin)
+          .filter(({ href }) => showItem(href))
           .map(({ href, label, icon: Icon }) => {
             const isActive =
               href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -259,6 +280,16 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
             >
               <Zap size={13} className="text-blue-400" />
               Models
+            </Link>
+            <Link
+              href="/admin/channel-doctor"
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${pathname === '/admin/channel-doctor'
+                ? 'bg-zinc-850 text-white border border-zinc-800'
+                : 'text-zinc-400 hover:text-white'
+                }`}
+            >
+              <Stethoscope size={13} className="text-blue-400" />
+              Channel Doctor
             </Link>
           </div>
         )}

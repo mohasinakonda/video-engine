@@ -28,9 +28,9 @@ export function CreditsExplainerSection() {
             <div className="w-9 h-9 rounded-xl bg-orange-100/60 border border-orange-200/60 text-[#E05A30] flex items-center justify-center font-bold text-sm">
               <Film size={18} />
             </div>
-            <h4 className="text-sm font-bold text-zinc-950">2 Credits = 1 AI Image</h4>
+            <h4 className="text-sm font-bold text-zinc-950">From 2 Credits = 1 AI Image</h4>
             <p className="text-[11px] text-zinc-600 leading-relaxed">
-              Each newly generated HD scene image costs exactly 2 credits (up to 1,000 images on Creator plan).
+              Each HD scene image costs 2 credits with the standard model (up to 1,000 images on the Creator plan). Higher-quality models cost more.
             </p>
           </div>
           <div className="mt-3 pt-2 border-t border-[#E5E0D8] text-[10px] text-[#E05A30] font-semibold">

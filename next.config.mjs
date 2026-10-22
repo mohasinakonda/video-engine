@@ -18,7 +18,11 @@ const nextConfig = {
     remotePatterns: [{
       hostname: 'lh3.googleusercontent.com'
     },
-    { hostname: "xvctobddvxmvohicrenf.supabase.co" }
+    { hostname: "xvctobddvxmvohicrenf.supabase.co" },
+    // YouTube channel avatars and video thumbnails (Channel Doctor)
+    { hostname: "yt3.ggpht.com" },
+    { hostname: "yt3.googleusercontent.com" },
+    { hostname: "i.ytimg.com" }
     ]
   },
   typescript: {

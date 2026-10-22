@@ -37,7 +37,6 @@ interface VoiceCloneModalProps {
 
 const LANGUAGE_OPTIONS = [
   'English',
-  'Bengali',
   'Hindi',
   'Spanish',
   'French',

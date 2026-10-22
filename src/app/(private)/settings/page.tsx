@@ -175,7 +175,7 @@ export default function SettingsPage() {
                 <label className="text-xs font-semibold text-zinc-300 flex items-center justify-between">
                   <span>Google Cloud YouTube Data API v3 Key (Optional)</span>
                   <span className="text-xxs text-emerald-400 font-mono">
-                    {youtubeApiKey ? '● Official API Active' : '● Zero-Config Mode Active'}
+                    {youtubeApiKey ? '● Your API key' : '● Shared search'}
                   </span>
                 </label>
                 <div className="flex gap-2">
@@ -183,7 +183,7 @@ export default function SettingsPage() {
                     type="password"
                     value={youtubeApiKey}
                     onChange={(e) => setYoutubeApiKey(e.target.value)}
-                    placeholder="AIzaSy... (Leave blank for zero-config free parser)"
+                    placeholder="AIzaSy... (optional)"
                     className="input text-xs font-mono flex-1"
                   />
                   <button
@@ -200,10 +200,10 @@ export default function SettingsPage() {
               <div className="p-3 rounded-lg bg-zinc-900/80 border border-bg-border text-xxs text-zinc-400 space-y-1">
                 <p className="text-zinc-300 font-medium">⚡ How YouTube Market Research Works:</p>
                 <p>
-                  • <strong>Zero-Config Mode (Default)</strong>: Works 100% free out of the box without any key. Our server searches YouTube and extracts top viral videos, real thumbnails, and view counts automatically.
+                  • <strong>Shared search (default)</strong>: If your YouTube channel is connected in Channel Doctor, we search YouTube through the official API within our shared daily limit.
                 </p>
                 <p>
-                  • <strong>Google Cloud API (Optional)</strong>: To use Google&apos;s official YouTube Data API v3, create a free project at <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" className="text-rose-400 underline">Google Cloud Console</a>, enable &quot;YouTube Data API v3&quot;, generate an API key (includes 10,000 free quota units/day), and paste it above.
+                  • <strong>Your own key (optional, no daily limit from us)</strong>: To use Google&apos;s official YouTube Data API v3, create a free project at <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" className="text-rose-400 underline">Google Cloud Console</a>, enable &quot;YouTube Data API v3&quot;, generate an API key (includes 10,000 free quota units/day), and paste it above.
                 </p>
               </div>
             </div>
