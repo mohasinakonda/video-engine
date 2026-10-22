@@ -1,7 +1,9 @@
 /** Browser-side shapes for Create (no tokens or server internals). */
+import type { UsageKey } from '@/lib/youtube/create/bundle';
 export type { ProjectStatus, Thesis, VideoProject } from '@/lib/youtube/create/types';
 export type { VideoBrief } from '@/lib/youtube/create/brief';
 export type { VideoScript, ScriptSection, Claim, ClaimKind } from '@/lib/youtube/create/script';
+export type { UsageKey } from '@/lib/youtube/create/bundle';
 export type { StructureBeat } from '@/lib/youtube/create/structures';
 
 export interface CreateConfig {
@@ -10,7 +12,9 @@ export interface CreateConfig {
   adminPreview: boolean;
   tier: string;
   allowedPlans: string[];
-  costs: { brief: number; script: number; scriptSection: number; packaging: number; performance: number };
+  topicSearchesPerDay: number;
+  bundle: { cost: number; includes: Record<UsageKey, number> };
+  costs: { brief: number; script: number; scriptSection: number; packaging: number; topicSearch: number };
 }
 
 export const STATUS_LABELS = {
@@ -18,9 +22,5 @@ export const STATUS_LABELS = {
   BRIEF_READY: 'Brief ready',
   SCRIPT_READY: 'Script ready',
   PACKAGED: 'Packaged',
-  IN_PRODUCTION: 'In production',
-  PUBLISHED: 'Published',
-  ANALYZING: 'Measuring',
-  LEARNED: 'Learned',
   ARCHIVED: 'Archived',
 } as const;

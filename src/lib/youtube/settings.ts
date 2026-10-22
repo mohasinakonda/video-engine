@@ -16,10 +16,34 @@ export interface ChannelDoctorSettings {
   maxRetentionVideos: number;
   maxThumbnails: number;
   hourlyLimitPerUser: number;
+  /** Free diagnoses a Trial user gets (counted per user and per channel); 0 turns it off. */
+  trialFreeDiagnoses: number;
   discover: DiscoverSettings;
   create: CreateSettings;
+  audit: AuditSettings;
   updatedAt: string | null;
 }
+
+/** Admin-controlled Audit settings (docs/audit-plan.md §7). Access follows Discover's plans. */
+export interface AuditSettings {
+  enabled: boolean;
+  videoAuditCreditCost: number;
+  channelAuditCreditCost: number;
+  runsPerUserDay: number;
+  /** Comments read per video for the viewer themes (0 turns them off). */
+  maxComments: number;
+  /** Thumbnails described per channel audit. */
+  maxThumbnails: number;
+}
+
+export const DEFAULT_AUDIT_SETTINGS: AuditSettings = {
+  enabled: false,
+  videoAuditCreditCost: 5,
+  channelAuditCreditCost: 10,
+  runsPerUserDay: 20,
+  maxComments: 100,
+  maxThumbnails: 8,
+};
 
 /** Admin-controlled Create (Phase 3) settings, stored on the same row. */
 export interface CreateSettings {
@@ -28,12 +52,19 @@ export interface CreateSettings {
   briefCreditCost: number;
   scriptCreditCost: number;
   packagingCreditCost: number;
-  performanceCreditCost: number;
-  /** Days after publishing when performance is compared with the channel's usual. */
-  checkpointDays: number[];
-  /** Measured videos needed before a learning pattern is shown. */
-  learningMinVideos: number;
   maxProjectsPerUser: number;
+  /** "Who made videos on this" in the brief: one YouTube search (100 quota units) per run. */
+  topicSearchCreditCost: number;
+  topicSearchesPerUserDay: number;
+  /** Channels whose usual views are read, so the top results show "× its usual". */
+  topicSearchBaselineChannels: number;
+  /** One price per video, paid when the project starts, and the AI runs it includes. */
+  bundleCreditCost: number;
+  bundleBriefDrafts: number;
+  bundleScriptWrites: number;
+  bundleSectionRewrites: number;
+  bundlePackagingRuns: number;
+  bundleTopicSearches: number;
 }
 
 export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
@@ -41,11 +72,17 @@ export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
   allowedPlans: ['CREATOR', 'STUDIO'],
   briefCreditCost: 2,
   scriptCreditCost: 5,
-  packagingCreditCost: 5,
-  performanceCreditCost: 2,
-  checkpointDays: [1, 2, 7, 28],
-  learningMinVideos: 3,
+  packagingCreditCost: 10,
   maxProjectsPerUser: 100,
+  topicSearchCreditCost: 3,
+  topicSearchesPerUserDay: 3,
+  topicSearchBaselineChannels: 10,
+  bundleCreditCost: 15,
+  bundleBriefDrafts: 3,
+  bundleScriptWrites: 2,
+  bundleSectionRewrites: 20,
+  bundlePackagingRuns: 3,
+  bundleTopicSearches: 1,
 };
 
 /** Weights of the opportunity score dimensions (docs/discover-plan.md §7.2). They sum to 100. */
@@ -57,8 +94,6 @@ export interface OpportunityWeights {
   competition: number;
   productionFit: number;
   phase1: number;
-  /** How the creator's own measured videos in this format or topic did (Create). */
-  trackRecord: number;
 }
 
 /** Admin-controlled Discover (Phase 2) settings, stored on the same row. */
@@ -81,29 +116,14 @@ export interface DiscoverSettings {
 }
 
 export const DEFAULT_WEIGHTS: OpportunityWeights = {
-  channelFit: 20,
-  competitorPerformance: 15,
+  channelFit: 25,
+  competitorPerformance: 20,
   momentum: 15,
   contentGap: 15,
   competition: 10,
   productionFit: 10,
   phase1: 5,
-  trackRecord: 10,
 };
-
-/** The defaults before the track record existed. */
-const PREVIOUS_DEFAULT_WEIGHTS = { channelFit: 25, competitorPerformance: 20, momentum: 15, contentGap: 15, competition: 10, productionFit: 10, phase1: 5 };
-
-/**
- * Weights saved before the track record existed: untouched defaults move to the new defaults;
- * weights an admin tuned are kept as they are, with the track record at 0 until they set it.
- */
-export function upgradeWeights(raw: unknown): unknown {
-  if (!raw || typeof raw !== 'object' || 'trackRecord' in raw) return raw;
-  const old = raw as Record<string, unknown>;
-  const untouched = Object.entries(PREVIOUS_DEFAULT_WEIGHTS).every(([k, v]) => old[k] === v);
-  return untouched ? DEFAULT_WEIGHTS : { ...old, trackRecord: 0 };
-}
 
 export const DEFAULT_DISCOVER_SETTINGS: DiscoverSettings = {
   enabled: false,
@@ -132,8 +152,10 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   maxRetentionVideos: 8,
   maxThumbnails: 12,
   hourlyLimitPerUser: 10,
+  trialFreeDiagnoses: 1,
   discover: DEFAULT_DISCOVER_SETTINGS,
   create: DEFAULT_CREATE_SETTINGS,
+  audit: DEFAULT_AUDIT_SETTINGS,
   updatedAt: null,
 };
 
@@ -150,7 +172,6 @@ export const weightsSchema = z
     competition: weight,
     productionFit: weight,
     phase1: weight,
-    trackRecord: weight,
   })
   .refine((w) => Object.values(w).reduce((sum, v) => sum + v, 0) === 100, 'The weights must add up to 100');
 
@@ -177,14 +198,25 @@ export const createSettingsSchema = z.object({
   briefCreditCost: credit,
   scriptCreditCost: credit,
   packagingCreditCost: credit,
-  performanceCreditCost: credit,
-  checkpointDays: z
-    .array(z.number().int().min(1).max(90))
-    .min(1)
-    .max(8)
-    .transform((days) => Array.from(new Set(days)).sort((a, b) => a - b)),
-  learningMinVideos: z.number().int().min(2).max(50),
   maxProjectsPerUser: z.number().int().min(1).max(10_000),
+  topicSearchCreditCost: credit,
+  topicSearchesPerUserDay: z.number().int().min(0).max(100),
+  topicSearchBaselineChannels: z.number().int().min(0).max(20),
+  bundleCreditCost: credit,
+  bundleBriefDrafts: z.number().int().min(0).max(50),
+  bundleScriptWrites: z.number().int().min(0).max(50),
+  bundleSectionRewrites: z.number().int().min(0).max(200),
+  bundlePackagingRuns: z.number().int().min(0).max(50),
+  bundleTopicSearches: z.number().int().min(0).max(20),
+});
+
+export const auditSettingsSchema = z.object({
+  enabled: z.boolean(),
+  videoAuditCreditCost: credit,
+  channelAuditCreditCost: credit,
+  runsPerUserDay: z.number().int().min(1).max(500),
+  maxComments: z.number().int().min(0).max(100),
+  maxThumbnails: z.number().int().min(0).max(20),
 });
 
 /** What an admin may save. Mirrors the database CHECK constraints. */
@@ -199,8 +231,10 @@ export const settingsUpdateSchema = z.object({
   maxRetentionVideos: z.number().int().min(0).max(20),
   maxThumbnails: z.number().int().min(0).max(24),
   hourlyLimitPerUser: z.number().int().min(1).max(100),
+  trialFreeDiagnoses: z.number().int().min(0).max(10),
   discover: discoverSettingsSchema,
   create: createSettingsSchema,
+  audit: auditSettingsSchema,
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
@@ -219,14 +253,29 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     maxRetentionVideos: data.max_retention_videos,
     maxThumbnails: data.max_thumbnails,
     hourlyLimitPerUser: data.hourly_limit_per_user,
+    trialFreeDiagnoses: data.trial_free_diagnoses ?? DEFAULT_SETTINGS.trialFreeDiagnoses,
     discover: readDiscover(data),
     create: readCreate(data),
+    audit: readAudit(data),
     updatedAt: data.updated_at,
   };
 }
 
 const toPlans = (plans: string[] | null | undefined): PlanTier[] =>
   (plans || []).filter((p): p is PlanTier => (PLAN_TIERS as readonly string[]).includes(p));
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readAudit(data: Record<string, any>): AuditSettings {
+  const d = DEFAULT_AUDIT_SETTINGS;
+  return {
+    enabled: data.audit_enabled ?? d.enabled,
+    videoAuditCreditCost: data.video_audit_credit_cost ?? d.videoAuditCreditCost,
+    channelAuditCreditCost: data.channel_audit_credit_cost ?? d.channelAuditCreditCost,
+    runsPerUserDay: data.audit_runs_per_user_day ?? d.runsPerUserDay,
+    maxComments: data.audit_max_comments ?? d.maxComments,
+    maxThumbnails: data.audit_max_thumbnails ?? d.maxThumbnails,
+  };
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readCreate(data: Record<string, any>): CreateSettings {
@@ -237,17 +286,23 @@ function readCreate(data: Record<string, any>): CreateSettings {
     briefCreditCost: data.brief_credit_cost ?? d.briefCreditCost,
     scriptCreditCost: data.script_credit_cost ?? d.scriptCreditCost,
     packagingCreditCost: data.packaging_credit_cost ?? d.packagingCreditCost,
-    performanceCreditCost: data.performance_credit_cost ?? d.performanceCreditCost,
-    checkpointDays: data.checkpoint_days?.length ? data.checkpoint_days : d.checkpointDays,
-    learningMinVideos: data.learning_min_videos ?? d.learningMinVideos,
     maxProjectsPerUser: data.max_projects_per_user ?? d.maxProjectsPerUser,
+    topicSearchCreditCost: data.topic_search_credit_cost ?? d.topicSearchCreditCost,
+    topicSearchesPerUserDay: data.topic_searches_per_user_day ?? d.topicSearchesPerUserDay,
+    topicSearchBaselineChannels: data.topic_search_baseline_channels ?? d.topicSearchBaselineChannels,
+    bundleCreditCost: data.bundle_credit_cost ?? d.bundleCreditCost,
+    bundleBriefDrafts: data.bundle_brief_drafts ?? d.bundleBriefDrafts,
+    bundleScriptWrites: data.bundle_script_writes ?? d.bundleScriptWrites,
+    bundleSectionRewrites: data.bundle_section_rewrites ?? d.bundleSectionRewrites,
+    bundlePackagingRuns: data.bundle_packaging_runs ?? d.bundlePackagingRuns,
+    bundleTopicSearches: data.bundle_topic_searches ?? d.bundleTopicSearches,
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readDiscover(data: Record<string, any>): DiscoverSettings {
   const d = DEFAULT_DISCOVER_SETTINGS;
-  const weights = weightsSchema.safeParse(upgradeWeights(data.opportunity_weights));
+  const weights = weightsSchema.safeParse(data.opportunity_weights);
   return {
     enabled: data.discover_enabled ?? d.enabled,
     allowedPlans: data.discover_allowed_plans ? toPlans(data.discover_allowed_plans) : d.allowedPlans,
@@ -280,6 +335,7 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       max_retention_videos: update.maxRetentionVideos,
       max_thumbnails: update.maxThumbnails,
       hourly_limit_per_user: update.hourlyLimitPerUser,
+      trial_free_diagnoses: update.trialFreeDiagnoses,
       discover_enabled: update.discover.enabled,
       discover_allowed_plans: Array.from(new Set(update.discover.allowedPlans)),
       discovery_credit_cost: update.discover.discoveryCreditCost,
@@ -298,10 +354,22 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       brief_credit_cost: update.create.briefCreditCost,
       script_credit_cost: update.create.scriptCreditCost,
       packaging_credit_cost: update.create.packagingCreditCost,
-      performance_credit_cost: update.create.performanceCreditCost,
-      checkpoint_days: update.create.checkpointDays,
-      learning_min_videos: update.create.learningMinVideos,
       max_projects_per_user: update.create.maxProjectsPerUser,
+      topic_search_credit_cost: update.create.topicSearchCreditCost,
+      topic_searches_per_user_day: update.create.topicSearchesPerUserDay,
+      topic_search_baseline_channels: update.create.topicSearchBaselineChannels,
+      bundle_credit_cost: update.create.bundleCreditCost,
+      bundle_brief_drafts: update.create.bundleBriefDrafts,
+      bundle_script_writes: update.create.bundleScriptWrites,
+      bundle_section_rewrites: update.create.bundleSectionRewrites,
+      bundle_packaging_runs: update.create.bundlePackagingRuns,
+      bundle_topic_searches: update.create.bundleTopicSearches,
+      audit_enabled: update.audit.enabled,
+      video_audit_credit_cost: update.audit.videoAuditCreditCost,
+      channel_audit_credit_cost: update.audit.channelAuditCreditCost,
+      audit_runs_per_user_day: update.audit.runsPerUserDay,
+      audit_max_comments: update.audit.maxComments,
+      audit_max_thumbnails: update.audit.maxThumbnails,
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(`Could not save settings (${error.code})`);
@@ -334,6 +402,8 @@ export async function getUserAccess(userId: string, settings: ChannelDoctorSetti
     hasAccess: settings.enabled && settings.allowedPlans.includes(tier),
     hasDiscoverAccess: isAdmin || (settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
     hasCreateAccess: isAdmin || (settings.create.enabled && settings.create.allowedPlans.includes(tier)),
+    // The audit lives in Discover, so it follows Discover's plans and needs its own switch too.
+    hasAuditAccess: isAdmin || (settings.audit.enabled && settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
   };
 }
 

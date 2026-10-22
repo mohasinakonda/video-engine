@@ -26,6 +26,7 @@ const aiSchema = z.object({
   titles: z.array(z.unknown()).optional(),
   thumbnails: z.array(z.unknown()).optional(),
   description: z.string().optional(),
+  hashtags: z.array(z.unknown()).optional(),
   tags: z.array(z.unknown()).optional(),
 });
 
@@ -45,13 +46,18 @@ Titles (5 of them):
 - For each: {"title", "mechanism", "audience": who this wording speaks to, "risk": "low"|"medium"|"high" (how far it could overpromise compared with the video), "rationale": one sentence on why it could earn the click}.
 Thumbnails (3 concepts), each a visual brief a creator can shoot or design:
 - {"mainSubject", "supportingObject", "composition", "emotionOrAction", "background", "text" (0–4 words, or empty), "contrast", "hierarchy" (what the eye sees first, second)}.
+- Write every field in English, except "text": they become the image model's prompt, and it only reads English. Name things plainly (e.g. "the Chupacabra", "a lantern fish"), not by a translation.
+- "text" is the words shown on the thumbnail: write them all in the writeIn language, without mixing in another language.
 - The thumbnail and title work together: the thumbnail shouldn't repeat the title's words.
 Description: 2–3 short paragraphs. The first sentence says what the viewer gets. No chapters or timestamps, no links, no hashtags, no "like and subscribe".
+Hashtags: 3 hashtags for this video's topic, in the writeIn language, one or two words each with no spaces (e.g. "#DeepSea"). Specific to the topic, never generic ones like #viral, #trending or #fyp. They go on their own line under the description.
 Tags: 8–12 search phrases people would type, most specific first.
-Language: write titles, thumbnail text, description and tags in the language given as writeIn.
-Reply only with JSON: {"titles": [...], "thumbnails": [...], "description": "...", "tags": [...]}`;
+Language: write titles, thumbnail text, description, hashtags and tags in the language given as writeIn. The rest of each thumbnail concept is in English.
+If "only" is "titles" or "thumbnails", that part is what's needed: return it in full; the other parts may be empty.
+Reply only with JSON: {"titles": [...], "thumbnails": [...], "description": "...", "hashtags": [...], "tags": [...]}`;
 
-const hype = (s: string) => BANNED.test(s) || SCRIPT_BANNED.test(s) || /\b(insane|you won'?t believe|shocking|mind[- ]?blowing)\b/i.test(s) || /\b[A-Z]{5,}\b/.test(s);
+const hypeWords = (s: string) => BANNED.test(s) || SCRIPT_BANNED.test(s) || /\b(insane|you won'?t believe|shocking|mind[- ]?blowing)\b/i.test(s);
+const hype = (s: string) => hypeWords(s) || /\b[A-Z]{5,}\b/.test(s);
 
 /** Numbers the packaging may use: the brief's, the user's notes, and the script's evidence. */
 function packagingNumbers(brief: VideoBrief, script: VideoScript, notes: string): Set<string> {
@@ -90,27 +96,87 @@ export function acceptTitles(raw: unknown[], allowed: Set<string>, existing: str
   return out;
 }
 
+/** Field limits of a thumbnail concept (thumbnailConceptSchema). */
+const THUMB_LIMITS = { mainSubject: 200, supportingObject: 200, composition: 240, emotionOrAction: 200, background: 200, text: 40, contrast: 200, hierarchy: 240 } as const;
+
+/** A model's field as plain text: lists are joined, anything else that isn't text is dropped. */
+function asText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value.filter((v) => typeof v === 'string' || typeof v === 'number').join(', ');
+  return '';
+}
+
+/** Shortened to `max` characters at a word boundary when the model ran long. */
+function fit(value: string, max: number): string {
+  const s = value.replace(/\s+/g, ' ').trim();
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const space = cut.lastIndexOf(' ');
+  return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:–-]+$/, '');
+}
+
+/**
+ * Usable thumbnail briefs. A brief that runs long or comes back as a list is tidied, not thrown
+ * away; one with hype words or a number the video doesn't back is dropped. Capitals are fine
+ * here: thumbnail text is often set in capitals, and briefs name colours like "bold YELLOW".
+ */
 export function acceptThumbnails(raw: unknown[], allowed: Set<string>): ThumbnailConcept[] {
   return raw.flatMap((item) => {
-    const r = thumbnailConceptSchema.safeParse({ supportingObject: '', composition: '', emotionOrAction: '', background: '', text: '', contrast: '', hierarchy: '', ...(item as object), source: 'ai' });
+    if (!item || typeof item !== 'object') return [];
+    const fields = Object.fromEntries(
+      (Object.keys(THUMB_LIMITS) as (keyof typeof THUMB_LIMITS)[]).map((k) => [k, fit(asText((item as Record<string, unknown>)[k]), THUMB_LIMITS[k])])
+    );
+    const r = thumbnailConceptSchema.safeParse({ ...fields, source: 'ai' });
     if (!r.success) return [];
     const words = Object.values(r.data).join(' ');
-    return hype(words) || hasUnbackedNumber(r.data.text, allowed) ? [] : [r.data];
+    return hypeWords(words) || hasUnbackedNumber(r.data.text, allowed) ? [] : [r.data];
   });
 }
 
-/** Drops sentences with hype or unbacked numbers; links and hashtags too. */
+/** A hashtag in any script (Bangla included): letters, marks and digits after the #. */
+const HASHTAG = new RegExp('#[\\p{L}\\p{M}\\p{N}_]', 'u');
+/** Everything a hashtag can't hold: spaces and punctuation in any script. */
+const NOT_IN_HASHTAG = new RegExp('[^\\p{L}\\p{M}\\p{N}_]+', 'gu');
+/** Tags that say nothing about the video. */
+const GENERIC_HASHTAG = /^#(viral|trending|trend|fyp|foryou|foryoupage|explore|explorepage|subscribe|like|youtube|youtuber|video|videos)$/i;
+/** YouTube shows the first three hashtags above the title. */
+export const HASHTAGS_MAX = 3;
+
+/** Drops sentences with hype or unbacked numbers; links and hashtags too (they go on their own line). */
 export function cleanDescription(description: string, allowed: Set<string>): string {
   return description
     .split(/\n{2,}/)
     .map((para) =>
       sentencesOf(para)
-        .filter((s) => !hype(s) && !hasUnbackedNumber(s, allowed) && !/https?:\/\/|www\.|#\w/.test(s))
+        .filter((s) => !hype(s) && !hasUnbackedNumber(s, allowed) && !/https?:\/\/|www\./.test(s) && !HASHTAG.test(s))
         .join(' ')
     )
     .filter(Boolean)
     .join('\n\n')
     .slice(0, DESCRIPTION_MAX);
+}
+
+/** Up to three topic hashtags: spaces and punctuation removed, generic, hype and repeated ones dropped. */
+export function cleanHashtags(raw: unknown[], allowed: Set<string>): string[] {
+  const seen = new Set<string>();
+  return raw
+    .filter((t): t is string => typeof t === 'string')
+    .map((t) => `#${t.replace(NOT_IN_HASHTAG, '')}`)
+    .filter((t) => {
+      const key = t.toLowerCase();
+      if (t.length < 3 || t.length > 40 || seen.has(key) || GENERIC_HASHTAG.test(t) || hypeWords(t) || hasUnbackedNumber(t, allowed)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, HASHTAGS_MAX);
+}
+
+/** The description with its hashtags on a last line of their own, within YouTube's limit. */
+export function withHashtags(description: string, hashtags: string[]): string {
+  if (!description || !hashtags.length) return description;
+  const line = hashtags.join(' ');
+  return description.length + line.length + 2 <= DESCRIPTION_MAX ? `${description}\n\n${line}` : description;
 }
 
 /**
@@ -121,11 +187,21 @@ export function cleanDescription(description: string, allowed: Set<string>): str
 export async function generatePackaging(
   brief: VideoBrief,
   script: VideoScript,
-  options: { notes?: string; models: string[]; previous?: VideoPackaging | null; now?: Date }
+  options: {
+    notes?: string;
+    models: string[];
+    previous?: VideoPackaging | null;
+    /** New ideas for one part only; the other part is kept exactly as it is. */
+    only?: 'titles' | 'thumbnails';
+    now?: Date;
+  }
 ): Promise<VideoPackaging | null> {
   const notes = (options.notes ?? '').slice(0, 1500);
   const allowed = packagingNumbers(brief, script, notes);
   const prev = options.previous ?? null;
+  const only = prev ? options.only : undefined;
+  const wantTitles = only !== 'thumbnails';
+  const wantThumbs = only !== 'titles';
   const keptTitle = prev && prev.selectedTitle !== null ? prev.titles[prev.selectedTitle] : null;
   const keptThumb = prev && prev.selectedThumbnail !== null ? prev.thumbnails[prev.selectedThumbnail] : null;
 
@@ -152,6 +228,7 @@ export async function generatePackaging(
             script: scriptSummary(script),
             avoidRepeating: prev?.titles.map((t) => t.title).slice(0, 10),
             creatorNotes: notes || null,
+            only: only ?? null,
           }),
         },
       ],
@@ -161,28 +238,35 @@ export async function generatePackaging(
   let thumbnails: ThumbnailConcept[] = [];
   let description = '';
   let tags: string[] = [];
-  // One retry when the first answer has too few usable titles.
-  for (let attempt = 0; attempt < 2 && titles.length < 2; attempt++) {
+  const enough = () => (!wantTitles || titles.length >= 2) && (!wantThumbs || thumbnails.length >= 1);
+  // One retry when the first answer is missing a part; the best of each part is kept.
+  for (let attempt = 0; attempt < 2 && !enough(); attempt++) {
     const answer = await request();
     const parsed = answer ? aiSchema.safeParse(parseJsonObject(answer.content)) : null;
     if (!parsed?.success) continue;
     const ai = parsed.data;
-    titles = acceptTitles(ai.titles ?? [], allowed, keptTitle ? [keptTitle.title] : [], brief.keyPoints.length).slice(0, 6);
-    thumbnails = acceptThumbnails(ai.thumbnails ?? [], allowed).slice(0, 3);
-    description = cleanDescription(ai.description ?? '', allowed);
-    tags = cleanTags((ai.tags ?? []).filter((t): t is string => typeof t === 'string'));
+    const t = acceptTitles(ai.titles ?? [], allowed, keptTitle ? [keptTitle.title] : [], brief.keyPoints.length).slice(0, 6);
+    if (t.length > titles.length) titles = t;
+    const th = acceptThumbnails(ai.thumbnails ?? [], allowed).slice(0, 3);
+    if (th.length > thumbnails.length) thumbnails = th;
+    if (!description) description = withHashtags(cleanDescription(ai.description ?? '', allowed), cleanHashtags(ai.hashtags ?? [], allowed));
+    if (!tags.length) tags = cleanTags((ai.tags ?? []).filter((t): t is string => typeof t === 'string'));
   }
-  if (titles.length < 2) return null;
+  if (wantTitles && titles.length < 2) return null;
+  if (only === 'thumbnails' && thumbnails.length === 0) return null;
 
-  const allTitles = keptTitle ? [keptTitle, ...titles] : titles;
-  const allThumbs = keptThumb ? [keptThumb, ...thumbnails] : thumbnails;
+  // A part that wasn't asked for stays exactly as it was, choice included.
+  const titlePart =
+    only === 'thumbnails' && prev ? { titles: prev.titles, selectedTitle: prev.selectedTitle } : { titles: keptTitle ? [keptTitle, ...titles] : titles, selectedTitle: keptTitle ? 0 : null };
+  const thumbPart =
+    only === 'titles' && prev
+      ? { thumbnails: prev.thumbnails, selectedThumbnail: prev.selectedThumbnail }
+      : { thumbnails: keptThumb ? [keptThumb, ...thumbnails] : thumbnails, selectedThumbnail: keptThumb ? 0 : null };
   return {
     version: 1,
     language: brief.language,
-    titles: allTitles,
-    thumbnails: allThumbs,
-    selectedTitle: keptTitle ? 0 : null,
-    selectedThumbnail: keptThumb ? 0 : null,
+    ...titlePart,
+    ...thumbPart,
     // Like the brief: the AI fills an empty description and tags, never replaces them.
     description: prev?.description.trim() ? prev.description : description,
     tags: prev?.tags.length ? prev.tags : tags,

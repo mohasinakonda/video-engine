@@ -57,7 +57,7 @@ export function AnalysisPanel({ range, onRangeChange, cost, running, stages, err
             {hasReport ? <RefreshCw size={18} /> : <Sparkles size={18} />}
             {hasReport ? 'Check again' : actionLabel}
           </button>
-          <p className="text-sm text-zinc-400">Uses {cost} credits</p>
+          <p className="text-sm text-zinc-400">{cost === 0 ? 'Free' : `Uses ${cost} credits`}</p>
         </div>
       </div>
 

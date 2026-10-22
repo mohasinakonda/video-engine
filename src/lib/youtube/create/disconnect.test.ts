@@ -23,15 +23,10 @@ vi.mock('../db', () => ({ getServiceClient: () => ({ from: (table: string) => ch
 import { deleteConnection } from '../connection-service';
 
 describe('disconnecting YouTube', () => {
-  it('removes Create’s video links (and with them the learned labels) and un-publishes waiting projects, for this user only', async () => {
+  it('removes the watchlist for this user only, and never touches Create projects', async () => {
     await deleteConnection('user-a');
     const done = writes.map((w) => `${w.table}:${w.op}`);
-    expect(done).toEqual(expect.arrayContaining(['youtube_connections:delete', 'discover_competitors:delete', 'published_videos:delete', 'video_projects:update']));
+    expect(done).toEqual(['youtube_connections:delete', 'discover_competitors:delete']);
     for (const w of writes) expect(w.filters.user_id).toBe('user-a');
-    const reset = writes.find((w) => w.table === 'video_projects')!;
-    expect(reset.values).toMatchObject({ status: 'PACKAGED' });
-    expect(reset.filters.status).toEqual(['PUBLISHED', 'ANALYZING']);
-    // Projects are never deleted.
-    expect(done).not.toContain('video_projects:delete');
   });
 });

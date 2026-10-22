@@ -62,6 +62,7 @@ export function analyzeVideos(dataset: ChannelDataset): VideoAnalysis[] {
       format: video.format,
       durationSec: video.durationSec,
       ageDays: row.ageDays,
+      lifetimeViews: video.lifetimeViews,
       stats: row.stats,
       impressions: reach[video.id]?.impressions ?? null,
       ctr: reach[video.id]?.ctr ?? null,

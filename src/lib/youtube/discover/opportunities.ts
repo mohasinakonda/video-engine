@@ -6,7 +6,6 @@
 import { DISCOVER_RULES } from '../analysis/rules-config';
 import { median, minConfidence } from '../analysis/stats';
 import type { OpportunityWeights } from '../settings';
-import { CONFIDENCE_MIN_VIDEOS, trackRecordFor, type TrackRecordInput, type TrackRecordSignal } from '../create/track-record';
 import type { Confidence } from '../types';
 import { FORMAT_LABELS, MECHANISM_LABELS, titleMechanisms, type ContentFormat, type TitleMechanism } from './formats';
 import type { TaggedVideo } from './market-patterns';
@@ -62,8 +61,6 @@ export interface EngineContext {
   strongEmbedding: boolean;
   /** Your formats with how well they hold viewers (Channel Doctor, avg % viewed). */
   yourFormats: Map<ContentFormat, { videos: number; medianAvgViewPct: number | null }>;
-  /** How your measured Create videos did, by format and topic. Null when there are none. */
-  trackRecord?: TrackRecordInput | null;
 }
 
 const periodLabel = (w: ResearchWindow) => (w === '30d' ? 'Last 30 days' : 'Last 90 days');
@@ -311,20 +308,6 @@ export function confidenceOf(
   return { confidence: c, reasons };
 }
 
-/**
- * Your own results can raise confidence, but only with enough videos behind them; a poor
- * record is stated as a reason without hiding the idea.
- */
-export function withTrackRecord(judged: { confidence: Confidence; reasons: string[] }, track: TrackRecordSignal | null): { confidence: Confidence; reasons: string[] } {
-  if (!track) return judged;
-  if (track.n >= CONFIDENCE_MIN_VIDEOS && track.effect >= 0.3) {
-    const raised: Confidence = judged.confidence === 'low' ? 'medium' : 'high';
-    return { confidence: raised, reasons: [...judged.reasons, 'Your own past videos like this did better than your usual.'] };
-  }
-  if (track.effect <= -0.3) return { ...judged, reasons: [...judged.reasons, 'Your own past videos like this did worse than your usual.'] };
-  return judged;
-}
-
 // ─── Building opportunities ──────────────────────────────────────────────────
 
 const toLevel = (score: number | null): Level => (score === null ? 'low' : score >= 67 ? 'high' : score >= 34 ? 'medium' : 'low');
@@ -349,7 +332,6 @@ export function buildOpportunities(details: TopicDetail[], ctx: EngineContext): 
     const competition = competitionOf(s, ctx.competitorsTotal);
     const difficulty = format ? FORMAT_DIFFICULTY[format] : null;
     const p1 = phase1Score(gapTypes, format, fit, ctx);
-    const track = trackRecordFor(format, detail.centroid, ctx.trackRecord ?? null, format ? FORMAT_LABELS[format] : undefined);
     const partial: Omit<OpportunityScores, 'total'> = {
       channelFit: fit,
       competitorPerformance: performanceScore(detail, ctx.ratios),
@@ -358,11 +340,9 @@ export function buildOpportunities(details: TopicDetail[], ctx: EngineContext): 
       competition: competition.score,
       productionFit: difficulty ? S.difficultyScores[difficulty] : null,
       phase1: p1.score,
-      trackRecord: track?.score ?? null,
     };
     const { total, used } = weightedTotal(partial, ctx.weights);
-    const judged = confidenceOf(detail, momentum, gapTypes, fit, ctx);
-    const { confidence, reasons } = withTrackRecord(judged, track);
+    const { confidence, reasons } = confidenceOf(detail, momentum, gapTypes, fit, ctx);
 
     const evidence: OpportunityEvidence[] = [];
     const add = (statement: string, source: OpportunityEvidence['source'], calculation?: string) =>
@@ -383,7 +363,6 @@ export function buildOpportunities(details: TopicDetail[], ctx: EngineContext): 
     );
     for (const g of gaps) add(g.evidence, 'calculated');
     if (p1.note) add(p1.note, 'youtube_analytics');
-    if (track) add(track.evidence, 'youtube_analytics', 'Your measured Create videos, each compared with your usual videos at the same age.');
 
     opportunities.push({
       version: 1,

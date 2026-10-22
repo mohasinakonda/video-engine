@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Compass, Lightbulb, Loader2, RefreshCw, TrendingUp, Users } from 'lucide-react';
+import { AnalyzeLink } from '@/components/audit/analyze-link';
 import { CompetitorsPanel } from '@/components/discover/competitors-panel';
 import { NextVideos } from '@/components/discover/next-videos';
 import { ResearchPanel, useResearch } from '@/components/discover/research-panel';
@@ -14,9 +15,9 @@ import { useAuth } from '@/contexts/auth-context';
 type Tab = 'next' | 'market' | 'competitors';
 
 const TABS: { id: Tab; label: string; icon: typeof Compass }[] = [
-  { id: 'next', label: 'Next videos', icon: Lightbulb },
-  { id: 'market', label: 'Market', icon: TrendingUp },
   { id: 'competitors', label: 'Competitors', icon: Users },
+  { id: 'market', label: 'Market', icon: TrendingUp },
+  { id: 'next', label: 'Next videos', icon: Lightbulb },
 ];
 
 export default function DiscoverInner() {
@@ -165,7 +166,12 @@ function DiscoverTabs({
   const research = useResearch(userId, channelId, period, language);
 
   if (tab === 'competitors') {
-    return <CompetitorsPanel userId={userId} channelId={channelId} config={config} onCountChange={onCountChange} />;
+    return (
+      <div className="space-y-6">
+        {config.audit?.hasAccess && <AnalyzeLink from="competitors" />}
+        <CompetitorsPanel userId={userId} channelId={channelId} config={config} onCountChange={onCountChange} />
+      </div>
+    );
   }
   if (tab === 'market') {
     return (

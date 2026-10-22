@@ -10,7 +10,7 @@ import type { ProjectError, ProjectStatus, Thesis, VideoProject } from './types'
  */
 
 const TABLE = 'video_projects';
-const COLUMNS = 'id, origin, status, archived_from, last_error, title, thesis, brief, script, packaging, created_at, updated_at';
+const COLUMNS = 'id, origin, status, archived_from, last_error, title, thesis, brief, script, packaging, unlocked_at, usage, created_at, updated_at';
 
 export const titleSchema = z.string().trim().min(1, 'Give the project a title').max(200);
 
@@ -40,6 +40,8 @@ function toProject(r: any): VideoProject {
     brief: r.brief,
     script: r.script,
     packaging: r.packaging,
+    unlockedAt: r.unlocked_at ?? null,
+    usage: r.usage ?? {},
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -59,7 +61,7 @@ export async function getProject(userId: string, id: string): Promise<VideoProje
 
 export async function createProject(
   userId: string,
-  input: { origin: 'opportunity' | 'manual'; title: string; thesis: Thesis | null },
+  input: { origin: 'opportunity' | 'manual'; title: string; thesis: Thesis | null; unlocked?: boolean },
   maxProjects: number
 ): Promise<VideoProject> {
   const client = getServiceClient();
@@ -73,7 +75,7 @@ export async function createProject(
 
   const { data, error } = await client
     .from(TABLE)
-    .insert({ user_id: userId, origin: input.origin, title: input.title, thesis: input.thesis })
+    .insert({ user_id: userId, origin: input.origin, title: input.title, thesis: input.thesis, unlocked_at: input.unlocked ? new Date().toISOString() : null })
     .select(COLUMNS)
     .single();
   if (error) throw new Error(`Could not create the project (${error.code})`);
@@ -94,6 +96,8 @@ export async function updateProject(
     script?: unknown;
     packaging?: unknown;
     lastError?: ProjectError | null;
+    unlockedAt?: string;
+    usage?: VideoProject['usage'];
   }
 ): Promise<VideoProject> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -102,6 +106,8 @@ export async function updateProject(
   if (changes.script !== undefined) row.script = changes.script;
   if (changes.packaging !== undefined) row.packaging = changes.packaging;
   if (changes.lastError !== undefined) row.last_error = changes.lastError;
+  if (changes.unlockedAt !== undefined) row.unlocked_at = changes.unlockedAt;
+  if (changes.usage !== undefined) row.usage = changes.usage;
   if (changes.status !== undefined && changes.status !== project.status) {
     if (!canTransition(project.status, changes.status, project.archivedFrom)) throw new TransitionError(project.status, changes.status);
     row.status = changes.status;

@@ -5,11 +5,7 @@ export const NEXT_STEP: Record<Exclude<ProjectStatus, 'ARCHIVED'>, { label: stri
   DRAFT: { label: 'Write the brief', path: '' },
   BRIEF_READY: { label: 'Write the script', path: '/script' },
   SCRIPT_READY: { label: 'Title & thumbnail', path: '/package' },
-  PACKAGED: { label: 'Link the published video', path: '/publish' },
-  IN_PRODUCTION: { label: 'Link the published video', path: '/publish' },
-  PUBLISHED: { label: 'Check performance', path: '/measure' },
-  ANALYZING: { label: 'Check performance', path: '/measure' },
-  LEARNED: { label: 'See results', path: '/measure' },
+  PACKAGED: { label: 'See the package', path: '/package' },
 };
 
 export function nextStepOf(project: Pick<VideoProject, 'id' | 'status'>): { label: string; href: string } | null {
@@ -19,9 +15,8 @@ export function nextStepOf(project: Pick<VideoProject, 'id' | 'status'>): { labe
 }
 
 export const LIBRARY_TABS = [
-  { id: 'progress', label: 'In progress', statuses: ['DRAFT', 'BRIEF_READY', 'SCRIPT_READY', 'PACKAGED', 'IN_PRODUCTION'] },
-  { id: 'published', label: 'Published', statuses: ['PUBLISHED', 'ANALYZING'] },
-  { id: 'learned', label: 'Learned', statuses: ['LEARNED'] },
+  { id: 'progress', label: 'In progress', statuses: ['DRAFT', 'BRIEF_READY', 'SCRIPT_READY'] },
+  { id: 'ready', label: 'Ready', statuses: ['PACKAGED'] },
   { id: 'archived', label: 'Archived', statuses: ['ARCHIVED'] },
 ] as const satisfies readonly { id: string; label: string; statuses: readonly ProjectStatus[] }[];
 

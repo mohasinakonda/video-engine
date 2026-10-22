@@ -28,6 +28,9 @@ export interface DiagnosisResult {
   daily: DailyPoint[] | null;
   traffic: { source: string; label: string; views: number; sharePct: number }[] | null;
   formatViews: Record<VideoFormat, number> | null;
+  /** Missing on reports saved before it was added; null when YouTube shared no rows. */
+  ageGroups?: { ageGroup: string; viewerPct: number }[] | null;
+  countries?: { country: string; views: number; sharePct: number }[] | null;
   videos: DeterministicReport['videos'];
   retentionAnomalies: DeterministicReport['retentionAnomalies'];
   thumbnails: Omit<ThumbnailResult, 'model'>[];
@@ -87,6 +90,7 @@ function toResult(
   diagnosis: DiagnosisReport
 ): DiagnosisResult {
   const trafficTotal = dataset.traffic.ok ? dataset.traffic.data.reduce((sum, r) => sum + r.views, 0) : 0;
+  const countryTotal = dataset.countries.ok ? dataset.countries.data.reduce((sum, r) => sum + r.views, 0) : 0;
   return {
     version: 1,
     range: dataset.range,
@@ -105,6 +109,11 @@ function toResult(
           }))
         : null,
     formatViews: dataset.formatViews.ok ? dataset.formatViews.data : null,
+    ageGroups: dataset.ageGroups.ok && dataset.ageGroups.data.some((r) => r.viewerPct > 0) ? dataset.ageGroups.data : null,
+    countries:
+      dataset.countries.ok && countryTotal > 0
+        ? dataset.countries.data.map((r) => ({ country: r.country, views: r.views, sharePct: (r.views / countryTotal) * 100 }))
+        : null,
     videos: report.videos,
     retentionAnomalies: report.retentionAnomalies,
     thumbnails: thumbnails.map(({ model: _model, ...rest }) => rest),

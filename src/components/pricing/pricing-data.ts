@@ -12,8 +12,16 @@ export interface ComparisonRowItem {
 
 export const CREATOR_FAQS: CreatorFaqItem[] = [
   {
+    q: 'What are Channel Doctor, Discover and Create?',
+    a: 'They are the YouTube growth tools. Channel Doctor reads your own YouTube Analytics and explains why your channel is or isn’t growing. Discover follows your competitors and suggests what to make next. Create turns an idea into a brief, a script, titles and thumbnails, ready for the video maker. You can also analyze any video or channel to see why it works. The comparison table shows which plans include each one, and the growth tools section above shows what each run costs.',
+  },
+  {
+    q: 'Is it safe to connect my YouTube channel?',
+    a: 'Yes. We use YouTube’s official API with read-only permissions (your channel and video details, and your YouTube Analytics). We can never upload, edit, delete or comment on anything. Your access is stored encrypted, and you can disconnect at any time, which deletes it. See our Privacy Policy for exactly what we read and keep.',
+  },
+  {
     q: 'How are credits calculated and how many credits does one video require?',
-    a: 'Each newly generated scene image costs 2 credits. Generating a full YouTube Launch Kit (viral CTR titles, 3 thumbnail prompts, description, tags, and market intelligence) costs 15 credits. A typical 1-minute video contains 10–12 scenes (~20–24 credits). Premium AI voiceover costs about 3 credits per minute of narration. On our Creator plan (2,000 credits), you can generate up to 1,000 images or about 22–28 complete 3-minute videos with voiceover and full launch kits. MP4 rendering and downloads are free.',
+    a: 'Scene images cost 2 credits each with the standard image model; higher-quality models cost more (see the comparison table). A full YouTube Launch Kit costs 15 credits, and AI voiceover costs about 3 credits per minute of narration. A typical 3-minute video uses about 70–90 credits, so the Creator plan’s 2,000 credits make about 22–28 such videos. The growth tools are charged per run, as shown above. MP4 rendering and downloads are free.',
   },
   {
     q: 'Can I monetize the generated videos on YouTube and Facebook?',
@@ -28,8 +36,8 @@ export const CREATOR_FAQS: CreatorFaqItem[] = [
     a: 'No! There are absolutely zero watermarks or logos on any paid subscription (Starter, Creator, or Studio Pro). You receive pristine, high-definition video files ready for professional publishing.',
   },
   {
-    q: 'Does it support Bengali scripts and voiceovers?',
-    a: 'Yes! Our engine has native support for both Bengali and English scripts. Simply paste your narration script, and our AI Director will generate culturally coherent scene prompts while syncing natural AI narration (male & female voices).',
+    q: 'Does it support Bangla scripts and voiceovers?',
+    a: 'Bangla scripts, yes: paste a Bangla or English script and the AI Director plans the scenes from it. Create also writes briefs, scripts, titles and hashtags in Bangla. For the voice, upload your own Bangla narration and the scenes and subtitles sync to it automatically. The AI voices speak English and 22 other languages; Bangla AI voices are not available yet.',
   },
   {
     q: 'Do unused credits roll over to the next month?',
@@ -37,93 +45,50 @@ export const CREATOR_FAQS: CreatorFaqItem[] = [
   },
   {
     q: 'How do instant credit top-up packs work?',
-    a: 'If you exhaust your monthly quota early, active plan subscribers can instantly purchase 50, 100, or 250 credit packs via bKash or Nagad. Top-up credits stay valid as long as your plan is active.',
+    a: 'If you run out of credits early, you can buy a top-up pack from your Plan page and pay via bKash or Nagad. Top-up credits stay valid as long as your plan is active.',
   },
 ];
 
+/**
+ * Rows that are the same on every plan. Credits, video estimates, growth tools and image models
+ * are built from live data in the comparison table; nothing here claims a plan difference the
+ * app doesn't enforce.
+ */
 export const COMPARISON_ROWS: ComparisonRowItem[] = [
   {
-    name: 'Monthly Credits Quota',
-    starter: '1,200 Credits (600 Images)',
-    creator: '2,000 Credits (1,000 Images)',
-    studio: '3,500 Credits (1,750 Images)',
+    name: 'Video export',
+    starter: '1080p & 4K MP4',
+    creator: '1080p & 4K MP4',
+    studio: '1080p & 4K MP4',
   },
   {
-    name: 'Credit Consumption Rate',
-    starter: '2 cr/img · 15 cr/YouTube kit',
-    creator: '2 cr/img · 15 cr/YouTube kit',
-    studio: '2 cr/img · 15 cr/YouTube kit',
+    name: 'Aspect ratios (16:9, 9:16, 1:1)',
+    starter: 'All 3',
+    creator: 'All 3',
+    studio: 'All 3',
   },
   {
-    name: 'Estimated Finished Videos',
-    starter: '~12–15 Full Videos',
-    creator: '~35–45 Full Videos',
-    studio: '~80+ Full Videos',
+    name: 'Watermark',
+    starter: 'None',
+    creator: 'None',
+    studio: 'None',
   },
   {
-    name: 'Max Video Length (Per Project)',
-    starter: '3 Minutes (Shorts/Reels)',
-    creator: '10 Minutes (Mid-form & Stories)',
-    studio: '20 Minutes (Long Documentaries)',
+    name: 'AI voiceover',
+    starter: '23 languages + your own Bangla recording',
+    creator: '23 languages + your own Bangla recording',
+    studio: '23 languages + your own Bangla recording',
   },
   {
-    name: 'Video Export Resolution',
-    starter: '1080p Full HD',
-    creator: '1080p Full HD',
-    studio: '4K Ultra HD Crisp',
+    name: 'Commercial use (YouTube, Facebook)',
+    starter: 'Included',
+    creator: 'Included',
+    studio: 'Included',
   },
   {
-    name: 'Aspect Ratios (16:9, 9:16, 1:1)',
-    starter: 'All 3 Formats Supported',
-    creator: 'All 3 Formats Supported',
-    studio: 'All 3 Formats Supported',
-  },
-  {
-    name: 'Watermark Policy',
-    starter: 'Zero Watermark (Clean)',
-    creator: 'Zero Watermark (Clean)',
-    studio: 'Zero Watermark (Clean)',
-  },
-  {
-    name: 'AI Voiceover Narration (TTS)',
-    starter: 'Bengali & English Included',
-    creator: 'Bengali, English & 30+ Accents',
-    studio: 'Studio Quality Voices + Audio FX',
-  },
-  {
-    name: 'Script-to-Scenes AI Director',
-    starter: 'Standard AI Director',
-    creator: 'Advanced Visual Director',
-    studio: 'Deep Storyboard AI Director',
-  },
-  {
-    name: 'Visual Art Style Presets',
-    starter: '10+ Curated Styles',
-    creator: '20+ Styles + Character Consistency',
-    studio: 'Unlimited Styles + VIP Prompt Fine-tuning',
-  },
-  {
-    name: 'Cloud Rendering Queue Speed',
-    starter: 'Standard Cloud Queue',
-    creator: 'Priority Cloud Processing',
-    studio: 'Instant Dedicated Supercluster',
-  },
-  {
-    name: 'Simultaneous Active Projects',
-    starter: 'Up to 3 Projects',
-    creator: 'Up to 10 Projects',
-    studio: 'Unlimited Projects',
-  },
-  {
-    name: 'Commercial Use License',
-    starter: 'Included (100% Monetizable)',
-    creator: 'Included (100% Monetizable)',
-    studio: 'Full Enterprise Commercial License',
-  },
-  {
-    name: 'Customer Support SLA',
-    starter: 'Standard Email & Ticket Support',
-    creator: 'Priority WhatsApp Live Chat',
-    studio: '1-on-1 Dedicated Account Manager',
+    name: 'Support',
+    starter: 'Email & ticket',
+    creator: 'Priority WhatsApp',
+    studio: '1-on-1 account manager',
   },
 ];

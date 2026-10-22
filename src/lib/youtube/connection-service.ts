@@ -192,16 +192,5 @@ export async function deleteConnection(userId: string): Promise<{ hadConnection:
   // The competitor watchlist belongs to this connection; disconnecting removes it too.
   const { error: watchlistError } = await client.from('discover_competitors').delete().eq('user_id', userId);
   if (watchlistError) console.error('[youtube] watchlist cleanup failed:', watchlistError.code);
-  // Create's links to videos on this channel, and the learning labels derived from their
-  // Analytics (deleted with them). The projects themselves are the user's content and stay.
-  const { error: linksError } = await client.from('published_videos').delete().eq('user_id', userId);
-  if (linksError) console.error('[youtube] published video cleanup failed:', linksError.code);
-  // Projects waiting on a now-removed link go back to packaged, so they can be linked again after reconnecting.
-  const { error: statusError } = await client
-    .from('video_projects')
-    .update({ status: 'PACKAGED', updated_at: new Date().toISOString() })
-    .eq('user_id', userId)
-    .in('status', ['PUBLISHED', 'ANALYZING']);
-  if (statusError) console.error('[youtube] project status cleanup failed:', statusError.code);
   return { hadConnection: true, revokedAtGoogle };
 }

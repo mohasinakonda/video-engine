@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { acceptThumbnails, acceptTitles, cleanDescription } from './ai/packager';
+import { acceptThumbnails, acceptTitles, cleanDescription, cleanHashtags, withHashtags } from './ai/packager';
 import {
   blankThumbnail,
   cleanTags,
@@ -10,6 +10,7 @@ import {
   packagingSchema,
   packagingToText,
   statusAfterPackaging,
+  thumbnailPrompt,
   type VideoPackaging,
 } from './packaging';
 
@@ -42,9 +43,8 @@ describe('packaging schema and status', () => {
     expect(statusAfterPackaging('SCRIPT_READY', true)).toBe('PACKAGED');
     expect(statusAfterPackaging('SCRIPT_READY', false)).toBe('SCRIPT_READY');
     expect(statusAfterPackaging('PACKAGED', false)).toBe('SCRIPT_READY');
-    expect(statusAfterPackaging('IN_PRODUCTION', true)).toBe('IN_PRODUCTION');
+    expect(statusAfterPackaging('PACKAGED', true)).toBe('PACKAGED');
     expect(statusAfterPackaging('BRIEF_READY', true)).toBeNull();
-    expect(statusAfterPackaging('PUBLISHED', true)).toBeNull();
     expect(statusAfterPackaging('ARCHIVED', true)).toBeNull();
   });
 
@@ -99,5 +99,46 @@ describe('AI output checks', () => {
 
   it('removes hype, unbacked numbers, links and hashtags from the description', () => {
     expect(cleanDescription('Meet 5 glowing animals. 90% of the sea is dark.\n\nVisit https://x.y now. #ocean rocks. Smash that like button.', allowed)).toBe('Meet 5 glowing animals.');
+  });
+
+  it('removes hashtags in any script from the description body', () => {
+    expect(cleanDescription('Meet the animals. আলোর মাছ #বিজ্ঞান দেখুন।', allowed)).toBe('Meet the animals.');
+  });
+
+  it('keeps three specific hashtags, in any script, and puts them on their own line', () => {
+    const tags = cleanHashtags(['#Deep Sea', 'অন্ধকার সমুদ্র', '#viral', '#deepsea', '#Fish!', '#Ocean', 42], allowed);
+    expect(tags).toEqual(['#DeepSea', '#অন্ধকারসমুদ্র', '#Fish']);
+    expect(withHashtags('Meet the animals.', tags)).toBe('Meet the animals.\n\n#DeepSea #অন্ধকারসমুদ্র #Fish');
+    expect(withHashtags('', tags)).toBe('');
+  });
+});
+
+describe('thumbnailPrompt', () => {
+  const idea = { ...blankThumbnail(), mainSubject: 'An anglerfish', supportingObject: 'its glowing lure', composition: 'close up, left third', background: 'pitch black water' };
+
+  it('describes the idea and asks for text the model can draw', () => {
+    const { prompt, textLeftOut } = thumbnailPrompt({ ...idea, text: 'Living light' });
+    expect(prompt).toContain('An anglerfish');
+    expect(prompt).toContain('with its glowing lure');
+    expect(prompt).toContain('Background: pitch black water');
+    expect(prompt).toContain('text reading "Living light"');
+    // Not last: the image route strips a closing quote.
+    expect(prompt.endsWith('"')).toBe(false);
+    expect(textLeftOut).toBe(false);
+  });
+
+  it('leaves out text it can’t draw, and asks for no text when there is none', () => {
+    const bangla = thumbnailPrompt({ ...idea, text: 'আলোর মাছ' });
+    expect(bangla.prompt).not.toContain('আলোর');
+    expect(bangla.prompt).toContain('No text or letters');
+    expect(bangla.textLeftOut).toBe(true);
+    expect(thumbnailPrompt(idea).textLeftOut).toBe(false);
+  });
+
+  it('keeps any text in a prompt meant for other image models', () => {
+    const copied = thumbnailPrompt({ ...idea, text: 'আলোর মাছ' }, { anyText: true });
+    expect(copied.prompt).toContain('text reading "আলোর মাছ"');
+    expect(copied.prompt).not.toContain('No text');
+    expect(copied.textLeftOut).toBe(false);
   });
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { briefSchema } from '@/lib/youtube/create/brief';
+import { bump, runCost } from '@/lib/youtube/create/bundle';
 import { generatePackaging } from '@/lib/youtube/create/ai/packager';
 import { isComplete, packagingSchema, statusAfterPackaging, type VideoPackaging } from '@/lib/youtube/create/packaging';
 import { updateProject } from '@/lib/youtube/create/projects';
@@ -16,12 +17,13 @@ export const maxDuration = 300;
 
 type Context = { params: { id: string } };
 
-const generateSchema = z.object({ notes: z.string().trim().max(1500).optional() });
+const generateSchema = z.object({ notes: z.string().trim().max(1500).optional(), only: z.enum(['titles', 'thumbnails']).optional() });
 
-const NOT_EDITABLE = 'Packaging can be made once the script is saved, and changed until the video is published.';
+const NOT_EDITABLE = 'Packaging can be made once the script is saved.';
 
 /**
  * POST /api/create/projects/:id/packaging — the AI proposes titles, thumbnails and a description
+ * (or, with `only`, new titles or new thumbnails alone)
  * (streamed; credits charged up front, refunded if nothing usable comes back). Chosen concepts
  * are kept; the status doesn't move until the user chooses and saves.
  */
@@ -54,16 +56,21 @@ export async function POST(req: Request, { params }: Context) {
     feature: 'create',
     needsYouTube: false,
     label: 'create/packaging',
-    cost: (settings) => settings.create.packagingCreditCost,
+    // Included in the video's price while the allowance lasts.
+    cost: (settings) => runCost(project, settings.create, 'packaging'),
     run: async ({ settings, onStage }) => {
       onStage('packaging');
       const packaging = await generatePackaging(brief.data, script.data, {
         notes: parsed.data.notes,
         models: settings.textModels,
         previous: previous.success ? previous.data : null,
+        only: parsed.data.only,
       });
-      if (!packaging) throw new UserFacingError('The AI couldn’t come up with usable titles right now. Your credits were returned; you can write your own or try again.');
-      const updated = await updateProject(userId, project, { packaging, lastError: null });
+      if (!packaging) {
+        const what = parsed.data.only === 'thumbnails' ? 'thumbnail ideas' : 'titles';
+        throw new UserFacingError(`The AI couldn’t come up with usable ${what} right now. Your credits were returned; you can write your own or try again.`);
+      }
+      const updated = await updateProject(userId, project, { packaging, lastError: null, usage: bump(project, 'packaging') });
       return { project: updated };
     },
   });

@@ -44,6 +44,10 @@ export const thumbnailConceptSchema = z.object({
   contrast: text(200),
   hierarchy: text(240),
   source: z.enum(['ai', 'manual']),
+  /** The made image, kept in this browser only (media never reaches our servers). */
+  imageId: z.string().regex(/^[A-Za-z0-9-]{8,64}$/).optional(),
+  /** The Canva design it's being edited in. */
+  canvaDesignId: z.string().regex(/^[A-Za-z0-9_-]{4,100}$/).optional(),
 });
 export type ThumbnailConcept = z.infer<typeof thumbnailConceptSchema>;
 
@@ -83,13 +87,11 @@ const rank = (s: ProjectStatus) => FLOW.indexOf(s);
 /**
  * Status after saving packaging. A complete choice moves to PACKAGED; an incomplete one is
  * saved without finishing the step (and un-finishes it if it was done). Null when packaging
- * can't be edited: the script isn't saved, or the video is already published.
+ * can't be edited yet: the script isn't saved.
  */
 export function statusAfterPackaging(current: ProjectStatus, complete: boolean): ProjectStatus | null {
-  if (current === 'ARCHIVED' || rank(current) < rank('SCRIPT_READY') || rank(current) >= rank('PUBLISHED')) return null;
-  // Tweaking the title while making the video doesn't take the project out of production.
-  if (complete) return current === 'IN_PRODUCTION' ? 'IN_PRODUCTION' : 'PACKAGED';
-  return 'SCRIPT_READY';
+  if (current === 'ARCHIVED' || rank(current) < rank('SCRIPT_READY')) return null;
+  return complete ? 'PACKAGED' : 'SCRIPT_READY';
 }
 
 /** The mechanism the wording actually uses; falls back to what was claimed. */
@@ -145,7 +147,7 @@ export const blankThumbnail = (): ThumbnailConcept => ({
   source: 'manual',
 });
 
-export const THUMBNAIL_FIELDS: { key: Exclude<keyof ThumbnailConcept, 'source'>; label: string }[] = [
+export const THUMBNAIL_FIELDS: { key: Exclude<keyof ThumbnailConcept, 'source' | 'imageId' | 'canvaDesignId'>; label: string }[] = [
   { key: 'mainSubject', label: 'Main subject' },
   { key: 'supportingObject', label: 'Supporting object' },
   { key: 'emotionOrAction', label: 'Emotion or action' },
@@ -166,4 +168,35 @@ export function packagingToText(p: VideoPackaging): string {
   else lines.push('(not chosen yet)');
   lines.push('', '## Description', p.description || '(empty)', '', '## Tags', p.tags.join(', ') || '(none)');
   return lines.join('\n') + '\n';
+}
+
+/** Thumbnail text the image model can draw: Latin letters only (it can't write Bangla). */
+export const drawableText = (text: string) => /^[A-Za-zÀ-ɏ\d\s!?'’&:,.-]+$/.test(text.trim());
+
+/**
+ * An image prompt from a thumbnail idea. Text the model can't draw is left out, to be added in
+ * Canva instead.
+ */
+export function thumbnailPrompt(c: ThumbnailConcept, options: { anyText?: boolean } = {}): { prompt: string; textLeftOut: boolean } {
+  const text = c.text.trim();
+  // anyText: for a copied prompt, since other image models (e.g. Nano Banana) can write non-Latin scripts.
+  const draw = !!text && (options.anyText || drawableText(text));
+  // The text goes early, not last: the image route strips a closing quote, and FLUX weighs early words most.
+  // "text reading" is the phrase the route looks for to stop asking the model for no text.
+  const textPart = draw
+    ? `Bold, large, easy-to-read headline text reading "${text}"`
+    : text
+      ? 'Clear empty space for a headline added later. No text or letters in the image'
+      : 'No text or letters in the image';
+  const parts = [
+    'YouTube thumbnail, 16:9',
+    c.mainSubject,
+    c.supportingObject && `with ${c.supportingObject}`,
+    textPart,
+    c.emotionOrAction,
+    c.composition && `Composition: ${c.composition}`,
+    c.background && `Background: ${c.background}`,
+    c.contrast,
+  ];
+  return { prompt: parts.filter(Boolean).join('. ').replace(/\.\./g, '.'), textLeftOut: !!text && !draw };
 }

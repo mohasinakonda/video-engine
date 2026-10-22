@@ -24,6 +24,8 @@ export async function POST(req: Request) {
     userId: auth.user.id,
     label: 'youtube/diagnosis',
     cost: (settings) => settings.diagnosisCreditCost,
+    // Trial users get their first diagnosis free (admin-set count).
+    trialFree: true,
     run: ({ token, settings, onStage }) =>
       runDiagnosis({
         userId: auth.user.id,

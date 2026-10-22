@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, ExternalLink, Link2, Loader2, Pause, Play, RefreshCw, Search, Trash2, Users } from 'lucide-react';
+import { AlertCircle, ExternalLink, Link2, Loader2, Pause, Play, RefreshCw, ScanSearch, Search, Trash2, Users } from 'lucide-react';
+import Link from 'next/link';
 import { formatCompact } from '@/components/youtube-doctor/format';
 import { AddByLink } from './add-by-link';
 import { CompetitorAvatar } from './competitor-avatar';
@@ -156,7 +157,7 @@ export function CompetitorsPanel({
             </div>
             <ul className="space-y-2">
               {rows.map((entry) => (
-                <CompetitorRow key={entry.channelId} entry={entry} canActivate={slotsLeft > 0} onChanged={load} />
+                <CompetitorRow key={entry.channelId} entry={entry} canActivate={slotsLeft > 0} canAnalyze={!!config.audit?.hasAccess} onChanged={load} />
               ))}
             </ul>
           </section>
@@ -166,7 +167,7 @@ export function CompetitorsPanel({
   );
 }
 
-function CompetitorRow({ entry, canActivate, onChanged }: { entry: WatchlistEntry; canActivate: boolean; onChanged: () => void }) {
+function CompetitorRow({ entry, canActivate, canAnalyze, onChanged }: { entry: WatchlistEntry; canActivate: boolean; canAnalyze: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const { channel } = entry;
@@ -219,6 +220,12 @@ function CompetitorRow({ entry, canActivate, onChanged }: { entry: WatchlistEntr
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:ml-auto">
+          {canAnalyze && channel && (
+            <Link href={`/discover/channel/${entry.channelId}?from=competitors`} className="btn-ghost btn-sm text-amber-300" title="What works on this channel">
+              <ScanSearch size={14} />
+              Analyze
+            </Link>
+          )}
           <select
             value={entry.group}
             onChange={(e) => request('PATCH', { group: e.target.value })}

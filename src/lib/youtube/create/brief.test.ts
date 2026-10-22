@@ -100,6 +100,33 @@ describe('BriefInterpreter', () => {
     expect(b?.corePromise).toBe('Teach letters to 3-5 year olds');
   });
 
+  it('keeps ages in who it’s for, survives a bad field and asks again for what’s missing', async () => {
+    llm.mockReset();
+    // First answer: an age range, an over-long audience, an unknown format and no angle.
+    llm.mockResolvedValueOnce({
+      model: 'm/x',
+      content: JSON.stringify({
+        audience: `Parents of toddlers and preschoolers (ages 2–5) ${'who want a fun way to learn letters together. '.repeat(6)}`,
+        format: 'live_stream',
+        corePromise: 'Your child sings every letter and its sound.',
+        keyPoints: ['Sing slowly with letters on screen'],
+      }),
+    });
+    llm.mockResolvedValueOnce({ model: 'm/x', content: JSON.stringify({ angle: 'A slow-then-fast sing-along', format: 'Tutorial' }) });
+    const b = await interpretBrief(emptyBrief('ABC song', 'English'), { models: ['m/x'] });
+    expect(b?.audience.startsWith('Parents of toddlers and preschoolers (ages 2–5)')).toBe(true);
+    expect(b?.audience.length).toBeLessThanOrEqual(240);
+    expect(b).toMatchObject({ angle: 'A slow-then-fast sing-along', format: 'tutorial', corePromise: 'Your child sings every letter and its sound.' });
+    expect(JSON.parse(llm.mock.calls[1][0].messages[1].content).answerOnly).toEqual(['audience', 'angle', 'format'].filter((f) => f !== 'audience'));
+  });
+
+  it('still refuses statistics in who it’s for', async () => {
+    llm.mockReset();
+    answer({ audience: 'The 87% of parents who struggle', corePromise: 'Letters made easy', angle: 'Slow then fast', format: 'tutorial' });
+    const b = await interpretBrief(emptyBrief('ABC song', 'English'), { models: ['m/x'] });
+    expect(b?.audience).toBe('');
+  });
+
   it('returns null when the model fails or gives nothing usable', async () => {
     llm.mockResolvedValue(null);
     expect(await interpretBrief(emptyBrief('x', 'English'), { models: ['m/x'] })).toBeNull();
@@ -113,5 +140,16 @@ describe('BriefInterpreter', () => {
       direction: 'The deep sea is weirder than space',
     });
     expect(normalizeDirection({ mechanism: 'how', direction: 'x' })).toEqual({ mechanism: 'how', direction: 'x' });
+  });
+});
+
+describe('clip', () => {
+  it('keeps whole sentences, or ends on a word with an ellipsis', async () => {
+    const { clip } = await import('./ai/brief-interpreter');
+    expect(clip('Short.', 20)).toBe('Short.');
+    expect(clip('One sentence here. Another one that is long', 30)).toBe('One sentence here.');
+    const c = clip('A live sing-along that turns watching into joining in, with letters', 40);
+    expect(c.endsWith('…')).toBe(true);
+    expect(c.length).toBeLessThanOrEqual(40);
   });
 });

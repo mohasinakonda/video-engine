@@ -6,6 +6,8 @@ import { ArrowDown, ArrowRight, ArrowUp, Loader2, Plus, RotateCcw, Save, Sparkle
 import { EvidenceBadge } from '@/components/youtube-doctor/diagnosis-sections';
 import { FORMATS, FORMAT_LABELS, MECHANISMS, MECHANISM_LABELS } from '@/lib/youtube/discover/formats';
 import { structureFor } from '@/lib/youtube/create/structures';
+import { IncludedNote } from './included-note';
+import { priceTag } from './pricing';
 import type { CreateConfig, VideoBrief, VideoProject } from './types';
 
 const INTENT_LABELS: Record<VideoBrief['intent'], string> = {
@@ -60,8 +62,9 @@ export function BriefEditor({
   const dirty = useMemo(() => JSON.stringify(clean(brief)) !== JSON.stringify(clean(initial)), [brief, initial]);
   const set = <K extends keyof VideoBrief>(key: K, value: VideoBrief[K]) => setBrief((b) => ({ ...b, [key]: value }));
   const todo = missing(brief);
-  const later = ['SCRIPT_READY', 'PACKAGED', 'IN_PRODUCTION'].includes(project.status);
-  const hasEmpty = !brief.corePromise || !brief.audience || brief.keyPoints.length === 0 || brief.titleDirections.length === 0 || !brief.thumbnailDirection;
+  const later = ['SCRIPT_READY', 'PACKAGED'].includes(project.status);
+  const briefTag = priceTag(project, config, 'brief');
+  const hasEmpty = !brief.corePromise || !brief.audience || !brief.angle || brief.keyPoints.length === 0 || brief.titleDirections.length === 0 || !brief.thumbnailDirection;
 
   return (
     <div className="space-y-6 pb-28">
@@ -241,8 +244,9 @@ export function BriefEditor({
           />
           <button type="button" className="btn-secondary" disabled={aiRunning || dirty} onClick={() => onFillWithAI(notes)} title={dirty ? 'Save your changes first' : undefined}>
             {aiRunning ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            Fill empty parts · {config.costs.brief} credits
+            Fill empty parts
           </button>
+          <IncludedNote note={briefTag.note} included={briefTag.included} />
           {dirty && <p className="text-sm text-amber-300">Save your changes first.</p>}
         </section>
       )}

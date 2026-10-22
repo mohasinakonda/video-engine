@@ -6,9 +6,12 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2, PenLine, Sparkles } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
 import { PackagingEditor } from '@/components/create/packaging-editor';
+import type { ThumbnailLink } from '@/components/create/thumbnail-maker';
 import { ProjectHeader, ProjectPlaceholder } from '@/components/create/project-header';
 import { runStream, type StreamFailure } from '@/components/create/run-stream';
 import type { CreateConfig, VideoProject } from '@/components/create/types';
+import { IncludedNote } from '@/components/create/included-note';
+import { priceTag } from '@/components/create/pricing';
 import { useCreateConfig } from '@/components/create/use-create-config';
 import { useProject } from '@/components/create/use-project';
 import { StreamError } from '@/components/discover/stream-error';
@@ -46,11 +49,24 @@ export default function PackagePage() {
     setDraft(null);
   };
 
-  const generate = async (notes: string) => {
+  const linkThumbnail = async (index: number, mainSubject: string, link: ThumbnailLink): Promise<string | null> => {
+    if (!loaded) return 'The project isn’t loaded.';
+    const res = await fetch(`/api/create/projects/${loaded.id}/packaging/thumbnail`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index, mainSubject, ...link }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return data.error || 'Couldn’t save the image link.';
+    setProject(data.project);
+    return null;
+  };
+
+  const generate = async (notes: string, only?: 'titles' | 'thumbnails') => {
     if (!loaded) return;
     setGenerating(true);
     setFailure(null);
-    const result = await runStream<{ project: VideoProject }>(`/api/create/projects/${loaded.id}/packaging`, { notes: notes || undefined });
+    const result = await runStream<{ project: VideoProject }>(`/api/create/projects/${loaded.id}/packaging`, { notes: notes || undefined, only });
     setGenerating(false);
     if (!result.ok) return setFailure(result.error);
     setProject(result.data.project);
@@ -92,9 +108,11 @@ export default function PackagePage() {
                   generating={generating}
                   onSave={save}
                   onGenerate={generate}
+                  onLinkThumbnail={linkThumbnail}
                 />
               ) : (
                 <StartPackaging
+                  project={loaded}
                   config={config as CreateConfig}
                   running={generating}
                   onAI={generate}
@@ -109,8 +127,9 @@ export default function PackagePage() {
   );
 }
 
-function StartPackaging({ config, running, onAI, onManual }: { config: CreateConfig; running: boolean; onAI: (notes: string) => void; onManual: () => void }) {
+function StartPackaging({ project, config, running, onAI, onManual }: { project: VideoProject; config: CreateConfig; running: boolean; onAI: (notes: string) => void; onManual: () => void }) {
   const [notes, setNotes] = useState('');
+  const tag = priceTag(project, config, 'packaging');
 
   if (running) {
     return (
@@ -143,10 +162,13 @@ function StartPackaging({ config, running, onAI, onManual }: { config: CreateCon
         />
       </label>
       <div className="flex flex-col sm:flex-row gap-2">
-        <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(notes)}>
-          <Sparkles size={18} />
-          Make packaging ideas · {config.costs.packaging} credits
-        </button>
+        <div className="space-y-1">
+          <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(notes)}>
+            <Sparkles size={18} />
+            Make packaging ideas
+          </button>
+          <IncludedNote note={tag.note} included={tag.included} />
+        </div>
         <button type="button" className="btn-ghost" onClick={onManual}>
           <PenLine size={16} />
           I’ll write my own

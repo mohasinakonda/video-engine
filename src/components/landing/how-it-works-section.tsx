@@ -180,7 +180,7 @@ export const HowItWorksSection: React.FC = () => {
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-[9px] font-mono text-zinc-100 border border-white/20">
-                AI 8K
+                AI HD
               </div>
             </div>
 

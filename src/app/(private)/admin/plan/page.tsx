@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getPlanPrice } from '@/lib/plan-pricing';
+import { getPlanPrice, perCreditBDT } from '@/lib/plan-pricing';
 import {
   Settings,
   DollarSign,
@@ -149,7 +149,9 @@ export default function AdminPlanSettingsPage() {
   const handleUpdateTopup = (index: number, field: keyof CreditTopupPack, value: unknown) => {
     setTopupPacks((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
+      const pack = { ...next[index], [field]: value };
+      // A changed price or credit amount changes the per-credit price shown to users.
+      next[index] = { ...pack, perCreditBDT: perCreditBDT(pack.priceBDT, pack.credits) };
       return next;
     });
   };
@@ -162,7 +164,7 @@ export default function AdminPlanSettingsPage() {
       name: newPackName.trim(),
       credits: newPackCredits,
       priceBDT: newPackPriceBDT,
-      perCreditBDT: parseFloat((newPackPriceBDT / newPackCredits).toFixed(2)),
+      perCreditBDT: perCreditBDT(newPackPriceBDT, newPackCredits),
     };
     const updated = [...topupPacks, newPack];
     setTopupPacks(updated);

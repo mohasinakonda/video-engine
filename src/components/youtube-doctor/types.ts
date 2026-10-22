@@ -28,4 +28,6 @@ export interface DoctorConfig {
   allowedPlans: string[];
   diagnosisCost: number;
   videoCost: number;
+  /** Free diagnoses a Trial user has left; 0 on paid plans. */
+  freeDiagnosesLeft: number;
 }

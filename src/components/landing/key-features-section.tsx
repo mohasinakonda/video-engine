@@ -11,7 +11,7 @@ export const KeyFeaturesSection: React.FC = () => {
         {/* Heading */}
         <div className="max-w-2xl space-y-4">
           <p className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-500">
-            WHAT YOU GET
+            THEN MAKE THE VIDEO
           </p>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-zinc-950 tracking-tight leading-tight">
             One studio for the whole video, <br className="hidden sm:block" />

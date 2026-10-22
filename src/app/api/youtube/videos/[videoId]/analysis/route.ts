@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireUser } from '@/lib/youtube/route-auth';
 import { streamAnalysis } from '@/lib/youtube/stream-analysis';
+import { ownVideoExtras } from '@/lib/youtube/audit/own-video';
 import { analyzeSingleVideo } from '@/lib/youtube/video-analysis';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 const bodySchema = z.object({ range: z.enum(['28d', '90d']) });
 const videoIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/);
@@ -23,8 +24,8 @@ export async function POST(req: Request, { params }: { params: { videoId: string
     userId: auth.user.id,
     label: 'youtube/video-analysis',
     cost: (settings) => settings.videoAnalysisCreditCost,
-    run: ({ token, settings, onStage }) =>
-      analyzeSingleVideo({
+    run: async ({ token, settings, onStage }) => {
+      const result = await analyzeSingleVideo({
         accessToken: token.accessToken,
         connection: token.connection,
         reportingJobId: token.reportingJobId,
@@ -32,6 +33,17 @@ export async function POST(req: Request, { params }: { params: { videoId: string
         videoId: videoId.data,
         range: body.data.range,
         onStage,
-      }),
+      });
+      // Packaging rules and what viewers say.
+      const extras = await ownVideoExtras({
+        accessToken: token.accessToken,
+        videoId: videoId.data,
+        title: result.video.title,
+        thumbnail: result.thumbnail,
+        maxComments: settings.audit.maxComments,
+        textModels: settings.textModels,
+      }).catch(() => null);
+      return extras ? { ...result, extras, limitations: [...result.limitations, ...extras.limitations] } : result;
+    },
   });
 }

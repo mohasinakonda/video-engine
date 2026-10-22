@@ -9,9 +9,12 @@ import { BriefEditor } from '@/components/create/brief-editor';
 import { ProjectHeader, ProjectPlaceholder } from '@/components/create/project-header';
 import { runStream, type StreamFailure } from '@/components/create/run-stream';
 import { type CreateConfig, type VideoBrief, type VideoProject } from '@/components/create/types';
+import { IncludedNote } from '@/components/create/included-note';
+import { priceTag } from '@/components/create/pricing';
 import { useCreateConfig } from '@/components/create/use-create-config';
 import { useProject } from '@/components/create/use-project';
 import { StreamError } from '@/components/discover/stream-error';
+import { TopicSearch } from '@/components/create/topic-search';
 import { briefFromThesis, briefSchema, emptyBrief } from '@/lib/youtube/create/brief';
 
 /** Bangla when the text is mostly Bangla script (kept here: the server helper pulls in AI code). */
@@ -69,6 +72,8 @@ export default function ProjectPage() {
 
               {failure && <StreamError error={failure} />}
 
+              <TopicSearch project={project} topic={brief?.topic || project.thesis?.topic || project.title} config={config as CreateConfig} onProject={setProject} />
+
               {brief ? (
                 <BriefEditor project={project} brief={brief} config={config as CreateConfig} saving={saving} aiRunning={aiRunning} onSave={save} onFillWithAI={(n) => fillWithAI(n)} />
               ) : (
@@ -106,6 +111,7 @@ function StartBrief({
 }) {
   const [notes, setNotes] = useState('');
   const [language, setLanguage] = useState<VideoBrief['language']>(guessLanguage(project.thesis?.topic ?? project.title));
+  const tag = priceTag(project, config, 'brief');
 
   if (running) {
     return (
@@ -150,10 +156,13 @@ function StartBrief({
         </select>
       </label>
       <div className="flex flex-col sm:flex-row gap-2">
-        <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(notes, language)}>
-          <Sparkles size={18} />
-          Draft my brief · {config.costs.brief} credits
-        </button>
+        <div className="space-y-1">
+          <button type="button" className="btn-primary px-6 py-3 text-base font-semibold" onClick={() => onAI(notes, language)}>
+            <Sparkles size={18} />
+            Draft my brief
+          </button>
+          <IncludedNote note={tag.note} included={tag.included} />
+        </div>
         <button type="button" className="btn-ghost" onClick={() => onManual(language)}>
           <PenLine size={16} />
           I’ll write it myself

@@ -113,20 +113,28 @@ export default function ChannelDoctorInner() {
             stats={state.stats}
             onDisconnect={() => setShowDisconnect(true)}
           >
-            {config.hasAccess ? (
+            {config.hasAccess || config.freeDiagnosesLeft > 0 ? (
               <AnalysisPanel
                 range={range}
                 onRangeChange={setRange}
-                cost={config.diagnosisCost}
+                cost={config.hasAccess ? config.diagnosisCost : 0}
                 running={diagnosis.running}
                 stages={diagnosis.stages}
                 error={diagnosis.error}
                 hasReport={Boolean(diagnosis.saved)}
-                onRun={diagnosis.run}
+                onRun={async () => {
+                  await diagnosis.run();
+                  // A free diagnosis was just used: refresh what's left, quietly.
+                  if (!config.hasAccess) {
+                    const res = await fetch('/api/youtube/config').catch(() => null);
+                    if (res?.ok) setConfig(await res.json());
+                  }
+                }}
               />
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-bg-border">
                 <p className="flex-1 text-sm text-zinc-400">
+                  {config.tier === 'TRIAL' && config.freeDiagnosesLeft === 0 && diagnosis.saved ? 'That was your free diagnosis. ' : ''}
                   Channel analysis is available on the {config.allowedPlans.map(planLabel).join(', ')} plan
                   {config.allowedPlans.length > 1 ? 's' : ''}.
                 </p>

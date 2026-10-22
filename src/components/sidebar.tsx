@@ -23,7 +23,6 @@ import {
   Stethoscope,
   Compass,
   PenLine,
-  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
@@ -37,7 +36,6 @@ const navItems = [
   { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
   { href: '/discover', label: 'Discover', icon: Compass },
   { href: '/create', label: 'Create', icon: PenLine },
-  { href: '/learn', label: 'Learn', icon: GraduationCap },
   // { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
 ];
@@ -63,9 +61,9 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
     enabled('/api/youtube/discover/config').then(setDiscoverOn);
     enabled('/api/create/config').then(setCreateOn);
   }, [isLoggedIn]);
-  // Discover, Create and Learn are listed once the admin switches them on (admins always see them, to test).
+  // Discover and Create are listed once the admin switches them on (admins always see them, to test).
   const showItem = (href: string) =>
-    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && ((href !== '/create' && href !== '/learn') || isAdmin || createOn);
+    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && (href !== '/create' || isAdmin || createOn);
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -177,7 +175,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         <div className="flex items-center gap-2.5">
           <AppLogo className="w-8 h-8 rounded-lg shadow-sm" />
           <div>
-            <p className="text-sm font-semibold text-zinc-100 leading-tight">AI Video</p>
+            <p className="text-sm font-semibold text-zinc-100 leading-tight">Rendoza AI</p>
             <p className="text-2xs text-zinc-400 leading-tight">Studio Web</p>
           </div>
         </div>

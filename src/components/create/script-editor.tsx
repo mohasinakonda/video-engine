@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, Check, ClipboardCopy, Download, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { AlertTriangle, ArrowRight, Check, Clapperboard, ClipboardCopy, Download, Loader2, Mic, Plus, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
 import {
   AI_MAX_MINUTES,
   AI_MIN_MINUTES,
@@ -10,12 +11,15 @@ import {
   ISSUE_TEXT,
   estimateSeconds,
   isStale,
+  narrationText,
   researchChecklist,
   scriptToText,
   sectionIssues,
   targetWords,
   wordCount,
 } from '@/lib/youtube/create/script';
+import { IncludedNote } from './included-note';
+import { priceTag, type PriceTag } from './pricing';
 import type { ClaimKind, CreateConfig, ScriptSection, VideoBrief, VideoProject, VideoScript } from './types';
 
 export const CLAIM_LABELS: Record<ClaimKind, { label: string; hint: string; className: string }> = {
@@ -94,6 +98,22 @@ export function ScriptEditor({
     URL.revokeObjectURL(url);
   };
 
+  // Hands the saved narration to another tool. Each key holds one script and the page that reads it removes it,
+  // so nothing piles up. Voice uses sessionStorage, which the browser also clears when the tab closes;
+  // the scene maker already reads `pending_script` from localStorage.
+  const router = useRouter();
+  const canHandOff = !dirty && project.status !== 'BRIEF_READY' && unwritten === 0 && !busy;
+  const handOff = (to: 'voice' | 'scenes') => {
+    const narration = narrationText(clean(initial));
+    try {
+      if (to === 'voice') sessionStorage.setItem('pending_voice_script', narration);
+      else localStorage.setItem('pending_script', narration);
+    } catch {
+      // Storage blocked or full: the tool still opens, and Copy still works.
+    }
+    router.push(to === 'voice' ? '/voice-studio' : '/project/new');
+  };
+
   return (
     <div className="space-y-6 pb-28">
       {stale && (
@@ -153,7 +173,7 @@ export function ScriptEditor({
             language={script.language}
             target={targets.get(s.id) ?? 100}
             issues={issues.get(s.id) ?? []}
-            cost={config.costs.scriptSection}
+            price={priceTag(project, config, 'section')}
             dirty={dirty}
             rewriting={rewriting === s.id}
             busy={busy}
@@ -163,13 +183,13 @@ export function ScriptEditor({
         ))}
       </ol>
 
-      <RewriteAll script={initial} cost={config.costs.script} running={rewriting === 'all'} disabled={busy || dirty} onRun={onRewriteAll} />
+      <RewriteAll script={initial} price={priceTag(project, config, 'script')} running={rewriting === 'all'} disabled={busy || dirty} onRun={onRewriteAll} />
 
       <div className="fixed bottom-0 inset-x-0 z-30 border-t border-bg-border bg-bg-base/95 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <p className="flex-1 text-sm text-zinc-400">
             {dirty
-              ? ['PACKAGED', 'IN_PRODUCTION'].includes(project.status)
+              ? project.status === 'PACKAGED'
                 ? 'Unsaved changes. Saving sends the packaging back for review.'
                 : 'Unsaved changes.'
               : stale
@@ -187,6 +207,18 @@ export function ScriptEditor({
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save script
           </button>
+          {canHandOff && (
+            <div className="flex gap-2">
+              <button type="button" className="btn-secondary flex-1 sm:flex-none" onClick={() => handOff('voice')}>
+                <Mic size={16} />
+                Make voice
+              </button>
+              <button type="button" className="btn-secondary flex-1 sm:flex-none" onClick={() => handOff('scenes')}>
+                <Clapperboard size={16} />
+                Make scenes
+              </button>
+            </div>
+          )}
           {!dirty && !stale && project.status !== 'BRIEF_READY' && (
             <Link href={`/create/${project.id}/package`} className="btn-primary px-5">
               {project.packaging ? 'Go to packaging' : 'Next: title & thumbnail'}
@@ -205,7 +237,7 @@ function SectionCard({
   language,
   target,
   issues,
-  cost,
+  price,
   dirty,
   rewriting,
   busy,
@@ -217,7 +249,7 @@ function SectionCard({
   language: VideoScript['language'];
   target: number;
   issues: (keyof typeof ISSUE_TEXT)[];
-  cost: number;
+  price: PriceTag;
   dirty: boolean;
   rewriting: boolean;
   busy: boolean;
@@ -295,13 +327,14 @@ function SectionCard({
               }}
             >
               <Sparkles size={14} />
-              Rewrite · {cost} credits
+              Rewrite
             </button>
             <button type="button" className="btn-ghost btn-sm" onClick={() => setAsking(false)}>
               Cancel
             </button>
             {dirty && <span className="text-sm text-amber-300 self-center">Save your changes first.</span>}
           </div>
+          {!dirty && <IncludedNote note={price.note} included={price.included} />}
         </div>
       ) : (
         <button type="button" className="btn-ghost btn-sm" disabled={busy} onClick={() => setAsking(true)}>
@@ -359,7 +392,7 @@ function Claims({ claims, onChange }: { claims: ScriptSection['claims']; onChang
   );
 }
 
-function RewriteAll({ script, cost, running, disabled, onRun }: { script: VideoScript; cost: number; running: boolean; disabled: boolean; onRun: (minutes: number, notes: string) => void }) {
+function RewriteAll({ script, price, running, disabled, onRun }: { script: VideoScript; price: PriceTag; running: boolean; disabled: boolean; onRun: (minutes: number, notes: string) => void }) {
   const [open, setOpen] = useState(false);
   const [minutes, setMinutes] = useState(MINUTE_OPTIONS.includes(script.targetMinutes) ? script.targetMinutes : 8);
   const [notes, setNotes] = useState('');
@@ -393,8 +426,9 @@ function RewriteAll({ script, cost, running, disabled, onRun }: { script: VideoS
         }}
       >
         <Sparkles size={16} />
-        Write again · {cost} credits
+        Write again
       </button>
+      <IncludedNote note={price.note} included={price.included} />
       {disabled && <p className="text-sm text-amber-300">Save your changes first.</p>}
     </section>
   ) : (

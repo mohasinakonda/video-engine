@@ -87,11 +87,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Create:</strong> the video plans you make (title, brief, script, packaging ideas) are your content and are stored
-                until you delete them. When you link a published video to a plan, we store only the link: the video ID, your channel ID,
-                its publish time and how it was linked. To check its performance, we read your Analytics on demand and do not store the
-                numbers; from day 7 we keep only labels (for example &quot;above your usual&quot; or &quot;click rate was the weak
-                point&quot;) with the number of videos compared, so we can show what tends to work on your channel. The latest check stays
-                in your browser tab for the day.
+                until you delete them. They contain no YouTube analytics.
               </li>
               <li>
                 <strong>What we do not store:</strong> your analytics, video statistics, retention curves, thumbnails and the reports we
@@ -103,15 +99,18 @@ export default function PrivacyPage() {
                 the channels you follow or that YouTube search returns (names, video titles, view counts, durations, thumbnails). Competitor
                 channels never sign in to our app. This data is processed in memory for each research run and is not saved on our servers;
                 results stay in your browser tab. Scores, ratios and relevance labels shown in Discover are calculated by us and are not
-                YouTube metrics.
+                YouTube metrics. When you analyze a channel or video, we read the same kind of public information plus up to 100 of the
+                video&apos;s public comments (the comment text only, without author names), on your request and in memory only. The
+                same applies when you search a video plan&apos;s topic in Create to see who made videos on it.
               </li>
               <li>
                 <strong>AI processing:</strong> to write a report or research ideas, we send video titles, thumbnail images and summary
                 metrics (not your tokens or raw API data) to our AI provider, DeepInfra, for processing. To write a brief, script or
-                packaging ideas in Create, we send your plan&apos;s text; your YouTube analytics are not sent.
+                packaging ideas in Create, we send your plan&apos;s text; your YouTube analytics are not sent. To summarise what viewers
+                say about an analyzed video, we send its public comment text without author names.
               </li>
               <li>
-                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis, market research and how your planned videos performed. We do not sell it, use it for
+                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis, video and channel analyses, and market research. We do not sell it, use it for
                 advertising, or share it with anyone except as described here. Our use of information received from Google APIs adheres
                 to the{' '}
                 <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
@@ -121,8 +120,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Disconnect and deletion:</strong> disconnecting in Channel Doctor stops the reporting job, asks Google to revoke our
-                access and deletes the stored connection, tokens, your followed competitors, and Create&apos;s links to your videos with the
-                labels learned from them (your video plans stay). Deleting your account deletes all of it. You can also revoke access at
+                access and deletes the stored connection, tokens and your followed competitors (your video plans stay). Deleting your account deletes all of it. You can also revoke access at
                 any time at{' '}
                 <a href="https://myaccount.google.com/permissions" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
                   myaccount.google.com/permissions

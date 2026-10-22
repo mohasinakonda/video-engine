@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canTransition, isLocked, staleAfter, statusAfterSaving } from './project-state';
+import { canTransition, staleAfter, statusAfterSaving } from './project-state';
 import { opportunityInputSchema, toThesis } from './thesis';
 
 describe('project state machine', () => {
@@ -7,34 +7,20 @@ describe('project state machine', () => {
     expect(canTransition('DRAFT', 'BRIEF_READY')).toBe(true);
     expect(canTransition('BRIEF_READY', 'SCRIPT_READY')).toBe(true);
     expect(canTransition('SCRIPT_READY', 'PACKAGED')).toBe(true);
-    expect(canTransition('PACKAGED', 'IN_PRODUCTION')).toBe(true);
-    expect(canTransition('PACKAGED', 'PUBLISHED')).toBe(true);
-    expect(canTransition('IN_PRODUCTION', 'PUBLISHED')).toBe(true);
-    expect(canTransition('PUBLISHED', 'ANALYZING')).toBe(true);
-    expect(canTransition('ANALYZING', 'LEARNED')).toBe(true);
 
     expect(canTransition('DRAFT', 'SCRIPT_READY')).toBe(false);
-    expect(canTransition('BRIEF_READY', 'PUBLISHED')).toBe(false);
-    expect(canTransition('DRAFT', 'LEARNED')).toBe(false);
+    expect(canTransition('BRIEF_READY', 'PACKAGED')).toBe(false);
     expect(canTransition('PACKAGED', 'PACKAGED')).toBe(false);
   });
 
-  it('allows going back to edit until the video is published', () => {
-    expect(canTransition('IN_PRODUCTION', 'BRIEF_READY')).toBe(true);
+  it('allows going back to edit an earlier step, but not to an empty draft', () => {
+    expect(canTransition('PACKAGED', 'BRIEF_READY')).toBe(true);
     expect(canTransition('PACKAGED', 'SCRIPT_READY')).toBe(true);
     expect(canTransition('BRIEF_READY', 'DRAFT')).toBe(false);
-    expect(canTransition('ANALYZING', 'SCRIPT_READY')).toBe(false);
-    expect(canTransition('LEARNED', 'BRIEF_READY')).toBe(false);
-  });
-
-  it('lets an unlinked video return to packaging or production only', () => {
-    expect(canTransition('PUBLISHED', 'PACKAGED')).toBe(true);
-    expect(canTransition('PUBLISHED', 'IN_PRODUCTION')).toBe(true);
-    expect(canTransition('PUBLISHED', 'BRIEF_READY')).toBe(false);
   });
 
   it('archives from anywhere and restores only to where it was', () => {
-    expect(canTransition('LEARNED', 'ARCHIVED')).toBe(true);
+    expect(canTransition('PACKAGED', 'ARCHIVED')).toBe(true);
     expect(canTransition('ARCHIVED', 'ARCHIVED')).toBe(false);
     expect(canTransition('ARCHIVED', 'SCRIPT_READY', 'SCRIPT_READY')).toBe(true);
     expect(canTransition('ARCHIVED', 'PACKAGED', 'SCRIPT_READY')).toBe(false);
@@ -45,14 +31,11 @@ describe('project state machine', () => {
     expect(statusAfterSaving('DRAFT', 'brief')).toBe('BRIEF_READY');
     expect(statusAfterSaving('DRAFT', 'script')).toBeNull();
     expect(statusAfterSaving('BRIEF_READY', 'script')).toBe('SCRIPT_READY');
-    expect(statusAfterSaving('IN_PRODUCTION', 'brief')).toBe('BRIEF_READY');
+    expect(statusAfterSaving('PACKAGED', 'brief')).toBe('BRIEF_READY');
     expect(statusAfterSaving('PACKAGED', 'packaging')).toBe('PACKAGED');
-    expect(statusAfterSaving('PUBLISHED', 'script')).toBeNull();
     expect(statusAfterSaving('ARCHIVED', 'brief')).toBeNull();
-    expect(staleAfter('IN_PRODUCTION', 'BRIEF_READY')).toEqual(['script', 'packaging']);
+    expect(staleAfter('PACKAGED', 'BRIEF_READY')).toEqual(['script', 'packaging']);
     expect(staleAfter('SCRIPT_READY', 'BRIEF_READY')).toEqual(['script']);
-    expect(isLocked('PUBLISHED')).toBe(true);
-    expect(isLocked('IN_PRODUCTION')).toBe(false);
   });
 });
 
@@ -101,7 +84,7 @@ describe('library next steps', () => {
     const { PROJECT_STATUSES } = await import('./types');
     expect(nextStepOf({ id: 'p', status: 'DRAFT' })?.href).toBe('/create/p');
     expect(nextStepOf({ id: 'p', status: 'SCRIPT_READY' })?.href).toBe('/create/p/package');
-    expect(nextStepOf({ id: 'p', status: 'IN_PRODUCTION' })?.href).toBe('/create/p/publish');
+    expect(nextStepOf({ id: 'p', status: 'PACKAGED' })?.href).toBe('/create/p/package');
     expect(nextStepOf({ id: 'p', status: 'ARCHIVED' })).toBeNull();
     // Every status appears in exactly one library tab.
     const tabbed = LIBRARY_TABS.flatMap((t) => t.statuses as readonly string[]);

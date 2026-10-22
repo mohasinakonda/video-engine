@@ -140,14 +140,14 @@ export function ResearchPanel({
         </button>
       )}
 
-      {result && !research.running && <ResearchResults result={result} analyzedAt={research.saved!.analyzedAt} />}
+      {result && !research.running && <ResearchResults result={result} analyzedAt={research.saved!.analyzedAt} canAnalyze={!!config.audit?.hasAccess} />}
     </div>
   );
 }
 
 const STALE_MS = 24 * 60 * 60 * 1000;
 
-function ResearchResults({ result, analyzedAt }: { result: ResearchResult; analyzedAt: string }) {
+function ResearchResults({ result, analyzedAt, canAnalyze }: { result: ResearchResult; analyzedAt: string; canAnalyze: boolean }) {
   const unavailable = result.statuses.filter((s) => s.status === 'unavailable');
   const stale = Date.now() - Date.parse(analyzedAt) > STALE_MS;
   return (
@@ -164,7 +164,7 @@ function ResearchResults({ result, analyzedAt }: { result: ResearchResult; analy
 
       <TopicList topics={result.topics ?? []} />
 
-      <OutlierList outliers={result.outliers} period={result.window} topics={result.topics ?? []} />
+      <OutlierList outliers={result.outliers} period={result.window} topics={result.topics ?? []} canAnalyze={canAnalyze} />
 
       {result.patterns && <PatternTables patterns={result.patterns} />}
 

@@ -17,7 +17,7 @@ export const MOMENTUM_LABELS: Record<Momentum, string> = {
 
 export const LEVEL_TEXT: Record<Level, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 
-export const SCORE_PARTS: { key: 'channelFit' | 'competitorPerformance' | 'momentum' | 'contentGap' | 'competition' | 'productionFit' | 'phase1' | 'trackRecord'; label: string }[] = [
+export const SCORE_PARTS: { key: 'channelFit' | 'competitorPerformance' | 'momentum' | 'contentGap' | 'competition' | 'productionFit' | 'phase1'; label: string }[] = [
   { key: 'channelFit', label: 'Fits your channel' },
   { key: 'competitorPerformance', label: 'How well it did for others' },
   { key: 'momentum', label: 'Momentum' },
@@ -25,7 +25,6 @@ export const SCORE_PARTS: { key: 'channelFit' | 'competitorPerformance' | 'momen
   { key: 'competition', label: 'Room to compete' },
   { key: 'productionFit', label: 'Easy to produce' },
   { key: 'phase1', label: 'Matches your diagnosis' },
-  { key: 'trackRecord', label: 'Your past results' },
 ];
 
 export const SOURCE_LABELS = {

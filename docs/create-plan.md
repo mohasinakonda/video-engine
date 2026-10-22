@@ -622,3 +622,27 @@ Pages:
 **Known limits:**
 - If a user revokes access at Google directly (not through Disconnect), links and labels stay until the next request notices the revoked token and the user disconnects. This is the same as Channel Doctor's existing behaviour.
 - The thesis keeps Discover's scores and labels (no competitor titles or numbers). Whether derived scores fall under the 30-day rule should be confirmed in the YouTube API audit.
+
+## 20. One price per video (decided 20 Oct 2026)
+
+**Why:** a price on every AI button ("· 2 credits", "· 5 credits", "· 10 credits") works like a taxi meter. People hesitate, use the AI less, get worse results, and feel everything costs extra. The price is now shown and paid once, when the video starts.
+
+- **Charged:** when a project is created (manual or from a Discover idea), `bundle_credit_cost` credits (default 15) are charged up front. They are refunded if the project can't be created (for example, the project limit).
+- **Included:** a fair number of AI runs per video, all admin-set:
+  - AI brief, 3;
+  - full script, 2;
+  - part rewrites, 20;
+  - packaging ideas, 3;
+  - topic search, 1;
+  - measuring, unlimited.
+
+  Writing and editing yourself is always free.
+- **Past an allowance:** that step's own price (the existing per-step prices). Only then does a price appear on that button.
+- **Counting:** `video_projects.usage` counts each kind of run. A run is counted only after it succeeds, so a failed run doesn't use up the allowance. The per-user daily limits stay as they were (topic search, run guard).
+- **Older projects** (`unlocked_at` null) keep per-step pricing, as when they were made. An "Unlock this video" bar moves them to the video price.
+- **UI:**
+  - The price shows once, with what it includes: "Start this video · 15 credits", on the new-video page and on Discover's idea page.
+  - Inside a project, buttons carry no price while included; a quiet "Included · 2 of 3 left" line sits under them.
+- **Misuse:**
+  - It is paid up front, and Create needs a paid plan, so a new account means a new payment.
+  - Every allowance and limit is counted on the server and can be changed from the admin panel.

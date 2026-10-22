@@ -271,5 +271,12 @@ export function scriptToText(script: VideoScript, title: string): string {
   return parts.join('\n').trim() + '\n';
 }
 
+/** Spoken words only, one paragraph per part: what Voice Studio and the scene maker take. */
+export const narrationText = (script: VideoScript) =>
+  script.sections
+    .map((s) => s.narration.trim())
+    .filter(Boolean)
+    .join('\n\n');
+
 /** Rewriting one part costs half a full script, rounded up (the admin sets the full price). */
 export const sectionCost = (scriptCost: number) => Math.ceil(scriptCost / 2);

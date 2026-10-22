@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { briefSchema, missingForScript, type VideoBrief } from '@/lib/youtube/create/brief';
+import { bump, runCost } from '@/lib/youtube/create/bundle';
 import { rewriteSection, writeScript } from '@/lib/youtube/create/ai/script-writer';
 import { statusAfterSaving } from '@/lib/youtube/create/project-state';
 import { updateProject } from '@/lib/youtube/create/projects';
 import { ownedProject, projectErrorResponse, requireCreate } from '@/lib/youtube/create/route-helpers';
-import { AI_MAX_MINUTES, AI_MIN_MINUTES, defaultMinutes, scriptSchema, sectionCost, type VideoScript } from '@/lib/youtube/create/script';
+import { AI_MAX_MINUTES, AI_MIN_MINUTES, defaultMinutes, scriptSchema, type VideoScript } from '@/lib/youtube/create/script';
 import type { VideoProject } from '@/lib/youtube/create/types';
 import { UserFacingError } from '@/lib/youtube/errors';
 import { requireUser } from '@/lib/youtube/route-auth';
@@ -62,19 +63,21 @@ export async function POST(req: Request, { params }: Context) {
     current = saved.data;
   }
   const targetMinutes = parsed.data.targetMinutes ?? defaultMinutes(brief.data.format);
+  const usageKey = sectionId ? 'section' : 'script';
 
   return streamAnalysis<'connect' | 'script' | 'done'>({
     userId,
     feature: 'create',
     needsYouTube: false,
     label: sectionId ? 'create/script-section' : 'create/script',
-    cost: (settings) => (sectionId ? sectionCost(settings.create.scriptCreditCost) : settings.create.scriptCreditCost),
+    // Included in the video's price while the allowance lasts.
+    cost: (settings) => runCost(project, settings.create, usageKey),
     run: async ({ settings, onStage }) => {
       onStage('script');
       const options = { notes, models: settings.textModels };
       const script = current && sectionId ? await rewriteSection(brief.data, current, sectionId, options) : await writeScript(brief.data, { ...options, targetMinutes });
       if (!script) throw new UserFacingError('The AI couldn’t write this right now. Your credits were returned; you can write it yourself or try again.');
-      const updated = await updateProject(userId, project, { script, status: nextStatus, lastError: null });
+      const updated = await updateProject(userId, project, { script, status: nextStatus, lastError: null, usage: bump(project, usageKey) });
       return { project: updated };
     },
   });
