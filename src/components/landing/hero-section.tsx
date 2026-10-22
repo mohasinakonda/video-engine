@@ -1,5 +1,6 @@
 'use client'
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
@@ -38,12 +39,33 @@ export const HeroSection = () => {
           <div className="lg:col-span-7 space-y-6 text-left">
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-zinc-950 leading-[1.08]">
-              From script <br />
-              <span className="text-zinc-500 font-medium">to finished video.</span>
+              Grow your YouTube channel. <br />
+              <span className="text-zinc-500 font-medium">Know what to make, then make it.</span>
             </h1>
 
+            <p className="text-zinc-600 text-base sm:text-lg leading-relaxed max-w-xl">
+              Rendoza finds why your channel isn&apos;t growing, shows what to make next, writes the script, and turns it into a finished video. In Bangla and English.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/login"
+                className="px-5 py-3 rounded-md bg-[#E05A30] hover:bg-[#C84C25] text-white font-bold text-sm flex items-center gap-2 transition-all shadow-md shadow-[#E05A30]/20 active:scale-95"
+              >
+                <span>{trial?.enabled ? `Start free with ${trial.credits} credits` : 'Get started'}</span>
+                <ArrowRight size={15} />
+              </Link>
+              <a
+                href="#growth-loop"
+                className="px-5 py-3 rounded-md bg-white border border-[#E5E0D8] hover:border-zinc-400 text-zinc-900 font-semibold text-sm transition-colors"
+              >
+                See how it works
+              </a>
+            </div>
+
             {/* Interactive Script Input Box */}
-            <form onSubmit={handleStartWithScript} className="pt-1">
+            <form onSubmit={handleStartWithScript} className="pt-3">
+              <p className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-500 mb-2">Already have a script? Make the video now</p>
               <div className="relative rounded-2xl bg-white border border-[#E5E0D8] hover:border-zinc-400/80 focus-within:border-zinc-600 transition-all p-4 sm:p-5 flex flex-col justify-between shadow-xl shadow-zinc-950/[0.03]">
                 <textarea
                   rows={5}
@@ -73,17 +95,14 @@ export const HeroSection = () => {
             {/* Trust Badges */}
             <div className="pt-1 flex flex-wrap items-center gap-y-2 gap-x-5 text-xs text-zinc-600 font-mono">
               <span className="flex items-center gap-1.5">
-                <Check size={13} className="text-emerald-600" /> 1080p MP4 Export
+                <Check size={13} className="text-emerald-600" /> Official YouTube API, read-only
               </span>
               <span className="flex items-center gap-1.5">
-                <Check size={13} className="text-emerald-600" /> Zero Watermarks
+                <Check size={13} className="text-emerald-600" /> Bangla &amp; English
               </span>
-
-              {trial?.enabled && (
-                <span className="flex items-center gap-1.5">
-                  <Check size={13} className="text-emerald-600" /> {trial.credits} Free Credits
-                </span>
-              )}
+              <span className="flex items-center gap-1.5">
+                <Check size={13} className="text-emerald-600" /> No watermark
+              </span>
             </div>
           </div>
 
@@ -163,11 +182,11 @@ export const HeroSection = () => {
 
             {/* Stage Indicator Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#E5E0D8] bg-white text-xs font-mono text-zinc-700 tracking-wider shadow-sm">
-              <span>Ideas</span>
+              <span>Diagnose</span>
               <span className="text-zinc-400">&rarr;</span>
-              <span className="text-emerald-700 font-semibold">Scenes</span>
+              <span className="text-emerald-700 font-semibold">Plan</span>
               <span className="text-zinc-400">&rarr;</span>
-              <span className="text-[#E05A30] font-semibold">Videos</span>
+              <span className="text-[#E05A30] font-semibold">Make</span>
             </div>
           </div>
 

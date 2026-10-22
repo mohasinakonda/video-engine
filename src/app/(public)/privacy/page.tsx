@@ -87,11 +87,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Create:</strong> the video plans you make (title, brief, script, packaging ideas) are your content and are stored
-                until you delete them. When you link a published video to a plan, we store only the link: the video ID, your channel ID,
-                its publish time and how it was linked. To check its performance, we read your Analytics on demand and do not store the
-                numbers; from day 7 we keep only labels (for example &quot;above your usual&quot; or &quot;click rate was the weak
-                point&quot;) with the number of videos compared, so we can show what tends to work on your channel. The latest check stays
-                in your browser tab for the day.
+                until you delete them. They contain no YouTube analytics.
               </li>
               <li>
                 <strong>What we do not store:</strong> your analytics, video statistics, retention curves, thumbnails and the reports we
@@ -114,7 +110,7 @@ export default function PrivacyPage() {
                 say about an analyzed video, we send its public comment text without author names.
               </li>
               <li>
-                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis, market research and how your planned videos performed. We do not sell it, use it for
+                <strong>Use:</strong> we use YouTube data only to show you your channel diagnosis, video and channel analyses, and market research. We do not sell it, use it for
                 advertising, or share it with anyone except as described here. Our use of information received from Google APIs adheres
                 to the{' '}
                 <a href="https://developers.google.com/terms/api-services-user-data-policy" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
@@ -124,8 +120,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Disconnect and deletion:</strong> disconnecting in Channel Doctor stops the reporting job, asks Google to revoke our
-                access and deletes the stored connection, tokens, your followed competitors, and Create&apos;s links to your videos with the
-                labels learned from them (your video plans stay). Deleting your account deletes all of it. You can also revoke access at
+                access and deletes the stored connection, tokens and your followed competitors (your video plans stay). Deleting your account deletes all of it. You can also revoke access at
                 any time at{' '}
                 <a href="https://myaccount.google.com/permissions" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
                   myaccount.google.com/permissions

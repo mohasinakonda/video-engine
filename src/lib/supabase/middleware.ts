@@ -63,6 +63,7 @@ export async function updateSession(request: NextRequest) {
   // (New routes are therefore protected by default.)
   const PUBLIC_API_PREFIXES = [
     '/api/models',
+    '/api/pricing/catalog',
     '/api/styles',
     '/api/voice/models',
     '/api/voice/voices',

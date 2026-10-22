@@ -116,6 +116,7 @@ describe('admin settings validation', () => {
     maxRetentionVideos: 8,
     maxThumbnails: 12,
     hourlyLimitPerUser: 10,
+    trialFreeDiagnoses: 1,
     discover: DEFAULT_DISCOVER_SETTINGS,
     create: DEFAULT_CREATE_SETTINGS,
     audit: DEFAULT_AUDIT_SETTINGS,

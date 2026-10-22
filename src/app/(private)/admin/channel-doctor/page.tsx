@@ -28,6 +28,7 @@ interface Settings {
   maxRetentionVideos: number;
   maxThumbnails: number;
   hourlyLimitPerUser: number;
+  trialFreeDiagnoses: number;
   discover: DiscoverSettings;
   create: CreateSettings;
   audit: AuditSettings;
@@ -109,6 +110,7 @@ const LIMITS: { key: keyof Settings; label: string; hint: string; min: number; m
   { key: 'maxRetentionVideos', label: 'Retention videos', hint: 'Videos whose retention curve is analyzed', min: 0, max: 20 },
   { key: 'maxThumbnails', label: 'Thumbnails analyzed', hint: 'Sent to the vision model (top + weakest)', min: 0, max: 24 },
   { key: 'hourlyLimitPerUser', label: 'Runs per user per hour', hint: 'Protects the Google API quota', min: 1, max: 100 },
+  { key: 'trialFreeDiagnoses', label: 'Free diagnoses on Trial', hint: 'Per user and per channel; 0 turns it off', min: 0, max: 10 },
 ];
 
 type NumberKey<T> = { [K in keyof T]: T[K] extends number ? K : never }[keyof T];

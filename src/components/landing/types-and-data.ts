@@ -334,7 +334,7 @@ export const PROCESS_STEPS = [
     num: '04',
     label: 'Visuals',
     title: 'Visual generation',
-    desc: 'Generates cohesive 8K resolution images adhering to your chosen master style.',
+    desc: 'Generates cohesive HD images in your chosen style, one for every scene.',
     badge: 'FLUX AI',
   },
   {

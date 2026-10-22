@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { deductCreditsRemote, grantCreditsRemote } from '@/lib/supabase-service';
 import { NotConnectedError, ReauthRequiredError, getValidAccessToken } from './connection-service';
 import { ChannelMismatchError } from './fetcher';
+import { claimFreeDiagnosis, releaseFreeDiagnosis } from './free-diagnosis';
 import { GoogleApiError } from './google-fetch';
 import { UserFacingError } from './errors';
 import { QuotaBudgetError } from './quota-budget';
@@ -29,6 +30,8 @@ interface StreamOptions<S extends string> {
   needsYouTube?: boolean;
   /** Credits for this kind of analysis, read from the admin settings. */
   cost: (settings: ChannelDoctorSettings) => number;
+  /** A Trial user may run this for free while they have free diagnoses left (the full diagnosis only). */
+  trialFree?: boolean;
   label: string;
   /**
    * Optional last check before credits are charged (e.g. a daily limit).
@@ -52,6 +55,7 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
   userId,
   feature = 'doctor',
   needsYouTube = true,
+  trialFree = false,
   cost: costFor,
   label,
   reserve,
@@ -72,10 +76,12 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
     if (!settings.enabled) {
       return NextResponse.json({ error: 'Channel Doctor is temporarily unavailable.' }, { status: 503 });
     }
-    if (!access.hasAccess) {
+    if (!access.hasAccess && !(trialFree && access.tier === 'TRIAL' && settings.trialFreeDiagnoses > 0)) {
       return NextResponse.json({ error: 'Channel analysis is not included in your current plan.', code: 'plan' }, { status: 403 });
     }
   }
+  // Without a plan that includes it, this run is a Trial user's free diagnosis.
+  const free = feature === 'doctor' && !access.hasAccess;
 
   let token: Token | null = null;
   if (needsYouTube) {
@@ -110,7 +116,17 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
     }
   }
 
-  const cost = costFor(settings);
+  let freeClaim: string | null = null;
+  if (free) {
+    // Claimed per user and per channel, after the token so the channel is known.
+    freeClaim = token ? await claimFreeDiagnosis(userId, token.connection.channelId, settings.trialFreeDiagnoses) : null;
+    if (!freeClaim) {
+      guard.release();
+      return NextResponse.json({ error: 'You’ve used your free diagnosis. Choose a plan to keep checking your channel.', code: 'plan' }, { status: 403 });
+    }
+  }
+
+  const cost = free ? 0 : costFor(settings);
   if (cost > 0) {
     // The user's session client: the RPC checks the balance atomically.
     const charged = await deductCreditsRemote(userId, cost, createClient());
@@ -132,6 +148,10 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
       } catch (err) {
         console.error(`[${label}] failed:`, err instanceof GoogleApiError ? err.message : (err as Error)?.message);
         let refunded = false;
+        if (freeClaim) {
+          await releaseFreeDiagnosis(freeClaim);
+          refunded = true;
+        }
         if (cost > 0) {
           try {
             refunded = await grantCreditsRemote(userId, cost);

@@ -16,6 +16,8 @@ export interface ChannelDoctorSettings {
   maxRetentionVideos: number;
   maxThumbnails: number;
   hourlyLimitPerUser: number;
+  /** Free diagnoses a Trial user gets (counted per user and per channel); 0 turns it off. */
+  trialFreeDiagnoses: number;
   discover: DiscoverSettings;
   create: CreateSettings;
   audit: AuditSettings;
@@ -150,6 +152,7 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   maxRetentionVideos: 8,
   maxThumbnails: 12,
   hourlyLimitPerUser: 10,
+  trialFreeDiagnoses: 1,
   discover: DEFAULT_DISCOVER_SETTINGS,
   create: DEFAULT_CREATE_SETTINGS,
   audit: DEFAULT_AUDIT_SETTINGS,
@@ -228,6 +231,7 @@ export const settingsUpdateSchema = z.object({
   maxRetentionVideos: z.number().int().min(0).max(20),
   maxThumbnails: z.number().int().min(0).max(24),
   hourlyLimitPerUser: z.number().int().min(1).max(100),
+  trialFreeDiagnoses: z.number().int().min(0).max(10),
   discover: discoverSettingsSchema,
   create: createSettingsSchema,
   audit: auditSettingsSchema,
@@ -249,6 +253,7 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     maxRetentionVideos: data.max_retention_videos,
     maxThumbnails: data.max_thumbnails,
     hourlyLimitPerUser: data.hourly_limit_per_user,
+    trialFreeDiagnoses: data.trial_free_diagnoses ?? DEFAULT_SETTINGS.trialFreeDiagnoses,
     discover: readDiscover(data),
     create: readCreate(data),
     audit: readAudit(data),
@@ -330,6 +335,7 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       max_retention_videos: update.maxRetentionVideos,
       max_thumbnails: update.maxThumbnails,
       hourly_limit_per_user: update.hourlyLimitPerUser,
+      trial_free_diagnoses: update.trialFreeDiagnoses,
       discover_enabled: update.discover.enabled,
       discover_allowed_plans: Array.from(new Set(update.discover.allowedPlans)),
       discovery_credit_cost: update.discover.discoveryCreditCost,
