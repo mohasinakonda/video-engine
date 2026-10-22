@@ -71,7 +71,7 @@ export default function TermsPage() {
               5. YouTube API Services
             </h2>
             <p>
-              Channel Doctor uses YouTube API Services. By connecting your YouTube channel you agree to be bound by the{' '}
+              Channel Doctor, Discover, Create and video and channel analysis use YouTube API Services. By using them you agree to be bound by the{' '}
               <a href="https://www.youtube.com/t/terms" className="text-[#E05A30] underline" target="_blank" rel="noopener noreferrer">
                 YouTube Terms of Service
               </a>
