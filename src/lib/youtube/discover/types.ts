@@ -107,8 +107,6 @@ export interface OpportunityScores {
   competition: number | null;
   productionFit: number | null;
   phase1: number | null;
-  /** From the creator's measured Create videos; null (and optional in older saved results) when there are too few. */
-  trackRecord?: number | null;
 }
 
 /** Shorts are estimated from duration (≤ 3 min): the public API has no Shorts flag. */

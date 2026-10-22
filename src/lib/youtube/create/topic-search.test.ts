@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, type ChannelDoctorSettings } from '../settings';
 import type { FoundChannel, FoundVideo } from './topic-fetch';
-import { buildLandscape, sizeOf, usualRatio } from './topic-landscape';
+import { buildLandscape, sizeOf, titleSimilarity, usualRatio } from './topic-landscape';
 
 const NOW = new Date('2026-10-20T00:00:00Z');
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString();
@@ -15,12 +15,25 @@ const channels: FoundChannel[] = [
   { id: 'UChidden', title: 'Hidden', subscribers: null },
 ];
 
+describe('titleSimilarity', () => {
+  it('compares titles by words, tolerating edits and Bangla', () => {
+    expect(titleSimilarity('Why Deep Sea Creatures Glow', 'Why deep-sea creatures GLOW (explained)')).toBe(1);
+    expect(titleSimilarity('Why Deep Sea Creatures Glow', 'My morning routine')).toBe(0);
+    expect(titleSimilarity('কেন গভীর সমুদ্রের প্রাণীরা আলো জ্বালায়?', 'গভীর সমুদ্রের প্রাণীরা কেন আলো জ্বালায়')).toBe(1);
+  });
+});
+
 describe('topic landscape', () => {
   it('reads each video fairly: per day (from a week), per subscriber, × its usual', () => {
     const fresh = vid({ publishedAt: daysAgo(2), views: 70_000 });
     const l = buildLandscape({ topic: 't', plannedLines: [], videos: [fresh, vid({ channelId: 'UCsmall', views: 200_000 })], channels, usual: new Map([[fresh.id, 3.2]]), now: NOW });
     expect(l.videos[0]).toMatchObject({ viewsPerDay: 10_000, isNew: true, usualRatio: 3.2, size: 'big', perSubscriber: 0 });
     expect(l.videos[1]).toMatchObject({ perSubscriber: 10, size: 'small', isNew: false });
+  });
+
+  it('keeps YouTube’s relevance order as a rank, skipping live videos', () => {
+    const l = buildLandscape({ topic: 't', plannedLines: [], videos: [vid(), vid({ liveOrUpcoming: true }), vid()], channels, usual: new Map(), now: NOW });
+    expect(l.videos.map((v) => v.rank)).toEqual([0, 1]);
   });
 
   it('summarises how crowded it is, who wins, and the language gap', () => {

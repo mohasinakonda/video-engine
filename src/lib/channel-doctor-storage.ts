@@ -26,7 +26,7 @@ export function saveReport<T>(key: string, result: T) {
   }
 }
 
-/** Browser-only data from Create that holds the user's analytics or video ids. */
+/** Left in browsers by Create's removed Publish and Measure steps; they hold analytics and video ids. */
 const CREATE_SESSION_PREFIX = 'create:performance:';
 const CREATE_LOCAL_PREFIX = 'create:publish-reminders:';
 
@@ -39,7 +39,7 @@ const removeWhere = (storage: Storage, test: (key: string) => boolean) => {
   keys.forEach((key) => storage.removeItem(key));
 };
 
-/** Clears every saved report (on disconnect, sign-out or channel change), including Create's measurements and reminders. */
+/** Clears every saved report (on disconnect, sign-out or channel change), including leftovers from Create's old steps. */
 export function clearAllReports() {
   try {
     removeWhere(window.sessionStorage, (key) => key.startsWith(PREFIX) || key.startsWith(CREATE_SESSION_PREFIX));

@@ -57,9 +57,9 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ShareRow({ label, count, max }: { label: string; count: number; max: number }) {
+function ShareRow({ label, count, max, wide = false }: { label: string; count: number; max: number; wide?: boolean }) {
   return (
-    <li className="grid grid-cols-[3rem_1fr_2rem] items-center gap-2 text-sm">
+    <li className={`grid ${wide ? 'grid-cols-[6rem_1fr_2rem]' : 'grid-cols-[3rem_1fr_2rem]'} items-center gap-2 text-sm`}>
       <span className="text-zinc-300">{label}</span>
       <div className="h-2 rounded-full bg-bg-elevated overflow-hidden">
         <div className="h-full rounded-full bg-sky-400/80" style={{ width: `${max ? Math.max(2, (count / max) * 100) : 0}%` }} />
@@ -235,7 +235,8 @@ function UploadHabit({ videos }: { videos: OverviewVideo[] }) {
     return { days, hours, zone: Intl.DateTimeFormat().resolvedOptions().timeZone };
   }, [videos]);
   if (videos.length < 5) return null;
-  const hourLabel = (i: number) => `${String(i * 3).padStart(2, '0')}–${String(i * 3 + 3).padStart(2, '0')}`;
+  const clock = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h % 24 < 12 ? 'AM' : 'PM'}`;
+  const hourLabel = (i: number) => `${clock(i * 3)}–${clock(i * 3 + 3)}`;
 
   return (
     <Card title="When it usually uploads" hint={`Its last ${videos.length} videos, in your time zone (${zone}). This shows its habit, not the best time to upload.`}>
@@ -247,7 +248,7 @@ function UploadHabit({ videos }: { videos: OverviewVideo[] }) {
         </ul>
         <ul className="space-y-2">
           {hours.map((count, i) => (
-            <ShareRow key={i} label={hourLabel(i)} count={count} max={Math.max(...hours)} />
+            <ShareRow key={i} label={hourLabel(i)} count={count} max={Math.max(...hours)} wide />
           ))}
         </ul>
       </div>

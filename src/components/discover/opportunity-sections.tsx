@@ -24,11 +24,11 @@ export function ScoreBreakdown({ opportunity: o }: { opportunity: Opportunity })
   return (
     <div className="space-y-2">
       <p className="text-sm text-zinc-400">
-        {o.signalsUsed} of {SCORE_PARTS.length} signals available. Weights are set by Rendoza; the score is our estimate, not a YouTube metric.
+        {/* Older saved results also counted the removed track record. */}
+        {Math.min(o.signalsUsed, SCORE_PARTS.length)} of {SCORE_PARTS.length} signals available. Weights are set by Rendoza; the score is our estimate, not a YouTube metric.
       </p>
       <ul className="space-y-1.5">
         {SCORE_PARTS.map(({ key, label }) => {
-          // Older saved results have no track record: shown as missing.
           const value = o.scores[key] ?? null;
           return (
             <li key={key} className="grid grid-cols-[150px_1fr_36px] sm:grid-cols-[190px_1fr_40px] items-center gap-3 text-sm">

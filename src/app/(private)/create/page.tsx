@@ -2,25 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ArchiveRestore, GraduationCap, Loader2, PenLine, Plus, Search } from 'lucide-react';
+import { ArrowRight, ArchiveRestore, Loader2, PenLine, Plus, Search } from 'lucide-react';
 import { AccessGate } from '@/components/create/access-gate';
 import { Segmented } from '@/components/ui/segmented';
 import { LIBRARY_TABS, nextStepOf, type LibraryTab } from '@/components/create/next-step';
-import { PublishReminders } from '@/components/create/publish-reminders';
 import { STATUS_LABELS, type VideoProject } from '@/components/create/types';
 import { useCreateConfig } from '@/components/create/use-create-config';
 import { FLOW } from '@/lib/youtube/create/project-state';
 
-const STEP_COUNT = 5;
-/** Steps done (brief, script, packaging, publish, measure), from the status. */
-const stepsDone = (p: VideoProject) => {
-  const status = p.status === 'ARCHIVED' ? p.archivedFrom ?? 'DRAFT' : p.status;
-  return Math.min(STEP_COUNT, Math.max(0, [1, 2, 3, 3, 4, 4, 5][FLOW.indexOf(status) - 1] ?? 0));
-};
+const STEP_COUNT = 3;
+/** Steps done (brief, script, packaging), from the status. */
+const stepsDone = (p: VideoProject) => Math.max(0, FLOW.indexOf(p.status === 'ARCHIVED' ? p.archivedFrom ?? 'DRAFT' : p.status));
 
 const TAB_KEY = 'create:library:tab';
 
-/** The Create library: every planned video, what's next on each, and new uploads to link. */
+/** The Create library: every planned video and what's next on each. */
 export default function CreateLibraryPage() {
   const { config, error } = useCreateConfig();
   const [projects, setProjects] = useState<VideoProject[] | null>(null);
@@ -83,13 +79,9 @@ export default function CreateLibraryPage() {
               <PenLine size={22} className="text-sky-400" />
               Create
             </h1>
-            <p className="page-subtitle text-base">Plan a video from an idea, publish it, and see what it taught you.</p>
+            <p className="page-subtitle text-base">Plan a video from an idea: brief, script, title and thumbnail.</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/learn" className="btn-secondary">
-              <GraduationCap size={16} />
-              What you’ve learned
-            </Link>
             <Link href="/create/new" className="btn-primary">
               <Plus size={16} />
               New video
@@ -119,8 +111,6 @@ export default function CreateLibraryPage() {
             </section>
           ) : (
             <div className="space-y-4">
-              <PublishReminders hasWaiting={projects.some((p) => p.status === 'IN_PRODUCTION')} onLinked={load} />
-
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <Segmented
                   label="Show videos"

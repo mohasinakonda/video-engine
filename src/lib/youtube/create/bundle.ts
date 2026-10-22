@@ -1,6 +1,6 @@
 /**
  * One price per video (docs/create-plan.md §20). The price is paid when the project starts and
- * includes a fair number of AI runs of each kind; measuring is included without a limit. Past an
+ * includes a fair number of AI runs of each kind. Past an
  * allowance, or on a project made before this (not unlocked), each run costs its own price. Pure.
  */
 import type { CreateSettings } from '../settings';
@@ -27,9 +27,6 @@ export function remaining(project: Pick<VideoProject, 'unlockedAt' | 'usage'>, s
 /** What this run costs: nothing while it's included, its own price after. */
 export const runCost = (project: Pick<VideoProject, 'unlockedAt' | 'usage'>, s: CreateSettings, key: UsageKey): number =>
   remaining(project, s, key) > 0 ? 0 : singlePriceOf(s, key);
-
-/** Measuring is included in the video's price; a project made before pays per check. */
-export const measureCost = (project: Pick<VideoProject, 'unlockedAt'>, s: CreateSettings): number => (project.unlockedAt ? 0 : s.performanceCreditCost);
 
 /** Usage after one more successful run. */
 export const bump = (project: Pick<VideoProject, 'usage'>, key: UsageKey): Usage => ({ ...(project.usage ?? {}), [key]: (project.usage?.[key] ?? 0) + 1 });

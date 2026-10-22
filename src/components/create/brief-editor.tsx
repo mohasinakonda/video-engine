@@ -62,7 +62,7 @@ export function BriefEditor({
   const dirty = useMemo(() => JSON.stringify(clean(brief)) !== JSON.stringify(clean(initial)), [brief, initial]);
   const set = <K extends keyof VideoBrief>(key: K, value: VideoBrief[K]) => setBrief((b) => ({ ...b, [key]: value }));
   const todo = missing(brief);
-  const later = ['SCRIPT_READY', 'PACKAGED', 'IN_PRODUCTION'].includes(project.status);
+  const later = ['SCRIPT_READY', 'PACKAGED'].includes(project.status);
   const briefTag = priceTag(project, config, 'brief');
   const hasEmpty = !brief.corePromise || !brief.audience || !brief.angle || brief.keyPoints.length === 0 || brief.titleDirections.length === 0 || !brief.thumbnailDirection;
 

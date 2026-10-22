@@ -34,15 +34,12 @@ export async function POST(req: Request, { params }: { params: { videoId: string
         range: body.data.range,
         onStage,
       });
-      // Packaging rules, what viewers say, and (for Create videos) retention by script part.
+      // Packaging rules and what viewers say.
       const extras = await ownVideoExtras({
-        userId: auth.user.id,
         accessToken: token.accessToken,
         videoId: videoId.data,
         title: result.video.title,
-        durationSec: result.video.durationSec,
         thumbnail: result.thumbnail,
-        retention: result.retention,
         maxComments: settings.audit.maxComments,
         textModels: settings.textModels,
       }).catch(() => null);

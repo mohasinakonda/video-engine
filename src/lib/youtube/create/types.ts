@@ -7,16 +7,12 @@ export const PROJECT_STATUSES = [
   'BRIEF_READY',
   'SCRIPT_READY',
   'PACKAGED',
-  'IN_PRODUCTION',
-  'PUBLISHED',
-  'ANALYZING',
-  'LEARNED',
   'ARCHIVED',
 ] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 /**
- * What Discover expected when the project started, kept to test it after publishing.
+ * What Discover expected when the project started.
  * Scores, levels and labels only: no competitor titles, views or ratios (YouTube's 30-day
  * rule for other channels' data).
  */

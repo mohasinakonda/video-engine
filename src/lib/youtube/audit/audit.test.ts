@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, type ChannelDoctorSettings } from '../settings';
 import type { MarketVideo } from '../discover/types';
 import type { AuditVideo } from './fetch';
-import { resolveTarget } from './resolve';
+import { parseVideoId, resolveTarget } from './resolve';
 import { auditVideo, chaptersOf, hasValidChapters, hashtagsIn, visibleDescription } from './video-audit';
 
 const NOW = new Date('2026-10-20T00:00:00Z');
@@ -44,6 +44,31 @@ const video = (over: Partial<AuditVideo> = {}): AuditVideo => ({
 });
 
 const channel = (n = 12, over: Partial<MarketVideo> = {}) => Array.from({ length: n }, (_, i) => peer(i, over));
+
+const ID = 'dQw4w9WgXcQ';
+
+describe('parseVideoId', () => {
+  it('reads ids from every common link shape', () => {
+    for (const input of [
+      ID,
+      `https://www.youtube.com/watch?v=${ID}`,
+      `youtube.com/watch?v=${ID}&t=42s`,
+      `https://m.youtube.com/watch?feature=share&v=${ID}`,
+      `https://youtu.be/${ID}?si=abc`,
+      `https://www.youtube.com/shorts/${ID}`,
+      `https://youtube.com/live/${ID}?feature=share`,
+      `https://www.youtube.com/embed/${ID}`,
+    ]) {
+      expect(parseVideoId(input), input).toBe(ID);
+    }
+  });
+
+  it('rejects other sites and malformed ids', () => {
+    expect(parseVideoId(`https://evil.com/watch?v=${ID}`)).toBeNull();
+    expect(parseVideoId('https://youtube.com/watch?v=short')).toBeNull();
+    expect(parseVideoId('not a link')).toBeNull();
+  });
+});
 
 describe('resolveTarget', () => {
   it('reads videos, channel ids and handles', () => {

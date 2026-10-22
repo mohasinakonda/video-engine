@@ -17,9 +17,12 @@ import { IncludedNote } from './included-note';
 import { priceTag } from './pricing';
 import type { CreateConfig, VideoProject } from './types';
 
-type Sort = 'perDay' | 'usual' | 'newest' | 'views';
+type Sort = 'relevance' | 'perDay' | 'usual' | 'newest' | 'views';
+type Kind = 'video' | 'short' | 'all';
 
 const SORTS: { id: Sort; label: string; by: (v: TopicVideo) => number }[] = [
+  // Results saved before the rank existed keep their order (the sort is stable).
+  { id: 'relevance', label: 'YouTube’s order', by: (v) => -(v.rank ?? 0) },
   { id: 'perDay', label: 'Views per day', by: (v) => v.viewsPerDay ?? -1 },
   { id: 'usual', label: 'Beat their usual', by: (v) => v.usualRatio ?? v.perSubscriber ?? -1 },
   { id: 'newest', label: 'Newest', by: (v) => -v.ageDays },
@@ -49,7 +52,8 @@ export function TopicSearch({ project, topic, config, onProject }: { project: Vi
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [failure, setFailure] = useState<StreamFailure | null>(null);
-  const [sort, setSort] = useState<Sort>('perDay');
+  const [sort, setSort] = useState<Sort>('relevance');
+  const [kind, setKind] = useState<Kind>('video');
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
@@ -72,11 +76,18 @@ export function TopicSearch({ project, topic, config, onProject }: { project: Vi
   };
 
   const l = saved?.result.landscape;
+  const counts = useMemo(() => {
+    const shorts = l?.videos.filter((v) => v.format === 'short').length ?? 0;
+    return { all: l?.videos.length ?? 0, short: shorts, video: (l?.videos.length ?? 0) - shorts };
+  }, [l]);
+  // Long videos first, like YouTube's results page, unless there are none.
+  const shownKind: Kind = counts[kind] > 0 ? kind : 'all';
   const sorted = useMemo(() => {
     if (!l) return [];
     const by = SORTS.find((s) => s.id === sort)!.by;
-    return [...l.videos].sort((a, b) => by(b) - by(a));
-  }, [l, sort]);
+    const ofKind = shownKind === 'all' ? l.videos : l.videos.filter((v) => (shownKind === 'short' ? v.format === 'short' : v.format !== 'short'));
+    return [...ofKind].sort((a, b) => by(b) - by(a));
+  }, [l, sort, shownKind]);
 
   if (config.topicSearchesPerDay <= 0) return null;
 
@@ -141,6 +152,29 @@ export function TopicSearch({ project, topic, config, onProject }: { project: Vi
                 </div>
               )}
 
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-zinc-500">Show</span>
+                <Segmented
+                  size="sm"
+                  label="Show"
+                  value={shownKind}
+                  onChange={setKind}
+                  options={(
+                    [
+                      ['video', 'Long videos'],
+                      ['short', 'Shorts'],
+                      ['all', 'All'],
+                    ] as const
+                  ).map(([id, label]) => ({
+                    id,
+                    label: (
+                      <>
+                        {label} <span className="tabular-nums opacity-60">{counts[id]}</span>
+                      </>
+                    ),
+                  }))}
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-zinc-500">Sort by</span>
                 <Segmented size="sm" label="Sort by" value={sort} onChange={setSort} options={SORTS.map((x) => ({ id: x.id, label: x.label }))} />

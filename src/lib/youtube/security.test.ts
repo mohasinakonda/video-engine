@@ -136,13 +136,10 @@ describe('admin settings validation', () => {
     const weights = { ...DEFAULT_DISCOVER_SETTINGS.weights, phase1: 6 };
     expect(settingsUpdateSchema.safeParse({ ...valid, discover: { ...DEFAULT_DISCOVER_SETTINGS, weights } }).success).toBe(false);
   });
-  it('validates Create prices and checkpoints, and orders the checkpoints', () => {
+  it('validates Create prices', () => {
     const c = DEFAULT_CREATE_SETTINGS;
     expect(settingsUpdateSchema.safeParse({ ...valid, create: { ...c, scriptCreditCost: -1 } }).success).toBe(false);
-    expect(settingsUpdateSchema.safeParse({ ...valid, create: { ...c, checkpointDays: [] } }).success).toBe(false);
-    expect(settingsUpdateSchema.safeParse({ ...valid, create: { ...c, checkpointDays: [0] } }).success).toBe(false);
-    const parsed = settingsUpdateSchema.parse({ ...valid, create: { ...c, checkpointDays: [28, 7, 7, 1] } });
-    expect(parsed.create.checkpointDays).toEqual([1, 7, 28]);
+    expect(settingsUpdateSchema.safeParse({ ...valid, create: c }).success).toBe(true);
   });
 
   it('caps Discover limits and rejects bad embedding ids', () => {

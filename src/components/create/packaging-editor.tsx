@@ -91,7 +91,7 @@ export function PackagingEditor({
   const stale = script.updatedAt > initial.scriptUpdatedAt;
   const chosenTitle = p.selectedTitle !== null ? p.titles[p.selectedTitle] : null;
   const chosenThumb = p.selectedThumbnail !== null ? p.thumbnails[p.selectedThumbnail] : null;
-  const done = ['PACKAGED', 'IN_PRODUCTION'].includes(project.status);
+  const done = project.status === 'PACKAGED';
 
   const copy = async (key: string, value: string) => {
     try {
@@ -299,8 +299,8 @@ export function PackagingEditor({
             Save packaging
           </button>
           {done && !dirty && !stale && (
-            <Link href={`/create/${project.id}/publish`} className="btn-primary px-5">
-              Next: publish
+            <Link href="/create" className="btn-primary px-5">
+              Done: all videos
               <ArrowRight size={16} />
             </Link>
           )}

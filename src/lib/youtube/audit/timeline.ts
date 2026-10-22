@@ -1,67 +1,9 @@
 /**
  * Placing retention on what was said (docs/audit-plan.md §4). Pure and browser-safe: no network,
- * nothing stored. Two sources of "what was said": a Create script (sections, timed from their
- * word counts) or a transcript the creator pastes (SRT/VTT cues, or plain text spread evenly).
+ * nothing stored. "What was said" is a transcript the creator pastes (SRT/VTT cues, or plain
+ * text spread evenly).
  */
-import type { RetentionAnomaly, RetentionPoint } from '../types';
-
-/** Share of viewers still watching at a position (0–1 of the video), interpolated. */
-export function watchAt(points: RetentionPoint[], ratio: number): number | null {
-  if (points.length === 0) return null;
-  const sorted = [...points].sort((a, b) => a.ratio - b.ratio);
-  if (ratio <= sorted[0].ratio) return sorted[0].watchRatio;
-  for (let i = 1; i < sorted.length; i++) {
-    const [a, b] = [sorted[i - 1], sorted[i]];
-    if (ratio <= b.ratio) return a.watchRatio + ((b.watchRatio - a.watchRatio) * (ratio - a.ratio)) / (b.ratio - a.ratio || 1);
-  }
-  return sorted[sorted.length - 1].watchRatio;
-}
-
-export interface TimedPart {
-  id: string;
-  heading: string;
-  startSec: number;
-  endSec: number;
-  /** Percent of viewers still watching at the start and end of the part. */
-  startPct: number | null;
-  endPct: number | null;
-  /** Percentage points lost during the part. */
-  dropPts: number | null;
-}
-
-export interface ScriptTimeline {
-  parts: TimedPart[];
-  /** The part that lost the most viewers (the opening part's natural early drop counts too). */
-  worstId: string | null;
-}
-
-const pct = (x: number | null) => (x === null ? null : Math.round(x * 1000) / 10);
-
-/**
- * Times each script part by its share of the script's words, scaled to the real video length
- * (the edit rarely matches the estimate exactly, so the UI says these are estimates).
- */
-export function scriptTimeline(points: RetentionPoint[], durationSec: number, parts: { id: string; heading: string; words: number }[]): ScriptTimeline | null {
-  const total = parts.reduce((s, p) => s + p.words, 0);
-  if (!total || durationSec <= 0 || points.length < 2) return null;
-  let at = 0;
-  const timed = parts.map((p) => {
-    const start = at;
-    at += p.words / total;
-    const [s, e] = [watchAt(points, start), watchAt(points, at)];
-    return {
-      id: p.id,
-      heading: p.heading,
-      startSec: Math.round(start * durationSec),
-      endSec: Math.round(at * durationSec),
-      startPct: pct(s),
-      endPct: pct(e),
-      dropPts: s === null || e === null ? null : Math.round((s - e) * 1000) / 10,
-    };
-  });
-  const worst = timed.filter((t) => t.dropPts !== null && t.dropPts > 0).sort((a, b) => (b.dropPts as number) - (a.dropPts as number))[0];
-  return { parts: timed, worstId: worst?.id ?? null };
-}
+import type { RetentionAnomaly } from '../types';
 
 // ─── Pasted transcripts ───────────────────────────────────────────────────────
 

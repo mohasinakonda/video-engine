@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, Check, ClipboardCopy, Download, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { AlertTriangle, ArrowRight, Check, Clapperboard, ClipboardCopy, Download, Loader2, Mic, Plus, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react';
 import {
   AI_MAX_MINUTES,
   AI_MIN_MINUTES,
@@ -10,6 +11,7 @@ import {
   ISSUE_TEXT,
   estimateSeconds,
   isStale,
+  narrationText,
   researchChecklist,
   scriptToText,
   sectionIssues,
@@ -96,6 +98,22 @@ export function ScriptEditor({
     URL.revokeObjectURL(url);
   };
 
+  // Hands the saved narration to another tool. Each key holds one script and the page that reads it removes it,
+  // so nothing piles up. Voice uses sessionStorage, which the browser also clears when the tab closes;
+  // the scene maker already reads `pending_script` from localStorage.
+  const router = useRouter();
+  const canHandOff = !dirty && project.status !== 'BRIEF_READY' && unwritten === 0 && !busy;
+  const handOff = (to: 'voice' | 'scenes') => {
+    const narration = narrationText(clean(initial));
+    try {
+      if (to === 'voice') sessionStorage.setItem('pending_voice_script', narration);
+      else localStorage.setItem('pending_script', narration);
+    } catch {
+      // Storage blocked or full: the tool still opens, and Copy still works.
+    }
+    router.push(to === 'voice' ? '/voice-studio' : '/project/new');
+  };
+
   return (
     <div className="space-y-6 pb-28">
       {stale && (
@@ -171,7 +189,7 @@ export function ScriptEditor({
         <div className="max-w-4xl mx-auto px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <p className="flex-1 text-sm text-zinc-400">
             {dirty
-              ? ['PACKAGED', 'IN_PRODUCTION'].includes(project.status)
+              ? project.status === 'PACKAGED'
                 ? 'Unsaved changes. Saving sends the packaging back for review.'
                 : 'Unsaved changes.'
               : stale
@@ -189,6 +207,18 @@ export function ScriptEditor({
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save script
           </button>
+          {canHandOff && (
+            <div className="flex gap-2">
+              <button type="button" className="btn-secondary flex-1 sm:flex-none" onClick={() => handOff('voice')}>
+                <Mic size={16} />
+                Make voice
+              </button>
+              <button type="button" className="btn-secondary flex-1 sm:flex-none" onClick={() => handOff('scenes')}>
+                <Clapperboard size={16} />
+                Make scenes
+              </button>
+            </div>
+          )}
           {!dirty && !stale && project.status !== 'BRIEF_READY' && (
             <Link href={`/create/${project.id}/package`} className="btn-primary px-5">
               {project.packaging ? 'Go to packaging' : 'Next: title & thumbnail'}

@@ -57,9 +57,6 @@ interface CreateSettings {
   briefCreditCost: number;
   scriptCreditCost: number;
   packagingCreditCost: number;
-  performanceCreditCost: number;
-  checkpointDays: number[];
-  learningMinVideos: number;
   maxProjectsPerUser: number;
   topicSearchCreditCost: number;
   topicSearchesPerUserDay: number;
@@ -79,7 +76,6 @@ interface Weights {
   contentGap: number;
   competition: number;
   productionFit: number;
-  trackRecord: number;
   phase1: number;
 }
 
@@ -136,7 +132,6 @@ const CREATE_COSTS: { key: NumberKey<CreateSettings>; label: string; hint: strin
   { key: 'briefCreditCost', label: 'Video brief', hint: 'AI fills the brief from an idea' },
   { key: 'scriptCreditCost', label: 'Script', hint: 'Full script; one section costs half' },
   { key: 'packagingCreditCost', label: 'Packaging', hint: 'Title and thumbnail concepts' },
-  { key: 'performanceCreditCost', label: 'Performance check', hint: 'Per analysis of a published video' },
 ];
 
 const WEIGHTS: { key: keyof Weights; label: string }[] = [
@@ -147,7 +142,6 @@ const WEIGHTS: { key: keyof Weights; label: string }[] = [
   { key: 'competition', label: 'Competition (lower is better)' },
   { key: 'productionFit', label: 'Production fit' },
   { key: 'phase1', label: 'Channel Doctor diagnosis' },
-  { key: 'trackRecord', label: 'Your track record (measured Create videos)' },
 ];
 
 export default function AdminChannelDoctorPage() {
@@ -462,7 +456,7 @@ function DiscoverSection({
   );
 }
 
-/** Create (Phase 3): switch, plans, prices, measurement checkpoints and limits. */
+/** Create (Phase 3): switch, plans, prices and limits. */
 function CreateSection({
   create,
   update,
@@ -472,13 +466,6 @@ function CreateSection({
   update: <K extends keyof CreateSettings>(key: K, value: CreateSettings[K]) => void;
   togglePlan: (plan: string) => void;
 }) {
-  const [daysText, setDaysText] = useState(create.checkpointDays.join(', '));
-  const parseDays = (text: string) =>
-    text
-      .split(/[,\s]+/)
-      .map((t) => Number(t))
-      .filter((n) => Number.isInteger(n) && n >= 1 && n <= 90);
-
   return (
     <div className="space-y-6 pt-6 border-t border-bg-border">
       <div>
@@ -486,7 +473,7 @@ function CreateSection({
           <PenLine size={18} className="text-sky-400" />
           Create
         </h2>
-        <p className="text-xs text-zinc-400">Brief, script, packaging, linking published videos, measuring and learning. Uses the report models above.</p>
+        <p className="text-xs text-zinc-400">Brief, script and packaging. Uses the report models above.</p>
       </div>
 
       <section className="card space-y-4">
@@ -506,7 +493,7 @@ function CreateSection({
       <section className="card space-y-3">
         <div>
           <p className="text-sm font-semibold text-white">Price per video</p>
-          <p className="text-xs text-zinc-400">Charged once, when a video is started. It includes these AI runs; measuring is always included. Past an allowance, the per-step prices below apply.</p>
+          <p className="text-xs text-zinc-400">Charged once, when a video is started. It includes these AI runs. Past an allowance, the per-step prices below apply.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <NumberField label="Credits per video" hint="Refunded if the project can’t be created" value={create.bundleCreditCost} min={0} max={1000} onChange={(v) => update('bundleCreditCost', v)} />
@@ -528,33 +515,8 @@ function CreateSection({
       </section>
 
       <section className="card space-y-3">
-        <p className="text-sm font-semibold text-white">Measuring and learning</p>
+        <p className="text-sm font-semibold text-white">Limits</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="block">
-            <span className="block text-xs font-semibold text-zinc-300 mb-1">Checkpoints (days after publishing)</span>
-            <input
-              type="text"
-              value={daysText}
-              onChange={(e) => {
-                setDaysText(e.target.value);
-                const days = parseDays(e.target.value);
-                if (days.length > 0) update('checkpointDays', days);
-              }}
-              className="input text-sm font-mono"
-              placeholder="1, 2, 7, 28"
-            />
-            <span className="block text-[11px] text-zinc-500 mt-1">
-              Comma-separated, 1–90. YouTube Analytics is daily and arrives 2–3 days late. Saved: {create.checkpointDays.join(', ')}
-            </span>
-          </label>
-          <NumberField
-            label="Videos before a pattern is shown"
-            hint="Measured videos needed for “what works”"
-            value={create.learningMinVideos}
-            min={2}
-            max={50}
-            onChange={(v) => update('learningMinVideos', v)}
-          />
           <NumberField
             label="Projects per user"
             hint="Active (not archived) projects"

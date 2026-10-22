@@ -13,7 +13,6 @@ export function VideoPrice({ config }: { config: CreateConfig }) {
     i.script > 0 && `AI script, ${times(i.script)}${i.section > 0 ? `, plus ${i.section} part rewrites` : ''}`,
     i.packaging > 0 && `Title and thumbnail ideas, ${times(i.packaging)}`,
     i.topicSearch > 0 && `Who made videos on this (YouTube search), ${times(i.topicSearch)}`,
-    'Performance checks after you publish',
   ].filter((x): x is string => Boolean(x));
 
   return (

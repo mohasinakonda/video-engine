@@ -50,11 +50,6 @@ export interface CreateSettings {
   briefCreditCost: number;
   scriptCreditCost: number;
   packagingCreditCost: number;
-  performanceCreditCost: number;
-  /** Days after publishing when performance is compared with the channel's usual. */
-  checkpointDays: number[];
-  /** Measured videos needed before a learning pattern is shown. */
-  learningMinVideos: number;
   maxProjectsPerUser: number;
   /** "Who made videos on this" in the brief: one YouTube search (100 quota units) per run. */
   topicSearchCreditCost: number;
@@ -76,9 +71,6 @@ export const DEFAULT_CREATE_SETTINGS: CreateSettings = {
   briefCreditCost: 2,
   scriptCreditCost: 5,
   packagingCreditCost: 10,
-  performanceCreditCost: 2,
-  checkpointDays: [1, 2, 7, 28],
-  learningMinVideos: 3,
   maxProjectsPerUser: 100,
   topicSearchCreditCost: 3,
   topicSearchesPerUserDay: 3,
@@ -100,8 +92,6 @@ export interface OpportunityWeights {
   competition: number;
   productionFit: number;
   phase1: number;
-  /** How the creator's own measured videos in this format or topic did (Create). */
-  trackRecord: number;
 }
 
 /** Admin-controlled Discover (Phase 2) settings, stored on the same row. */
@@ -124,29 +114,14 @@ export interface DiscoverSettings {
 }
 
 export const DEFAULT_WEIGHTS: OpportunityWeights = {
-  channelFit: 20,
-  competitorPerformance: 15,
+  channelFit: 25,
+  competitorPerformance: 20,
   momentum: 15,
   contentGap: 15,
   competition: 10,
   productionFit: 10,
   phase1: 5,
-  trackRecord: 10,
 };
-
-/** The defaults before the track record existed. */
-const PREVIOUS_DEFAULT_WEIGHTS = { channelFit: 25, competitorPerformance: 20, momentum: 15, contentGap: 15, competition: 10, productionFit: 10, phase1: 5 };
-
-/**
- * Weights saved before the track record existed: untouched defaults move to the new defaults;
- * weights an admin tuned are kept as they are, with the track record at 0 until they set it.
- */
-export function upgradeWeights(raw: unknown): unknown {
-  if (!raw || typeof raw !== 'object' || 'trackRecord' in raw) return raw;
-  const old = raw as Record<string, unknown>;
-  const untouched = Object.entries(PREVIOUS_DEFAULT_WEIGHTS).every(([k, v]) => old[k] === v);
-  return untouched ? DEFAULT_WEIGHTS : { ...old, trackRecord: 0 };
-}
 
 export const DEFAULT_DISCOVER_SETTINGS: DiscoverSettings = {
   enabled: false,
@@ -194,7 +169,6 @@ export const weightsSchema = z
     competition: weight,
     productionFit: weight,
     phase1: weight,
-    trackRecord: weight,
   })
   .refine((w) => Object.values(w).reduce((sum, v) => sum + v, 0) === 100, 'The weights must add up to 100');
 
@@ -221,13 +195,6 @@ export const createSettingsSchema = z.object({
   briefCreditCost: credit,
   scriptCreditCost: credit,
   packagingCreditCost: credit,
-  performanceCreditCost: credit,
-  checkpointDays: z
-    .array(z.number().int().min(1).max(90))
-    .min(1)
-    .max(8)
-    .transform((days) => Array.from(new Set(days)).sort((a, b) => a - b)),
-  learningMinVideos: z.number().int().min(2).max(50),
   maxProjectsPerUser: z.number().int().min(1).max(10_000),
   topicSearchCreditCost: credit,
   topicSearchesPerUserDay: z.number().int().min(0).max(100),
@@ -314,9 +281,6 @@ function readCreate(data: Record<string, any>): CreateSettings {
     briefCreditCost: data.brief_credit_cost ?? d.briefCreditCost,
     scriptCreditCost: data.script_credit_cost ?? d.scriptCreditCost,
     packagingCreditCost: data.packaging_credit_cost ?? d.packagingCreditCost,
-    performanceCreditCost: data.performance_credit_cost ?? d.performanceCreditCost,
-    checkpointDays: data.checkpoint_days?.length ? data.checkpoint_days : d.checkpointDays,
-    learningMinVideos: data.learning_min_videos ?? d.learningMinVideos,
     maxProjectsPerUser: data.max_projects_per_user ?? d.maxProjectsPerUser,
     topicSearchCreditCost: data.topic_search_credit_cost ?? d.topicSearchCreditCost,
     topicSearchesPerUserDay: data.topic_searches_per_user_day ?? d.topicSearchesPerUserDay,
@@ -333,7 +297,7 @@ function readCreate(data: Record<string, any>): CreateSettings {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function readDiscover(data: Record<string, any>): DiscoverSettings {
   const d = DEFAULT_DISCOVER_SETTINGS;
-  const weights = weightsSchema.safeParse(upgradeWeights(data.opportunity_weights));
+  const weights = weightsSchema.safeParse(data.opportunity_weights);
   return {
     enabled: data.discover_enabled ?? d.enabled,
     allowedPlans: data.discover_allowed_plans ? toPlans(data.discover_allowed_plans) : d.allowedPlans,
@@ -384,9 +348,6 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       brief_credit_cost: update.create.briefCreditCost,
       script_credit_cost: update.create.scriptCreditCost,
       packaging_credit_cost: update.create.packagingCreditCost,
-      performance_credit_cost: update.create.performanceCreditCost,
-      checkpoint_days: update.create.checkpointDays,
-      learning_min_videos: update.create.learningMinVideos,
       max_projects_per_user: update.create.maxProjectsPerUser,
       topic_search_credit_cost: update.create.topicSearchCreditCost,
       topic_searches_per_user_day: update.create.topicSearchesPerUserDay,

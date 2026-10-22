@@ -26,6 +26,7 @@ const aiSchema = z.object({
   titles: z.array(z.unknown()).optional(),
   thumbnails: z.array(z.unknown()).optional(),
   description: z.string().optional(),
+  hashtags: z.array(z.unknown()).optional(),
   tags: z.array(z.unknown()).optional(),
 });
 
@@ -45,12 +46,15 @@ Titles (5 of them):
 - For each: {"title", "mechanism", "audience": who this wording speaks to, "risk": "low"|"medium"|"high" (how far it could overpromise compared with the video), "rationale": one sentence on why it could earn the click}.
 Thumbnails (3 concepts), each a visual brief a creator can shoot or design:
 - {"mainSubject", "supportingObject", "composition", "emotionOrAction", "background", "text" (0–4 words, or empty), "contrast", "hierarchy" (what the eye sees first, second)}.
+- Write every field in English, except "text": they become the image model's prompt, and it only reads English. Name things plainly (e.g. "the Chupacabra", "a lantern fish"), not by a translation.
+- "text" is the words shown on the thumbnail: write them all in the writeIn language, without mixing in another language.
 - The thumbnail and title work together: the thumbnail shouldn't repeat the title's words.
 Description: 2–3 short paragraphs. The first sentence says what the viewer gets. No chapters or timestamps, no links, no hashtags, no "like and subscribe".
+Hashtags: 3 hashtags for this video's topic, in the writeIn language, one or two words each with no spaces (e.g. "#DeepSea"). Specific to the topic, never generic ones like #viral, #trending or #fyp. They go on their own line under the description.
 Tags: 8–12 search phrases people would type, most specific first.
-Language: write titles, thumbnail text, description and tags in the language given as writeIn.
+Language: write titles, thumbnail text, description, hashtags and tags in the language given as writeIn. The rest of each thumbnail concept is in English.
 If "only" is "titles" or "thumbnails", that part is what's needed: return it in full; the other parts may be empty.
-Reply only with JSON: {"titles": [...], "thumbnails": [...], "description": "...", "tags": [...]}`;
+Reply only with JSON: {"titles": [...], "thumbnails": [...], "description": "...", "hashtags": [...], "tags": [...]}`;
 
 const hypeWords = (s: string) => BANNED.test(s) || SCRIPT_BANNED.test(s) || /\b(insane|you won'?t believe|shocking|mind[- ]?blowing)\b/i.test(s);
 const hype = (s: string) => hypeWords(s) || /\b[A-Z]{5,}\b/.test(s);
@@ -130,18 +134,49 @@ export function acceptThumbnails(raw: unknown[], allowed: Set<string>): Thumbnai
   });
 }
 
-/** Drops sentences with hype or unbacked numbers; links and hashtags too. */
+/** A hashtag in any script (Bangla included): letters, marks and digits after the #. */
+const HASHTAG = new RegExp('#[\\p{L}\\p{M}\\p{N}_]', 'u');
+/** Everything a hashtag can't hold: spaces and punctuation in any script. */
+const NOT_IN_HASHTAG = new RegExp('[^\\p{L}\\p{M}\\p{N}_]+', 'gu');
+/** Tags that say nothing about the video. */
+const GENERIC_HASHTAG = /^#(viral|trending|trend|fyp|foryou|foryoupage|explore|explorepage|subscribe|like|youtube|youtuber|video|videos)$/i;
+/** YouTube shows the first three hashtags above the title. */
+export const HASHTAGS_MAX = 3;
+
+/** Drops sentences with hype or unbacked numbers; links and hashtags too (they go on their own line). */
 export function cleanDescription(description: string, allowed: Set<string>): string {
   return description
     .split(/\n{2,}/)
     .map((para) =>
       sentencesOf(para)
-        .filter((s) => !hype(s) && !hasUnbackedNumber(s, allowed) && !/https?:\/\/|www\.|#\w/.test(s))
+        .filter((s) => !hype(s) && !hasUnbackedNumber(s, allowed) && !/https?:\/\/|www\./.test(s) && !HASHTAG.test(s))
         .join(' ')
     )
     .filter(Boolean)
     .join('\n\n')
     .slice(0, DESCRIPTION_MAX);
+}
+
+/** Up to three topic hashtags: spaces and punctuation removed, generic, hype and repeated ones dropped. */
+export function cleanHashtags(raw: unknown[], allowed: Set<string>): string[] {
+  const seen = new Set<string>();
+  return raw
+    .filter((t): t is string => typeof t === 'string')
+    .map((t) => `#${t.replace(NOT_IN_HASHTAG, '')}`)
+    .filter((t) => {
+      const key = t.toLowerCase();
+      if (t.length < 3 || t.length > 40 || seen.has(key) || GENERIC_HASHTAG.test(t) || hypeWords(t) || hasUnbackedNumber(t, allowed)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, HASHTAGS_MAX);
+}
+
+/** The description with its hashtags on a last line of their own, within YouTube's limit. */
+export function withHashtags(description: string, hashtags: string[]): string {
+  if (!description || !hashtags.length) return description;
+  const line = hashtags.join(' ');
+  return description.length + line.length + 2 <= DESCRIPTION_MAX ? `${description}\n\n${line}` : description;
 }
 
 /**
@@ -214,7 +249,7 @@ export async function generatePackaging(
     if (t.length > titles.length) titles = t;
     const th = acceptThumbnails(ai.thumbnails ?? [], allowed).slice(0, 3);
     if (th.length > thumbnails.length) thumbnails = th;
-    if (!description) description = cleanDescription(ai.description ?? '', allowed);
+    if (!description) description = withHashtags(cleanDescription(ai.description ?? '', allowed), cleanHashtags(ai.hashtags ?? [], allowed));
     if (!tags.length) tags = cleanTags((ai.tags ?? []).filter((t): t is string => typeof t === 'string'));
   }
   if (wantTitles && titles.length < 2) return null;

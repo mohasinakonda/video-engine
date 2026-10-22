@@ -6,7 +6,6 @@
 import { median } from '../analysis/stats';
 import { judgeVideo, publicBaselines, publicFormat } from '../discover/outliers';
 import type { MarketVideo } from '../discover/types';
-import { titleSimilarity } from './publish';
 import type { FoundChannel, FoundVideo } from './topic-fetch';
 
 const DAY = 86_400_000;
@@ -14,11 +13,37 @@ const DAY = 86_400_000;
 export const MIN_DAYS_FOR_RATE = 7;
 const BANGLA = /[ঀ-৿]/;
 
+/** Letters and digits of any script, including Bangla vowel signs. */
+const NON_WORD = new RegExp('[^\\p{L}\\p{M}\\p{N}\\s]', 'gu');
+
+const stems = (text: string) =>
+  new Set(
+    text
+      .toLowerCase()
+      .replace(NON_WORD, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 3)
+      .map((w) => w.slice(0, 5))
+  );
+
+/** Share of the shorter title's words found in the other (0–1). Survives small last-minute edits. */
+export function titleSimilarity(a: string, b: string): number {
+  const sa = stems(a);
+  const sb = stems(b);
+  if (!sa.size || !sb.size) return 0;
+  const [small, large] = sa.size <= sb.size ? [sa, sb] : [sb, sa];
+  let hits = 0;
+  small.forEach((w) => large.has(w) && hits++);
+  return hits / small.size;
+}
+
 export type ChannelSize = 'tiny' | 'small' | 'mid' | 'big' | 'unknown';
 export const sizeOf = (subs: number | null): ChannelSize => (subs === null ? 'unknown' : subs < 10_000 ? 'tiny' : subs < 100_000 ? 'small' : subs < 1_000_000 ? 'mid' : 'big');
 
 export interface TopicVideo {
   id: string;
+  /** Position in YouTube's own relevance order (0 = most relevant). */
+  rank: number;
   title: string;
   channelId: string;
   channelTitle: string;
@@ -88,12 +113,13 @@ export function buildLandscape(input: {
   const channelOf = new Map(input.channels.map((c) => [c.id, c]));
   const videos: TopicVideo[] = input.videos
     .filter((v) => !v.liveOrUpcoming)
-    .map((v) => {
+    .map((v, rank) => {
       const ch = channelOf.get(v.channelId);
       const subscribers = ch?.subscribers ?? null;
       const ageDays = Math.max(1, Math.floor((now.getTime() - Date.parse(v.publishedAt)) / DAY));
       return {
         id: v.id,
+        rank,
         title: v.title,
         channelId: v.channelId,
         channelTitle: ch?.title ?? '',
@@ -175,6 +201,7 @@ export function buildLandscape(input: {
     similar: similar.slice(0, 5),
     limitations: [
       'These are the videos YouTube ranks as most relevant to the topic, not every video on it.',
+      'YouTube’s own search page differs a little: it fixes spelling mistakes in the search and tailors results to each viewer. Check the topic’s spelling if the results look off.',
       '“× its usual” is shown only for the top channels; views per day and per subscriber are shown for all.',
     ],
   };

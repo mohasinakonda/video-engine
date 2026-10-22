@@ -87,13 +87,11 @@ const rank = (s: ProjectStatus) => FLOW.indexOf(s);
 /**
  * Status after saving packaging. A complete choice moves to PACKAGED; an incomplete one is
  * saved without finishing the step (and un-finishes it if it was done). Null when packaging
- * can't be edited: the script isn't saved, or the video is already published.
+ * can't be edited yet: the script isn't saved.
  */
 export function statusAfterPackaging(current: ProjectStatus, complete: boolean): ProjectStatus | null {
-  if (current === 'ARCHIVED' || rank(current) < rank('SCRIPT_READY') || rank(current) >= rank('PUBLISHED')) return null;
-  // Tweaking the title while making the video doesn't take the project out of production.
-  if (complete) return current === 'IN_PRODUCTION' ? 'IN_PRODUCTION' : 'PACKAGED';
-  return 'SCRIPT_READY';
+  if (current === 'ARCHIVED' || rank(current) < rank('SCRIPT_READY')) return null;
+  return complete ? 'PACKAGED' : 'SCRIPT_READY';
 }
 
 /** The mechanism the wording actually uses; falls back to what was claimed. */
@@ -179,18 +177,26 @@ export const drawableText = (text: string) => /^[A-Za-zÀ-ɏ\d\s!?'’&:,.-]+$/.
  * An image prompt from a thumbnail idea. Text the model can't draw is left out, to be added in
  * Canva instead.
  */
-export function thumbnailPrompt(c: ThumbnailConcept): { prompt: string; textLeftOut: boolean } {
+export function thumbnailPrompt(c: ThumbnailConcept, options: { anyText?: boolean } = {}): { prompt: string; textLeftOut: boolean } {
+  const text = c.text.trim();
+  // anyText: for a copied prompt, since other image models (e.g. Nano Banana) can write non-Latin scripts.
+  const draw = !!text && (options.anyText || drawableText(text));
+  // The text goes early, not last: the image route strips a closing quote, and FLUX weighs early words most.
+  // "text reading" is the phrase the route looks for to stop asking the model for no text.
+  const textPart = draw
+    ? `Bold, large, easy-to-read headline text reading "${text}"`
+    : text
+      ? 'Clear empty space for a headline added later. No text or letters in the image'
+      : 'No text or letters in the image';
   const parts = [
     'YouTube thumbnail, 16:9',
     c.mainSubject,
     c.supportingObject && `with ${c.supportingObject}`,
+    textPart,
     c.emotionOrAction,
     c.composition && `Composition: ${c.composition}`,
     c.background && `Background: ${c.background}`,
     c.contrast,
   ];
-  const text = c.text.trim();
-  const draw = !!text && drawableText(text);
-  parts.push(draw ? `Bold, large, easy-to-read headline text that says "${text}"` : 'No text or letters in the image');
   return { prompt: parts.filter(Boolean).join('. ').replace(/\.\./g, '.'), textLeftOut: !!text && !draw };
 }

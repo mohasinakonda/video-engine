@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, ExternalLink, ImageIcon, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, ClipboardCopy, Download, ExternalLink, ImageIcon, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { base64ToUint8Array, generateImage } from '@/lib/gemini';
 import { deleteMediaBlob, getMediaBlob, saveMediaBlob } from '@/lib/media-storage';
@@ -207,7 +207,25 @@ export function ThumbnailMaker({
     a.click();
   };
 
-  const status = message && <p className={`text-xs ${message.tone === 'error' ? 'text-rose-300' : 'text-sky-200'}`}>{message.text}</p>;
+  const [copied, setCopied] = useState(false);
+  const copyPrompt = async () => {
+    try {
+      // Unedited: copy the version with the thumbnail text in any language, for models that can write it.
+      await navigator.clipboard.writeText(prompt === suggested ? thumbnailPrompt(concept, { anyText: true }).prompt : prompt.trim());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setMessage({ text: 'Couldn’t copy. Open “See or change what the image model is asked for” and copy it from there.', tone: 'error' });
+    }
+  };
+  const copyButton = (
+    <button type="button" className="btn-ghost btn-sm" disabled={!prompt.trim()} onClick={copyPrompt}>
+      {copied ? <Check size={14} /> : <ClipboardCopy size={14} />}
+      {copied ? 'Copied' : 'Copy prompt'}
+    </button>
+  );
+
+  const status = message &&<p className={`text-xs ${message.tone === 'error' ? 'text-rose-300' : 'text-sky-200'}`}>{message.text}</p>;
   const lockedNote = locked && <p className="text-xs text-amber-300">Save your changes first.</p>;
 
   if (image === undefined) return <div className="w-full aspect-video rounded-lg bg-bg-surface animate-pulse" />;
@@ -236,6 +254,7 @@ export function ThumbnailMaker({
             {busy === 'image' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             New image
           </button>
+          {copyButton}
         </div>
         {lockedNote}
         {status}
@@ -259,6 +278,7 @@ export function ThumbnailMaker({
           {busy === 'image' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {busy === 'image' ? 'Making the image…' : 'Make image'}
         </button>
+        {copyButton}
         <span className="text-xs text-zinc-500">Uses {cost} credits · about 20 seconds</span>
       </div>
       {lockedNote}

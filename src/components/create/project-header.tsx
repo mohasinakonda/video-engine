@@ -9,7 +9,7 @@ import { useCreateConfig } from './use-create-config';
 import { STATUS_LABELS, type VideoProject } from './types';
 
 /** Title, status, step links, archive and delete: the same on every step of a project. */
-export function ProjectHeader({ project, active }: { project: VideoProject; active: 'brief' | 'script' | 'package' | 'publish' | 'measure' }) {
+export function ProjectHeader({ project, active }: { project: VideoProject; active: 'brief' | 'script' | 'package' }) {
   const router = useRouter();
   const [restoring, setRestoring] = useState(false);
 
@@ -27,7 +27,7 @@ export function ProjectHeader({ project, active }: { project: VideoProject; acti
   };
 
   const remove = async () => {
-    if (!window.confirm('Delete this project? Its brief, script and any measurements are removed. This can’t be undone.')) return;
+    if (!window.confirm('Delete this project? Its brief, script and packaging are removed. This can’t be undone.')) return;
     const res = await fetch(`/api/create/projects/${project.id}`, { method: 'DELETE' });
     if (res.ok) router.push('/create');
   };

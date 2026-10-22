@@ -15,9 +15,9 @@ import { useAuth } from '@/contexts/auth-context';
 type Tab = 'next' | 'market' | 'competitors';
 
 const TABS: { id: Tab; label: string; icon: typeof Compass }[] = [
-  { id: 'next', label: 'Next videos', icon: Lightbulb },
-  { id: 'market', label: 'Market', icon: TrendingUp },
   { id: 'competitors', label: 'Competitors', icon: Users },
+  { id: 'market', label: 'Market', icon: TrendingUp },
+  { id: 'next', label: 'Next videos', icon: Lightbulb },
 ];
 
 export default function DiscoverInner() {

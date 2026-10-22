@@ -2,14 +2,12 @@ import Link from 'next/link';
 import { Check } from 'lucide-react';
 import type { ProjectStatus, VideoProject } from './types';
 
-const AFTER_BRIEF: ProjectStatus[] = ['BRIEF_READY', 'SCRIPT_READY', 'PACKAGED', 'IN_PRODUCTION', 'PUBLISHED', 'ANALYZING', 'LEARNED'];
+const AFTER_BRIEF: ProjectStatus[] = ['BRIEF_READY', 'SCRIPT_READY', 'PACKAGED'];
 
 const STEPS: { id: string; label: string; path: string | null; doneAt: ProjectStatus[] }[] = [
   { id: 'brief', label: 'Brief', path: '', doneAt: AFTER_BRIEF },
   { id: 'script', label: 'Script', path: '/script', doneAt: AFTER_BRIEF.slice(1) },
   { id: 'package', label: 'Packaging', path: '/package', doneAt: AFTER_BRIEF.slice(2) },
-  { id: 'publish', label: 'Publish', path: '/publish', doneAt: AFTER_BRIEF.slice(4) },
-  { id: 'measure', label: 'Measure', path: '/measure', doneAt: ['LEARNED'] },
 ];
 
 /** Where the project is in the loop. Only real statuses mark a step done; a step opens once the one before it is done. */

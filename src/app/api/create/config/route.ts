@@ -35,7 +35,6 @@ export async function GET() {
       script: create.scriptCreditCost,
       scriptSection: sectionCost(create.scriptCreditCost),
       packaging: create.packagingCreditCost,
-      performance: create.performanceCreditCost,
       topicSearch: create.topicSearchCreditCost,
     },
   });

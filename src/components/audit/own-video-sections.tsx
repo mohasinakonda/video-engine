@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, FileText, PenLine } from 'lucide-react';
-import { linesAtDrops, transcriptCues, type ScriptTimeline } from '@/lib/youtube/audit/timeline';
+import { AlertTriangle, CheckCircle2, FileText } from 'lucide-react';
+import { linesAtDrops, transcriptCues } from '@/lib/youtube/audit/timeline';
 import type { AuditFinding } from '@/lib/youtube/audit/video-audit';
 import type { RetentionAnomaly } from '@/lib/youtube/types';
 
@@ -25,43 +24,6 @@ export function PackagingFindings({ findings }: { findings: AuditFinding[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** For a video made with Create: how many viewers each script part kept. */
-export function ScriptRetention({ timeline, projectId }: { timeline: ScriptTimeline; projectId: string }) {
-  return (
-    <section className="card space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-white">Where in your script viewers left</h3>
-          <p className="text-sm text-zinc-400">Times are estimated from each part’s words; your edit may differ a little.</p>
-        </div>
-        <Link href={`/create/${projectId}/script`} className="btn-ghost btn-sm">
-          <PenLine size={14} />
-          Open the script
-        </Link>
-      </div>
-      <ul className="space-y-1.5">
-        {timeline.parts.map((p) => {
-          const worst = p.id === timeline.worstId;
-          return (
-            <li key={p.id} className={`grid grid-cols-[64px_1fr_auto] items-center gap-3 p-2.5 rounded-lg ${worst ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-bg-elevated'}`}>
-              <span className="text-xs text-zinc-500 tabular-nums">{time(p.startSec)}</span>
-              <span className="text-sm text-zinc-100 truncate">
-                {p.heading}
-                {worst && <span className="text-amber-300"> · lost the most viewers</span>}
-              </span>
-              <span className="text-sm tabular-nums text-zinc-300">
-                {p.startPct === null ? '—' : `${p.startPct}% → ${p.endPct}%`}
-                {p.dropPts !== null && p.dropPts > 0 && <span className="text-zinc-500"> (−{p.dropPts})</span>}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="text-xs text-zinc-500">Percent of viewers still watching at the start and end of each part. Over 100% means people rewatched.</p>
-    </section>
   );
 }
 

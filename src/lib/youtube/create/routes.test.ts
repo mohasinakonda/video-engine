@@ -60,13 +60,9 @@ vi.mock('./projects', async (importOriginal) => {
 const ai = { result: null as unknown };
 const credits = { charged: 0, refunded: 0 };
 vi.mock('./ai/brief-interpreter', () => ({ interpretBrief: async () => ai.result }));
-// ─── YouTube and the link table ──────────────────────────────────────────────
+// ─── YouTube ─────────────────────────────────────────────────────────────────
 const MY_CHANNEL = 'UC' + 'a'.repeat(22);
-const yt = {
-  connected: true,
-  videos: new Map<string, { videoId: string; channelId: string; title: string; thumbnailUrl: null; publishedAt: string; privacy: 'public' | 'private'; scheduledFor: null }>(),
-};
-const links = new Map<string, { id?: string; userId: string; projectId: string; youtubeVideoId: string; status: string; publishedAt?: string }>();
+const yt = { connected: true };
 vi.mock('../connection-service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../connection-service')>();
   return {
@@ -77,34 +73,10 @@ vi.mock('../connection-service', async (importOriginal) => {
     },
   };
 });
-vi.mock('./published-videos', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./published-videos')>();
-  const { linkStatusFor } = await import('./publish');
-  return {
-    ...actual,
-    fetchRecentUploads: async () => Array.from(yt.videos.values()).filter((v) => v.channelId === MY_CHANNEL),
-    fetchVideoForLink: async (_t: string, id: string) => yt.videos.get(id) ?? null,
-    linkedVideoIds: async (userId: string) => new Set(Array.from(links.values()).filter((l) => l.userId === userId).map((l) => l.youtubeVideoId)),
-    getLink: async (userId: string, projectId: string) => links.get(projectId)?.userId === userId ? links.get(projectId) : null,
-    createLink: async (userId: string, input: { projectId: string; video: { videoId: string; privacy: 'public' | 'private' } }) => {
-      if (links.has(input.projectId)) throw new actual.AlreadyLinkedError();
-      const link = { id: `link-${input.projectId}`, userId, projectId: input.projectId, youtubeVideoId: input.video.videoId, status: linkStatusFor(input.video), publishedAt: '2026-10-01T00:00:00Z' };
-      links.set(input.projectId, link);
-      return link;
-    },
-    deleteLink: async (_u: string, projectId: string) => void links.delete(projectId),
-    updateLinkFromVideo: async (_u: string, link: { status: string }, video: { privacy: string }) => ({ ...link, status: link.status === 'unavailable' ? link.status : linkStatusFor(video as never) }),
-  };
-});
 vi.mock('../quota-budget', async (importOriginal) => ({ ...(await importOriginal<typeof import('../quota-budget')>()), consumeQuota: async () => true }));
 
 // The hourly cap is per process; this file makes many runs for one user.
 vi.mock('../run-guard', () => ({ acquireRun: () => ({ ok: true, release: () => undefined }) }));
-
-const measured = { result: null as unknown };
-const learned: { days: number }[] = [];
-vi.mock('./measure', async (importOriginal) => ({ ...(await importOriginal<typeof import('./measure')>()), measureVideo: async () => measured.result }));
-vi.mock('./learning', () => ({ saveLearningRecord: async (_u: string, _l: string, _p: unknown, o: { days: number }) => void learned.push(o) }));
 
 const packager = { result: null as unknown, previous: undefined as unknown };
 vi.mock('./ai/packager', () => ({
@@ -126,10 +98,6 @@ import { emptyScript } from './script';
 import { blankThumbnail, emptyPackaging } from './packaging';
 import { POST as packageRoute, PUT as savePackaging } from '@/app/api/create/projects/[id]/packaging/route';
 import { PATCH as linkThumbnail } from '@/app/api/create/projects/[id]/packaging/thumbnail/route';
-import { DELETE as unlink, GET as readLink, POST as linkVideo } from '@/app/api/create/projects/[id]/publish/route';
-import { GET as candidatesRoute } from '@/app/api/create/projects/[id]/publish-candidates/route';
-import { GET as remindersRoute } from '@/app/api/create/publish-reminders/route';
-import { POST as measureRoute } from '@/app/api/create/projects/[id]/performance/route';
 import { POST as writeScriptRoute, PUT as saveScript } from '@/app/api/create/projects/[id]/script/route';
 import { POST as draftBrief, PUT as saveBrief } from '@/app/api/create/projects/[id]/brief/route';
 import { GET as list, POST as create } from '@/app/api/create/projects/route';
@@ -185,17 +153,10 @@ describe('Create projects API', () => {
   });
 
   it('applies only valid status actions', async () => {
-    const start = await setStatus(req({ action: 'start_production' }), ctx(MY_PROJECT));
-    expect((await start.json()).project.status).toBe('IN_PRODUCTION');
-    expect((await setStatus(req({ action: 'back_to_packaging' }), ctx(MY_PROJECT))).status).toBe(200);
-
-    seed(MY_PROJECT, 'user-a', 'DRAFT');
-    const invalid = await setStatus(req({ action: 'start_production' }), ctx(MY_PROJECT));
+    expect((await setStatus(req({ action: 'start_production' }), ctx(MY_PROJECT))).status).toBe(400);
+    const invalid = await setStatus(req({ action: 'unarchive' }), ctx(MY_PROJECT));
     expect(invalid.status).toBe(409);
     expect((await invalid.json()).code).toBe('transition');
-
-    seed(MY_PROJECT, 'user-a', 'PUBLISHED');
-    expect((await setStatus(req({ action: 'back_to_packaging' }), ctx(MY_PROJECT))).status).toBe(409);
   });
 
   it('archives and restores to the previous status', async () => {
@@ -224,11 +185,11 @@ describe('brief API', () => {
     expect(rows.get(MY_PROJECT)).toMatchObject({ status: 'BRIEF_READY' });
   });
 
-  it('rejects invalid briefs, other users’ projects and published projects', async () => {
+  it('rejects invalid briefs, other users’ projects and archived projects', async () => {
     seed(MY_PROJECT, 'user-a', 'DRAFT');
     expect((await saveBrief(put({ ...emptyBrief('x', 'English'), topic: '' }), ctx(MY_PROJECT))).status).toBe(400);
     expect((await saveBrief(put(emptyBrief('x', 'English')), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
-    seed(MY_PROJECT, 'user-a', 'PUBLISHED');
+    seed(MY_PROJECT, 'user-a', 'ARCHIVED', 'DRAFT');
     expect((await saveBrief(put(emptyBrief('x', 'English')), ctx(MY_PROJECT))).status).toBe(409);
   });
 
@@ -319,7 +280,7 @@ describe('script API', () => {
     expect(credits.charged).toBe(0);
 
     expect((await saveScript(put({ ...old, sections: [] }), ctx(MY_PROJECT))).status).toBe(400);
-    withBrief('PUBLISHED', ready, old);
+    withBrief('ARCHIVED', ready, old);
     expect((await saveScript(put(old), ctx(MY_PROJECT))).status).toBe(409);
     withBrief('DRAFT', null);
     expect((await saveScript(put(old), ctx(MY_PROJECT))).status).toBe(409);
@@ -347,12 +308,12 @@ describe('packaging API', () => {
     credits.refunded = 0;
   });
 
-  it('refuses before charging until the script is saved, and after publishing', async () => {
+  it('refuses before charging until the script is saved, and on archived projects', async () => {
     at('BRIEF_READY');
     expect((await packageRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
     at('SCRIPT_READY', false);
     expect((await packageRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
-    at('PUBLISHED');
+    at('ARCHIVED');
     expect((await packageRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
     expect((await packageRoute(req({}), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
     expect(credits.charged).toBe(0);
@@ -408,138 +369,8 @@ describe('packaging API', () => {
     expect((await savePackaging(put({ ...pack(true), selectedTitle: 4 }), ctx(MY_PROJECT))).status).toBe(400);
     at('BRIEF_READY');
     expect((await savePackaging(put(pack(true)), ctx(MY_PROJECT))).status).toBe(409);
-    at('PUBLISHED');
+    at('ARCHIVED');
     expect((await savePackaging(put(pack(true)), ctx(MY_PROJECT))).status).toBe(409);
-  });
-});
-
-describe('publish link API', () => {
-  const MINE = 'mineVideo01';
-  const THEIRS = 'otherVideo1';
-  const body = (video: string, method = 'suggested') => req({ video, method });
-
-  beforeEach(() => {
-    links.clear();
-    yt.connected = true;
-    yt.videos.clear();
-    yt.videos.set(MINE, { videoId: MINE, channelId: MY_CHANNEL, title: 'Why deep sea creatures glow', thumbnailUrl: null, publishedAt: '2026-10-22T00:00:00Z', privacy: 'private', scheduledFor: null });
-    yt.videos.set(THEIRS, { videoId: THEIRS, channelId: 'UC' + 'b'.repeat(22), title: 'Someone else', thumbnailUrl: null, publishedAt: '2026-10-22T00:00:00Z', privacy: 'public', scheduledFor: null });
-    seed(MY_PROJECT, 'user-a', 'IN_PRODUCTION');
-    rows.get(MY_PROJECT)!.title = 'Why deep sea creatures glow';
-  });
-
-  it('suggests the matching upload from the connected channel', async () => {
-    const res = await candidatesRoute(req(), ctx(MY_PROJECT));
-    const data = await res.json();
-    expect(data.suggestion).toBe(MINE);
-    expect(data.candidates.map((c: { videoId: string }) => c.videoId)).toEqual([MINE]);
-    expect((await candidatesRoute(req(), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
-    yt.connected = false;
-    expect((await (await candidatesRoute(req(), ctx(MY_PROJECT))).json()).code).toBe('not_connected');
-  });
-
-  it('links a confirmed video, from a pasted link too, and waits for a private one to go public', async () => {
-    const res = await linkVideo(body(`https://youtu.be/${MINE}`, 'pasted'), ctx(MY_PROJECT));
-    expect(res.status).toBe(200);
-    expect(rows.get(MY_PROJECT)?.status).toBe('PUBLISHED');
-    expect(links.get(MY_PROJECT)).toMatchObject({ youtubeVideoId: MINE, status: 'waiting_public' });
-    expect((await (await readLink(req(), ctx(MY_PROJECT))).json()).link.youtubeVideoId).toBe(MINE);
-  });
-
-  it('refuses videos from other channels, bad links, double links and unpackaged projects', async () => {
-    expect((await (await linkVideo(body(THEIRS), ctx(MY_PROJECT))).json()).code).toBe('not_owned');
-    expect((await (await linkVideo(body('https://evil.com/watch?v=mineVideo01'), ctx(MY_PROJECT))).json()).code).toBe('bad_link');
-    expect((await linkVideo(body(MINE), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
-
-    links.set('elsewhere', { userId: 'user-a', projectId: 'elsewhere', youtubeVideoId: MINE, status: 'tracking' });
-    expect((await (await linkVideo(body(MINE), ctx(MY_PROJECT))).json()).code).toBe('already_linked');
-    expect(rows.get(MY_PROJECT)?.status).toBe('IN_PRODUCTION');
-
-    links.clear();
-    seed(MY_PROJECT, 'user-a', 'SCRIPT_READY');
-    expect((await linkVideo(body(MINE), ctx(MY_PROJECT))).status).toBe(409);
-  });
-
-  it('undoes a link before measuring starts', async () => {
-    await linkVideo(body(MINE), ctx(MY_PROJECT));
-    const res = await unlink(req(), ctx(MY_PROJECT));
-    expect(res.status).toBe(200);
-    expect(rows.get(MY_PROJECT)?.status).toBe('PACKAGED');
-    expect(links.has(MY_PROJECT)).toBe(false);
-    expect((await unlink(req(), ctx(MY_PROJECT))).status).toBe(409);
-  });
-
-  it('reminds about a new upload that matches a project in production, quietly when disconnected', async () => {
-    const data = await (await remindersRoute()).json();
-    expect(data.reminders).toEqual([expect.objectContaining({ projectId: MY_PROJECT, video: expect.objectContaining({ videoId: MINE }) })]);
-    yt.connected = false;
-    expect((await (await remindersRoute()).json()).reminders).toEqual([]);
-  });
-});
-
-describe('performance API', () => {
-  const VID = 'mineVideo01';
-  const m = (days: number) => ({ days, views: 2000, baselineViews: 1000, baselineSample: 10, avgViewPct: 40, baselineAvgViewPct: 40, ctr: null, impressions: null, baselineCtr: null, discoveryShare: null, channelDiscoveryShare: null });
-  const linkAt = (publishedAt: string, status = 'tracking', projectStatus: VideoProject['status'] = 'PUBLISHED') => {
-    seed(MY_PROJECT, 'user-a', projectStatus);
-    links.clear();
-    links.set(MY_PROJECT, { id: 'link-1', userId: 'user-a', projectId: MY_PROJECT, youtubeVideoId: VID, status, publishedAt });
-  };
-
-  beforeEach(() => {
-    credits.charged = 0;
-    credits.refunded = 0;
-    learned.length = 0;
-    yt.connected = true;
-    yt.videos.clear();
-    yt.videos.set(VID, { videoId: VID, channelId: MY_CHANNEL, title: 't', thumbnailUrl: null, publishedAt: '2026-09-01T00:00:00Z', privacy: 'public', scheduledFor: null });
-  });
-
-  it('says when the first numbers arrive, without charging', async () => {
-    linkAt(new Date().toISOString());
-    const res = await measureRoute(req({}), ctx(MY_PROJECT));
-    expect(res.status).toBe(409);
-    expect((await res.json()).code).toBe('too_early');
-    expect(credits.charged).toBe(0);
-  });
-
-  it('refuses unlinked and foreign projects', async () => {
-    seed(MY_PROJECT, 'user-a', 'PACKAGED');
-    expect((await measureRoute(req({}), ctx(MY_PROJECT))).status).toBe(409);
-    expect((await measureRoute(req({}), ctx(OTHER_USERS_PROJECT))).status).toBe(404);
-  });
-
-  it('refunds while the video is still private', async () => {
-    linkAt('2026-09-01T00:00:00Z', 'waiting_public');
-    yt.videos.get(VID)!.privacy = 'private' as 'public';
-    const out = await events(await measureRoute(req({}), ctx(MY_PROJECT)));
-    expect(out.at(-1)).toMatchObject({ type: 'error', refunded: true });
-  });
-
-  it('measures, saves labels only from day 7, and moves to measuring', async () => {
-    linkAt('2026-09-01T00:00:00Z');
-    measured.result = { format: 'video', checkpoints: [{ days: 2, ready: true }, { days: 7, ready: true }, { days: 28, ready: false }], measurements: [m(2), m(7)], limitations: [] };
-    const out = await events(await measureRoute(req({}), ctx(MY_PROJECT)));
-    const result = out.at(-1);
-    expect(result.type).toBe('result');
-    expect(result.data.outcomes.map((o: { views: string }) => o.views)).toEqual(['well_above', 'well_above']);
-    expect(learned.map((o) => o.days)).toEqual([7]);
-    expect(rows.get(MY_PROJECT)?.status).toBe('ANALYZING');
-    expect(credits.charged).toBe(2);
-  });
-
-  it('finishes when every checkpoint is in, or when the creator closes it after day 7', async () => {
-    linkAt('2026-09-01T00:00:00Z', 'tracking', 'ANALYZING');
-    measured.result = { format: 'video', checkpoints: [{ days: 7, ready: true }, { days: 28, ready: false }], measurements: [m(7)], limitations: [] };
-    await events(await measureRoute(req({}), ctx(MY_PROJECT)));
-    expect(rows.get(MY_PROJECT)?.status).toBe('ANALYZING');
-    await events(await measureRoute(req({ finish: true }), ctx(MY_PROJECT)));
-    expect(rows.get(MY_PROJECT)?.status).toBe('LEARNED');
-
-    linkAt('2026-09-01T00:00:00Z');
-    measured.result = { format: 'video', checkpoints: [{ days: 7, ready: true }, { days: 28, ready: true }], measurements: [m(7), m(28)], limitations: [] };
-    await events(await measureRoute(req({}), ctx(MY_PROJECT)));
-    expect(rows.get(MY_PROJECT)?.status).toBe('LEARNED');
   });
 });
 

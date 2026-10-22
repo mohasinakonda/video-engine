@@ -19,7 +19,7 @@ type Context = { params: { id: string } };
 
 const generateSchema = z.object({ notes: z.string().trim().max(1500).optional(), only: z.enum(['titles', 'thumbnails']).optional() });
 
-const NOT_EDITABLE = 'Packaging can be made once the script is saved, and changed until the video is published.';
+const NOT_EDITABLE = 'Packaging can be made once the script is saved.';
 
 /**
  * POST /api/create/projects/:id/packaging — the AI proposes titles, thumbnails and a description

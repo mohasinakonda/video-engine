@@ -14,7 +14,7 @@ export interface CreateConfig {
   allowedPlans: string[];
   topicSearchesPerDay: number;
   bundle: { cost: number; includes: Record<UsageKey, number> };
-  costs: { brief: number; script: number; scriptSection: number; packaging: number; performance: number; topicSearch: number };
+  costs: { brief: number; script: number; scriptSection: number; packaging: number; topicSearch: number };
 }
 
 export const STATUS_LABELS = {
@@ -22,9 +22,5 @@ export const STATUS_LABELS = {
   BRIEF_READY: 'Brief ready',
   SCRIPT_READY: 'Script ready',
   PACKAGED: 'Packaged',
-  IN_PRODUCTION: 'In production',
-  PUBLISHED: 'Published',
-  ANALYZING: 'Measuring',
-  LEARNED: 'Learned',
   ARCHIVED: 'Archived',
 } as const;

@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { MIN_COMPETITORS, runResearch } from '@/lib/youtube/discover/research';
 import type { ResearchStage } from '@/lib/youtube/discover/types';
 import { listWatchlist } from '@/lib/youtube/discover/watchlist';
-import { loadLearningRows } from '@/lib/youtube/create/learning';
 import { requireUser } from '@/lib/youtube/route-auth';
 import { streamAnalysis } from '@/lib/youtube/stream-analysis';
 
@@ -48,8 +47,6 @@ export async function POST(req: Request) {
         window: parsed.data.window,
         language: parsed.data.language,
         competitorIds,
-        // Labels from measured Create videos; research works without them.
-        learning: await loadLearningRows(userId).catch(() => []),
         onStage,
       }),
   });

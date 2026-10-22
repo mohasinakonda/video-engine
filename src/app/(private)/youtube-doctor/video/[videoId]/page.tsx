@@ -16,7 +16,7 @@ import { RetentionChart } from '@/components/youtube-doctor/retention-chart';
 import type { ConnectionState, DoctorConfig } from '@/components/youtube-doctor/types';
 import { useAnalysisStream } from '@/components/youtube-doctor/use-diagnosis';
 import { ViewerThemesView } from '@/components/audit/audit-report';
-import { PackagingFindings, ScriptRetention, TranscriptMatch } from '@/components/audit/own-video-sections';
+import { PackagingFindings, TranscriptMatch } from '@/components/audit/own-video-sections';
 import type { OwnVideoExtras } from '@/lib/youtube/audit/own-video';
 
 export default function VideoAnalysisPage() {
@@ -107,7 +107,7 @@ function VideoAnalysisInner() {
 
 function VideoReport({ result }: { result: VideoAnalysisResult & { extras?: OwnVideoExtras } }) {
   const { video, stats, baseline } = result;
-  // Packaging rules, viewer themes and script timing; missing on reports saved before they existed.
+  // Packaging rules and viewer themes; missing on reports saved before they existed.
   const extras = result.extras;
   const compare = (value: number | null, base: number | null, format: (v: number) => string) =>
     value === null ? 'Not available' : base === null ? format(value) : `${format(value)}  (usual ${format(base)})`;
@@ -200,11 +200,7 @@ function VideoReport({ result }: { result: VideoAnalysisResult & { extras?: OwnV
         </section>
       )}
 
-      {extras?.script ? (
-        <ScriptRetention timeline={extras.script.timeline} projectId={extras.script.projectId} />
-      ) : (
-        result.retention && <TranscriptMatch anomalies={result.retentionAnomalies} durationSec={video.durationSec} />
-      )}
+      {result.retention && <TranscriptMatch anomalies={result.retentionAnomalies} durationSec={video.durationSec} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {result.traffic && <TrafficBars traffic={result.traffic} />}
