@@ -45,7 +45,7 @@ export const LandingNavbar: React.FC = () => {
           <Link href="/#growth-loop" className="hover:text-zinc-950 transition-colors">How it works</Link>
           <Link href="/#growth-tools" className="hover:text-zinc-950 transition-colors">Growth tools</Link>
           <Link href="/#key-features" className="hover:text-zinc-950 transition-colors">Video maker</Link>
-          <Link href="/#bangla" className="hover:text-zinc-950 transition-colors">For Bangla creators</Link>
+          {/* <Link href="/#bangla" className="hover:text-zinc-950 transition-colors">For Bangla creators</Link> */}
           <Link href="/pricing" className="hover:text-zinc-950 transition-colors">Pricing</Link>
         </nav>
 

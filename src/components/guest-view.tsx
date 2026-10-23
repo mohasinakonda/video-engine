@@ -35,7 +35,7 @@ export default function GuestView() {
       <VisualStyleSection />
 
       {/* ─── Made for Bangla creators ───────────────────────────────────── */}
-      <BanglaCreatorsSection />
+      {/*<BanglaCreatorsSection />*/}
 
       {/* ─── Pricing Section (With Local Bangladesh Support) ───────────── */}
       <PricingSection />
