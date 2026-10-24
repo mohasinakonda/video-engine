@@ -62,7 +62,8 @@ export default function TermsPage() {
               4. Prohibited Uses & Safety Policies
             </h2>
             <p>
-              You agree not to use Rendoza AI to generate defamatory, obscene, sexually explicit, abusive, or harmful material, or to impersonate living individuals without legal authorization. We reserve the right to suspend accounts violating acceptable use policies.
+              You agree not to use Rendoza AI to generate defamatory, obscene, sexually explicit, abusive, or harmful material, or to impersonate living individuals without legal authorization. In particular, you must never create non-consensual intimate imagery (NCII): nude, sexual or intimate images of any real person, whether AI-generated or edited. Any sexual content involving minors is strictly prohibited and is reported to the authorities. The full rules are in our{' '}
+              <a href="/acceptable-use" className="text-[#E05A30] underline">Acceptable Use Policy</a>. We suspend or close accounts that break them.
             </p>
           </section>
 
