@@ -7,6 +7,7 @@ import { HowItWorksSection } from './landing/how-it-works-section';
 import { StoryboardShowcaseSection } from './landing/storyboard-showcase-section';
 import { VisualStyleSection } from './landing/visual-style-section';
 import { BanglaCreatorsSection } from './landing/bangla-creators-section';
+import { ResponsibleUseSection } from './landing/responsible-use-section';
 import { PricingSection } from './landing/pricing-section';
 import { PaymentMethodsSection } from './landing/payment-methods-section';
 
@@ -36,6 +37,9 @@ export default function GuestView() {
 
       {/* ─── Made for Bangla creators ───────────────────────────────────── */}
       {/*<BanglaCreatorsSection />*/}
+
+      {/* ─── What Rendoza is for, and what it must never be used for ────── */}
+      <ResponsibleUseSection />
 
       {/* ─── Pricing Section (With Local Bangladesh Support) ───────────── */}
       <PricingSection />

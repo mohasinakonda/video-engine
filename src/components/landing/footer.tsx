@@ -28,6 +28,7 @@ export const LandingFooter: React.FC = () => {
 
           <Link href="/privacy" className="hover:text-zinc-950 transition-colors">Privacy</Link>
           <Link href="/terms" className="hover:text-zinc-950 transition-colors">Terms</Link>
+          <Link href="/acceptable-use" className="hover:text-zinc-950 transition-colors">Acceptable Use</Link>
           <Link href="/refund" className="hover:text-zinc-950 transition-colors">Refund Policy</Link>
 
         </div>
