@@ -603,7 +603,7 @@ export function StyleEditModal({
                   type="button"
                   onClick={handleSetAsStyleThumbnail}
                   disabled={settingThumbnail}
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-950 transition-all disabled:opacity-50 animate-in fade-in"
+                  className="theme-dark w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-950 transition-all disabled:opacity-50 animate-in fade-in"
                 >
                   {settingThumbnail ? (
                     <>

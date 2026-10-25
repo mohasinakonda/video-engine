@@ -192,7 +192,7 @@ export function DraftPromptStage({ concept, activeIndex }: DraftPromptStageProps
                     setConfirmingDelete(false);
                     handleDeleteConcept(concept.id);
                   }}
-                  className="text-xs px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors"
+                  className="theme-dark text-xs px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors"
                 >
                   Delete idea
                 </button>

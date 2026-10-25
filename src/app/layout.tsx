@@ -69,11 +69,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${dm_sans.variable} dark`}>
+    <html lang="en" className={dm_sans.variable}>
       <head>
         <JsonLd />
       </head>
-      <body className="min-h-screen bg-bg-base text-zinc-100 antialiased font-sans">
+      <body className="min-h-screen bg-[#FAF8F5] text-zinc-900 antialiased font-sans">
 
         {children}
 
@@ -82,9 +82,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           gutter={8}
           toastOptions={{
             style: {
-              background: '#18181b',
-              color: '#fafafa',
-              border: '1px solid #3f3f46',
+              background: '#ffffff',
+              color: '#1c1917',
+              border: '1px solid #E5E0D8',
+              boxShadow: '0 8px 24px rgba(28, 25, 23, 0.08)',
               borderRadius: '12px',
               fontSize: '12px',
               fontWeight: 600,
@@ -92,10 +93,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               maxWidth: 'min(480px, 90vw)',
             },
             success: {
-              iconTheme: { primary: '#10b981', secondary: '#09090b' },
+              iconTheme: { primary: '#10b981', secondary: '#ffffff' },
             },
             error: {
-              iconTheme: { primary: '#ef4444', secondary: '#09090b' },
+              iconTheme: { primary: '#ef4444', secondary: '#ffffff' },
               duration: 5000,
             },
           }}

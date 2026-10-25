@@ -165,6 +165,17 @@ function formatDuration(sec: number): string {
   return m > 0 ? `${m}:${s.toString().padStart(2, '0')}` : `0:${s.toString().padStart(2, '0')}`;
 }
 
+// Letters and digits in any script; everything else becomes a dash.
+const FILE_UNSAFE = new RegExp('[^\\p{L}\\p{M}\\p{N}]+', 'gu');
+
+/** "<voice>-<first words of the script>", e.g. "Rafi-once-upon-a-time-in-the". */
+function audioFileName(voiceName: string | undefined, script: string): string {
+  const slug = (value: string) => value.replace(FILE_UNSAFE, '-').replace(/^-+|-+$/g, '');
+  const words = slug(script.trim().split(/\s+/).slice(0, 6).join(' ')).slice(0, 50).replace(/-+$/, '');
+  const name = [voiceName ? slug(voiceName).slice(0, 30) : '', words].filter(Boolean).join('-');
+  return name || 'voiceover';
+}
+
 export default function VoicePage() {
   // Engine State (dynamic from Supabase database)
   const [engine, setEngine] = useState<VoiceEngine | null>(null);
@@ -195,7 +206,6 @@ export default function VoicePage() {
 
   // AI Assistant States
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
-  const [isMatchingScript, setIsMatchingScript] = useState(false);
   const [isMatchingVoice, setIsMatchingVoice] = useState(false);
 
   // Generation States
@@ -206,6 +216,7 @@ export default function VoicePage() {
   const [resultBlob, setResultBlob] = useState<Blob | null>(null);
   const [resultDurationSec, setResultDurationSec] = useState<number>(0);
   const [resultChars, setResultChars] = useState<number>(0);
+  const resultNameRef = useRef('voiceover');
   const [playbackRate, setPlaybackRate] = useState<number>(1);
   const [isLooping, setIsLooping] = useState<boolean>(false);
 
@@ -673,6 +684,7 @@ export default function VoicePage() {
       const durationSec = await getAudioDuration(blob).catch(() => 0);
 
       planRef.current = null;
+      resultNameRef.current = audioFileName(activeCustomVoice?.name, script);
       setResultBlob(blob);
       setResultUrl(url);
       setResultDurationSec(durationSec);
@@ -773,7 +785,8 @@ export default function VoicePage() {
 
   const handleDownloadResult = useCallback(() => {
     if (!resultBlob) return;
-    downloadBlob(resultBlob, `mimo-voice-${Date.now()}.wav`);
+    const ext = resultBlob.type.includes('mpeg') ? 'mp3' : 'wav';
+    downloadBlob(resultBlob, `${resultNameRef.current}.${ext}`);
   }, [resultBlob, downloadBlob]);
 
 
@@ -1012,48 +1025,11 @@ export default function VoicePage() {
             )}
 
             {/* Output Stage: Enhanced Native Audio Player & Power Control Suite */}
-            {phase === 'done' && resultUrl && (
-              <div className="rounded-2xl border border-bg-border bg-bg-surface/90 backdrop-blur-md p-5 shadow-2xl space-y-4">
-                {/* Header bar: Info & Download */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-white tracking-wide">
-                          Voice Output
-                        </span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleDownloadResult}
-                      className="btn-secondary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
-                    >
-                      <Download size={13} className="stroke-[2.5]" />
-                      <span>Download WAV</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Native HTML5 Audio Element with Native Controls & Dark Styling */}
-                <div className="rounded-xl bg-bg-base p-2.5 border border-bg-border shadow-inner">
-                  <audio
-                    ref={audioRef}
-                    controls
-                    src={resultUrl}
-                    className="w-full h-11 rounded-lg focus:outline-none"
-                    style={{ colorScheme: 'dark' }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ─── Google AI Studio Docked Action Bar ─── */}
-          <div className="absolute bottom-0 left-0 right-0 h-16 px-6 lg:px-8 border-t border-bg-border bg-bg-surface/95 backdrop-blur-md flex items-center justify-between z-10">
+          <div className="absolute bottom-0 left-0 right-0 h-16 px-6 lg:px-8 border-t border-bg-border bg-bg-surface/95 backdrop-blur-md flex items-center justify-between z-10 gap-5">
             <div className="flex items-center gap-3 text-xs text-zinc-400">
               <button
                 type="button"
@@ -1068,7 +1044,7 @@ export default function VoicePage() {
                 <RotateCcw size={14} />
               </button>
 
-              <span className="text-zinc-600">|</span>
+
 
               <span className={`font-mono ${textTooLong ? 'text-rose-400' : 'text-zinc-400'}`}>
                 {text.trim().length.toLocaleString()} / {charLimit.toLocaleString()} chars
@@ -1079,7 +1055,48 @@ export default function VoicePage() {
                 </a>
               )}
             </div>
+            {phase === 'done' && resultUrl && (
+              <div
+                className="rounded-2xl border flex-1 flex "
+              >
+                {/* Header bar: Info & Download */}
+                {/* <div className="flex flex-wrap items-center justify-between gap-3">
 
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadResult}
+                      className="btn-secondary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
+                    >
+                      <Download size={13} className="stroke-[2.5]" />
+                      <span>Download WAV</span>
+                    </button>
+                  </div>
+                </div> */}
+
+                {/* Native HTML5 Audio Element with Native Controls & Dark Styling */}
+                <div className="rounded-xl bg-bg-base flex-1">
+                  <audio
+                    ref={audioRef}
+                    controls
+                    src={resultUrl}
+                    className="w-full h-8 rounded-lg focus:outline-none"
+                    style={{ colorScheme: 'dark' }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadResult}
+                    className=" text-xs py-1.5 px-3.5 flex items-center gap-1.5"
+                  >
+                    <Download size={13} className="stroke-[2.5]" />
+
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1099,9 +1116,7 @@ export default function VoicePage() {
                       ? `Run (${creditEstimate} credit)`
                       : 'Run'}
                 </span>
-                <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.5 text-2xs bg-black/30 rounded border border-white/10 font-mono text-zinc-300 font-normal">
-                  ⌘↵
-                </kbd>
+
               </button>
             </div>
           </div>

@@ -93,7 +93,7 @@ export default function InfoDrawer(p: InfoDrawerProps) {
                       </span>
                       <button
                         onClick={p.onTogglePlayVoice}
-                        className="w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 transition-colors"
+                        className="theme-dark w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 transition-colors"
                         title={p.isPlayingVoice ? 'Pause' : 'Play'}
                       >
                         {p.isPlayingVoice ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}

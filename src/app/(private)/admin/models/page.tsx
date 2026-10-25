@@ -1222,7 +1222,7 @@ export default function AdminModelsPage() {
                           </div>
                           <div
                             className={`w-5 h-5 rounded-md flex items-center justify-center border ${
-                              isSelected ? 'bg-white border-white text-black' : 'border-zinc-700'
+                              isSelected ? 'bg-white border-white text-zinc-950' : 'border-zinc-700'
                             }`}
                           >
                             {isSelected && <Check size={12} strokeWidth={3} />}
@@ -1408,7 +1408,7 @@ export default function AdminModelsPage() {
                           }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                             isChecked
-                              ? 'bg-white text-black border border-white font-semibold'
+                              ? 'bg-white text-zinc-950 border border-white font-semibold'
                               : 'bg-bg-surface text-zinc-400 border border-bg-border hover:text-white hover:border-zinc-700'
                           }`}
                         >

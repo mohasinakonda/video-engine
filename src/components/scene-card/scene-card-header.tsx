@@ -48,7 +48,7 @@ export default function SceneCardHeader({
     >
       {/* Idle: just the scene number. Hover: expands into the full control capsule. */}
       <div
-        className={`flex items-center gap-1.5 rounded-full text-white transition-all duration-200 ${
+        className={`theme-dark flex items-center gap-1.5 rounded-full text-white transition-all duration-200 ${
           hovering
             ? 'px-2.5 py-1 bg-black/75 backdrop-blur-md border border-white/15 shadow-md'
             : 'px-2 py-0.5 bg-black/40 border border-transparent'

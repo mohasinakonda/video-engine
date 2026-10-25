@@ -145,7 +145,7 @@ export function PricingPlanCard({
           </div>
           {cycleSaving > 0 && (
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wide">
+              <span className="theme-dark px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-extrabold uppercase tracking-wide">
                 Save {savingPercent}%
               </span>
               <span className="text-[11px] font-semibold text-emerald-700">

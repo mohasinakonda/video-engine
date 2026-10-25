@@ -26,7 +26,7 @@ export function StyleFilters({
             onClick={() => onSelectFamily(fam.id)}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               activeFamily === fam.id
-                ? 'bg-white text-black font-semibold'
+                ? 'bg-white text-zinc-950 font-semibold'
                 : 'bg-bg-surface hover:bg-zinc-800 text-zinc-400 hover:text-white border border-bg-border'
             }`}
           >

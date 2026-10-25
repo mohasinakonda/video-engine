@@ -22,7 +22,7 @@ function ShellLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-full bg-bg-base overflow-hidden">
+    <div className="app-theme flex h-screen w-full bg-bg-base text-zinc-100 overflow-hidden">
       {/* {collapseSidebar ? (
         <div className="relative w-14 flex-shrink-0 h-full">
           <Sidebar collapsed />

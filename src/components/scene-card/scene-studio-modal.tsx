@@ -128,7 +128,7 @@ export default function SceneStudioModal({
         </div>
 
         {/* Modal Body: Split into Image Display & Creative Studio Panel */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-black/95">
+        <div className="theme-dark flex-1 flex flex-col md:flex-row overflow-hidden bg-black/95">
           {/* Image Display */}
           <div className="relative flex-1 min-h-[280px] max-h-[50vh] md:max-h-[62vh] flex items-center justify-center p-4 overflow-hidden">
             {imgSrc && (

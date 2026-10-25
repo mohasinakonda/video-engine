@@ -30,7 +30,7 @@ export default function SceneCardNarration({
         }`}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-8 pb-2.5 px-3">
+      <div className="theme-dark bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-8 pb-2.5 px-3">
         {/* Optional Metadata Row (Visual Type label / Shot Type / Motion) */}
         {(visualType || shotTypeObj || motionReady) && (
           <div className="flex items-center gap-1.5 mb-1.5 text-3xs font-medium tracking-tight select-none">

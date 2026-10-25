@@ -991,7 +991,7 @@ export default function StoryboardInner() {
               <button
                 onClick={() => handleSyncTimelineToAudio()}
                 disabled={isWorking}
-                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition-colors flex-shrink-0 shadow disabled:opacity-50"
+                className="theme-dark px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs transition-colors flex-shrink-0 shadow disabled:opacity-50"
                 title="Scale all scenes proportionally to cover full audio length"
               >
                 Fit Scenes to Full Audio ({Math.round(targetAudioSec)}s)
