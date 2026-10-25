@@ -121,7 +121,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
 
       {/* 16:9 or 9:16 Replaced Image Canvas with Live Text Badge Overlay */}
       <div
-        className={`relative rounded-xl overflow-hidden border border-zinc-800 bg-black flex items-center justify-center mx-auto shadow-2xl group ${isVertical ? 'aspect-[9/16] max-h-[480px]' : project.aspectRatio === '1:1' ? 'aspect-square max-h-[480px]' : 'aspect-video w-full'
+        className={`theme-dark relative rounded-xl overflow-hidden border border-zinc-800 bg-black flex items-center justify-center mx-auto shadow-2xl group ${isVertical ? 'aspect-[9/16] max-h-[480px]' : project.aspectRatio === '1:1' ? 'aspect-square max-h-[480px]' : 'aspect-video w-full'
           }`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -134,7 +134,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
 
 
         {/* Top-right watermark badge */}
-        <div className="absolute top-3 right-3 px-2 py-1 rounded-md bg-black/80 backdrop-blur-md text-2xs font-mono text-zinc-300 border border-white/10 pointer-events-none">
+        <div className="theme-dark absolute top-3 right-3 px-2 py-1 rounded-md bg-black/80 backdrop-blur-md text-2xs font-mono text-zinc-300 border border-white/10 pointer-events-none">
           {project.aspectRatio || '16:9'}
         </div>
       </div>
@@ -172,7 +172,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
               type="button"
               onClick={() => handleSyncFromCanva(concept)}
               disabled={canvaSyncingId === concept.id}
-              className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50"
+              className="theme-dark px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50"
               title="Sync latest high-resolution design from Canva"
             >
               {canvaSyncingId === concept.id ? (
@@ -262,7 +262,7 @@ export function GeneratedThumbnailStage({ concept, activeIndex }: GeneratedThumb
                             setConfirmingDelete(false);
                             handleDeleteConcept(concept.id);
                           }}
-                          className="flex-1 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors"
+                          className="theme-dark flex-1 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors"
                         >
                           Delete
                         </button>

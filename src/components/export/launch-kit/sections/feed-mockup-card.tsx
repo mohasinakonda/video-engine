@@ -99,7 +99,7 @@ export function FeedMockupCard() {
         {/* MODE 1: Mobile App Feed Card */}
         {simulatorMode === 'mobile' && (
           <div
-            className={`w-full bg-black rounded-xl overflow-hidden border border-zinc-800 shadow-2xl transition-all ${mobileScaleDown ? 'max-w-[200px] scale-90' : 'max-w-[360px]'
+            className={`theme-dark w-full bg-black rounded-xl overflow-hidden border border-zinc-800 shadow-2xl transition-all ${mobileScaleDown ? 'max-w-[200px] scale-90' : 'max-w-[360px]'
               }`}
           >
             <div className="relative aspect-video bg-zinc-900 flex items-center justify-center overflow-hidden">
@@ -143,7 +143,7 @@ export function FeedMockupCard() {
 
         {/* MODE 2: Desktop Search / Recommendation Result */}
         {simulatorMode === 'desktop' && (
-          <div className="w-full max-w-[460px] bg-black p-3 rounded-xl border border-zinc-800 shadow-2xl flex items-start gap-3">
+          <div className="theme-dark w-full max-w-[460px] bg-black p-3 rounded-xl border border-zinc-800 shadow-2xl flex items-start gap-3">
             <div className="relative w-44 aspect-video bg-zinc-900 rounded-lg overflow-hidden flex-shrink-0">
               {activeThumbnail ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -180,7 +180,7 @@ export function FeedMockupCard() {
 
         {/* MODE 3: Shorts 9:16 Mobile Player */}
         {simulatorMode === 'shorts' && (
-          <div className="w-full max-w-[260px] bg-black rounded-2xl overflow-hidden border-2 border-zinc-700 shadow-2xl relative aspect-[9/16]">
+          <div className="theme-dark w-full max-w-[260px] bg-black rounded-2xl overflow-hidden border-2 border-zinc-700 shadow-2xl relative aspect-[9/16]">
             {activeThumbnail ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img

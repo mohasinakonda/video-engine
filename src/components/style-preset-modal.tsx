@@ -541,7 +541,7 @@ export default function StylePresetModal({
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent opacity-80" />
-                        <span className="absolute top-2 left-2 text-3xs font-mono uppercase px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10">
+                        <span className="theme-dark absolute top-2 left-2 text-3xs font-mono uppercase px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10">
                           {style.tag}
                         </span>
                         {isProjectSelected && (
@@ -1083,7 +1083,7 @@ export default function StylePresetModal({
                           alt="Thumbnail Preview"
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <div className="theme-dark absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <button
                             type="button"
                             onClick={() => libraryFileInputRef.current?.click()}

@@ -53,11 +53,11 @@ export default function NextStepButton({
     ? `${base} bg-white text-zinc-950 hover:bg-zinc-200`
     : `btn-primary ${base}`;
   const danger = compact
-    ? `${base} bg-red-600 text-white hover:bg-red-500`
+    ? `theme-dark ${base} bg-red-600 text-white hover:bg-red-500`
     : `btn-danger ${base}`;
   const secondary = compact
     ? `${base} bg-bg-elevated border border-bg-border text-zinc-200 hover:border-bg-border-strong`
-    : `btn-secondary ${base} bg-white text-black`;
+    : `btn-secondary ${base}`;
 
   if (isWorking) {
     if (extracting) {

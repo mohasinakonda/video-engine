@@ -669,7 +669,7 @@ function ProjectPageInner() {
                         className="w-full h-full object-cover"
                       />
                       {activeStyle.tag && (
-                        <span className="absolute bottom-1 left-1 text-3xs font-mono uppercase px-1 py-0.5 rounded bg-black/80 text-zinc-300">
+                        <span className="theme-dark absolute bottom-1 left-1 text-3xs font-mono uppercase px-1 py-0.5 rounded bg-black/80 text-zinc-300">
                           {activeStyle.tag}
                         </span>
                       )}
@@ -921,12 +921,12 @@ function ProjectPageInner() {
                     alt={activeStyle.name}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10">
+                  <div className="theme-dark absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10">
                     <p className="text-sm font-semibold text-white">{activeStyle.name}</p>
                   </div>
                 </>
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-zinc-900/80 via-zinc-950 to-black">
+                <div className="theme-dark absolute inset-0 flex flex-col items-center justify-center text-center p-6 bg-gradient-to-br from-zinc-900/80 via-zinc-950 to-black">
                   <div className="w-12 h-12 rounded-xl bg-zinc-800/80 border border-bg-border flex items-center justify-center mb-3 text-zinc-300">
                     <Palette size={22} />
                   </div>

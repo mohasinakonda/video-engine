@@ -231,7 +231,7 @@ export default function StyleDrawer({
             type="button"
             onClick={onPreview}
             disabled={previewing}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white text-black text-sm font-semibold hover:bg-zinc-200 disabled:opacity-60 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white text-zinc-950 text-sm font-semibold hover:bg-zinc-200 disabled:opacity-60 transition-colors"
           >
             {previewing ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />}
             {previewing ? 'Generating preview…' : 'Preview style'}

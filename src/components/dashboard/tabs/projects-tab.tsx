@@ -136,11 +136,11 @@ export default function ProjectsTab({
 
                   {/* Top Badges */}
                   <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-2xs font-semibold text-zinc-300 border border-white/10">
+                    <span className="theme-dark px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-2xs font-semibold text-zinc-300 border border-white/10">
                       {p.exportSettings?.aspectRatio || '16:9'}
                     </span>
                     {p.totalDurationMs && p.totalDurationMs > 0 ? (
-                      <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-2xs font-semibold text-zinc-300 border border-white/10">
+                      <span className="theme-dark px-2 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-2xs font-semibold text-zinc-300 border border-white/10">
                         {formatDuration(p.totalDurationMs)}
                       </span>
                     ) : null}
@@ -150,7 +150,7 @@ export default function ProjectsTab({
                   <button
                     onClick={(e) => onDeleteProject(e, p.projectId)}
                     disabled={deletingId === p.projectId}
-                    className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/70 hover:bg-rose-500 text-zinc-400 hover:text-white transition-colors border border-white/10"
+                    className="theme-dark absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/70 hover:bg-rose-500 text-zinc-400 hover:text-white transition-colors border border-white/10"
                     title="Delete Project & Free Disk Cache"
                   >
                     <Trash2 size={13} />

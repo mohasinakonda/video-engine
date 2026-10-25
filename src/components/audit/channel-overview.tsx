@@ -10,8 +10,8 @@ import { Segmented } from '@/components/ui/segmented';
 import { TextLink } from '@/components/ui/text-link';
 import type { ChannelOverview, OverviewVideo } from './types';
 
-const AXIS_TICK = { fill: '#a1a1aa', fontSize: 12 };
-const TOOLTIP_STYLE = { background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8, fontSize: 14 };
+const AXIS_TICK = { fill: '#78716c', fontSize: 12 };
+const TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #E5E0D8', color: '#1c1917', borderRadius: 8, fontSize: 14 };
 const DAY_MS = 86_400_000;
 
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
@@ -151,11 +151,11 @@ function UploadsChart({ overview }: { overview: ChannelOverview }) {
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="#27272a" vertical={false} />
+            <CartesianGrid stroke="#E5E0D8" vertical={false} />
             <XAxis dataKey="month" tickFormatter={monthLabel} tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
             <YAxis allowDecimals={false} tick={AXIS_TICK} axisLine={false} tickLine={false} width={32} />
             <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'rgba(255,255,255,0.05)' }} labelFormatter={(m) => monthLabel(String(m))} formatter={(v) => [String(v), 'Uploads']} />
-            <Bar dataKey="count" fill="#34d399" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -203,7 +203,7 @@ function ViewsByMonth({ videos }: { videos: OverviewVideo[] }) {
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="#27272a" vertical={false} />
+            <CartesianGrid stroke="#E5E0D8" vertical={false} />
             <XAxis dataKey="month" tickFormatter={monthName} tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={24} />
             <YAxis tickFormatter={(v: number) => formatCompact(v)} tick={AXIS_TICK} axisLine={false} tickLine={false} width={48} />
             <Tooltip
@@ -212,7 +212,7 @@ function ViewsByMonth({ videos }: { videos: OverviewVideo[] }) {
               labelFormatter={(m) => monthName(String(m))}
               formatter={(v, _name, item) => [`${formatCompact(Number(v))} views (${item.payload.videos} ${item.payload.videos === 1 ? 'video' : 'videos'})`, 'Typical']}
             />
-            <Bar dataKey="views" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="views" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

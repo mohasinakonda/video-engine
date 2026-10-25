@@ -46,32 +46,32 @@ export function TrendChart({ daily }: { daily: DailyPoint[] }) {
           <AreaChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#34d399" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
+                <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#27272a" vertical={false} />
+            <CartesianGrid stroke="#E5E0D8" vertical={false} />
             <XAxis
               dataKey="date"
               tickFormatter={(d: string) => formatDate(d).replace(/ \d{4}$/, '')}
-              tick={{ fill: '#a1a1aa', fontSize: 12 }}
+              tick={{ fill: '#78716c', fontSize: 12 }}
               axisLine={false}
               tickLine={false}
               minTickGap={24}
             />
             <YAxis
               tickFormatter={(v: number) => active.format(v)}
-              tick={{ fill: '#a1a1aa', fontSize: 12 }}
+              tick={{ fill: '#78716c', fontSize: 12 }}
               axisLine={false}
               tickLine={false}
               width={48}
             />
             <Tooltip
-              contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8, fontSize: 14 }}
+              contentStyle={{ background: '#ffffff', border: '1px solid #E5E0D8', color: '#1c1917', borderRadius: 8, fontSize: 14 }}
               labelFormatter={(d) => formatDate(String(d))}
               formatter={(v) => [active.format(Number(v)), active.label]}
             />
-            <Area type="monotone" dataKey="value" stroke="#34d399" strokeWidth={2} fill="url(#trendFill)" />
+            <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#trendFill)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>

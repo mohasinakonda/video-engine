@@ -52,7 +52,7 @@ export default function SceneCardActions({
       onClick={(e) => e.stopPropagation()}
     >
       <div
-        className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md border border-white/10 hover:border-white/20 shadow-md transition-all duration-200 ${
+        className={`theme-dark flex items-center gap-0.5 px-1 py-0.5 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md border border-white/10 hover:border-white/20 shadow-md transition-all duration-200 ${
           hovering || moreMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         }`}
       >

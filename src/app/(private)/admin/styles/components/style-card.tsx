@@ -50,7 +50,7 @@ export function StyleCard({
 
           {/* Family & Tag Badges */}
           <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10 uppercase tracking-wider">
+            <span className="theme-dark px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 backdrop-blur-md text-zinc-300 border border-white/10 uppercase tracking-wider">
               {s.familyId}
             </span>
             {s.tag && (

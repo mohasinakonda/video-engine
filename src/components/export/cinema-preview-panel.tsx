@@ -118,7 +118,7 @@ export function CinemaPreviewPanel({
 
         {/* Video / Image Screen */}
         <div
-          className={`relative rounded-xl overflow-hidden border border-zinc-800 bg-black shadow-2xl flex items-center justify-center ${
+          className={`theme-dark relative rounded-xl overflow-hidden border border-zinc-800 bg-black shadow-2xl flex items-center justify-center ${
             aspectRatio === '9:16'
               ? 'aspect-[9/16] max-h-[460px] mx-auto'
               : aspectRatio === '1:1'

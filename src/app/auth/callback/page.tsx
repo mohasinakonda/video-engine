@@ -25,7 +25,7 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-bg-base text-zinc-100 flex items-center justify-center p-4">
+    <div className="app-theme min-h-screen bg-bg-base text-zinc-100 flex items-center justify-center p-4">
       <div className="text-center space-y-3">
         <div className="w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto" />
         <p className="text-xs text-zinc-300 font-semibold tracking-wide">

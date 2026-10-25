@@ -7,16 +7,13 @@
 
 /* ─── CSS Variables ──────────────────────────────────────────────────────── */
 :root {
-  --bg-base: #09090b;
-  --bg-surface: #121215;
-  --bg-elevated: #18181b;
-  --bg-border: #27272a;
-  --accent-purple: #ffffff;
-  --accent-purple-light: #e4e4e7;
-  --accent-cyan: #a1a1aa;
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  --bg-base: #FAF8F5;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-border: #E5E0D8;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #78716c;
 }
 
 /* ─── Base Reset ─────────────────────────────────────────────────────────── */
@@ -50,13 +47,13 @@ body {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #D3CBBF;
 }
 
 /* ─── Selection ──────────────────────────────────────────────────────────── */
 ::selection {
-  background: #27272a;
-  color: #fafafa;
+  background: #fed7aa;
+  color: #431407;
 }
 
 /* ─── Component Utilities ────────────────────────────────────────────────── */
@@ -136,7 +133,7 @@ body {
   /* Modals */
   .modal-overlay {
     @apply fixed inset-0 z-50 flex items-center justify-center p-4
-           bg-black/80 backdrop-blur-sm animate-in fade-in duration-150;
+           bg-black/40 backdrop-blur-sm animate-in fade-in duration-150;
   }
   .modal-panel {
     @apply w-full bg-bg-elevated border border-bg-border rounded-2xl shadow-2xl
@@ -220,7 +217,7 @@ body {
   background: linear-gradient(
     90deg,
     var(--bg-elevated) 25%,
-    #27272a 50%,
+    #EEEAE3 50%,
     var(--bg-elevated) 75%
   );
   background-size: 200% 100%;
@@ -233,5 +230,4 @@ audio {
   height: 32px;
   outline: none;
   border-radius: 8px;
-  filter: invert(1) brightness(0.85);
 }

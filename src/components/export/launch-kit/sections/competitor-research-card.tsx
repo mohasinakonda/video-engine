@@ -149,7 +149,7 @@ export function CompetitorResearchCard() {
                     No Thumbnail Yet
                   </div>
                 )}
-                <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/85 text-2xs font-mono font-bold text-white">
+                <span className="theme-dark absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/85 text-2xs font-mono font-bold text-white">
                   {durationStr}
                 </span>
                 <span className="absolute top-1 left-1 px-2 py-0.5 rounded bg-amber-400 text-zinc-950 font-black text-3xs uppercase tracking-wider shadow-md">
@@ -186,7 +186,7 @@ export function CompetitorResearchCard() {
                     alt={comp.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-zinc-200">
+                  <span className="theme-dark absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-mono text-zinc-200">
                     {comp.views}
                   </span>
                 </div>
