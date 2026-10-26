@@ -1,7 +1,7 @@
 /**
  * Client-side audio processing & WAV normalization for voice cloning.
  * Uses native Web Audio API (OfflineAudioContext) to decode any user audio format (MP3, WAV, M4A, OGG)
- * and resample it to standard 24kHz 16-bit mono PCM WAV for DeepInfra voice cloning.
+ * and resample it to 16-bit mono PCM WAV (24kHz for DeepInfra voice cloning, 16kHz for Whisper).
  */
 
 function writeString(view: DataView, offset: number, string: string): void {
@@ -108,4 +108,53 @@ export async function processAudioFileForCloning(
   } finally {
     audioCtx.close().catch(() => {});
   }
+}
+
+/**
+ * Decodes any audio file to mono samples at `sampleRate` (16 kHz is what Whisper works at).
+ * The context's sample rate makes decodeAudioData resample, so the full-rate audio is never held.
+ */
+export async function decodeToMono(file: Blob, sampleRate = 16000): Promise<Float32Array> {
+  const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const audioCtx = new AudioContextClass({ sampleRate });
+  try {
+    const decoded = await audioCtx.decodeAudioData(await file.arrayBuffer());
+    if (decoded.numberOfChannels === 1) return decoded.getChannelData(0);
+    const mono = new Float32Array(decoded.length);
+    for (let c = 0; c < decoded.numberOfChannels; c++) {
+      const channel = decoded.getChannelData(c);
+      for (let i = 0; i < mono.length; i++) mono[i] += channel[i] / decoded.numberOfChannels;
+    }
+    return mono;
+  } finally {
+    audioCtx.close().catch(() => {});
+  }
+}
+
+/**
+ * Splits mono samples into pieces of at most `maxSec`, cutting each one in the quietest
+ * 0.25 s window of its last `searchSec` so no word is cut in half. Returns [start, end) sample ranges.
+ */
+export function splitAtSilence(samples: Float32Array, sampleRate: number, maxSec: number, searchSec = 15): [number, number][] {
+  const maxLen = Math.floor(maxSec * sampleRate);
+  const win = Math.floor(0.25 * sampleRate);
+  const ranges: [number, number][] = [];
+  let start = 0;
+  while (samples.length - start > maxLen) {
+    const hardEnd = start + maxLen;
+    let cut = hardEnd;
+    let quietest = Infinity;
+    for (let w = Math.max(start + win, hardEnd - Math.floor(searchSec * sampleRate)); w + win <= hardEnd; w += Math.floor(win / 2)) {
+      let energy = 0;
+      for (let i = w; i < w + win; i++) energy += samples[i] * samples[i];
+      if (energy < quietest) {
+        quietest = energy;
+        cut = w + Math.floor(win / 2);
+      }
+    }
+    ranges.push([start, cut]);
+    start = cut;
+  }
+  ranges.push([start, samples.length]);
+  return ranges;
 }

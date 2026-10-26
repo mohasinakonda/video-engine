@@ -1,5 +1,6 @@
 import type { PacingProfile, ShotType, CutPace, VisualSceneType, CameraMotionEffect, VisualWorldBible } from '@/types';
 import { breakdownRequirementToImageScenes } from '@/lib/scene-ai';
+import { decodeToMono, encodeMonoWav, splitAtSilence } from '@/lib/audio-encoder';
 
 export interface SpokenSegment {
   id: number;
@@ -111,88 +112,116 @@ export function parseSrtContent(srtText: string): SpokenSegment[] {
 // ─── Whisper Transcription ────────────────────────────────────────────────────
 
 export interface TranscribeOptions {
-  groqApiKey?: string;
   language?: string;
   scriptPrompt?: string;
   onProgress?: (msg: string) => void;
 }
 
+type WhisperResult = { fullText: string; segments: SpokenSegment[]; words: TimedWord[] };
 
-/**
- * Transcribes a single audio chunk (<=30s) with language and prompt anchoring
- */
-async function transcribeSingleAudioChunk(
-  audioFile: File | Blob,
-  options?: TranscribeOptions
-): Promise<{ fullText: string; segments: SpokenSegment[]; words: TimedWord[] }> {
+/** Whisper works at 16 kHz mono; 16-bit WAV at that rate is 32 KB per second. */
+const WHISPER_SAMPLE_RATE = 16000;
+/** ~3.5 MB per piece: under Vercel's 4.5 MB request body limit with room for the form fields. */
+const PIECE_MAX_SEC = 110;
+const PIECE_CONCURRENCY = 3;
+/** Files the browser can't decode are sent as they are, if they fit in one request. */
+const RAW_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+const RETRY_DELAYS_MS = [2000, 6000];
+
+class TranscriptionError extends Error {
+  constructor(message: string, public retryable: boolean) {
+    super(message);
+  }
+}
+
+/** Sends one piece (at most ~3.5 MB) to /api/transcribe-audio, retrying rate limits and outages. */
+async function transcribePiece(audio: Blob, fileName: string, language: string, prompt: string): Promise<WhisperResult> {
   const formData = new FormData();
-  const fileName = audioFile instanceof File ? audioFile.name : 'voiceover.wav';
-  formData.append('file', audioFile, fileName);
-  formData.append('response_format', 'verbose_json');
-  formData.append('temperature', '0');
-  formData.append('timestamp_granularities[]', 'word');
-  const isBengali = options?.language === 'bn' || (options?.scriptPrompt ? /[\u0980-\u09FF]/.test(options.scriptPrompt) : false);
-  const lang = isBengali ? 'bn' : (options?.language || 'en');
-  formData.append('language', lang);
-  if (options?.scriptPrompt) {
-    formData.append('prompt', options.scriptPrompt.slice(0, 240));
-  } else if (isBengali) {
-    formData.append('prompt', 'বাংলা কথ্যরূপ এবং সঠিক শব্দের নির্ভুল রূপান্তর।');
-  } else {
-    formData.append('prompt', 'Accurate speech transcription with exact word timestamps.');
-  }
+  formData.append('file', audio, fileName);
+  formData.append('language', language);
+  formData.append('prompt', prompt);
 
-  // Try 1: Internal API Route (/api/transcribe-audio) with server-side Groq/OpenAI
-  try {
-    const apiRes = await fetch('/api/transcribe-audio', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (apiRes.ok) {
-      const data = await apiRes.json();
-      if (data && (data.text || (Array.isArray(data.segments) && data.segments.length > 0))) {
-        return normalizeWhisperResponse(data);
-      }
-    }
-  } catch (apiErr) {
-    console.warn('/api/transcribe-audio failed, falling back to direct endpoints:', apiErr);
-  }
-
-  // Try 2: Groq Whisper if groqApiKey is provided (ultra fast ~1s)
-  if (options?.groqApiKey && options.groqApiKey.trim()) {
+  for (let attempt = 0; ; attempt++) {
     try {
-      formData.set('model', 'whisper-large-v3-turbo');
-      const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${options.groqApiKey.trim()}`,
-        },
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+      const res = await fetch('/api/transcribe-audio', { method: 'POST', body: formData });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data && (data.text || (Array.isArray(data.segments) && data.segments.length > 0))) {
         return normalizeWhisperResponse(data);
       }
-    } catch (groqErr) {
-      console.warn('Groq transcription failed:', groqErr);
+      if (res.ok) return { fullText: '', segments: [], words: [] }; // silence: nothing to transcribe
+      if (res.status === 413) throw new TranscriptionError('This part of the audio is too large to upload.', false);
+      if (res.status === 401) throw new TranscriptionError('Please sign in again to transcribe audio.', false);
+      throw new TranscriptionError(data?.error || `Transcription failed (status ${res.status}).`, res.status === 429 || res.status >= 500);
+    } catch (err) {
+      const retryable = err instanceof TranscriptionError ? err.retryable : true; // network errors are retried
+      if (!retryable || attempt >= RETRY_DELAYS_MS.length) {
+        throw err instanceof TranscriptionError ? err : new TranscriptionError('Could not reach the transcription service. Check your connection.', true);
+      }
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
     }
   }
+}
 
-  throw new Error('Whisper Transcription Error: transcription service unavailable. Please try again.');
+/** The stretch of the script spoken around a piece, as Whisper's vocabulary hint (max 240 chars). */
+function promptForPiece(script: string | undefined, startRatio: number, isBengali: boolean): string {
+  if (script?.trim()) {
+    const at = Math.max(0, Math.floor(startRatio * script.length) - 40);
+    return script.slice(at, at + 240).trim();
+  }
+  return isBengali ? 'বাংলা কথ্যরূপ এবং সঠিক শব্দের নির্ভুল রূপান্তর।' : 'Accurate speech transcription with exact word timestamps.';
 }
 
 /**
- * Transcribes audio via Groq Whisper Large-v3 Turbo (with server-side OpenAI fallback).
- * Sends the complete audio in a single pass to eliminate word-boundary amputation and hallucination loops.
+ * Transcribes audio of any length via Groq Whisper (OpenAI fallback on the server).
+ * The audio is resampled to 16 kHz mono and split at silences into ~110 s pieces, so every
+ * upload fits Vercel's request limit and no word is cut; timestamps are then shifted back
+ * onto the full timeline.
  */
-export async function transcribeAudioWithWhisper(
-  audioFile: File | Blob,
-  options?: TranscribeOptions
-): Promise<{ fullText: string; segments: SpokenSegment[]; words: TimedWord[] }> {
-  options?.onProgress?.('Transcribing audio via Groq Whisper…');
-  return transcribeSingleAudioChunk(audioFile, options);
+export async function transcribeAudioWithWhisper(audioFile: File | Blob, options?: TranscribeOptions): Promise<WhisperResult> {
+  const isBengali = options?.language === 'bn' || (options?.scriptPrompt ? /[\u0980-\u09FF]/.test(options.scriptPrompt) : false);
+  const language = isBengali ? 'bn' : options?.language || 'en';
+
+  options?.onProgress?.('Preparing audio…');
+  let samples: Float32Array;
+  try {
+    samples = await decodeToMono(audioFile, WHISPER_SAMPLE_RATE);
+  } catch {
+    if (audioFile.size > RAW_UPLOAD_MAX_BYTES) {
+      throw new Error('This audio format could not be read by the browser. Please upload it as MP3 or WAV.');
+    }
+    options?.onProgress?.('Transcribing audio…');
+    return transcribePiece(audioFile, audioFile instanceof File ? audioFile.name : 'voiceover', language, promptForPiece(options?.scriptPrompt, 0, isBengali));
+  }
+
+  const ranges = splitAtSilence(samples, WHISPER_SAMPLE_RATE, PIECE_MAX_SEC);
+  const results: WhisperResult[] = new Array(ranges.length);
+  let done = 0;
+  let next = 0;
+  options?.onProgress?.(ranges.length > 1 ? `Transcribing audio (0 of ${ranges.length} parts)…` : 'Transcribing audio…');
+
+  const worker = async () => {
+    while (next < ranges.length) {
+      const i = next++;
+      const [from, to] = ranges[i];
+      const wav = encodeMonoWav(samples.subarray(from, to), WHISPER_SAMPLE_RATE);
+      results[i] = await transcribePiece(wav, `part-${i + 1}.wav`, language, promptForPiece(options?.scriptPrompt, from / samples.length, isBengali));
+      done++;
+      if (ranges.length > 1) options?.onProgress?.(`Transcribing audio (${done} of ${ranges.length} parts)…`);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PIECE_CONCURRENCY, ranges.length) }, worker));
+
+  // Shift every piece onto the full timeline.
+  const round = (n: number, digits: number) => parseFloat(n.toFixed(digits));
+  const words: TimedWord[] = [];
+  const segments: SpokenSegment[] = [];
+  results.forEach((r, i) => {
+    const offset = ranges[i][0] / WHISPER_SAMPLE_RATE;
+    for (const w of r.words) words.push({ word: w.word, start: round(w.start + offset, 3), end: round(w.end + offset, 3) });
+    for (const s of r.segments) segments.push({ id: segments.length + 1, start: round(s.start + offset, 2), end: round(s.end + offset, 2), text: s.text });
+  });
+  const fullText = results.map((r) => r.fullText.trim()).filter(Boolean).join(' ');
+  return { fullText, segments, words };
 }
 
 export interface AlignmentResult {

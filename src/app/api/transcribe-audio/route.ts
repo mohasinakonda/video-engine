@@ -42,6 +42,11 @@ export async function POST(req: Request) {
     const groqKey = process.env.GROQ_API_KEY;
     const openaiKey = process.env.OPENAI_API_KEY;
 
+    // The real name keeps the container format (wav/mp3/m4a) visible to the providers.
+    const fileName = file instanceof File && file.name ? file.name : 'audio.wav';
+    // Provider statuses for the error message when every provider fails.
+    const failures: string[] = [];
+
     const rawLanguage = (formData.get('language') as string) || '';
     const rawPrompt = (formData.get('prompt') as string) || '';
 
@@ -61,7 +66,7 @@ export async function POST(req: Request) {
     if (groqKey && groqKey.trim()) {
       try {
         const groqFormData = new FormData();
-        groqFormData.append('file', file, 'audio.mp3');
+        groqFormData.append('file', file, fileName);
         groqFormData.append('model', 'whisper-large-v3-turbo');
         groqFormData.append('response_format', 'verbose_json');
         groqFormData.append('temperature', '0');
@@ -82,9 +87,11 @@ export async function POST(req: Request) {
           const data = await groqRes.json();
           return NextResponse.json({ ...data, provider: 'groq' });
         } else {
+          failures.push(`Groq ${groqRes.status}`);
           console.warn('Groq whisper returned non-OK status:', groqRes.status, await groqRes.text());
         }
       } catch (err) {
+        failures.push('Groq unreachable');
         console.warn('Groq transcription error in route:', err);
       }
     }
@@ -93,7 +100,7 @@ export async function POST(req: Request) {
     if (openaiKey && openaiKey.trim()) {
       try {
         const openaiFormData = new FormData();
-        openaiFormData.append('file', file, 'audio.mp3');
+        openaiFormData.append('file', file, fileName);
         openaiFormData.append('model', 'whisper-1');
         openaiFormData.append('response_format', 'verbose_json');
         openaiFormData.append('temperature', '0');
@@ -114,14 +121,22 @@ export async function POST(req: Request) {
           const data = await openaiRes.json();
           return NextResponse.json({ ...data, provider: 'openai' });
         }
+        failures.push(`OpenAI ${openaiRes.status}`);
+        console.warn('OpenAI whisper returned non-OK status:', openaiRes.status, await openaiRes.text());
       } catch (err) {
+        failures.push('OpenAI unreachable');
         console.warn('OpenAI whisper error in route:', err);
       }
     }
 
+    if (failures.length === 0) {
+      return NextResponse.json({ error: 'Transcription is not configured on the server.' }, { status: 503 });
+    }
+    // 429 when every provider that answered was rate limiting, so the client waits and retries.
+    const rateLimited = failures.every((f) => f.endsWith(' 429'));
     return NextResponse.json(
-      { error: 'All Whisper transcription providers failed.' },
-      { status: 502 }
+      { error: `Transcription failed (${failures.join(', ')}). Please try again.` },
+      { status: rateLimited ? 429 : 502 }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown transcription error';
