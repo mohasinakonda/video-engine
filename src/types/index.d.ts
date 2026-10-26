@@ -46,6 +46,8 @@ export interface ProjectManifest {
   rawScript: string;
   voicePresetId: string;
   audioChunks: AudioChunk[];
+  /** Narration word timings from aligning an uploaded voiceover; the video editor cuts shots on them. */
+  spokenWords?: { word: string; start: number; end: number }[];
   /** Total duration in milliseconds (sum of all completed chunks) */
   totalDurationMs: number;
   updatedAt: number;
@@ -108,12 +110,21 @@ export type CameraMotionEffect = 'ZOOM_IN' | 'ZOOM_OUT' | 'PAN_LEFT' | 'PAN_RIGH
 
 export type ExportResolution = '720p' | '1080p' | '4k';
 
+export type ExportFps = 24 | 30;
+
+/** Colour grade applied to the whole video. */
+export type VideoLook = 'natural' | 'film' | 'warm' | 'cool';
+
 export type HardwareEncoder = 'auto' | 'h264_nvenc' | 'h264_qsv' | 'h264_videotoolbox' | 'libx264';
 
-export type TransitionType = 'crossfade' | 'fade_black' | 'cut' | 'slide_left' | 'fade_to_black' | 'none';
+export type TransitionType = 'auto' | 'crossfade' | 'fade_black' | 'cut' | 'slide_left' | 'fade_to_black' | 'none';
 
 export interface ExportSettings {
   resolution: ExportResolution;
+  /** Frames per second; 30 when missing (projects saved before the choice existed). */
+  fps?: ExportFps;
+  /** Colour grade; 'natural' (none) when missing. */
+  look?: VideoLook;
   encoder: HardwareEncoder;
 
   outputPath: string;

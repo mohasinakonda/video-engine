@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -16,21 +16,40 @@ import {
   Monitor,
   Smartphone,
   Square,
+  Gauge,
+  Palette,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { getProject, saveProject } from '@/lib/store';
-import { ExportEngine } from '@/lib/export-engine';
+import { ExportEngine, measureRenderSpeed, outputDimensions, videoBitrateFor } from '@/lib/export-engine';
+import { estimateRenderSec, formatRenderTime, readDeviceInfo, recommendQuality } from '@/lib/export-quality';
 import { getMediaBlobUrl } from '@/lib/media-storage';
 import { exportUniversalTimelineZip, TimelineExportProgress } from '@/lib/timeline-exporter';
 import { CinemaPreviewPanel } from '@/components/export/cinema-preview-panel';
 import type {
   ProjectManifest,
   ExportResolution,
+  ExportFps,
   HardwareEncoder,
   ExportProgress,
   TransitionType,
   ExportSettings,
+  VideoLook,
 } from '@/types';
+
+const TRANSITION_OPTIONS: { id: TransitionType; label: string; description: string; badge: string }[] = [
+  { id: 'auto', label: "Director's Mix", description: 'Cuts, dissolves for slow moments, zoom and whip into fast ones', badge: 'Recommended' },
+  { id: 'crossfade', label: 'Cross-Dissolve', description: 'Every scene blends into the next', badge: 'Soft' },
+  { id: 'fade_black', label: 'Dip to Black', description: 'A short fade through black between scenes', badge: 'Classic Film' },
+  { id: 'cut', label: 'Hard Cut', description: 'Straight cuts only, best for editing later', badge: 'Editor-friendly' },
+];
+
+const LOOK_OPTIONS: { id: VideoLook; label: string; description: string; swatch: string }[] = [
+  { id: 'film', label: 'Film', description: 'Contrast, warm tint, vignette and grain', swatch: 'linear-gradient(90deg,#3b2f2a,#e0a870)' },
+  { id: 'warm', label: 'Warm', description: 'Golden, nostalgic tone', swatch: 'linear-gradient(90deg,#7a3d12,#ffb257)' },
+  { id: 'cool', label: 'Cool', description: 'Blue, moody, mysterious', swatch: 'linear-gradient(90deg,#10233f,#6fa3ff)' },
+  { id: 'natural', label: 'Natural', description: 'No grade, the images as they are', swatch: 'linear-gradient(90deg,#666,#ddd)' },
+];
 
 export default function ExportInner() {
   const searchParams = useSearchParams();
@@ -44,8 +63,14 @@ export default function ExportInner() {
   // Configuration options
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16' | '1:1'>('16:9');
   const [resolution, setResolution] = useState<ExportResolution>('1080p');
+  const [fps, setFps] = useState<ExportFps>(30);
+  // This device's render speed at 1080p in frames per second: undefined while measuring, null if unknown.
+  const [speed1080, setSpeed1080] = useState<number | null | undefined>(undefined);
+  // Once the user picks a quality (or saved one earlier), the recommendation no longer changes it.
+  const qualityChosenRef = useRef(false);
   const [encoder, setEncoder] = useState<HardwareEncoder>('auto');
-  const [transitionType, setTransitionType] = useState<TransitionType>('crossfade');
+  const [transitionType, setTransitionType] = useState<TransitionType>('auto');
+  const [look, setLook] = useState<VideoLook>('film');
   const [transitionDuration, setTransitionDuration] = useState<number>(0.6);
   const [outputPath, setOutputPath] = useState<string>('');
 
@@ -70,6 +95,7 @@ export default function ExportInner() {
   const [isExportingTimeline, setIsExportingTimeline] = useState(false);
   const [timelineProgress, setTimelineProgress] = useState<TimelineExportProgress | null>(null);
   const [timelineExportSuccess, setTimelineExportSuccess] = useState(false);
+  const [includeShotClips, setIncludeShotClips] = useState(true);
 
   const engineRef = useRef<ExportEngine | null>(null);
 
@@ -139,10 +165,13 @@ export default function ExportInner() {
       // Restore saved export settings if present
       if (project.exportSettings) {
         setResolution(project.exportSettings.resolution ?? '1080p');
+        setFps(project.exportSettings.fps ?? 30);
+        qualityChosenRef.current = true;
         setEncoder(project.exportSettings.encoder ?? 'auto');
 
         setOutputPath(project.exportSettings.outputPath ?? '');
         if (project.exportSettings.transitionType) setTransitionType(project.exportSettings.transitionType);
+        if (project.exportSettings.look) setLook(project.exportSettings.look);
         if (project.exportSettings.transitionDurationSec) setTransitionDuration(project.exportSettings.transitionDurationSec);
       }
 
@@ -159,6 +188,76 @@ export default function ExportInner() {
   }, [load]);
 
 
+
+  // ─── Device speed & quality recommendation ─────────────────────────────────
+  const durationSec = useMemo(() => {
+    if (!project) return 0;
+    if (project.totalDurationMs > 0) return project.totalDurationMs / 1000;
+    return Math.max(0, ...(project.scenes || []).map((s) => s.audioEndSec || 0));
+  }, [project]);
+
+  useEffect(() => {
+    if (!project) return;
+    const size = outputDimensions({ resolution: '1080p', aspectRatio });
+    const cacheKey = `render-speed:${size.width}x${size.height}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        setSpeed1080(Number(cached));
+        return;
+      }
+    } catch { }
+    let cancelled = false;
+    setSpeed1080(undefined);
+    measureRenderSpeed(size)
+      .catch(() => null)
+      .then((speed) => {
+        if (cancelled) return;
+        setSpeed1080(speed);
+        if (speed) {
+          try { sessionStorage.setItem(cacheKey, String(speed)); } catch { }
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Measured once per project and aspect ratio; the result is cached for the browser session.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.projectId, aspectRatio]);
+
+  const recommendation = useMemo(
+    () => (speed1080 === undefined || durationSec <= 0 ? null : recommendQuality({ speed1080, device: readDeviceInfo(), durationSec })),
+    [speed1080, durationSec]
+  );
+
+  useEffect(() => {
+    if (!recommendation || qualityChosenRef.current) return;
+    setResolution(recommendation.option.resolution);
+    setFps(recommendation.option.fps);
+  }, [recommendation]);
+
+  function chooseQuality(next: { resolution?: ExportResolution; fps?: ExportFps }) {
+    qualityChosenRef.current = true;
+    if (next.resolution) setResolution(next.resolution);
+    if (next.fps) setFps(next.fps);
+  }
+
+  /** "~6 min on this device" for an option, once the speed is known. */
+  function renderTimeLabel(option: { resolution: ExportResolution; fps: ExportFps }): string | null {
+    if (!speed1080 || durationSec <= 0) return null;
+    return `~${formatRenderTime(estimateRenderSec(speed1080, durationSec, option))} on this device`;
+  }
+
+  // Leaving the page would stop the render.
+  useEffect(() => {
+    if (!isExporting) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isExporting]);
 
   const downloadFileName = `${project?.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'video'}_${aspectRatio.replace(':', 'x')}_${resolution}.mp4`;
 
@@ -181,12 +280,14 @@ export default function ExportInner() {
 
     const settings: ExportSettings = {
       resolution,
+      fps,
       encoder,
       aspectRatio,
 
       outputPath: outputPath || downloadFileName,
       transitionType,
       transitionDurationSec: transitionDuration,
+      look,
     };
 
     const updatedProject: ProjectManifest = {
@@ -206,7 +307,8 @@ export default function ExportInner() {
         project.scenes || [],
         settings,
         (prog) => setProgress(prog),
-        project.title
+        project.title,
+        project.spokenWords
       );
 
       setFinalVideoUrl(resultPath);
@@ -258,16 +360,40 @@ export default function ExportInner() {
     setTimelineExportSuccess(false);
     setTimelineProgress({ message: 'Preparing timeline package...', percentage: 5 });
 
+    const cleanTitle = (project.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const zipFileName = `${cleanTitle}_Timeline_Package.zip`;
     try {
-      const zipBlob = await exportUniversalTimelineZip(project, (p) => {
-        setTimelineProgress(p);
+      // With shot clips the ZIP is about as big as the video, so it is written straight to disk
+      // when the browser allows (asked first, while the click still counts as a user gesture).
+      let saveTo: FileSystemFileHandle | null = null;
+      const picker = (window as unknown as {
+        showSaveFilePicker?: (o: { suggestedName: string; types: { description: string; accept: Record<string, string[]> }[] }) => Promise<FileSystemFileHandle>;
+      }).showSaveFilePicker;
+      if (includeShotClips && picker) {
+        try {
+          saveTo = await picker({ suggestedName: zipFileName, types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }] });
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+        }
+      }
+
+      const zipBlob = await exportUniversalTimelineZip(project, (p) => setTimelineProgress(p), {
+        settings: {
+          resolution,
+          fps,
+          encoder,
+          aspectRatio,
+          outputPath: '',
+          transitionType,
+          transitionDurationSec: transitionDuration,
+          look,
+        },
+        shotClipsEngine: includeShotClips ? new ExportEngine() : undefined,
+        saveTo,
       });
 
-      const cleanTitle = (project.title || 'video').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const zipFileName = `${cleanTitle}_Timeline_Package.zip`;
-      const url = URL.createObjectURL(zipBlob);
-
-      if (typeof document !== 'undefined') {
+      if (zipBlob && typeof document !== 'undefined') {
+        const url = URL.createObjectURL(zipBlob);
         const a = document.createElement('a');
         a.href = url;
         a.download = zipFileName;
@@ -281,7 +407,7 @@ export default function ExportInner() {
       }
 
       setTimelineExportSuccess(true);
-      showToast('Timeline ZIP package generated and downloaded!');
+      showToast(saveTo ? `Timeline package saved as ${saveTo.name}.` : 'Timeline ZIP package generated and downloaded!');
     } catch (err: unknown) {
       console.error('Timeline export failed:', err);
       showToast('Timeline export failed: ' + (err instanceof Error ? err.message : String(err)));
@@ -412,41 +538,74 @@ export default function ExportInner() {
                   <div className="flex items-center gap-2">
                     <Film size={15} className="text-zinc-300" />
                     <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                      Output Resolution
+                      Output Quality
                     </h2>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setResolution('1080p')}
-                      className={`p-3.5 rounded-xl border text-left transition-all ${resolution === '1080p'
-                        ? 'bg-zinc-800 border-zinc-500 text-white'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                    >
-                      <p className="text-sm font-bold text-white">1080p Full HD</p>
-                      <p className="text-xxs text-zinc-400 mt-0.5">1920×1080 · 30 FPS · 8–10 Mbps</p>
-                      <span className="inline-block mt-2 text-2xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                        Recommended
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setResolution('4k')}
-                      className={`p-3.5 rounded-xl border text-left transition-all ${resolution === '4k'
-                        ? 'bg-zinc-800 border-zinc-500 text-white'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                    >
-                      <p className="text-sm font-bold text-white">4K Ultra HD</p>
-                      <p className="text-xxs text-zinc-400 mt-0.5">3840×2160 · 30 FPS · 25–35 Mbps</p>
-                      <span className="inline-block mt-2 text-2xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
-                        Ultra Quality
-                      </span>
-                    </button>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(['720p', '1080p', '4k'] as const).map((res) => {
+                      const size = outputDimensions({ resolution: res, aspectRatio });
+                      const label = { '720p': '720p HD', '1080p': '1080p Full HD', '4k': '4K Ultra HD' }[res];
+                      const estimate = renderTimeLabel({ resolution: res, fps });
+                      return (
+                        <button
+                          key={res}
+                          type="button"
+                          onClick={() => chooseQuality({ resolution: res })}
+                          className={`p-3.5 rounded-xl border text-left transition-all ${resolution === res
+                            ? 'bg-zinc-800 border-zinc-500 text-white'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                            }`}
+                        >
+                          <p className="text-sm font-bold text-white">{label}</p>
+                          <p className="text-xxs text-zinc-400 mt-0.5">
+                            {size.width}×{size.height} · {Math.round(videoBitrateFor(res, fps) / 1_000_000)} Mbps
+                          </p>
+                          {estimate && <p className="text-2xs text-zinc-500 mt-1">{estimate}</p>}
+                          {recommendation?.option.resolution === res && (
+                            <span className="inline-block mt-2 text-2xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
+                              Recommended
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {([30, 24] as const).map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() => chooseQuality({ fps: rate })}
+                        className={`p-3 rounded-xl border text-left transition-all ${fps === rate
+                          ? 'bg-zinc-800 border-zinc-500 text-white'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                          }`}
+                      >
+                        <p className="text-xs font-bold text-white">
+                          {rate} FPS
+                          {recommendation?.option.fps === rate && (
+                            <span className="ml-2 text-2xs font-medium px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700">
+                              Recommended
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-2xs text-zinc-400 mt-0.5">
+                          {rate === 30 ? 'Smoothest motion' : 'Film look, renders about 20% faster'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+
+                  <p className="flex items-start gap-2 text-2xs text-zinc-400">
+                    <Gauge size={13} className="mt-px flex-shrink-0 text-zinc-500" />
+                    {speed1080 === undefined
+                      ? 'Checking how fast this device renders video…'
+                      : recommendation
+                        ? `${recommendation.reason} The render runs on this device; keep this tab open until it finishes.`
+                        : 'The render runs on this device; keep this tab open until it finishes.'}
+                  </p>
                 </div>
 
                 {/* Hardware Acceleration */}
@@ -481,61 +640,34 @@ export default function ExportInner() {
                       </h2>
                     </div>
                     <span className="text-2xs font-mono text-zinc-300 font-semibold bg-zinc-800 border border-zinc-700 px-2 py-0.5 rounded">
-                      {transitionType === 'crossfade'
-                        ? 'Cross-Dissolve'
-                        : transitionType === 'fade_black'
-                          ? 'Dip to Black'
-                          : 'Direct Cut'}{' '}
-                      · {transitionDuration}s
+                      {TRANSITION_OPTIONS.find((o) => o.id === transitionType)?.label ?? 'Hard Cut'}
+                      {transitionType !== 'cut' && ` · ${transitionDuration}s`}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setTransitionType('crossfade')}
-                      className={`p-3 rounded-xl border text-left transition-all ${transitionType === 'crossfade'
-                        ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                    >
-                      <p className="text-xs font-bold text-white">Cross-Dissolve</p>
-                      <p className="text-2xs text-zinc-400 mt-0.5">Smooth blending between images</p>
-                      <span className="inline-block mt-2 text-3xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
-                        Recommended
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTransitionType('fade_black')}
-                      className={`p-3 rounded-xl border text-left transition-all ${transitionType === 'fade_black'
-                        ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                    >
-                      <p className="text-xs font-bold text-white">Dip to Black</p>
-                      <p className="text-2xs text-zinc-400 mt-0.5">Gentle fade to black breath</p>
-                      <span className="inline-block mt-2 text-3xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
-                        Classic Film
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTransitionType('cut')}
-                      className={`p-3 rounded-xl border text-left transition-all ${transitionType === 'cut'
-                        ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
-                        }`}
-                    >
-                      <p className="text-xs font-bold text-white">Hard Cut</p>
-                      <p className="text-2xs text-zinc-400 mt-0.5">Instant switch between scenes</p>
-                      <span className="inline-block mt-2 text-3xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 font-medium">
-                        Fast Montage
-                      </span>
-                    </button>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {TRANSITION_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setTransitionType(option.id)}
+                        className={`p-3 rounded-xl border text-left transition-all ${transitionType === option.id
+                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                          }`}
+                      >
+                        <p className="text-xs font-bold text-white">{option.label}</p>
+                        <p className="text-2xs text-zinc-400 mt-0.5">{option.description}</p>
+                        <span className="inline-block mt-2 text-3xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-zinc-700 font-medium">
+                          {option.badge}
+                        </span>
+                      </button>
+                    ))}
                   </div>
+                  <p className="text-2xs text-zinc-500">
+                    Each scene&apos;s image is filmed as several shots (wide, close, medium) cut on the narration&apos;s pauses; this setting
+                    picks how one scene leads into the next.
+                  </p>
 
                   {transitionType !== 'cut' && (
                     <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
@@ -560,6 +692,35 @@ export default function ExportInner() {
                 </div>
 
 
+
+                {/* Look */}
+                <div className="card space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Palette size={15} className="text-zinc-400" />
+                    <h2 className="text-xs font-bold text-white uppercase tracking-wider">Look</h2>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {LOOK_OPTIONS.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setLook(option.id)}
+                        className={`p-3 rounded-xl border text-left transition-all ${look === option.id
+                          ? 'bg-zinc-800 border-zinc-500 text-white shadow-sm'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                          }`}
+                      >
+                        <span className="block h-1.5 w-10 rounded-full mb-2" style={{ background: option.swatch }} />
+                        <p className="text-xs font-bold text-white">{option.label}</p>
+                        <p className="text-2xs text-zinc-400 mt-0.5">{option.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-2xs text-zinc-500">
+                    One grade over every scene makes AI images with different colours feel like a single film. Pick Natural to grade it
+                    yourself in your editor.
+                  </p>
+                </div>
 
                 {/* Destination */}
                 <div className="card space-y-3">
@@ -598,6 +759,7 @@ export default function ExportInner() {
                 project={project}
                 aspectRatio={aspectRatio}
                 resolution={resolution}
+                fps={fps}
                 isExporting={isExporting}
                 progress={progress}
                 finalVideoUrl={finalVideoUrl}
@@ -606,6 +768,8 @@ export default function ExportInner() {
                 cleanedCache={cleanedCache}
                 freedSpaceMB={freedSpaceMB}
                 isExportingTimeline={isExportingTimeline}
+                includeShotClips={includeShotClips}
+                onIncludeShotClipsChange={setIncludeShotClips}
                 timelineProgress={timelineProgress}
                 timelineExportSuccess={timelineExportSuccess}
                 onStartExport={handleStartExport}

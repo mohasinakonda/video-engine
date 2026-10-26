@@ -25,8 +25,10 @@ import type {
   ProjectManifest,
   ExportProgress,
   ExportResolution,
+  ExportFps,
 } from '@/types';
 import type { TimelineExportProgress } from '@/lib/timeline-exporter';
+import { videoBitrateFor } from '@/lib/export-engine';
 
 function formatDuration(ms: number): string {
   if (!ms) return '0s';
@@ -47,6 +49,7 @@ interface CinemaPreviewPanelProps {
   project: ProjectManifest;
   aspectRatio: '16:9' | '9:16' | '1:1';
   resolution: ExportResolution;
+  fps: ExportFps;
   isExporting: boolean;
   progress: ExportProgress;
   finalVideoUrl: string;
@@ -55,6 +58,8 @@ interface CinemaPreviewPanelProps {
   cleanedCache: boolean;
   freedSpaceMB: number;
   isExportingTimeline: boolean;
+  includeShotClips: boolean;
+  onIncludeShotClipsChange: (value: boolean) => void;
   timelineProgress: TimelineExportProgress | null;
   timelineExportSuccess: boolean;
   onStartExport: () => void;
@@ -69,6 +74,7 @@ export function CinemaPreviewPanel({
   project,
   aspectRatio,
   resolution,
+  fps,
   isExporting,
   progress,
   finalVideoUrl,
@@ -77,6 +83,8 @@ export function CinemaPreviewPanel({
   cleanedCache,
   freedSpaceMB,
   isExportingTimeline,
+  includeShotClips,
+  onIncludeShotClipsChange,
   timelineProgress,
   timelineExportSuccess,
   onStartExport,
@@ -92,8 +100,8 @@ export function CinemaPreviewPanel({
   const completedChunks = project?.audioChunks?.filter((c) => c.status === 'COMPLETED').length ?? 0;
   const readyClips = project?.scenes?.filter((s) => s.status === 'MOTION_READY').length ?? 0;
   const totalScenes = project?.scenes?.length ?? 0;
-  const estFileSizeMB =
-    resolution === '4k' ? Math.round((totalDurationMs / 1000) * 4) : Math.round((totalDurationMs / 1000) * 1.2);
+  // Video at the encoder's bitrate plus 192 kbps audio.
+  const estFileSizeMB = Math.round(((totalDurationMs / 1000) * (videoBitrateFor(resolution, fps) + 192_000)) / 8 / 1_000_000);
 
   const heroImage =
     project?.youtubePackaging?.selectedThumbnailUrl ||
@@ -239,6 +247,11 @@ export function CinemaPreviewPanel({
                 style={{ width: `${progress.percentage}%` }}
               />
             </div>
+            {isExporting && (
+              <p className="text-2xs text-zinc-500">
+                Keep this tab open until the render finishes. You can use other tabs meanwhile.
+              </p>
+            )}
           </div>
 
           {errorMsg && (
@@ -270,7 +283,7 @@ export function CinemaPreviewPanel({
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-400">Resolution & Ratio:</span>
-            <span className="text-white font-mono">{resolution.toUpperCase()} · {aspectRatio}</span>
+            <span className="text-white font-mono">{resolution.toUpperCase()} · {fps} FPS · {aspectRatio}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-zinc-400">Est. Video File Size:</span>
@@ -318,6 +331,20 @@ export function CinemaPreviewPanel({
         <p className="text-xxs text-zinc-400 leading-relaxed">
           Multi-track package with <strong>FCP 7 XML</strong>, <strong>CapCut SRT subtitles</strong>, CMX 3600 EDL, master WAV, and numbered scenes.
         </p>
+
+        <label className="flex items-start gap-2 text-xxs text-zinc-300 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={includeShotClips}
+            disabled={isExportingTimeline}
+            onChange={(e) => onIncludeShotClipsChange(e.target.checked)}
+          />
+          <span>
+            <strong>Include shot clips</strong>: every shot of the edit as its own MP4 with its camera move and look, in order, so
+            the timeline arrives already cut. Renders the video once more, so it takes about as long as the final render.
+          </span>
+        </label>
 
         {isExportingTimeline && timelineProgress && (
           <div className="space-y-1.5 pt-2 border-t border-zinc-800">

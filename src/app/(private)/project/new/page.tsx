@@ -481,6 +481,7 @@ function ProjectPageInner() {
         customAudioFileName: customAudioFile.name,
         audioChunks: [customChunk],
         totalDurationMs: customAudioDurationMs,
+        spokenWords: timedWords,
         scenes: newScenes,
         baseStylePresetId: chosenStyle.id,
         customStylePrompt: isPromptCustomized ? customPrompt.trim() : undefined,
