@@ -7,11 +7,15 @@
  *  - SubRip SRT Subtitles — 1-click captions for CapCut, Premiere, Resolve
  *  - High-Fidelity Master Audio (WAV 44.1kHz 16-bit)
  *  - All-in-one ZIP bundle containing all sequentially numbered media & guides
+ *  - Optionally every shot of the edit as its own MP4 clip (camera move and look included),
+ *    numbered in order, so the timeline arrives already cut in any editor, CapCut included
  */
 
 import JSZip from 'jszip';
-import { ProjectManifest, SceneItem } from '@/types';
+import type { ExportSettings, ProjectManifest, SceneItem } from '@/types';
 import { getMediaBlob } from '@/lib/media-storage';
+import type { ExportEngine } from '@/lib/export-engine';
+import type { Shot } from '@/lib/shot-planner';
 
 // ─── Helpers: Timecode Formatting ─────────────────────────────────────────────
 
@@ -306,6 +310,145 @@ export function generateFcpXml(
 </xmeml>`;
 }
 
+// ─── 3b. Shot Clip Timeline (XML / EDL / CSV) ─────────────────────────────────
+
+/** A rendered shot clip and where it sits on the timeline, in frames. */
+export interface ShotClipEntry {
+  fileName: string;
+  shot: Shot;
+  startFrame: number;
+  endFrame: number;
+}
+
+export function shotClipName(index: number, count: number): string {
+  return `shot_${pad(index + 1, Math.max(3, String(count).length))}.mp4`;
+}
+
+export function generateShotFcpXml(
+  projectTitle: string,
+  clips: ShotClipEntry[],
+  totalFrames: number,
+  fps: number,
+  width: number,
+  height: number
+): string {
+  const rate = `<rate>
+              <timebase>${fps}</timebase>
+              <ntsc>FALSE</ntsc>
+            </rate>`;
+  const items = clips
+    .map((c, i) => {
+      const dur = c.endFrame - c.startFrame;
+      return `
+          <clipitem id="clipitem-shot-${i + 1}">
+            <name>${c.fileName}</name>
+            <duration>${dur}</duration>
+            ${rate}
+            <start>${c.startFrame}</start>
+            <end>${c.endFrame}</end>
+            <in>0</in>
+            <out>${dur}</out>
+            <file id="file-shot-${i + 1}">
+              <name>${c.fileName}</name>
+              <pathurl>media/shots/${c.fileName}</pathurl>
+              ${rate}
+              <duration>${dur}</duration>
+              <media>
+                <video>
+                  <samplecharacteristics>
+                    <width>${width}</width>
+                    <height>${height}</height>
+                  </samplecharacteristics>
+                </video>
+              </media>
+            </file>
+          </clipitem>`;
+    })
+    .join('');
+  const audio = `
+          <clipitem id="clipitem-audio-master">
+            <name>master_voice.wav</name>
+            <duration>${totalFrames}</duration>
+            ${rate}
+            <start>0</start>
+            <end>${totalFrames}</end>
+            <in>0</in>
+            <out>${totalFrames}</out>
+            <file id="file-audio-master">
+              <name>master_voice.wav</name>
+              <pathurl>media/audio/master_voice.wav</pathurl>
+              ${rate}
+              <duration>${totalFrames}</duration>
+              <media>
+                <audio>
+                  <samplecharacteristics>
+                    <samplerate>44100</samplerate>
+                    <depth>16</depth>
+                  </samplecharacteristics>
+                  <channelcount>2</channelcount>
+                </audio>
+              </media>
+            </file>
+          </clipitem>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4">
+  <sequence id="sequence-1">
+    <name>${escapeXml(projectTitle || 'AI Video Project')}</name>
+    <duration>${totalFrames}</duration>
+    <rate>
+      <timebase>${fps}</timebase>
+      <ntsc>FALSE</ntsc>
+    </rate>
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <width>${width}</width>
+            <height>${height}</height>
+            <pixelaspectratio>square</pixelaspectratio>
+            ${rate}
+          </samplecharacteristics>
+        </format>
+        <track>${items}
+        </track>
+      </video>
+      <audio>
+        <track>${audio}
+        </track>
+      </audio>
+    </media>
+  </sequence>
+</xmeml>`;
+}
+
+export function generateShotEdl(projectTitle: string, clips: ShotClipEntry[], fps: number): string {
+  const lines = [`TITLE: ${projectTitle.replace(/[^a-zA-Z0-9_\- ]/g, '_').substring(0, 40) || 'PROJECT'}`, 'FCM: NON-DROP FRAME', ''];
+  clips.forEach((c, i) => {
+    const dur = (c.endFrame - c.startFrame) / fps;
+    lines.push(
+      `${pad(i + 1, 3)}  AX       V     C        ${secToSmpteTimecode(0, fps)} ${secToSmpteTimecode(dur, fps)} ${secToSmpteTimecode(c.startFrame / fps, fps)} ${secToSmpteTimecode(c.endFrame / fps, fps)}`
+    );
+    lines.push(`* FROM CLIP NAME: ${c.fileName}`);
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+
+export function generateShotCueSheetCsv(clips: ShotClipEntry[], scenes: SceneItem[], fps: number): string {
+  const narration = new Map(scenes.map((s) => [s.sceneId, s.narrationLine || '']));
+  const rows = ['Shot,Clip File,Scene,Shot Size,Camera Move,Start (s),End (s),Duration (s),SMPTE In,SMPTE Out,Scene Narration'];
+  clips.forEach((c, i) => {
+    const start = c.startFrame / fps;
+    const end = c.endFrame / fps;
+    const text = `"${(narration.get(c.shot.sceneId) || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+    rows.push(
+      `${i + 1},${c.fileName},${c.shot.sceneId},${c.shot.size},${c.shot.move},${start.toFixed(3)},${end.toFixed(3)},${(end - start).toFixed(3)},${secToSmpteTimecode(start, fps)},${secToSmpteTimecode(end, fps)},${text}`
+    );
+  });
+  return rows.join('\n');
+}
+
 // ─── 4. Timing Cue Sheet & CSV ────────────────────────────────────────────────
 
 export function generateCueSheetCsv(scenes: SceneItem[], fps: number = 30): string {
@@ -402,15 +545,36 @@ export function audioBufferToWavBlob(buffer: AudioBuffer): Blob {
 
 // ─── 6. README Guide Generation ───────────────────────────────────────────────
 
-function generateReadmeGuide(projectTitle: string, sceneCount: number, durationSec: number): string {
+function generateReadmeGuide(
+  projectTitle: string,
+  sceneCount: number,
+  durationSec: number,
+  format: { width: number; height: number; fps: number; shotCount: number | null }
+): string {
+  const shotGuide =
+    format.shotCount === null
+      ? ''
+      : `
+--------------------------------------------------------------------------------
+0. SHOT CLIPS — THE EDIT, ALREADY CUT (${format.shotCount} clips)
+--------------------------------------------------------------------------------
+'media/shots/' holds every shot of the edit as its own MP4 (camera move and look
+included, no sound): shot_001.mp4, shot_002.mp4 ... in order.
+Placed back to back they are exactly as long as the narration, frame for frame.
+
+CapCut / any editor: select ALL files in 'media/shots/' (sorted by name), drag them
+onto the timeline in one go, then drag 'media/audio/master_voice.wav' under them,
+both starting at 0:00. Add your own transitions, captions, music and sound effects.
+Premiere / Resolve / Final Cut: import 'timeline.xml' — it already uses the shot clips.
+`;
   return `================================================================================
    UNIVERSAL TIMELINE PACKAGE — ${projectTitle.toUpperCase()}
 ================================================================================
 Total Scenes: ${sceneCount}
 Total Duration: ~${Math.round(durationSec)} seconds
-Resolution: Standard 1080p (1920x1080)
-Framerate: 30 FPS
-
+Resolution: ${format.width}x${format.height}
+Framerate: ${format.fps} FPS
+${shotGuide}
 This package allows you to import and edit this project in ANY video editor:
 CapCut, Adobe Premiere Pro, DaVinci Resolve, Final Cut Pro, Filmora, VN, etc.
 
@@ -418,8 +582,13 @@ CapCut, Adobe Premiere Pro, DaVinci Resolve, Final Cut Pro, Filmora, VN, etc.
 1. HOW TO USE IN CAPCUT (DESKTOP OR MOBILE)
 --------------------------------------------------------------------------------
 Step 1: Open CapCut and create a "New Project".
-Step 2: Drag and drop all images from 'media/images/' into your timeline.
-        (They are numbered sequentially scene_001.jpg, scene_002.jpg in order).
+${
+    format.shotCount === null
+      ? `Step 2: Drag and drop all images from 'media/images/' into your timeline.
+        (They are numbered sequentially scene_001.jpg, scene_002.jpg in order).`
+      : `Step 2: Drag and drop all clips from 'media/shots/' into your timeline.
+        (They are numbered in order: shot_001.mp4, shot_002.mp4 ...).`
+  }
 Step 3: Drag 'media/audio/master_voice.wav' onto the audio track.
 Step 4: AUTOMATIC CAPTIONS:
         In CapCut, click 'Text' (top left) -> 'Local captions' / 'Import captions'
@@ -458,6 +627,7 @@ PACKAGE CONTENTS:
 - timeline.edl           -> CMX 3600 standard Edit Decision List
 - subtitles.srt          -> Auto-timed captions for CapCut / Premiere / Resolve
 - timeline_cuesheet.csv  -> Detailed spreadsheet of scene timings and narration
+- media/shots/           -> Every shot of the edit as an MP4 clip, in order (when included)
 - media/images/          -> High-resolution scene artwork in sequence
 - media/audio/           -> Master synchronized voiceover (WAV) & chunk audio
 
@@ -474,10 +644,20 @@ export interface TimelineExportProgress {
   percentage: number;
 }
 
+export interface TimelineExportOptions {
+  /** The export page's resolution, frame rate, transitions and look (1080p/30 when missing). */
+  settings?: ExportSettings;
+  /** Renders every shot as an MP4 clip with this engine (skipped when it can't render here). */
+  shotClipsEngine?: ExportEngine;
+  /** Writes the ZIP straight to this file instead of building it in memory; the result is then null. */
+  saveTo?: FileSystemFileHandle | null;
+}
+
 export async function exportUniversalTimelineZip(
   project: ProjectManifest,
-  onProgress?: (progress: TimelineExportProgress) => void
-): Promise<Blob> {
+  onProgress?: (progress: TimelineExportProgress) => void,
+  options: TimelineExportOptions = {}
+): Promise<Blob | null> {
   const updateProgress = (message: string, percentage: number) => {
     if (onProgress) onProgress({ message, percentage });
   };
@@ -490,9 +670,12 @@ export async function exportUniversalTimelineZip(
 
   const scenes = project.scenes || [];
   const audioChunks = project.audioChunks || [];
-  const fps = 30;
-  const width = 1920;
-  const height = 1080;
+  const settings: ExportSettings = options.settings ?? { resolution: '1080p', encoder: 'auto', outputPath: '' };
+  let fps: number = settings.fps ?? 30;
+  let width = 1920;
+  let height = 1080;
+  // Media files are already compressed; deflating them again only costs time.
+  const STORE = { compression: 'STORE' as const };
 
   // Calculate duration
   const sceneMaxSec = scenes.length > 0 ? Math.max(...scenes.map((s) => s.audioEndSec || 0)) : 0;
@@ -524,17 +707,42 @@ export async function exportUniversalTimelineZip(
       imageBlob = await getMediaBlob(`scene_${project.projectId}_${scene.sceneId}`);
     }
 
-    if (imageBlob) {
-      const arrayBuf = await imageBlob.arrayBuffer();
-      imagesFolder.file(fileName, arrayBuf);
-    }
+    if (imageBlob) imagesFolder.file(fileName, imageBlob, STORE);
 
-    const pct = 15 + Math.round(((i + 1) / Math.max(1, sortedScenes.length)) * 30);
+    const pct = 10 + Math.round(((i + 1) / Math.max(1, sortedScenes.length)) * 5);
     updateProgress(`Packing scene image ${i + 1}/${sortedScenes.length}...`, pct);
   }
 
+  // ─── Step A2: Render Every Shot as a Clip ───────────────────────────────────
+  let shotClips: ShotClipEntry[] | null = null;
+  if (options.shotClipsEngine) {
+    updateProgress('Rendering shot clips...', 15);
+    const rendered = await options.shotClipsEngine.renderShotClips({
+      projectId: project.projectId,
+      scenes,
+      settings,
+      words: project.spokenWords,
+      durationSec: totalDurationSec,
+      onProgress: (done, total) => updateProgress(`Rendering shot clips: ${Math.round((done / total) * 100)}%`, 15 + Math.round((done / total) * 50)),
+    });
+    if (rendered) {
+      fps = rendered.fps;
+      width = rendered.width;
+      height = rendered.height;
+      const shotsFolder = zip.folder('media/shots')!;
+      shotClips = [];
+      rendered.shots.forEach((shot, i) => {
+        const clip = rendered.clips[i];
+        if (!clip) return; // shorter than one frame
+        const fileName = shotClipName(shotClips!.length, rendered.shots.length);
+        shotsFolder.file(fileName, clip, STORE);
+        shotClips!.push({ fileName, shot, startFrame: Math.round(shot.start * fps), endFrame: Math.round(shot.end * fps) });
+      });
+    }
+  }
+
   // ─── Step B: Collect & Mix Audio into Master WAV ────────────────────────────
-  updateProgress('Processing and stitching audio timeline...', 50);
+  updateProgress('Processing and stitching audio timeline...', 66);
 
   let masterWavBlob: Blob | null = null;
   const audioContext = typeof window !== 'undefined'
@@ -597,10 +805,7 @@ export async function exportUniversalTimelineZip(
     }
   }
 
-  if (masterWavBlob) {
-    const wavBuffer = await masterWavBlob.arrayBuffer();
-    audioFolder.file('master_voice.wav', wavBuffer);
-  }
+  if (masterWavBlob) audioFolder.file('master_voice.wav', masterWavBlob, STORE);
 
   if (audioContext) {
     audioContext.close().catch(() => {});
@@ -611,13 +816,16 @@ export async function exportUniversalTimelineZip(
 
   const cleanTitle = (project.title || 'Untitled_Project').trim();
 
-  // 1. FCP 7 XML
-  const fcpXml = generateFcpXml(cleanTitle, scenes, totalDurationSec, fps, width, height);
-  zip.file('timeline.xml', fcpXml);
-
-  // 2. CMX 3600 EDL
-  const edl = generateEdl(cleanTitle, scenes, fps);
-  zip.file('timeline.edl', edl);
+  // 1–2. FCP 7 XML and CMX 3600 EDL: the shot clips when rendered, else the scene images
+  const totalFrames = Math.max(1, Math.round(totalDurationSec * fps));
+  if (shotClips) {
+    zip.file('timeline.xml', generateShotFcpXml(cleanTitle, shotClips, totalFrames, fps, width, height));
+    zip.file('timeline.edl', generateShotEdl(cleanTitle, shotClips, fps));
+    zip.file('shots_cuesheet.csv', generateShotCueSheetCsv(shotClips, scenes, fps));
+  } else {
+    zip.file('timeline.xml', generateFcpXml(cleanTitle, scenes, totalDurationSec, fps, width, height));
+    zip.file('timeline.edl', generateEdl(cleanTitle, scenes, fps));
+  }
 
   // 3. SubRip SRT Subtitles
   const srt = generateSrt(scenes);
@@ -628,11 +836,36 @@ export async function exportUniversalTimelineZip(
   zip.file('timeline_cuesheet.csv', csv);
 
   // 5. README Guide
-  const readme = generateReadmeGuide(cleanTitle, scenes.length, totalDurationSec);
+  const readme = generateReadmeGuide(cleanTitle, scenes.length, totalDurationSec, { width, height, fps, shotCount: shotClips?.length ?? null });
   zip.file('README_HOW_TO_IMPORT.txt', readme);
 
   // ─── Step D: Compress and Finalize ZIP ──────────────────────────────────────
   updateProgress('Compressing timeline package ZIP...', 85);
+
+  if (options.saveTo) {
+    // Streamed to disk piece by piece, so a long video's clips never sit in memory as one ZIP.
+    const writable = await options.saveTo.createWritable();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let writes = Promise.resolve();
+        zip
+          .generateInternalStream({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 6 }, streamFiles: true })
+          .on('data', (data, metadata) => {
+            writes = writes.then(() => writable.write(data as Uint8Array<ArrayBuffer>));
+            updateProgress(`Writing ZIP: ${Math.round(metadata.percent)}%`, 85 + Math.round((metadata.percent / 100) * 14));
+          })
+          .on('error', reject)
+          .on('end', () => writes.then(resolve, reject))
+          .resume();
+      });
+      await writable.close();
+    } catch (err) {
+      await writable.abort().catch(() => {});
+      throw err;
+    }
+    updateProgress('Timeline package saved!', 100);
+    return null;
+  }
 
   const zipBlob = await zip.generateAsync(
     {
