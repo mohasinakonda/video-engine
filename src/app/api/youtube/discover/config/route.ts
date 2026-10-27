@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { SEARCH_BUCKET, nextQuotaReset, quotaUsed, userDiscoveryBucket } from '@/lib/youtube/quota-budget';
+import { SEARCH_BUCKET, nextQuotaReset, quotaUsed, userDiscoveryBucket, userTopicSearchBucket } from '@/lib/youtube/quota-budget';
 import { getChannelDoctorSettings, getUserAccess } from '@/lib/youtube/settings';
 import { compareCost } from '@/lib/youtube/audit/pricing';
 import { requireUser } from '@/lib/youtube/route-auth';
@@ -16,10 +16,11 @@ export async function GET() {
 
   const settings = await getChannelDoctorSettings();
   const { discover } = settings;
-  const [{ tier, hasDiscoverAccess, hasAuditAccess, isAdmin }, searchUsed, userRuns] = await Promise.all([
+  const [{ tier, hasDiscoverAccess, hasAuditAccess, isAdmin }, searchUsed, userRuns, topicSearches] = await Promise.all([
     getUserAccess(auth.user.id, settings),
     quotaUsed(SEARCH_BUCKET),
     quotaUsed(userDiscoveryBucket(auth.user.id)),
+    quotaUsed(userTopicSearchBucket(auth.user.id)),
   ]);
 
   // A discovery run needs a full set of search calls; fewer left means search is unavailable today.
@@ -50,6 +51,12 @@ export async function GET() {
       phrasesPerRun: discover.searchCallsPerDiscovery,
       userRunsLeft,
       resetsAt: nextQuotaReset(),
+    },
+    // "Search a topic" (no credits), sharing the daily limit with Create's topic search.
+    topicSearch: {
+      perDay: settings.create.topicSearchesPerUserDay,
+      left: Math.max(0, settings.create.topicSearchesPerUserDay - topicSearches),
+      available: searchCallsLeft >= 1,
     },
   });
 }

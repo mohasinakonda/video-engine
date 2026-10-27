@@ -4,6 +4,7 @@ import { suggestQueries } from '@/lib/youtube/discover/queries';
 import { googleErrorResponse, requireDiscover, tokenOrResponse } from '@/lib/youtube/discover/route-helpers';
 import { getChannelDoctorSettings } from '@/lib/youtube/settings';
 import { acquireRun } from '@/lib/youtube/run-guard';
+import { withQuotaMeter } from '@/lib/youtube/quota-meter';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -12,7 +13,11 @@ export const maxDuration = 60;
  * POST /api/youtube/discover/queries — suggested search phrases from your recent titles.
  * Free (no credits, no search quota: ~3 Data API units), limited to 10 per hour.
  */
-export async function POST() {
+export function POST() {
+  return withQuotaMeter('discover/suggest', suggestPhrases);
+}
+
+async function suggestPhrases() {
   const auth = await requireDiscover();
   if ('response' in auth) return auth.response;
 

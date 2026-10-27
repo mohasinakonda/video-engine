@@ -26,7 +26,6 @@ export const TEXT_LIMITS = {
   customFocus: 300,
   thumbnailPrompt: 1_000,
   scenePrompt: 1_000,
-  searchQuery: 100,
   youtubeTitle: 100,
   youtubeDescription: 5_000,
 } as const;

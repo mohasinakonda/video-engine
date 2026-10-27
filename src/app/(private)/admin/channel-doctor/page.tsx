@@ -16,6 +16,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { YouTubeUsageCard } from '@/components/admin/youtube-usage-card';
 
 interface Settings {
   enabled: boolean;
@@ -91,6 +92,7 @@ interface DiscoverSettings {
   searchCallsPerDiscovery: number;
   searchDailyGlobalLimit: number;
   discoveryRunsPerUserDay: number;
+  dailyQuotaUnits: number;
   embeddingModels: string[];
   maxCompetitorThumbnails: number;
   weights: Weights;
@@ -127,6 +129,7 @@ const DISCOVER_LIMITS: { key: NumberKey<DiscoverSettings>; label: string; hint: 
   { key: 'searchCallsPerDiscovery', label: 'Searches per discovery', hint: 'search.list calls in one run', min: 1, max: 5 },
   { key: 'searchDailyGlobalLimit', label: 'Search calls per day (all users)', hint: 'YouTube allows 100/day for the whole app', min: 0, max: 100000 },
   { key: 'discoveryRunsPerUserDay', label: 'Discovery runs per user per day', hint: 'Keeps the shared search budget fair', min: 0, max: 50 },
+  { key: 'dailyQuotaUnits', label: 'YouTube units per day (Google limit)', hint: 'From Cloud console → Quotas (searches have their own limit); used by the usage dashboard', min: 1, max: 100000000 },
   { key: 'maxCompetitorThumbnails', label: 'Competitor thumbnails analyzed', hint: 'Sent to the vision model per run', min: 0, max: 30 },
 ];
 
@@ -213,6 +216,8 @@ export default function AdminChannelDoctorPage() {
         </header>
 
         {error && <p className="text-sm text-rose-400 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">{error}</p>}
+
+        <YouTubeUsageCard />
 
         {!settings ? (
           !error && (
@@ -533,7 +538,7 @@ function CreateSection({
       <section className="card space-y-3">
         <div>
           <p className="text-sm font-semibold text-white">Topic search in the brief</p>
-          <p className="text-xs text-zinc-400">“Who made videos on this”: one YouTube search (100 quota units) per run, from the shared daily search budget unless the user brings their own API key.</p>
+          <p className="text-xs text-zinc-400">“Who made videos on this”: one YouTube search call per run, from the shared daily search budget unless the user brings their own API key.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <NumberField label="Credits per search" hint="Charged up front, refunded on failure" value={create.topicSearchCreditCost} min={0} max={1000} onChange={(v) => update('topicSearchCreditCost', v)} />

@@ -395,7 +395,6 @@ export const KEY_FEATURES: KeyFeatureItem[] = [
       'Click-worthy title ideas',
       'Thumbnail studio',
       'SEO description, tags & hashtags',
-      'Competitor research',
     ],
   },
   {

@@ -320,25 +320,8 @@ export interface ScriptIntelligence {
   competitorGap?: string;
 }
 
-export interface CompetitorVideo {
-  id: string;
-  title: string;
-  channel: string;
-  views: string;
-  thumbnail: string;
-  videoUrl: string;
-}
-
-export interface MarketInsight {
-  competitorVideos: CompetitorVideo[];
-  packagingStrategy: string;
-  marketSearchQuery?: string;
-  alternativeSearchQueries?: string[];
-}
-
 export interface YouTubePackagingData {
   scriptIntelligence?: ScriptIntelligence;
-  marketInsights?: MarketInsight;
   customTopicPrompt?: string;
   titles: TitleOption[];
   selectedTitleIndex?: number;

@@ -53,7 +53,7 @@ export interface CreateSettings {
   scriptCreditCost: number;
   packagingCreditCost: number;
   maxProjectsPerUser: number;
-  /** "Who made videos on this" in the brief: one YouTube search (100 quota units) per run. */
+  /** "Who made videos on this" in the brief: one YouTube search call per run. */
   topicSearchCreditCost: number;
   topicSearchesPerUserDay: number;
   /** Channels whose usual views are read, so the top results show "× its usual". */
@@ -109,6 +109,8 @@ export interface DiscoverSettings {
   /** Our share of YouTube's 100 search.list calls per day, for all users together. */
   searchDailyGlobalLimit: number;
   discoveryRunsPerUserDay: number;
+  /** The Google project's YouTube Data API units per day (Cloud console → Quotas), for the usage dashboard. */
+  dailyQuotaUnits: number;
   /** Ordered: the first model is tried first, the rest are fallbacks. */
   embeddingModels: string[];
   maxCompetitorThumbnails: number;
@@ -133,9 +135,11 @@ export const DEFAULT_DISCOVER_SETTINGS: DiscoverSettings = {
   opportunityCreditCost: 3,
   maxCompetitors: 10,
   videosPerCompetitor: 50,
-  searchCallsPerDiscovery: 3,
+  // Each phrase is one 100-unit search; two find most of the channels five would.
+  searchCallsPerDiscovery: 2,
   searchDailyGlobalLimit: 80,
   discoveryRunsPerUserDay: 2,
+  dailyQuotaUnits: 10_000,
   embeddingModels: ['BAAI/bge-m3', 'Qwen/Qwen3-Embedding-0.6B'],
   maxCompetitorThumbnails: 10,
   weights: DEFAULT_WEIGHTS,
@@ -186,6 +190,7 @@ export const discoverSettingsSchema = z.object({
   searchCallsPerDiscovery: z.number().int().min(1).max(5),
   searchDailyGlobalLimit: z.number().int().min(0).max(100_000),
   discoveryRunsPerUserDay: z.number().int().min(0).max(50),
+  dailyQuotaUnits: z.number().int().min(1).max(100_000_000),
   embeddingModels: z.array(modelId).min(1).max(5),
   maxCompetitorThumbnails: z.number().int().min(0).max(30),
   weights: weightsSchema,
@@ -314,6 +319,7 @@ function readDiscover(data: Record<string, any>): DiscoverSettings {
     searchCallsPerDiscovery: data.search_calls_per_discovery ?? d.searchCallsPerDiscovery,
     searchDailyGlobalLimit: data.search_daily_global_limit ?? d.searchDailyGlobalLimit,
     discoveryRunsPerUserDay: data.discovery_runs_per_user_day ?? d.discoveryRunsPerUserDay,
+    dailyQuotaUnits: data.youtube_daily_quota_units ?? d.dailyQuotaUnits,
     embeddingModels: data.embedding_models?.length ? data.embedding_models : d.embeddingModels,
     maxCompetitorThumbnails: data.max_competitor_thumbnails ?? d.maxCompetitorThumbnails,
     weights: weights.success ? weights.data : d.weights,
@@ -346,6 +352,7 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       search_calls_per_discovery: update.discover.searchCallsPerDiscovery,
       search_daily_global_limit: update.discover.searchDailyGlobalLimit,
       discovery_runs_per_user_day: update.discover.discoveryRunsPerUserDay,
+      youtube_daily_quota_units: update.discover.dailyQuotaUnits,
       embedding_models: update.discover.embeddingModels,
       max_competitor_thumbnails: update.discover.maxCompetitorThumbnails,
       opportunity_weights: update.discover.weights,

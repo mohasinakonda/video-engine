@@ -6,6 +6,7 @@ import { ChannelMismatchError } from './fetcher';
 import { claimFreeDiagnosis, releaseFreeDiagnosis } from './free-diagnosis';
 import { GoogleApiError } from './google-fetch';
 import { UserFacingError } from './errors';
+import { withQuotaMeter } from './quota-meter';
 import { QuotaBudgetError } from './quota-budget';
 import { acquireRun } from './run-guard';
 import { getChannelDoctorSettings, getUserAccess, type ChannelDoctorSettings } from './settings';
@@ -142,7 +143,10 @@ export async function streamAnalysis<S extends string = DiagnosisStage>({
       const send = (event: object) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       try {
         send({ type: 'stage', stage: 'connect', charged: cost });
-        const result = await run({ token: token as Token, settings, onStage: (stage, detail) => send({ type: 'stage', stage, ...detail }) });
+        // YouTube units spent by this run are counted under its label for the admin dashboard.
+        const result = await withQuotaMeter(label, () =>
+          run({ token: token as Token, settings, onStage: (stage, detail) => send({ type: 'stage', stage, ...detail }) })
+        );
         send({ type: 'stage', stage: 'done' });
         send({ type: 'result', data: result });
       } catch (err) {

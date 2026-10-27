@@ -1,7 +1,10 @@
 /**
  * fetch wrapper for Google APIs: timeout, bounded retries for transient failures only,
  * no caching, and errors mapped to kinds the UI can explain. Never logs response bodies.
+ * Every attempt is metered for the admin YouTube units dashboard (quota-meter.ts).
  */
+
+import { meterRequest } from './quota-meter';
 
 export type GoogleErrorKind =
   | 'auth'          // 401: token expired or revoked
@@ -36,6 +39,7 @@ export async function googleFetch(url: string, options: GoogleFetchOptions = {})
 
   for (let attempt = 0; ; attempt++) {
     let res: Response;
+    meterRequest(url);
     try {
       res = await fetch(url, { ...init, cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) });
     } catch {

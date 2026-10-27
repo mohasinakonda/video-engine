@@ -12,7 +12,6 @@ import {
   saveProject,
   getStylePresets,
   getDefaultStylePreset,
-  getYouTubeApiKey,
   getImageModel,
 } from '@/lib/store';
 import {
@@ -26,6 +25,7 @@ import { generateImage, base64ToUint8Array } from '@/lib/gemini';
 import { saveMediaBlob } from '@/lib/media-storage';
 import { useScriptCharLimit } from '@/hooks/use-script-limit';
 import { TEXT_LIMITS, scriptTooLongMessage, effectiveTier } from '@/lib/input-limits';
+
 
 export type ThumbnailAspect = '16:9' | '9:16' | '1:1';
 
@@ -72,14 +72,6 @@ interface LaunchKitContextValue {
   copiedKey: string | null;
   handleCopy: (text: string, key: string, label: string) => void;
   handleCopyMasterLaunchPack: () => void;
-
-  // Competitor research & Standout test
-  competitorSearchInput: string;
-  setCompetitorSearchInput: (val: string) => void;
-  isSearchingCompetitors: boolean;
-  handleSearchCompetitors: (queryToSearch?: string) => Promise<void>;
-  standoutMode: boolean;
-  setStandoutMode: (val: boolean) => void;
 
   // Titles
   selectedTitle: string;
@@ -227,7 +219,6 @@ export function LaunchKitProvider({
   const [userCredits, setUserCredits] = useState<number>(() => {
     return typeof window !== 'undefined' ? getUserCreditsRemaining() : 70;
   });
-  const [standoutMode, setStandoutMode] = useState(false);
   const [mockupViewMode, setMockupViewMode] = useState<'mobile' | 'desktop' | 'shorts'>('mobile');
 
   const [selectedAIModel, setSelectedAIModel] = useState<AIImageModel | null>(null);
@@ -316,17 +307,6 @@ export function LaunchKitProvider({
     onUpdateProject(updated);
   };
 
-  const [competitorSearchInput, setCompetitorSearchInput] = useState(
-    packaging?.marketInsights?.marketSearchQuery || ''
-  );
-  const [isSearchingCompetitors, setIsSearchingCompetitors] = useState(false);
-
-  useEffect(() => {
-    if (packaging?.marketInsights?.marketSearchQuery) {
-      setCompetitorSearchInput(packaging.marketInsights.marketSearchQuery);
-    }
-  }, [packaging?.marketInsights?.marketSearchQuery]);
-
   // Load project's active style preset
   useEffect(() => {
     async function loadPreset() {
@@ -373,60 +353,6 @@ export function LaunchKitProvider({
     }, 2000);
   };
 
-  const handleSearchCompetitors = async (queryToSearch?: string) => {
-    const query = (queryToSearch || competitorSearchInput).trim();
-    if (!query) {
-      showToast('Please enter a search query for competitor benchmarks');
-      return;
-    }
-    if (query.length > TEXT_LIMITS.searchQuery) {
-      showToast(`Search query must be ${TEXT_LIMITS.searchQuery} characters or fewer.`);
-      return;
-    }
-
-    setIsSearchingCompetitors(true);
-    try {
-      const userApiKey = await getYouTubeApiKey();
-
-      const res = await fetch('/api/search-competitors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query,
-          youtubeApiKey: userApiKey,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to search competitor videos');
-      }
-
-      const data = await res.json();
-      const updatedPackaging: YouTubePackagingData = {
-        ...(packaging as YouTubePackagingData),
-        marketInsights: {
-          ...(packaging?.marketInsights || { packagingStrategy: 'Curiosity-driven packaging' }),
-          competitorVideos: data.competitorVideos || [],
-          marketSearchQuery: data.query,
-        },
-      };
-
-      const updated: ProjectManifest = {
-        ...project,
-        youtubePackaging: updatedPackaging,
-      };
-
-      setCompetitorSearchInput(data.query);
-      await saveProject(updated);
-      onUpdateProject(updated);
-    } catch (err: any) {
-      console.error('Error searching competitors:', err);
-      showToast(`Search failed: ${err.message}`);
-    } finally {
-      setIsSearchingCompetitors(false);
-    }
-  };
-
   const handleGeneratePackaging = async () => {
     const cleanScript = voiceScript.trim();
     if (!cleanScript) {
@@ -442,8 +368,7 @@ export function LaunchKitProvider({
     setErrorMessage(null);
 
     try {
-      showToast('AI analyzing voice script & researching YouTube market...');
-      const userApiKey = await getYouTubeApiKey();
+      showToast('AI analyzing your voice script...');
 
       // Ensure script is saved to project manifest
       const updatedWithScript: ProjectManifest = {
@@ -465,7 +390,6 @@ export function LaunchKitProvider({
           customTopicPrompt: customFocus.trim(),
           baseStylePreset: stylePreset,
           aspectRatio: thumbAspect,
-          youtubeApiKey: userApiKey,
         }),
       });
 
@@ -483,10 +407,6 @@ export function LaunchKitProvider({
           selectedThumbnailUrl: packaging?.selectedThumbnailUrl || data.selectedThumbnailUrl,
         },
       };
-
-      if (data.marketInsights?.marketSearchQuery) {
-        setCompetitorSearchInput(data.marketInsights.marketSearchQuery);
-      }
 
       if (typeof data.remainingCredits === 'number' && typeof window !== 'undefined') {
         window.dispatchEvent(
@@ -635,11 +555,6 @@ export function LaunchKitProvider({
           keyTalkingPoints: [],
           targetAudience: 'General Audience',
           searchKeywords: [],
-        },
-        marketInsights: {
-          packagingStrategy: 'High-contrast thumbnails perform best',
-          competitorVideos: [],
-          marketSearchQuery: '',
         },
         titles: [],
         selectedTitleIndex: 0,
@@ -1039,12 +954,6 @@ ${hashtagsStr}`;
         copiedKey,
         handleCopy,
         handleCopyMasterLaunchPack,
-        competitorSearchInput,
-        setCompetitorSearchInput,
-        isSearchingCompetitors,
-        handleSearchCompetitors,
-        standoutMode,
-        setStandoutMode,
         selectedTitle,
         handleSelectTitle,
         mockupViewMode,

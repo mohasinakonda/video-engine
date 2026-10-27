@@ -152,13 +152,13 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold text-zinc-100">YouTube Data &amp; Market Research API</h2>
+                    <h2 className="text-sm font-semibold text-zinc-100">YouTube Data API key</h2>
                     <span className="text-2xs text-rose-300 bg-rose-950/60 border border-rose-800/60 px-2 py-0.5 rounded-full font-mono font-bold">
                       Viral Engine
                     </span>
                   </div>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Live competitor video search, view benchmarking, and packaging intelligence
+                    Optional: topic searches in Create (“Who made videos on this?”) use your own quota
                   </p>
                 </div>
               </div>
@@ -198,7 +198,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="p-3 rounded-lg bg-zinc-900/80 border border-bg-border text-xxs text-zinc-400 space-y-1">
-                <p className="text-zinc-300 font-medium">⚡ How YouTube Market Research Works:</p>
+                <p className="text-zinc-300 font-medium">⚡ How YouTube topic search works:</p>
                 <p>
                   • <strong>Shared search (default)</strong>: If your YouTube channel is connected in Channel Doctor, we search YouTube through the official API within our shared daily limit.
                 </p>

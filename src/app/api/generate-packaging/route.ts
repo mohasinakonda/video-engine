@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { YouTubePackagingData, BaseStylePreset } from '@/types';
-import { searchYouTubeMarket } from '@/lib/youtube-search';
 import {
   isSupabaseConfigured,
   deductCreditsRemote,
@@ -40,7 +39,6 @@ export async function POST(req: Request) {
       customTopicPrompt = '',
       baseStylePreset,
       aspectRatio = '16:9',
-      youtubeApiKey,
     } = await req.json();
 
     const cleanScript = (script || '').trim();
@@ -202,13 +200,6 @@ The JSON below is a TEMPLATE: replace every <...> with content from THIS script.
 Return strictly valid JSON:
 {
   "coreTopic": "1 crisp sentence capturing the exact central factual/scientific/historical thesis of the script",
-  "marketSearchQuery": "3 to 5 words specifically crafted to find top-performing YouTube competitor videos on this exact subject",
-  "alternativeSearchQueries": [
-    "Alternative search query 1 (3-5 words)",
-    "Alternative search query 2 (3-5 words)",
-    "Alternative search query 3 (3-5 words)"
-  ],
-  "packagingStrategy": "1-2 sentences on why this psychological/scientific insight goes viral on YouTube and how these titles outperform competitors",
   "titles": [
     {"title": "Viral headline 1", "hookStyle": "Curiosity Gap", "whyItWorks": "Creates an irresistible curiosity gap without sounding cheap.", "pairedConceptId": "thumb_1"},
     {"title": "Viral headline 2", "hookStyle": "Extreme Transformation", "whyItWorks": "Direct promise of immediate resolution for chronic worry.", "pairedConceptId": "thumb_2"},
@@ -272,7 +263,7 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
       Array.isArray(r?.thumbnailConcepts) && r.thumbnailConcepts.length >= 3 &&
       typeof r?.description === 'string' && r.description.trim().length > 0;
 
-    // 2 models × 45s stays inside maxDuration together with the competitor search below.
+    // 2 models × 45s stays inside maxDuration.
     const llm = await callLLM({
       tag: 'generate-packaging',
       messages: [
@@ -291,26 +282,6 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
       throw new Error('AI generation service is currently busy or timed out. Please click "Analyze & Generate Launch Kit" again to retry.');
     }
 
-    // ─── Step 2: Intelligent Live YouTube Market Competitor Search ───────────
-    // Use the AI's extracted intelligent query or creator focus, NOT naive first words!
-    const effectiveSearchQuery =
-      customTopicPrompt.trim() ||
-      parsedResult.marketSearchQuery ||
-      parsedResult.coreTopic?.slice(0, 50) ||
-      'psychology of overthinking';
-
-    const cleanSearchQuery = effectiveSearchQuery
-      .replace(/[^a-zA-Z0-9\s]/g, ' ')
-      .trim()
-      .split(/\s+/)
-      .slice(0, 6)
-      .join(' ');
-
-    const { videos: competitorVideos } = await searchYouTubeMarket(cleanSearchQuery, {
-      apiKey: typeof youtubeApiKey === 'string' ? youtubeApiKey : null,
-      userId: authenticatedUserId,
-    });
-
     // Assemble final verified AI result
     const packagingData: YouTubePackagingData = {
       scriptIntelligence: {
@@ -318,15 +289,7 @@ ${sceneContext ? `Scene Timestamps:\n${sceneContext}\n` : ''}`;
         narrativeSummary: parsedResult.coreTopic || 'Summary of the script narrative.',
         keyTalkingPoints: [],
         targetAudience: 'Curious minds, documentary & video essay enthusiasts',
-        searchKeywords: Array.isArray(parsedResult.tags) ? parsedResult.tags.slice(0, 5) : [cleanSearchQuery],
-      },
-      marketInsights: {
-        competitorVideos,
-        packagingStrategy: parsedResult.packagingStrategy || 'Curiosity-driven titles with high-contrast thumbnails perform best for this topic.',
-        marketSearchQuery: cleanSearchQuery,
-        alternativeSearchQueries: Array.isArray(parsedResult.alternativeSearchQueries)
-          ? parsedResult.alternativeSearchQueries
-          : ['why humans worry future', 'psychology of overthinking', 'prefrontal cortex mental time travel'],
+        searchKeywords: Array.isArray(parsedResult.tags) ? parsedResult.tags.slice(0, 5) : [],
       },
       customTopicPrompt,
       titles: Array.isArray(parsedResult.titles) && parsedResult.titles.length > 0

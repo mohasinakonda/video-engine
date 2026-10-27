@@ -12,6 +12,7 @@ import {
   listWatchlist,
 } from '@/lib/youtube/discover/watchlist';
 import { parseChannelInput, resolveChannelInput } from '@/lib/youtube/public-client';
+import { withQuotaMeter } from '@/lib/youtube/quota-meter';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,11 @@ export const dynamic = 'force-dynamic';
  * GET /api/youtube/discover/competitors — the watchlist with public channel info fetched
  * fresh from YouTube (1 unit per 50 channels). Channel info is never stored.
  */
-export async function GET() {
+export function GET() {
+  return withQuotaMeter('discover/competitors', listCompetitors);
+}
+
+async function listCompetitors() {
   const auth = await requireDiscover();
   if ('response' in auth) return auth.response;
 
@@ -42,7 +47,11 @@ export async function GET() {
 }
 
 /** POST /api/youtube/discover/competitors — add by pasted link or from discovery results. */
-export async function POST(req: Request) {
+export function POST(req: Request) {
+  return withQuotaMeter('discover/follow', () => addCompetitors(req));
+}
+
+async function addCompetitors(req: Request) {
   const auth = await requireDiscover();
   if ('response' in auth) return auth.response;
 
