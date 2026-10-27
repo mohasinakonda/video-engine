@@ -8,7 +8,6 @@ import {
   ScriptInputCard,
   ErrorBanner,
   EmptyState,
-  CompetitorResearchCard,
   FeedMockupCard,
   TitleLabCard,
   ThumbnailStudioCard,
@@ -23,12 +22,11 @@ interface YouTubeLaunchKitProps {
   showToast: (msg: string) => void;
 }
 
-type KitTab = 'titles' | 'thumbnails' | 'research' | 'description';
+type KitTab = 'titles' | 'thumbnails' | 'description';
 
 const KIT_TABS: { id: KitTab; label: string }[] = [
   { id: 'titles', label: 'Titles' },
   { id: 'thumbnails', label: 'Thumbnails' },
-  { id: 'research', label: 'Research' },
   { id: 'description', label: 'Description & Tags' },
 ];
 
@@ -79,7 +77,6 @@ function YouTubeLaunchKitContent() {
             <div className="lg:col-span-7 space-y-6 min-w-0">
               {tab === 'titles' && <TitleLabCard />}
               {tab === 'thumbnails' && <ThumbnailStudioCard />}
-              {tab === 'research' && <CompetitorResearchCard />}
               {tab === 'description' && (
                 <>
                   <SeoDescriptionCard />

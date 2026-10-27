@@ -18,6 +18,8 @@ export interface DiscoverConfig {
   costs: { discovery: number; research: number; opportunity: number };
   maxCompetitors: number;
   search: { available: boolean; phrasesPerRun: number; userRunsLeft: number; resetsAt: string };
+  /** "Search a topic" for channels to follow; missing on older servers. */
+  topicSearch?: { perDay: number; left: number; available: boolean };
   /** Analyzing any channel or video; missing on older servers. */
   audit?: { enabled: boolean; hasAccess: boolean; costs: { video: number; channel: number; compare: number } };
 }

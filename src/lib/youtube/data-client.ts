@@ -93,7 +93,7 @@ interface PlaylistItemsResponse {
 
 /**
  * Video ids from the channel's uploads playlist, newest first, up to `max`.
- * Uses playlistItems.list (1 unit per 50) instead of search.list (100 units).
+ * Uses playlistItems.list (1 unit per 50) instead of search.list (its own small daily limit).
  */
 export async function fetchUploadIds(accessToken: string, uploadsPlaylistId: string, max: number): Promise<string[]> {
   const ids: string[] = [];

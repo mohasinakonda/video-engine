@@ -146,7 +146,7 @@ const TOOLS: { id: GrowthToolId; icon: typeof Compass; eyebrow: string; title: s
     icon: Compass,
     eyebrow: 'Discover',
     title: 'See what to make next',
-    text: 'Follow your competitors and get video ideas backed by numbers: what’s rising, where there’s room, and what fits your channel.',
+    text: 'Add your competitors and get video ideas backed by numbers: what’s rising, where there’s room, and what fits your channel.',
     points: ['Finds competitor channels for you', 'Spots topics that are rising or under-served', 'Every idea shows the evidence behind it'],
     mock: DiscoverMock,
   },

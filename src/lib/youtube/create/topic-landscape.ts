@@ -37,6 +37,33 @@ export function titleSimilarity(a: string, b: string): number {
   return hits / small.size;
 }
 
+/** Share of the topic's words that appear in a title (0–1); unlike titleSimilarity, one-directional. */
+export function topicCoverage(topic: string, title: string): number {
+  const want = stems(topic);
+  if (!want.size) return 0;
+  const have = stems(title);
+  let hits = 0;
+  want.forEach((w) => have.has(w) && hits++);
+  return hits / want.size;
+}
+
+/** Followed channels whose recent uploads are checked before paying for a YouTube search. */
+export const COMPETITOR_SCAN = { minFollowed: 3, maxChannels: 10, uploadsPerChannel: 50, minMatches: 6, minCoverage: 0.6 };
+
+/**
+ * The followed channels' uploads that are about the topic, best match first. Enough of them
+ * (COMPETITOR_SCAN.minMatches) answer "who made videos on this" without a YouTube search.
+ */
+export function pickTopicMatches(topic: string, uploads: FoundVideo[], minCoverage = COMPETITOR_SCAN.minCoverage): FoundVideo[] {
+  const seen = new Set<string>();
+  return uploads
+    .filter((v) => !v.liveOrUpcoming && !seen.has(v.id) && seen.add(v.id))
+    .map((v) => ({ v, score: topicCoverage(topic, v.title) }))
+    .filter((x) => x.score >= minCoverage)
+    .sort((a, b) => b.score - a.score || (b.v.views ?? 0) - (a.v.views ?? 0))
+    .map((x) => x.v);
+}
+
 export type ChannelSize = 'tiny' | 'small' | 'mid' | 'big' | 'unknown';
 export const sizeOf = (subs: number | null): ChannelSize => (subs === null ? 'unknown' : subs < 10_000 ? 'tiny' : subs < 100_000 ? 'small' : subs < 1_000_000 ? 'mid' : 'big');
 
@@ -67,6 +94,8 @@ export interface TopicVideo {
 
 export interface TopicLandscape {
   topic: string;
+  /** Where the videos came from: a YouTube search, or the channels the user follows (no search). */
+  source?: 'youtube' | 'competitors';
   videos: TopicVideo[];
   summary: {
     found: number;
@@ -107,6 +136,8 @@ export function buildLandscape(input: {
   videos: FoundVideo[];
   channels: FoundChannel[];
   usual: Map<string, number | null>;
+  /** 'competitors': the videos are the followed channels' uploads on the topic (this many channels checked). */
+  source?: { kind: 'youtube' } | { kind: 'competitors'; channelsChecked: number };
   now: Date;
 }): TopicLandscape {
   const { now } = input;
@@ -180,8 +211,10 @@ export function buildLandscape(input: {
     if (to) similar.push({ id: v.id, title: v.title, to });
   }
 
+  const fromCompetitors = input.source?.kind === 'competitors' ? input.source : null;
   return {
     topic: input.topic,
+    source: fromCompetitors ? 'competitors' : 'youtube',
     videos,
     summary: {
       found: videos.length,
@@ -199,7 +232,12 @@ export function buildLandscape(input: {
     },
     signals,
     similar: similar.slice(0, 5),
-    limitations: [
+    limitations: fromCompetitors
+      ? [
+          `Only the ${fromCompetitors.channelsChecked} channels you follow were checked (their latest uploads), so no YouTube search was needed. Search all of YouTube for the wider picture.`,
+          '“× its usual” compares each video with the rest of that channel’s latest uploads.',
+        ]
+      : [
       'These are the videos YouTube ranks as most relevant to the topic, not every video on it.',
       'YouTube’s own search page differs a little: it fixes spelling mistakes in the search and tailors results to each viewer. Check the topic’s spelling if the results look off.',
       '“× its usual” is shown only for the top channels; views per day and per subscriber are shown for all.',

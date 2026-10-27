@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS, type ChannelDoctorSettings } from '../settings';
 import type { FoundChannel, FoundVideo } from './topic-fetch';
-import { buildLandscape, sizeOf, titleSimilarity, usualRatio } from './topic-landscape';
+import { buildLandscape, pickTopicMatches, sizeOf, titleSimilarity, topicCoverage, usualRatio } from './topic-landscape';
 
 const NOW = new Date('2026-10-20T00:00:00Z');
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000).toISOString();
@@ -20,6 +20,32 @@ describe('titleSimilarity', () => {
     expect(titleSimilarity('Why Deep Sea Creatures Glow', 'Why deep-sea creatures GLOW (explained)')).toBe(1);
     expect(titleSimilarity('Why Deep Sea Creatures Glow', 'My morning routine')).toBe(0);
     expect(titleSimilarity('কেন গভীর সমুদ্রের প্রাণীরা আলো জ্বালায়?', 'গভীর সমুদ্রের প্রাণীরা কেন আলো জ্বালায়')).toBe(1);
+  });
+});
+
+describe('topic matches in followed channels', () => {
+  it('scores how much of the topic a title covers, one way only', () => {
+    expect(topicCoverage('giant squid', 'The Giant Squid: Ocean’s Biggest Mystery')).toBe(1);
+    // A one-word title isn't a full match just because it is short.
+    expect(topicCoverage('giant squid attack', 'Squid!')).toBeCloseTo(1 / 3);
+    // Five-letter stems match Bangla word endings (স্কুইড / স্কুইডের).
+    expect(topicCoverage('বিশাল স্কুইড', 'বিশাল স্কুইডের রহস্য')).toBe(1);
+  });
+
+  it('keeps on-topic uploads, best match then most viewed, without live or duplicate videos', () => {
+    const a = vid({ title: 'Giant squid caught on camera', views: 10 });
+    const b = vid({ title: 'The giant squid explained', views: 500 });
+    const live = vid({ title: 'Giant squid live', liveOrUpcoming: true });
+    const off = vid({ title: 'Octopus facts' });
+    const picked = pickTopicMatches('giant squid', [a, off, b, live, a]);
+    expect(picked.map((v) => v.id)).toEqual([b.id, a.id]);
+  });
+
+  it('marks a landscape built from followed channels and explains it', () => {
+    const l = buildLandscape({ topic: 't', plannedLines: [], videos: [vid()], channels, usual: new Map(), now: NOW, source: { kind: 'competitors', channelsChecked: 7 } });
+    expect(l.source).toBe('competitors');
+    expect(l.limitations[0]).toContain('7 channels you follow');
+    expect(buildLandscape({ topic: 't', plannedLines: [], videos: [vid()], channels, usual: new Map(), now: NOW }).source).toBe('youtube');
   });
 });
 
@@ -68,7 +94,14 @@ const state = {
   auth: null as unknown,
   credits: { charged: 0, refunded: 0 },
   failSearch: false,
+  searches: 0,
+  followed: [] as string[],
+  uploads: {} as Record<string, FoundVideo[]>,
 };
+vi.mock('../discover/watchlist', async (o) => ({
+  ...(await o<typeof import('../discover/watchlist')>()),
+  listWatchlist: async () => state.followed.map((channelId) => ({ channelId, label: null, group: 'direct', active: true, addedAt: '' })),
+}));
 vi.mock('../route-auth', () => ({ requireUser: async () => ({ user: { id: 'user-a' } }) }));
 vi.mock('../settings', async (o) => ({
   ...(await o<typeof import('../settings')>()),
@@ -102,12 +135,13 @@ vi.mock('./projects', async (o) => ({
 vi.mock('./topic-fetch', () => ({
   searchTopic: async (auth: unknown) => {
     state.auth = auth;
+    state.searches++;
     if (state.failSearch) throw new Error('boom');
     return ['a'];
   },
   videoDetails: async () => [vid()],
   channelInfo: async () => channels,
-  recentUploads: async () => [],
+  recentUploads: async (_auth: unknown, channelId: string) => state.uploads[channelId] ?? [],
 }));
 
 import { POST as topicSearch } from '@/app/api/create/projects/[id]/topic-search/route';
@@ -123,6 +157,9 @@ describe('topic search route', () => {
     state.consumed = [];
     state.credits = { charged: 0, refunded: 0 };
     state.failSearch = false;
+    state.searches = 0;
+    state.followed = [];
+    state.uploads = {};
     state.settings = { ...DEFAULT_SETTINGS, create: { ...DEFAULT_SETTINGS.create, enabled: true } };
   });
 
@@ -153,6 +190,39 @@ describe('topic search route', () => {
     state.settings = { ...state.settings, create: { ...state.settings.create, topicSearchesPerUserDay: 0 } };
     expect((await topicSearch(post(), ctx('mine'))).status).toBe(429);
     expect(state.credits.charged).toBe(0);
+  });
+
+  it('answers from followed channels without a YouTube search when they have enough on the topic', async () => {
+    state.followed = ['UCone', 'UCtwo', 'UCthree'];
+    // The project's topic is "Deep sea light".
+    state.uploads = {
+      UCone: [vid({ channelId: 'UCone', title: 'Deep sea light explained' }), vid({ channelId: 'UCone', title: 'Deep sea light shows' }), vid({ channelId: 'UCone', title: 'Cooking pasta' })],
+      UCtwo: [vid({ channelId: 'UCtwo', title: 'The deep sea makes its own light' }), vid({ channelId: 'UCtwo', title: 'Light in the deep sea' })],
+      UCthree: [vid({ channelId: 'UCthree', title: 'Deep sea light: the full story' }), vid({ channelId: 'UCthree', title: 'Why the deep sea has light' })],
+    };
+    const out = await events(await topicSearch(post(), ctx('mine')));
+    const result = out.at(-1);
+    expect(result.type).toBe('result');
+    expect(result.data.landscape.source).toBe('competitors');
+    expect(result.data.landscape.summary.found).toBe(6);
+    expect(result.data.followed).toEqual(['UCone', 'UCtwo', 'UCthree']);
+    expect(state.searches).toBe(0);
+    expect(state.consumed).toEqual([]);
+  });
+
+  it('falls back to one YouTube search when followed channels have too few videos on it', async () => {
+    state.followed = ['UCone', 'UCtwo', 'UCthree'];
+    state.uploads = { UCone: [vid({ channelId: 'UCone', title: 'Deep sea light explained' })] };
+    const out = await events(await topicSearch(post(), ctx('mine')));
+    expect(out.at(-1).data.landscape.source).toBe('youtube');
+    expect(state.searches).toBe(1);
+    expect(state.consumed).toEqual(['search', 'topic-search:user:user-a']);
+  });
+
+  it('can be told to search all of YouTube', async () => {
+    state.followed = ['UCone', 'UCtwo', 'UCthree'];
+    await events(await topicSearch(post({ scope: 'youtube' }), ctx('mine')));
+    expect(state.searches).toBe(1);
   });
 
   it('refuses other users’ projects and refunds a failed search', async () => {

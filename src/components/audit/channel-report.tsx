@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, ExternalLink, Info, Lightbulb, Stethoscope } from 'lucide-react';
 import { formatCompact } from '@/components/youtube-doctor/format';
 import { TextLink } from '@/components/ui/text-link';
+import { FollowOneChannel } from '@/components/discover/follow-button';
 import { FindingList } from './audit-report';
 import { ChannelOverviewSections } from './channel-overview';
 import type { ChannelAuditReport, RankedVideo } from './types';
@@ -58,7 +59,7 @@ export function ChannelReport({ report }: { report: ChannelAuditReport }) {
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border border-bg-border bg-bg-surface p-5 space-y-4">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {channel.thumbnail ? (
             <Image src={channel.thumbnail} alt="" width={56} height={56} className="w-14 h-14 rounded-full object-cover" />
           ) : (
@@ -74,6 +75,7 @@ export function ChannelReport({ report }: { report: ChannelAuditReport }) {
               {stats.videosRead} recent videos read
             </p>
           </div>
+          {!report.isOwn && <FollowOneChannel channelId={channel.id} channelTitle={channel.title} className="sm:ml-auto" />}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Stat label="Beat its usual by 2×+" value={stats.hitRate === null ? '—' : `${Math.round(stats.hitRate * 100)}%`} />

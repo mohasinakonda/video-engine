@@ -17,7 +17,7 @@ export function EmptyState() {
       <div className="max-w-md mx-auto space-y-1.5">
         <h3 className="text-sm font-bold text-white">Ready to Package Your Video</h3>
         <p className="text-xs text-zinc-400">
-          Review your voice script above and click &quot;Analyze Script &amp; Generate Kit&quot;. The AI will extract the subject, search YouTube competitor packaging, craft 5 viral titles, and design style-consistent thumbnails.
+          Review your voice script above and click &quot;Analyze Script &amp; Generate Kit&quot;. The AI will extract the subject, craft 5 viral titles, and design style-consistent thumbnails.
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-2 pt-2">

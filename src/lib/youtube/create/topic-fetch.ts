@@ -27,7 +27,7 @@ export interface FoundVideo {
 
 const num = (v: string | undefined) => (v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
 
-/** One search.list call (100 quota units): the most relevant videos for the topic. */
+/** One search.list call (1 of the project's daily search calls): the most relevant videos for the topic. */
 export async function searchTopic(auth: YouTubeAuth, topic: string, language: 'English' | 'Bangla', max = 50): Promise<string[]> {
   const params = new URLSearchParams({
     part: 'snippet',
@@ -74,14 +74,23 @@ export interface FoundChannel {
   title: string;
   /** Null when the channel hides it. */
   subscribers: number | null;
+  /** Avatar URL; missing on older results. */
+  thumbnail?: string | null;
 }
 
 /** Names and subscriber counts for up to 50 channels (1 unit). */
 export async function channelInfo(auth: YouTubeAuth, ids: string[]): Promise<FoundChannel[]> {
   if (!ids.length) return [];
-  const params = new URLSearchParams({ part: 'snippet,statistics', id: ids.slice(0, 50).join(','), fields: 'items(id,snippet/title,statistics(subscriberCount,hiddenSubscriberCount))' });
-  const data = await request<{ items?: { id: string; snippet?: { title?: string }; statistics?: { subscriberCount?: string; hiddenSubscriberCount?: boolean } }[] }>(auth, 'channels', params);
-  return (data.items ?? []).map((c) => ({ id: c.id, title: c.snippet?.title ?? '', subscribers: c.statistics?.hiddenSubscriberCount ? null : num(c.statistics?.subscriberCount) }));
+  const params = new URLSearchParams({ part: 'snippet,statistics', id: ids.slice(0, 50).join(','), fields: 'items(id,snippet(title,thumbnails/default/url),statistics(subscriberCount,hiddenSubscriberCount))' });
+  const data = await request<{
+    items?: { id: string; snippet?: { title?: string; thumbnails?: { default?: { url?: string } } }; statistics?: { subscriberCount?: string; hiddenSubscriberCount?: boolean } }[];
+  }>(auth, 'channels', params);
+  return (data.items ?? []).map((c) => ({
+    id: c.id,
+    title: c.snippet?.title ?? '',
+    subscribers: c.statistics?.hiddenSubscriberCount ? null : num(c.statistics?.subscriberCount),
+    thumbnail: c.snippet?.thumbnails?.default?.url ?? null,
+  }));
 }
 
 /** A channel's recent uploads (about 2 units), for its usual views. Empty if it has none. */

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, CheckCircle2, ChevronDown, ExternalLink, FileText, HelpCircle, Info, Lightbulb, MessageCircle, MessagesSquare, Stethoscope, ThumbsDown, ThumbsUp, TrendingUp, Wrench } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { formatAgo, formatCompact } from '@/components/youtube-doctor/format';
+import { FollowOneChannel } from '@/components/discover/follow-button';
 import { ChannelPatterns } from './channel-patterns';
 import { DescriptionAndTags, Playbook } from './playbook';
 import type { AuditFinding, FindingArea, FindingImpact, FindingKind, PerformanceLabel, ThemeKind, VideoAuditReport } from './types';
@@ -230,8 +231,9 @@ export function AuditReport({ report }: { report: VideoAuditReport }) {
             {video.durationSec && report.format === 'video' ? ` · ${Math.round(video.durationSec / 60)} min` : ''}
             {report.madeForKids && ' · Made for kids'}
           </p>
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <Badge tone={perf.tone}>{perf.label}</Badge>
+            {!report.isOwn && <FollowOneChannel channelId={video.channelId} channelTitle={video.channelTitle} />}
           </div>
           <p className="text-base text-zinc-100">{resultSentence(report)}</p>
           {p.baselineViews !== null && p.label !== 'not_comparable' && (

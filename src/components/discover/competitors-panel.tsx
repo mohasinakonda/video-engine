@@ -1,27 +1,32 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, ExternalLink, Link2, Loader2, Pause, Play, RefreshCw, ScanSearch, Search, Trash2, Users } from 'lucide-react';
+import { AlertCircle, ExternalLink, Link2, Loader2, Pause, Play, RefreshCw, ScanSearch, Search, Trash2, Users, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCompact } from '@/components/youtube-doctor/format';
 import { AddByLink } from './add-by-link';
 import { CompetitorAvatar } from './competitor-avatar';
+import { FindByTopic } from './find-by-topic';
 import { FindCompetitors } from './find-competitors';
+import { NewTag } from './follow-button';
 import { GROUP_INFO, type CompetitorGroup, type DiscoverConfig, type WatchlistEntry } from './types';
 
-type Mode = 'list' | 'find' | 'paste';
+type Mode = 'list' | 'find' | 'paste' | 'topic';
 
-/** Competitors tab: the saved list grouped by type, plus the two ways to add channels. */
+/** Competitors tab: the saved list grouped by type, plus the three ways to add channels. */
 export function CompetitorsPanel({
   userId,
   channelId,
   config,
   onCountChange,
+  onSearchUsed,
 }: {
   userId: string;
   channelId: string;
   config: DiscoverConfig;
   onCountChange?: (activeCount: number) => void;
+  /** After a discovery run, so "searches left today" is current. */
+  onSearchUsed?: () => void;
 }) {
   const [entries, setEntries] = useState<WatchlistEntry[] | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -72,7 +77,7 @@ export function CompetitorsPanel({
     load();
   };
 
-  // First run: two clear ways in, nothing else.
+  // First run: three clear ways in, nothing else.
   if (entries.length === 0 && mode === 'list') {
     return (
       <section className="card space-y-5">
@@ -82,18 +87,31 @@ export function CompetitorsPanel({
             Add 2 or more channels that make videos like yours. We only read their public videos, and they never need to sign in.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button type="button" onClick={() => setMode('find')} className="text-left p-5 rounded-xl border border-bg-border bg-bg-elevated hover:border-emerald-500/50 space-y-1.5">
-            <Search size={20} className="text-emerald-400" />
-            <p className="text-base font-semibold text-white">Find them for me</p>
-            <p className="text-sm text-zinc-400">We search YouTube and suggest channels. Uses {config.costs.discovery} credits.</p>
-          </button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button type="button" onClick={() => setMode('paste')} className="text-left p-5 rounded-xl border border-bg-border bg-bg-elevated hover:border-emerald-500/50 space-y-1.5">
             <Link2 size={20} className="text-sky-400" />
             <p className="text-base font-semibold text-white">I know my competitors</p>
             <p className="text-sm text-zinc-400">Paste their channel links. Free.</p>
           </button>
+          {config.topicSearch && (
+            <button type="button" onClick={() => setMode('topic')} className="text-left p-5 rounded-xl border border-bg-border bg-bg-elevated hover:border-emerald-500/50 space-y-1.5">
+              <Search size={20} className="text-emerald-400" />
+              <p className="text-base font-semibold text-white inline-flex items-center gap-2">
+                Search a topic
+                <NewTag />
+              </p>
+              <p className="text-sm text-zinc-400">See who makes the top videos on your topic, and add them to your competitors. No credits.</p>
+            </button>
+          )}
+          <button type="button" onClick={() => setMode('find')} className="text-left p-5 rounded-xl border border-bg-border bg-bg-elevated hover:border-emerald-500/50 space-y-1.5">
+            <Wand2 size={20} className="text-violet-400" />
+            <p className="text-base font-semibold text-white">Find them for me</p>
+            <p className="text-sm text-zinc-400">We read your channel, search YouTube and suggest channels. Uses {config.costs.discovery} credits.</p>
+          </button>
         </div>
+        <p className="text-sm text-zinc-500">
+          You’ll also see an “Add to competitors” button next to channels in Analyze a link, and “Who made videos on this?” in Create.
+        </p>
       </section>
     );
   }
@@ -111,14 +129,21 @@ export function CompetitorsPanel({
               {activeCount} of {config.maxCompetitors} used in research
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setMode(mode === 'paste' ? 'list' : 'paste')} className={mode === 'paste' ? 'btn-secondary' : 'btn-ghost'}>
               <Link2 size={15} />
               Add by link
             </button>
+            {config.topicSearch && (
+              <button type="button" onClick={() => setMode(mode === 'topic' ? 'list' : 'topic')} className={mode === 'topic' ? 'btn-secondary' : 'btn-ghost'}>
+                <Search size={15} />
+                Search a topic
+                <NewTag />
+              </button>
+            )}
             <button type="button" onClick={() => setMode(mode === 'find' ? 'list' : 'find')} className={mode === 'find' ? 'btn-secondary' : 'btn-ghost'}>
-              <Search size={15} />
-              Find more
+              <Wand2 size={15} />
+              Find for me
             </button>
           </div>
         </div>
@@ -129,9 +154,14 @@ export function CompetitorsPanel({
             {slotsLeft === 0 && <p className="text-sm text-amber-300 mt-2">Your list is full. Remove or pause a channel to add another.</p>}
           </div>
         )}
+        {mode === 'topic' && (
+          <div className="pt-4 border-t border-bg-border">
+            <FindByTopic userId={userId} config={config} slotsLeft={slotsLeft} onFollowed={afterAdd} onSearchUsed={onSearchUsed} />
+          </div>
+        )}
         {mode === 'find' && (
           <div className="pt-4 border-t border-bg-border">
-            <FindCompetitors userId={userId} channelId={channelId} config={config} slotsLeft={slotsLeft} onSaved={afterAdd} />
+            <FindCompetitors userId={userId} channelId={channelId} config={config} slotsLeft={slotsLeft} onSaved={afterAdd} onSearchUsed={onSearchUsed} />
           </div>
         )}
       </section>

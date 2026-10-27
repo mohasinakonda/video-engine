@@ -13,7 +13,7 @@ export interface ComparisonRowItem {
 export const CREATOR_FAQS: CreatorFaqItem[] = [
   {
     q: 'What are Channel Doctor, Discover and Create?',
-    a: 'They are the YouTube growth tools. Channel Doctor reads your own YouTube Analytics and explains why your channel is or isn’t growing. Discover follows your competitors and suggests what to make next. Create turns an idea into a brief, a script, titles and thumbnails, ready for the video maker. You can also analyze any video or channel to see why it works. The comparison table shows which plans include each one, and the growth tools section above shows what each run costs.',
+    a: 'They are the YouTube growth tools. Channel Doctor reads your own YouTube Analytics and explains why your channel is or isn’t growing. Discover tracks your competitors and suggests what to make next. Create turns an idea into a brief, a script, titles and thumbnails, ready for the video maker. You can also analyze any video or channel to see why it works. The comparison table shows which plans include each one, and the growth tools section above shows what each run costs.',
   },
   {
     q: 'Is it safe to connect my YouTube channel?',

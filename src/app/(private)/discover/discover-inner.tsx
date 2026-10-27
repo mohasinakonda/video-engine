@@ -48,6 +48,12 @@ export default function DiscoverInner() {
     load();
   }, [load]);
 
+  // Searches left and the search budget change with every discovery run; refresh them quietly.
+  const reloadConfig = useCallback(async () => {
+    const cfg = await fetch('/api/youtube/discover/config').catch(() => null);
+    if (cfg?.ok) setConfig(await cfg.json());
+  }, []);
+
   const setTab = (id: Tab) => router.replace(`${pathname}?tab=${id}`, { scroll: false });
   const channelId = connection?.connected && connection.connection.status === 'active' ? connection.connection.channelId : null;
 
@@ -134,6 +140,7 @@ export default function DiscoverInner() {
               config={config}
               activeCompetitors={activeCompetitors}
               onCountChange={setActiveCompetitors}
+              onSearchUsed={reloadConfig}
               setTab={setTab}
             />
           </>
@@ -151,6 +158,7 @@ function DiscoverTabs({
   config,
   activeCompetitors,
   onCountChange,
+  onSearchUsed,
   setTab,
 }: {
   tab: Tab;
@@ -159,6 +167,7 @@ function DiscoverTabs({
   config: DiscoverConfig;
   activeCompetitors: number | null;
   onCountChange: (n: number) => void;
+  onSearchUsed: () => void;
   setTab: (t: Tab) => void;
 }) {
   const [period, setPeriod] = useState<ResearchWindow>('90d');
@@ -169,7 +178,7 @@ function DiscoverTabs({
     return (
       <div className="space-y-6">
         {config.audit?.hasAccess && <AnalyzeLink from="competitors" />}
-        <CompetitorsPanel userId={userId} channelId={channelId} config={config} onCountChange={onCountChange} />
+        <CompetitorsPanel userId={userId} channelId={channelId} config={config} onCountChange={onCountChange} onSearchUsed={onSearchUsed} />
       </div>
     );
   }

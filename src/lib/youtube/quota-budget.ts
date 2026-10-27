@@ -17,6 +17,8 @@ export class QuotaBudgetError extends Error {
 
 export const SEARCH_BUCKET = 'search';
 export const userDiscoveryBucket = (userId: string) => `discovery:user:${userId}`;
+/** Topic searches, shared by Create's "Who made videos on this?" and Discover's channel search. */
+export const userTopicSearchBucket = (userId: string) => `topic-search:user:${userId}`;
 
 /** Reserves `amount` from a bucket. Returns false when that would pass `limit`. */
 export async function consumeQuota(bucket: string, amount: number, limit: number): Promise<boolean> {

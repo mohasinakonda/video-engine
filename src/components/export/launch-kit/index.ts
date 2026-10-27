@@ -4,7 +4,6 @@ export * from './components/copy-button';
 export * from './sections/script-input-card';
 export * from './sections/error-banner';
 export * from './sections/empty-state';
-export * from './sections/competitor-research-card';
 export * from './sections/feed-mockup-card';
 export * from './sections/title-lab-card';
 export * from './sections/thumbnail-studio-card';

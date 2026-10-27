@@ -111,7 +111,8 @@ export function ScriptEditor({
     } catch {
       // Storage blocked or full: the tool still opens, and Copy still works.
     }
-    router.push(to === 'voice' ? '/voice-studio' : '/project/new');
+    window.open(to === 'voice' ? '/voice-studio' : '/project/new', "_blank")
+    // router.push(to === 'voice' ? '/voice-studio' : '/project/new');
   };
 
   return (

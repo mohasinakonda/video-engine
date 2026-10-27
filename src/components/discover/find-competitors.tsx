@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, ExternalLink, Loader2, RefreshCw, Search, Wand2 } from 'lucide-react';
 import { reportKey } from '@/lib/channel-doctor-storage';
+import { RerunConfirm, isFresh } from './rerun-confirm';
 import { ProgressSteps, type ProgressStep } from '@/components/youtube-doctor/progress-steps';
 import { useAnalysisStream } from '@/components/youtube-doctor/use-diagnosis';
 import { StreamError } from './stream-error';
@@ -30,10 +31,12 @@ interface FindCompetitorsProps {
   config: DiscoverConfig;
   slotsLeft: number;
   onSaved: () => void;
+  /** Called when a run ends (done, refused or failed), since it may have used a search. */
+  onSearchUsed?: () => void;
 }
 
 /** Search-based discovery: editable phrases, real progress, then pick the channels to keep. */
-export function FindCompetitors({ userId, channelId, config, slotsLeft, onSaved }: FindCompetitorsProps) {
+export function FindCompetitors({ userId, channelId, config, slotsLeft, onSaved, onSearchUsed }: FindCompetitorsProps) {
   const [queries, setQueries] = useState<string[]>(() => Array(config.search.phrasesPerRun).fill(''));
   const [suggesting, setSuggesting] = useState(false);
   const cleanQueries = queries.map((q) => q.trim()).filter(Boolean);
@@ -42,6 +45,23 @@ export function FindCompetitors({ userId, channelId, config, slotsLeft, onSaved 
     reportKey(userId, channelId, 'discovery'),
     { queries: cleanQueries }
   );
+
+  // The page's "searches left today" was read when it opened; refresh it whenever a run ends.
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !discovery.running) onSearchUsed?.();
+    wasRunning.current = discovery.running;
+  }, [discovery.running, onSearchUsed]);
+
+  const [confirming, setConfirming] = useState(false);
+  // The same phrases as the results on screen (the server runs them lowercased, up to the admin limit).
+  const shownQueries = new Set(discovery.saved?.result.queries ?? []);
+  const toRun = Array.from(new Set(cleanQueries.map((q) => q.toLowerCase()))).slice(0, config.search.phrasesPerRun);
+  const sameAsShown = toRun.length > 0 && toRun.length === shownQueries.size && toRun.every((q) => shownQueries.has(q));
+  const start = () => {
+    if (discovery.saved && sameAsShown && isFresh(discovery.saved.analyzedAt)) setConfirming(true);
+    else discovery.run();
+  };
 
   const suggest = async () => {
     setSuggesting(true);
@@ -101,8 +121,8 @@ export function FindCompetitors({ userId, channelId, config, slotsLeft, onSaved 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <button
           type="button"
-          onClick={discovery.run}
-          disabled={cleanQueries.length === 0 || !config.search.available}
+          onClick={start}
+          disabled={cleanQueries.length === 0 || !config.search.available || confirming}
           className="btn-primary px-6 py-3 text-base font-semibold"
         >
           {discovery.saved ? <RefreshCw size={18} /> : <Search size={18} />}
@@ -113,6 +133,18 @@ export function FindCompetitors({ userId, channelId, config, slotsLeft, onSaved 
           {config.search.available && ` · ${config.search.userRunsLeft} search${config.search.userRunsLeft === 1 ? '' : 'es'} left today`}
         </p>
       </div>
+
+      {confirming && discovery.saved && (
+        <RerunConfirm
+          analyzedAt={discovery.saved.analyzedAt}
+          cost={`${config.costs.discovery} credits and one of today’s searches`}
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => {
+            setConfirming(false);
+            discovery.run();
+          }}
+        />
+      )}
 
       {!config.search.available && (
         <p className="text-sm text-amber-200 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">

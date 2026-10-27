@@ -37,7 +37,7 @@ export const addCompetitorsSchema = z.union([
 
 export class WatchlistLimitError extends Error {
   constructor(public max: number) {
-    super(`You can follow up to ${max} competitors. Remove or pause one first.`);
+    super(`You can have up to ${max} competitors. Remove or pause one first.`);
   }
 }
 
