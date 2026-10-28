@@ -152,11 +152,18 @@ export async function deleteMediaBlob(key: string): Promise<void> {
   }
 }
 
+/** How long to wait for the browser's metadata before measuring the file another way. */
+const METADATA_TIMEOUT_MS = 4000;
+
 /**
  * Accurately determines audio duration (in seconds) for any audio Blob/File
  * using HTML5 Audio element with fallback to Web Audio API AudioContext.
  */
 export async function getAudioDuration(blob: Blob | File): Promise<number> {
+  // WAV (what the voice engine returns) states its length in the header: no media element,
+  // so it works the same in a background tab.
+  const wav = await wavDurationSec(blob).catch(() => null);
+  if (wav) return wav;
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined') {
       resolve(0);
@@ -167,27 +174,51 @@ export async function getAudioDuration(blob: Blob | File): Promise<number> {
     const audio = new Audio();
     audio.preload = 'metadata';
 
-    const cleanUp = () => {
+    // Browsers sometimes fire neither event (a background tab, deferred media loading), which
+    // left callers waiting forever at 100%. Settle exactly once, decoding the file as a fallback.
+    let settled = false;
+    const settle = (duration: Promise<number>) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      audio.onloadedmetadata = null;
+      audio.onerror = null;
+      audio.removeAttribute('src');
       URL.revokeObjectURL(url);
+      duration.then(resolve, reject);
     };
+    const timer = setTimeout(() => settle(decodeViaAudioContext(blob)), METADATA_TIMEOUT_MS);
 
     audio.onloadedmetadata = () => {
       const dur = audio.duration;
-      cleanUp();
-      if (typeof dur === 'number' && !isNaN(dur) && isFinite(dur) && dur > 0) {
-        resolve(dur);
-      } else {
-        decodeViaAudioContext(blob).then(resolve).catch(reject);
-      }
+      settle(typeof dur === 'number' && !isNaN(dur) && isFinite(dur) && dur > 0 ? Promise.resolve(dur) : decodeViaAudioContext(blob));
     };
 
-    audio.onerror = () => {
-      cleanUp();
-      decodeViaAudioContext(blob).then(resolve).catch(reject);
-    };
+    audio.onerror = () => settle(decodeViaAudioContext(blob));
 
     audio.src = url;
   });
+}
+
+/** A WAV file's length from its header (byte rate and data size), or null if it isn't a WAV. */
+export async function wavDurationSec(blob: Blob): Promise<number | null> {
+  const head = new DataView(await blob.slice(0, 4096).arrayBuffer());
+  const tag = (at: number) => String.fromCharCode(head.getUint8(at), head.getUint8(at + 1), head.getUint8(at + 2), head.getUint8(at + 3));
+  if (head.byteLength < 12 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
+  let byteRate = 0;
+  for (let at = 12; at + 8 <= head.byteLength; ) {
+    const id = tag(at);
+    const size = head.getUint32(at + 4, true);
+    if (id === 'fmt ' && at + 20 <= head.byteLength) byteRate = head.getUint32(at + 16, true);
+    if (id === 'data') {
+      if (!byteRate) return null;
+      // Streamed WAVs leave the size unset; then the rest of the file is the audio.
+      const bytes = size === 0 || size === 0xffffffff ? blob.size - (at + 8) : Math.min(size, blob.size - (at + 8));
+      return bytes > 0 ? bytes / byteRate : null;
+    }
+    at += 8 + size + (size % 2);
+  }
+  return null;
 }
 
 async function decodeViaAudioContext(blob: Blob | File): Promise<number> {

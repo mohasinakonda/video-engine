@@ -157,6 +157,34 @@ async function keepAwake(): Promise<() => void> {
   };
 }
 
+/**
+ * Lets the browser breathe between frames. In a background tab setTimeout is slowed to once a
+ * second (once a minute after 5 minutes), which nearly stopped renders; message tasks aren't slowed.
+ */
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+}
+
+/** Waits until an encoder's queue is at most `max`, on its own dequeue event where supported. */
+async function waitForEncoder(encoder: VideoEncoder | AudioEncoder, max: number): Promise<void> {
+  // A closed encoder (it failed) never dequeues again; the timer is a safety net.
+  while (encoder.state !== 'closed' && encoder.encodeQueueSize > max) {
+    await ('ondequeue' in encoder
+      ? new Promise<void>((resolve) => {
+          encoder.addEventListener('dequeue', () => resolve(), { once: true });
+          setTimeout(resolve, 250);
+        })
+      : yieldToBrowser());
+  }
+}
+
 function videoFileName(projectTitle: string, resolution: string): string {
   return `${(projectTitle || 'video').replace(/[^a-zA-Z0-9_-]/g, '_')}_${resolution}.mp4`;
 }
@@ -413,9 +441,23 @@ export class ExportEngine {
             frame: msg.frame,
             totalFrames,
             etaSeconds: framesPerSec > 0 ? Math.round((totalFrames - msg.frame) / framesPerSec) : 0,
-            currentStepMessage: `Encoding ${fmt(msg.frame / job.fps)} / ${fmt(totalFrames / job.fps)} (${pct}%)...`,
+            currentStepMessage:
+              msg.frame >= totalFrames
+                ? 'Finishing the video: encoding the last frames...'
+                : `Encoding ${fmt(msg.frame / job.fps)} / ${fmt(totalFrames / job.fps)} (${pct}%)...`,
           });
         } else if (msg.type === 'done') {
+          // Closing a large file can take a while (the browser moves it into place and scans it),
+          // so say so rather than sitting silently at 99%.
+          onProgress({
+            stage: 'final_render',
+            percentage: 99,
+            fps: 0,
+            frame: totalFrames,
+            totalFrames,
+            etaSeconds: 0,
+            currentStepMessage: saveFile ? 'Saving the video file... large videos can take a minute.' : 'Preparing your download...',
+          });
           writes
             .then(() => sink!.finish())
             .then((url) => finish(() => resolve(url)), fail);
@@ -1011,9 +1053,7 @@ export class ExportEngine {
               audioData.close();
               frameOffset += curFrames;
 
-              if (audioEncoder.encodeQueueSize > 30) {
-                await new Promise((r) => setTimeout(r, 5));
-              }
+              await waitForEncoder(audioEncoder, 30);
             }
 
             await audioEncoder.flush();
@@ -1042,14 +1082,10 @@ export class ExportEngine {
           vFrame.close();
 
           // Yield to browser main thread every N frames — keeps tab responsive
-          if (f % YIELD_EVERY_FRAMES === 0) {
-            await new Promise((r) => setTimeout(r, 0));
-          }
+          if (f % YIELD_EVERY_FRAMES === 0) await yieldToBrowser();
 
           // Back-pressure: pause if encoder falls behind
-          if (videoEncoder.encodeQueueSize > 20) {
-            await new Promise((r) => setTimeout(r, 5));
-          }
+          await waitForEncoder(videoEncoder, 20);
 
           // Progress update every 30 frames (1s of video)
           if (f % 30 === 0 || f === totalFrames - 1) {
