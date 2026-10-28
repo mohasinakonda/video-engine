@@ -71,7 +71,32 @@ function post(message: WorkerOutMessage, transfer?: Transferable[]) {
   scope.postMessage(message, transfer);
 }
 
-const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Lets other messages (cancel) through. A message task, not setTimeout: timers can be slowed
+ * down while the tab is in the background.
+ */
+const yieldNow = () =>
+  new Promise<void>((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      channel.port1.close();
+      resolve();
+    };
+    channel.port2.postMessage(null);
+  });
+
+/** Waits until an encoder's queue is at most `max`, on its own dequeue event where supported. */
+async function waitForEncoder(encoder: VideoEncoder | AudioEncoder, max: number) {
+  // A closed encoder (it failed) never dequeues again; the timer is a safety net.
+  while (encoder.state !== 'closed' && encoder.encodeQueueSize > max) {
+    await ('ondequeue' in encoder
+      ? new Promise<void>((resolve) => {
+          encoder.addEventListener('dequeue', () => resolve(), { once: true });
+          setTimeout(resolve, 250);
+        })
+      : yieldNow());
+  }
+}
 
 class CancelledError extends Error {}
 
@@ -216,7 +241,7 @@ async function encodeAudio(muxer: Muxer<StreamTarget>, audio: { left: Float32Arr
     encoder.encode(data);
     data.close();
     offset += frames;
-    if (encoder.encodeQueueSize > 30) await pause(5);
+    await waitForEncoder(encoder, 30);
   }
   await encoder.flush();
   encoder.close();
@@ -289,9 +314,9 @@ async function renderClips(job: WorkerClipsMessage) {
           });
           encoder.encode(frame, { keyFrame: (f - first) % keyFrameEvery === 0 });
           frame.close();
-          while (encoder.encodeQueueSize > MAX_VIDEO_QUEUE) await pause(2);
+          await waitForEncoder(encoder, MAX_VIDEO_QUEUE);
           framesDone++;
-          if (framesDone % YIELD_EVERY_FRAMES === 0) await pause(0);
+          if (framesDone % YIELD_EVERY_FRAMES === 0) await yieldNow();
           if (framesDone % PROGRESS_EVERY_FRAMES === 0) post({ type: 'progress', frame: framesDone });
         }
         await encoder.flush();
@@ -374,9 +399,9 @@ async function render(job: WorkerStartMessage) {
       frame.close();
 
       // Back-pressure: wait for the encoder instead of queuing frames in memory.
-      while (videoEncoder.encodeQueueSize > MAX_VIDEO_QUEUE) await pause(2);
+      await waitForEncoder(videoEncoder, MAX_VIDEO_QUEUE);
       // Let the cancel message through.
-      if (f % YIELD_EVERY_FRAMES === 0) await pause(0);
+      if (f % YIELD_EVERY_FRAMES === 0) await yieldNow();
       if (f % PROGRESS_EVERY_FRAMES === 0 || f === job.totalFrames - 1) post({ type: 'progress', frame: f + 1 });
     }
 
