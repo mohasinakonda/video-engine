@@ -6,7 +6,7 @@ function wav(seconds: number, { sampleRate = 24000, dataSize, extraChunk = false
   const pcmBytes = Math.round(seconds * sampleRate * 2);
   const extra = extraChunk ? 8 + 4 : 0;
   const view = new DataView(new ArrayBuffer(44 + extra));
-  const text = (at: number, s: string) => [...s].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
+  const text = (at: number, s: string) => Array.from(s).forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
   text(0, 'RIFF');
   view.setUint32(4, 36 + extra + pcmBytes, true);
   text(8, 'WAVE');

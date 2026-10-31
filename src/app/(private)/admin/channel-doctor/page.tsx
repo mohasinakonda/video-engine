@@ -593,15 +593,28 @@ function NumberField({
   max: number;
   onChange: (value: number) => void;
 }) {
+  // Clamping on every keystroke made the field impossible to edit (clearing it snapped to the
+  // minimum, typing next to a digit snapped to the maximum), so the text is kept as typed and
+  // the number is clamped when the field loses focus.
+  const [draft, setDraft] = useState<string | null>(null);
+  const clamp = (n: number) => Math.min(max, Math.max(min, Math.floor(n)));
   return (
     <label className="block">
       <span className="block text-xs font-semibold text-zinc-300 mb-1">{label}</span>
       <input
         type="number"
-        value={value}
+        value={draft ?? value}
         min={min}
         max={max}
-        onChange={(e) => onChange(Math.min(max, Math.max(min, Math.floor(Number(e.target.value) || 0))))}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const n = Number(e.target.value);
+          if (e.target.value !== '' && Number.isFinite(n) && n >= min && n <= max) onChange(clamp(n));
+        }}
+        onBlur={() => {
+          if (draft !== null) onChange(clamp(Number(draft) || 0));
+          setDraft(null);
+        }}
         className="input text-sm font-mono"
       />
       <span className="block text-[11px] text-zinc-500 mt-1">
