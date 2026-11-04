@@ -11,7 +11,7 @@ export async function GET() {
   if ('response' in auth) return auth.response;
 
   const settings = await getChannelDoctorSettings();
-  const { tier, hasAccess } = await getUserAccess(auth.user.id, settings);
+  const { tier, hasAccess, isAdmin } = await getUserAccess(auth.user.id, settings);
   // Trial users can run their free diagnoses; paid plans pay per run as usual.
   const freeLeft = !hasAccess && tier === 'TRIAL' && settings.enabled ? await freeDiagnosesLeft(auth.user.id, settings.trialFreeDiagnoses) : 0;
 
@@ -23,5 +23,8 @@ export async function GET() {
     diagnosisCost: settings.diagnosisCreditCost,
     videoCost: settings.videoAnalysisCreditCost,
     freeDiagnosesLeft: freeLeft,
+    // Admins can test it while it is off for users.
+    viewsCheckEnabled: settings.viewsCheck.enabled || isAdmin,
+    viewsCheckCost: settings.viewsCheck.creditCost,
   });
 }

@@ -33,8 +33,36 @@ interface Settings {
   discover: DiscoverSettings;
   create: CreateSettings;
   audit: AuditSettings;
+  viewsCheck: ViewsCheckSettings;
   updatedAt: string | null;
 }
+
+interface ViewsCheckSettings {
+  enabled: boolean;
+  creditCost: number;
+  runsPerUserDay: number;
+  maxVideos: number;
+  maxDeepDives: number;
+  keywordsEnabled: boolean;
+  keywordCreditCost: number;
+  keywordsPerRun: number;
+  keywordRunsPerUserDay: number;
+}
+
+type ViewsNumberKey = Exclude<keyof ViewsCheckSettings, 'enabled' | 'keywordsEnabled'>;
+
+const VIEWS_FIELDS: { key: ViewsNumberKey; label: string; hint: string; min: number; max: number }[] = [
+  { key: 'creditCost', label: 'Views check (credits)', hint: 'Refunded if it fails', min: 0, max: 1000 },
+  { key: 'runsPerUserDay', label: 'Views checks per user per day', hint: 'Protects the YouTube quota', min: 1, max: 100 },
+  { key: 'maxVideos', label: 'Recent uploads read', hint: 'About 1 unit per 50', min: 5, max: 50 },
+  { key: 'maxDeepDives', label: 'Videos looked at in depth', hint: '3 Analytics calls each', min: 0, max: 20 },
+];
+
+const KEYWORD_FIELDS: { key: ViewsNumberKey; label: string; hint: string; min: number; max: number }[] = [
+  { key: 'keywordCreditCost', label: 'Keyword check (credits)', hint: 'Refunded if it fails', min: 0, max: 1000 },
+  { key: 'keywordsPerRun', label: 'Keywords per check', hint: '1 search call each, from the shared daily budget', min: 1, max: 5 },
+  { key: 'keywordRunsPerUserDay', label: 'Keyword checks per user per day', hint: 'Search calls are scarce', min: 1, max: 20 },
+];
 
 interface AuditSettings {
   enabled: boolean;
@@ -175,6 +203,8 @@ export default function AdminChannelDoctorPage() {
   const toggleCreatePlan = (plan: string) => settings && updateCreate('allowedPlans', toggle(settings.create.allowedPlans, plan));
   const updateAudit = <K extends keyof AuditSettings>(key: K, value: AuditSettings[K]) =>
     setSettings((prev) => (prev ? { ...prev, audit: { ...prev.audit, [key]: value } } : prev));
+  const updateViews = <K extends keyof ViewsCheckSettings>(key: K, value: ViewsCheckSettings[K]) =>
+    setSettings((prev) => (prev ? { ...prev, viewsCheck: { ...prev.viewsCheck, [key]: value } } : prev));
 
   const save = async () => {
     if (!settings) return;
@@ -313,6 +343,8 @@ export default function AdminChannelDoctorPage() {
             <CreateSection create={settings.create} update={updateCreate} togglePlan={toggleCreatePlan} />
 
             <AuditSection audit={settings.audit} update={updateAudit} />
+
+            <ViewsCheckSection views={settings.viewsCheck} update={updateViews} />
 
             {settings.updatedAt && (
               <p className="text-xs text-zinc-500">Last saved {new Date(settings.updatedAt).toLocaleString()}</p>
@@ -574,6 +606,46 @@ function AuditSection({ audit, update }: { audit: AuditSettings; update: <K exte
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ViewsCheckSection({
+  views,
+  update,
+}: {
+  views: ViewsCheckSettings;
+  update: <K extends keyof ViewsCheckSettings>(key: K, value: ViewsCheckSettings[K]) => void;
+}) {
+  const toggles: { key: 'enabled' | 'keywordsEnabled'; label: string; hint: string; fields: typeof VIEWS_FIELDS }[] = [
+    { key: 'enabled', label: 'Views check enabled', hint: 'Why videos get 0 views and why Shorts stop. Admins can use it while it is off.', fields: VIEWS_FIELDS },
+    { key: 'keywordsEnabled', label: 'Keyword check enabled', hint: 'Competition on a topic, from YouTube search. Uses the shared search budget.', fields: KEYWORD_FIELDS },
+  ];
+  return (
+    <div className="space-y-6 pt-6 border-t border-bg-border">
+      <div>
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <ScanSearch size={18} className="text-sky-300" />
+          Views check and keywords
+        </h2>
+        <p className="text-xs text-zinc-400">Tabs inside Channel Doctor. Follows Channel Doctor’s plans.</p>
+      </div>
+      {toggles.map((t) => (
+        <section key={t.key} className="card space-y-4">
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span>
+              <span className="block text-sm font-semibold text-white">{t.label}</span>
+              <span className="block text-xs text-zinc-400">{t.hint}</span>
+            </span>
+            <input type="checkbox" checked={views[t.key]} onChange={(e) => update(t.key, e.target.checked)} className="w-5 h-5 accent-emerald-500" />
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-bg-border">
+            {t.fields.map((f) => (
+              <NumberField key={f.key} label={f.label} hint={f.hint} value={views[f.key]} min={f.min} max={f.max} onChange={(v) => update(f.key, v)} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
