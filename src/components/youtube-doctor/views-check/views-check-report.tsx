@@ -288,7 +288,7 @@ function VideoTable({ videos, timelines, analyzedAt }: { videos: VideoFinding[];
         <span>Video</span>
         <span className="text-right">Views</span>
         <span>Reason</span>
-        <span className="text-right">Swiped*</span>
+        <span className="text-right">Swiped</span>
         <span className="text-right">Viewed</span>
         <span className="text-right">First 2 days</span>
         <span>Views per day</span>
@@ -308,14 +308,13 @@ function VideoTable({ videos, timelines, analyzedAt }: { videos: VideoFinding[];
         ))}
       </ul>
 
-      <div className="flex flex-wrap justify-between gap-2 border-t border-bg-border px-5 py-3 text-xs text-zinc-400">
-        <span>* Swiped away is an estimate: 1 − engaged views ÷ views. Studio’s “Viewed vs swiped away” is exact.</span>
-        {shown.length > limit && (
+      {shown.length > limit && (
+        <div className="flex justify-end border-t border-bg-border px-5 py-3 text-xs">
           <button type="button" onClick={() => setLimit(limit + PAGE * 3)} className="font-semibold text-emerald-300 hover:text-emerald-200">
             Show {Math.min(shown.length - limit, PAGE * 3)} more
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -363,7 +362,7 @@ function VideoRow({
           <span className="text-[15px] font-bold text-white tabular-nums">{num(video.lifetimeViews)}</span>
         </span>
         <span className={`justify-self-start whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${cause.pill}`}>{cause.label}</span>
-        <Cell label="Swiped*" value={pct(swipe)} level={levelOf('swipeAway', swipe)} />
+        <Cell label="Swiped" value={pct(swipe)} level={levelOf('swipeAway', swipe)} />
         <Cell label="Viewed" value={video.avgViewPct === null ? '—' : `${Math.round(video.avgViewPct)}%`} level={levelOf('avgViewPct', video.avgViewPct)} />
         <Cell label="First 2 days" value={pct(first)} level={levelOf('firstDaysShare', first)} />
         <Sparkline daily={timeline?.daily ?? []} color={cause.color} />
