@@ -22,6 +22,7 @@ export interface ChannelDoctorSettings {
   create: CreateSettings;
   audit: AuditSettings;
   viewsCheck: ViewsCheckSettings;
+  viralEngine: ViralEngineSettings;
   updatedAt: string | null;
 }
 
@@ -51,6 +52,28 @@ export const DEFAULT_VIEWS_CHECK_SETTINGS: ViewsCheckSettings = {
   keywordCreditCost: 5,
   keywordsPerRun: 3,
   keywordRunsPerUserDay: 2,
+};
+
+/** Admin-controlled Viral Engine: frame-by-frame Shorts analysis (docs/viral-engine-plan.md). Follows Channel Doctor's plans. */
+export interface ViralEngineSettings {
+  enabled: boolean;
+  creditCost: number;
+  runsPerUserDay: number;
+  /** Longest Short accepted, in seconds. */
+  maxDurationSec: number;
+  /** Frames from the body of the video sent to the vision model (the opening is sent separately). */
+  maxBodyFrames: number;
+  /** The channel's recent Shorts read for "your usual Short". */
+  maxBaselineShorts: number;
+}
+
+export const DEFAULT_VIRAL_ENGINE_SETTINGS: ViralEngineSettings = {
+  enabled: false,
+  creditCost: 10,
+  runsPerUserDay: 5,
+  maxDurationSec: 180,
+  maxBodyFrames: 36,
+  maxBaselineShorts: 8,
 };
 
 /** Admin-controlled Audit settings (docs/audit-plan.md §7). Access follows Discover's plans. */
@@ -190,6 +213,7 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   create: DEFAULT_CREATE_SETTINGS,
   audit: DEFAULT_AUDIT_SETTINGS,
   viewsCheck: DEFAULT_VIEWS_CHECK_SETTINGS,
+  viralEngine: DEFAULT_VIRAL_ENGINE_SETTINGS,
   updatedAt: null,
 };
 
@@ -254,6 +278,15 @@ export const auditSettingsSchema = z.object({
   maxThumbnails: z.number().int().min(0).max(20),
 });
 
+export const viralEngineSettingsSchema = z.object({
+  enabled: z.boolean(),
+  creditCost: credit,
+  runsPerUserDay: z.number().int().min(1).max(100),
+  maxDurationSec: z.number().int().min(15).max(180),
+  maxBodyFrames: z.number().int().min(9).max(45),
+  maxBaselineShorts: z.number().int().min(0).max(15),
+});
+
 export const viewsCheckSettingsSchema = z.object({
   enabled: z.boolean(),
   creditCost: credit,
@@ -284,6 +317,7 @@ export const settingsUpdateSchema = z.object({
   audit: auditSettingsSchema,
   /** Optional so an older admin page can still save the rest. */
   viewsCheck: viewsCheckSettingsSchema.optional(),
+  viralEngine: viralEngineSettingsSchema.optional(),
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
@@ -307,6 +341,7 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     create: readCreate(data),
     audit: readAudit(data),
     viewsCheck: readViewsCheck(data),
+    viralEngine: readViralEngine(data),
     updatedAt: data.updated_at,
   };
 }
@@ -324,6 +359,19 @@ function readViewsCheck(data: Record<string, any>): ViewsCheckSettings {
     keywordCreditCost: data.keyword_check_credit_cost ?? d.keywordCreditCost,
     keywordsPerRun: data.keyword_check_keywords_per_run ?? d.keywordsPerRun,
     keywordRunsPerUserDay: data.keyword_check_runs_per_user_day ?? d.keywordRunsPerUserDay,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readViralEngine(data: Record<string, any>): ViralEngineSettings {
+  const d = DEFAULT_VIRAL_ENGINE_SETTINGS;
+  return {
+    enabled: data.viral_engine_enabled ?? d.enabled,
+    creditCost: data.viral_engine_credit_cost ?? d.creditCost,
+    runsPerUserDay: data.viral_engine_runs_per_user_day ?? d.runsPerUserDay,
+    maxDurationSec: data.viral_engine_max_duration_sec ?? d.maxDurationSec,
+    maxBodyFrames: data.viral_engine_max_body_frames ?? d.maxBodyFrames,
+    maxBaselineShorts: data.viral_engine_max_baseline_shorts ?? d.maxBaselineShorts,
   };
 }
 
@@ -449,6 +497,14 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
         keyword_check_keywords_per_run: update.viewsCheck.keywordsPerRun,
         keyword_check_runs_per_user_day: update.viewsCheck.keywordRunsPerUserDay,
       }),
+      ...(update.viralEngine && {
+        viral_engine_enabled: update.viralEngine.enabled,
+        viral_engine_credit_cost: update.viralEngine.creditCost,
+        viral_engine_runs_per_user_day: update.viralEngine.runsPerUserDay,
+        viral_engine_max_duration_sec: update.viralEngine.maxDurationSec,
+        viral_engine_max_body_frames: update.viralEngine.maxBodyFrames,
+        viral_engine_max_baseline_shorts: update.viralEngine.maxBaselineShorts,
+      }),
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(`Could not save settings (${error.code})`);
@@ -483,6 +539,8 @@ export async function getUserAccess(userId: string, settings: ChannelDoctorSetti
     hasCreateAccess: isAdmin || (settings.create.enabled && settings.create.allowedPlans.includes(tier)),
     // The audit lives in Discover, so it follows Discover's plans and needs its own switch too.
     hasAuditAccess: isAdmin || (settings.audit.enabled && settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
+    // Viral Engine follows Channel Doctor's plans; admins can test it while it is off.
+    hasViralAccess: isAdmin || (settings.viralEngine.enabled && settings.allowedPlans.includes(tier)),
   };
 }
 

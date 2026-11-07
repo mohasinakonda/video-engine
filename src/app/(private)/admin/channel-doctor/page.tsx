@@ -11,6 +11,7 @@ import {
   Compass,
   PenLine,
   ScanSearch,
+  Rocket,
   Save,
   Stethoscope,
   Trash2,
@@ -34,8 +35,26 @@ interface Settings {
   create: CreateSettings;
   audit: AuditSettings;
   viewsCheck: ViewsCheckSettings;
+  viralEngine: ViralEngineSettings;
   updatedAt: string | null;
 }
+
+interface ViralEngineSettings {
+  enabled: boolean;
+  creditCost: number;
+  runsPerUserDay: number;
+  maxDurationSec: number;
+  maxBodyFrames: number;
+  maxBaselineShorts: number;
+}
+
+const VIRAL_FIELDS: { key: Exclude<keyof ViralEngineSettings, 'enabled'>; label: string; hint: string; min: number; max: number }[] = [
+  { key: 'creditCost', label: 'Viral Engine check (credits)', hint: 'Refunded if it fails', min: 0, max: 1000 },
+  { key: 'runsPerUserDay', label: 'Checks per user per day', hint: 'Each run is ~6 vision calls', min: 1, max: 100 },
+  { key: 'maxDurationSec', label: 'Longest Short (seconds)', hint: 'YouTube allows up to 180', min: 15, max: 180 },
+  { key: 'maxBodyFrames', label: 'Frames sent to the vision model', hint: 'Plus 6 opening frames; 9 per call', min: 9, max: 45 },
+  { key: 'maxBaselineShorts', label: 'Recent Shorts for “your usual Short”', hint: '1 Analytics call each', min: 0, max: 15 },
+];
 
 interface ViewsCheckSettings {
   enabled: boolean;
@@ -205,6 +224,8 @@ export default function AdminChannelDoctorPage() {
     setSettings((prev) => (prev ? { ...prev, audit: { ...prev.audit, [key]: value } } : prev));
   const updateViews = <K extends keyof ViewsCheckSettings>(key: K, value: ViewsCheckSettings[K]) =>
     setSettings((prev) => (prev ? { ...prev, viewsCheck: { ...prev.viewsCheck, [key]: value } } : prev));
+  const updateViral = <K extends keyof ViralEngineSettings>(key: K, value: ViralEngineSettings[K]) =>
+    setSettings((prev) => (prev ? { ...prev, viralEngine: { ...prev.viralEngine, [key]: value } } : prev));
 
   const save = async () => {
     if (!settings) return;
@@ -345,6 +366,8 @@ export default function AdminChannelDoctorPage() {
             <AuditSection audit={settings.audit} update={updateAudit} />
 
             <ViewsCheckSection views={settings.viewsCheck} update={updateViews} />
+
+            <ViralEngineSection viral={settings.viralEngine} update={updateViral} />
 
             {settings.updatedAt && (
               <p className="text-xs text-zinc-500">Last saved {new Date(settings.updatedAt).toLocaleString()}</p>
@@ -646,6 +669,40 @@ function ViewsCheckSection({
           </div>
         </section>
       ))}
+    </div>
+  );
+}
+
+function ViralEngineSection({
+  viral,
+  update,
+}: {
+  viral: ViralEngineSettings;
+  update: <K extends keyof ViralEngineSettings>(key: K, value: ViralEngineSettings[K]) => void;
+}) {
+  return (
+    <div className="space-y-6 pt-6 border-t border-bg-border">
+      <div>
+        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <Rocket size={18} className="text-emerald-300" />
+          Viral Engine
+        </h2>
+        <p className="text-xs text-zinc-400">Frame-by-frame Shorts check, its own page. Follows Channel Doctor’s plans. Nothing is stored.</p>
+      </div>
+      <section className="card space-y-4">
+        <label className="flex items-center justify-between gap-4 cursor-pointer">
+          <span>
+            <span className="block text-sm font-semibold text-white">Viral Engine enabled</span>
+            <span className="block text-xs text-zinc-400">Shows the page in the sidebar. Admins can use it while it is off.</span>
+          </span>
+          <input type="checkbox" checked={viral.enabled} onChange={(e) => update('enabled', e.target.checked)} className="w-5 h-5 accent-emerald-500" />
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-bg-border">
+          {VIRAL_FIELDS.map((f) => (
+            <NumberField key={f.key} label={f.label} hint={f.hint} value={viral[f.key]} min={f.min} max={f.max} onChange={(v) => update(f.key, v)} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

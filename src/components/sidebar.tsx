@@ -23,6 +23,7 @@ import {
   Stethoscope,
   Compass,
   PenLine,
+  Rocket,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
@@ -34,6 +35,7 @@ const navItems = [
   { href: '/voice-studio', label: 'Voice Studio', icon: AudioLines },
   { href: '/youtube-kit-studio', label: 'YouTube Kit Studio', icon: Flame },
   { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
+  { href: '/viral-engine', label: 'Viral Engine', icon: Rocket },
   { href: '/discover', label: 'Discover', icon: Compass },
   { href: '/create', label: 'Create', icon: PenLine },
   // { href: '/settings', label: 'Settings', icon: Settings },
@@ -51,6 +53,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const [hovered, setHovered] = useState(false);
   const [discoverOn, setDiscoverOn] = useState(false);
   const [createOn, setCreateOn] = useState(false);
+  const [viralOn, setViralOn] = useState(false);
   useEffect(() => {
     if (!isLoggedIn) return;
     const enabled = (url: string) =>
@@ -60,10 +63,14 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         .catch(() => false);
     enabled('/api/youtube/discover/config').then(setDiscoverOn);
     enabled('/api/create/config').then(setCreateOn);
+    enabled('/api/viral-engine/config').then(setViralOn);
   }, [isLoggedIn]);
-  // Discover and Create are listed once the admin switches them on (admins always see them, to test).
+  // Discover, Create and Viral Engine are listed once the admin switches them on (admins always see them, to test).
   const showItem = (href: string) =>
-    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && (href !== '/create' || isAdmin || createOn);
+    (href !== '/admin' || isAdmin) &&
+    (href !== '/discover' || isAdmin || discoverOn) &&
+    (href !== '/create' || isAdmin || createOn) &&
+    (href !== '/viral-engine' || isAdmin || viralOn);
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
