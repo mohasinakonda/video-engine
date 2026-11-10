@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { levelOf } from './levels';
+import { levelOf, swipeTier } from './levels';
 
 describe('levelOf', () => {
   it('grades a number where higher is worse', () => {
-    expect([0.49, 0.5, 0.6, 0.7].map((v) => levelOf('swipeAway', v))).toEqual(['ok', 'warning', 'error', 'critical']);
+    expect([0.3, 0.35, 0.45, 0.6].map((v) => levelOf('swipeAway', v))).toEqual(['ok', 'warning', 'error', 'critical']);
+  });
+
+  it('names the swipe-away tier', () => {
+    expect([0.18, 0.2, 0.28, 0.38, 0.44, 0.45, null].map(swipeTier)).toEqual(['Viral level', 'Viral level', 'Good', 'Average', 'Average', 'Poor', null]);
   });
 
   it('grades a number where higher is better', () => {

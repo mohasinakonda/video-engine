@@ -3,18 +3,18 @@
 /** The list of the channel's videos as a table, worst first; a row opens to its details. */
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { levelOf, type Level } from '@/lib/youtube/views-check/levels';
+import { levelOf, swipeTier, type Level } from '@/lib/youtube/views-check/levels';
 import type { ShortTimeline, VideoFinding } from '@/lib/youtube/views-check/types';
 import { ageText, clock, endPct, engagementPct, num, pct } from './format';
 import { FindingDetail, GateStripCompact, ShortDetail } from './short-detail';
 import { CAUSE, CAUSE_ORDER, LEVEL_STYLE, PROBLEMS } from './styles';
-import { RoundStrip, ScoreChip } from './test-rounds';
+import { ScoreChip } from './test-rounds';
 
 type Filter = 'all' | 'problems';
 
 const PAGE = 8;
-const COLUMNS = ['Video', 'Views', 'Reason', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement', 'First 2 days', 'Views per day', ''] as const;
-const RIGHT_ALIGNED = new Set<string>(['Views', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement', 'First 2 days']);
+const COLUMNS = ['Video', 'Views', 'Reason', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement', 'Views per day', ''] as const;
+const RIGHT_ALIGNED = new Set<string>(['Views', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement']);
 const SPARK_DAYS = 14;
 
 const byWorstFirst = (a: VideoFinding, b: VideoFinding) => CAUSE_ORDER.indexOf(a.cause) - CAUSE_ORDER.indexOf(b.cause);
@@ -118,7 +118,6 @@ function avgWatched(video: VideoFinding, t: ShortTimeline | null): { value: stri
 function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) {
   const cause = CAUSE[video.cause];
   const swipe = t?.estSwipeAway ?? null;
-  const first = t?.firstDaysShare ?? null;
   const watched = avgWatched(video, t);
   const usualSwipe = t?.channelMedianSwipeAway != null && swipe !== null ? `usual ${pct(t.channelMedianSwipeAway)}` : undefined;
 
@@ -128,7 +127,7 @@ function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) 
         <td className="max-w-[280px] py-3 pl-5 pr-3">
           <p className="truncate text-sm font-semibold text-white">{video.title || 'Untitled'}</p>
           <p className="truncate text-xs text-zinc-400">{rowMeta(video, t, analyzedAt)}</p>
-          {t?.rounds ? <RoundStrip rounds={t.rounds} /> : t?.gates && <GateStripCompact gates={t.gates} />}
+          {!t?.rounds && t?.gates && <GateStripCompact gates={t.gates} />}
         </td>
         <td className="px-3 py-3 text-right text-[15px] font-bold tabular-nums text-white">{num(video.lifetimeViews)}</td>
         <td className="w-[220px] px-3 py-3">
@@ -142,12 +141,11 @@ function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) 
             </p>
           )}
         </td>
-        <NumCell value={pct(swipe)} level={levelOf('swipeAway', swipe)} sub={''} />
+        <NumCell value={pct(swipe)} level={levelOf('swipeAway', swipe)} sub={''} title={swipeTier(swipe) ?? undefined} />
         <NumCell value={''} level={levelOf('avgViewPct', video.avgViewPct)} sub={watched.sub} />
         <NumCell value={endPct(t?.completion?.ofViews)} />
         <NumCell value={pct(t?.shortsFeedShare)} />
         <EngagementCell timeline={t} />
-        <NumCell value={pct(first)} level={levelOf('firstDaysShare', first)} />
         <td className="w-[96px] px-3 py-3">
           <Sparkline daily={t?.daily ?? []} color={cause.color} />
         </td>
@@ -175,10 +173,10 @@ function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) 
 }
 
 /** A right-aligned number, bold and coloured when its level is a problem. */
-function NumCell({ value, level = null, sub }: { value: string; level?: Level | null; sub?: string }) {
+function NumCell({ value, level = null, sub, title }: { value: string; level?: Level | null; sub?: string; title?: string }) {
   const tone = level && level !== 'ok' ? `font-extrabold ${LEVEL_STYLE[level].text}` : 'text-zinc-200';
   return (
-    <td className="px-3 py-3 text-right">
+    <td className="px-3 py-3 text-right" title={title}>
       <p className={`text-sm tabular-nums ${tone}`}>{value}</p>
       {sub && <p className="text-[11px] tabular-nums text-zinc-500">{sub}</p>}
     </td>

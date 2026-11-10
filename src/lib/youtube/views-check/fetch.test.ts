@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchVideoDaily, fetchVideoStatus } from './fetch';
+import { fetchVideoDaily, fetchVideoShape, fetchVideoStatus, formatFromShape } from './fetch';
 import { videoRange } from './period';
 
 afterEach(() => {
@@ -43,6 +43,44 @@ describe('fetchVideoStatus', () => {
     const fetchMock = stubFetch({ items: [] });
     await fetchVideoStatus('token', Array.from({ length: 51 }, (_, i) => `v${i}`));
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('formatFromShape (a video with no views, so no creatorContentType)', () => {
+  const vertical = { width: 1080, height: 1920 };
+  const horizontal = { width: 1920, height: 1080 };
+
+  it('a 1-minute vertical video is a Short', () => {
+    expect(formatFromShape(60, vertical)).toBe('short');
+  });
+  it('a 1-minute horizontal video is a long video', () => {
+    expect(formatFromShape(60, horizontal)).toBe('video');
+  });
+  it('a square video up to 3 minutes is a Short', () => {
+    expect(formatFromShape(180, { width: 1080, height: 1080 })).toBe('short');
+  });
+  it('over 3 minutes is a long video, even vertical', () => {
+    expect(formatFromShape(181, vertical)).toBe('video');
+  });
+  it('unknown frame or length can’t be told', () => {
+    expect(formatFromShape(60, undefined)).toBeNull();
+    expect(formatFromShape(null, vertical)).toBeNull();
+  });
+});
+
+describe('fetchVideoShape', () => {
+  it('reads the frame, turns rotated videos, and skips videos not measured yet', async () => {
+    stubFetch({
+      items: [
+        { id: 'a', fileDetails: { videoStreams: [{ widthPixels: 1080, heightPixels: 1920, rotation: 'none' }] } },
+        { id: 'b', fileDetails: { videoStreams: [{ widthPixels: 1920, heightPixels: 1080, rotation: 'clockwise' }] } },
+        { id: 'c', fileDetails: {} },
+      ],
+    });
+    const result = await fetchVideoShape('token', ['a', 'b', 'c']);
+    expect(result.a).toEqual({ width: 1080, height: 1920 });
+    expect(result.b).toEqual({ width: 1080, height: 1920 });
+    expect(result.c).toBeUndefined();
   });
 });
 

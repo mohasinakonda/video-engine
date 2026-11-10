@@ -1,10 +1,10 @@
-/** What opens under a row: a Short's rounds, test, steps, numbers and charts, or a finding in words. */
+/** What opens under a row: a Short's numbers, the reason, its rounds and charts, or a finding in words. */
 import { Check } from 'lucide-react';
-import { levelOf } from '@/lib/youtube/views-check/levels';
+import { levelOf, swipeTier } from '@/lib/youtube/views-check/levels';
 import type { Gate, ShortTimeline, VideoFinding } from '@/lib/youtube/views-check/types';
 import { DailyChart, RetentionChart } from './charts';
 import { clock, endPct, num, pct } from './format';
-import { CAUSE, GATE_LABEL, STATE_BOX, STATE_MARK, STATE_TONE } from './styles';
+import { CAUSE, GATE_LABEL, STATE_MARK, STATE_TONE } from './styles';
 import { LevelTile, type TileData } from './summary';
 import { RoundsBox, roundDates, TestBox } from './test-rounds';
 
@@ -23,23 +23,6 @@ export function GateStripCompact({ gates }: { gates: Gate[] }) {
         </span>
       ))}
     </span>
-  );
-}
-
-function GateStrip({ gates }: { gates: Gate[] }) {
-  const stopAt = gates.find((g) => g.state === 'fail')?.id;
-  return (
-    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Where this Short stopped">
-      {gates.map((g, i) => (
-        <li key={g.id} className={`rounded-xl border p-3 ${STATE_BOX[g.state]}`}>
-          <p className={`text-xs font-semibold ${STATE_TONE[g.state]}`}>
-            {i + 1}. {GATE_LABEL[g.id]} {STATE_MARK[g.state]}
-            {g.id === stopAt && <span className="ml-1 rounded bg-rose-800 px-1.5 py-0.5 text-[10px] text-rose-50">stopped here</span>}
-          </p>
-          <p className="mt-1 text-sm text-zinc-200">{g.note}</p>
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -88,7 +71,8 @@ export function FindingDetail({ video }: { video: VideoFinding }) {
 
 function swipeHint(t: ShortTimeline): string {
   const parts: string[] = [];
-  if (t.estSwipeAway !== null) parts.push(`≈${pct(1 - t.estSwipeAway)} stayed to watch`);
+  const tier = swipeTier(t.estSwipeAway);
+  if (tier) parts.push(tier);
   if (t.channelMedianSwipeAway !== null) parts.push(`your median Short: ${pct(t.channelMedianSwipeAway)}`);
   return parts.join(' · ') || 'Studio shows the exact number';
 }
@@ -127,14 +111,13 @@ function detailTiles(t: ShortTimeline): TileData[] {
 export function ShortDetail({ video, t }: { video: VideoFinding; t: ShortTimeline }) {
   return (
     <div className="space-y-4 border-t border-bg-border bg-bg-base px-5 py-5">
-      {t.rounds && <RoundsBox rounds={t.rounds} />}
-      {t.test && <TestBox test={t.test} />}
-      {t.gates && <GateStrip gates={t.gates} />}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {detailTiles(t).map((tile) => (
           <LevelTile key={tile.label} {...tile} big={false} />
         ))}
       </div>
+      {t.test && <TestBox test={t.test} />}
+      {t.rounds && <RoundsBox rounds={t.rounds} />}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DailyChart daily={t.daily} firstShare={t.firstDaysShare} color={CAUSE[video.cause].color} dayRound={t.rounds ? roundDates(t.rounds) : undefined} />
         <RetentionChart t={t} />

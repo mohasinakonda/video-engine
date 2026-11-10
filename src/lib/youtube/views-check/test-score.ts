@@ -77,15 +77,17 @@ export function shortTest(t: ShortTimeline, all: ShortTimeline[], usualViews: nu
   const result: ShortTest['result'] = score >= T.pass ? 'passed' : score >= T.close ? 'close' : 'failed';
   const tested = t.day1Views !== null && t.day1Views > 0 ? `It got ${n(t.day1Views)} views on its first day. ` : '';
 
+  // Said as the Trust Score: how viewers reacted next to the channel's usual Short (100). No pass or fail.
+  const reason = behind ? problem(behind) : 'viewers reacted less than to your usual Short';
   let message: string;
   if (result === 'failed') {
-    message = `${tested}It didn’t pass YouTube’s test: ${behind ? problem(behind) : 'viewers liked it less than your usual Short'}. So YouTube stopped showing it to new people.`;
+    message = `Viewers reacted less than to your usual Short. Biggest reason: ${reason}.`;
   } else if (result === 'close') {
-    message = `${tested}It almost passed YouTube’s test. What held it back: ${behind ? problem(behind) : 'nothing stood out'}.`;
+    message = `Close to your usual Short. What held it back: ${reason}.`;
   } else if (usualViews !== null && t.views < usualViews) {
-    message = `${tested}Viewers liked it at least as much as your usual Short, yet it got fewer views (${n(t.views)}; usual ${n(usualViews)}). The reason is likely outside the video: fewer people are interested in this topic, or other Shorts won the next round.`;
+    message = `Viewers liked it at least as much as your usual Short, yet it got fewer views (${n(t.views)}; usual ${n(usualViews)}). The reason is likely outside the video: fewer people are interested in this topic, or other Shorts won the next round.`;
   } else {
-    message = `${tested}It passed YouTube’s test: viewers liked it more than your usual Short, so YouTube kept showing it to more people.`;
+    message = `Viewers liked it more than your usual Short, so YouTube kept showing it to more people.`;
   }
   return { score, result, signals, weakest: behind?.id ?? null, message, fix: behind ? FIX[behind.id] : null };
 }

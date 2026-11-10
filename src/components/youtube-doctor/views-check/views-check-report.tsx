@@ -11,7 +11,7 @@ import { TestCard } from './test-rounds';
 import { VideoTable } from './video-table';
 
 /** Kept in step with VIEWS_CHECK_VERSION in run.ts (not imported: run.ts is server code). */
-const REPORT_VERSION = 14;
+const REPORT_VERSION = 16;
 
 export function ViewsCheckReport({ result, analyzedAt }: { result: ViewsCheckResult; analyzedAt: string }) {
   const [found, setFound] = useState<Set<string>>(new Set());

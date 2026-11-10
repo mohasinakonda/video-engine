@@ -58,6 +58,57 @@ export async function fetchVideoStatus(accessToken: string, ids: string[]): Prom
   return result;
 }
 
+interface FileDetailsResponse {
+  items?: Array<{
+    id: string;
+    fileDetails?: { videoStreams?: Array<{ widthPixels?: number; heightPixels?: number; rotation?: string }> };
+  }>;
+}
+
+/** A video's frame as it plays: width and height in pixels. */
+export interface VideoShape {
+  width: number;
+  height: number;
+}
+
+/**
+ * Frame size of up to 50 videos per request (1 quota unit each), from `fileDetails`, which only
+ * the channel owner can read. A video YouTube hasn't measured yet (still processing) is missing.
+ */
+export async function fetchVideoShape(accessToken: string, ids: string[]): Promise<Record<string, VideoShape>> {
+  const result: Record<string, VideoShape> = {};
+  for (let i = 0; i < ids.length; i += 50) {
+    const params = new URLSearchParams({
+      part: 'fileDetails',
+      id: ids.slice(i, i + 50).join(','),
+      fields: 'items(id,fileDetails/videoStreams(widthPixels,heightPixels,rotation))',
+    });
+    const data = await googleJson<FileDetailsResponse>(`${YOUTUBE_DATA_API}/videos?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    for (const item of data.items || []) {
+      const stream = item.fileDetails?.videoStreams?.[0];
+      if (!stream?.widthPixels || !stream.heightPixels) continue;
+      // A phone video saved sideways with a rotation flag plays turned a quarter.
+      const turned = stream.rotation === 'clockwise' || stream.rotation === 'counterClockwise';
+      result[item.id] = turned ? { width: stream.heightPixels, height: stream.widthPixels } : { width: stream.widthPixels, height: stream.heightPixels };
+    }
+  }
+  return result;
+}
+
+/**
+ * Short or long video, for a video YouTube hasn't labelled (no views yet, so no creatorContentType).
+ * A Short is up to 3 minutes AND vertical or square; a 1-minute horizontal video is a long video.
+ * null when it can't be told (length or frame size unknown).
+ */
+export function formatFromShape(durationSec: number | null, shape: VideoShape | undefined): 'short' | 'video' | null {
+  if (durationSec !== null && durationSec > SHORT_MAX_SEC) return 'video';
+  if (!shape) return null;
+  if (shape.width > shape.height) return 'video';
+  return durationSec === null ? null : 'short';
+}
+
 const num = (value: string | number | undefined): number => (typeof value === 'number' ? value : Number(value) || 0);
 
 /** Views and engaged views per day for one video. */
@@ -157,10 +208,15 @@ export async function fetchViewsCheckDataset(options: FetchOptions): Promise<Vie
     if (shortStats.ok && shortStats.data[video.id]) video.format = 'short';
     else if (longStats.ok && longStats.data[video.id]) video.format = 'video';
   }
-  // A video with no views in the period has no creatorContentType: up to 3 minutes counts as a Short.
-  const videos = uploads
-    .filter((v) => v.format === 'short' || (v.format === null && v.durationSec !== null && v.durationSec <= SHORT_MAX_SEC))
-    .slice(0, limits.maxVideos);
+  // A video with no views in the period has no creatorContentType. Length alone can't tell (a
+  // 1-minute horizontal video is a long video), so check its frame: Shorts are vertical or square.
+  // When the frame can't be read, leave it out rather than judge a long video as a Short.
+  const unlabelled = uploads.filter((v) => v.format === null && (v.durationSec === null || v.durationSec <= SHORT_MAX_SEC)).map((v) => v.id);
+  const shapes = unlabelled.length ? await settle(fetchVideoShape(accessToken, unlabelled), 'video frame size') : null;
+  for (const video of uploads) {
+    if (video.format === null) video.format = formatFromShape(video.durationSec, shapes?.ok ? shapes.data[video.id] : undefined);
+  }
+  const videos = uploads.filter((v) => v.format === 'short').slice(0, limits.maxVideos);
   for (const video of videos) video.format = 'short';
   const ids = videos.map((v) => v.id);
 

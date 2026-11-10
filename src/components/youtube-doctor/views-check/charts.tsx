@@ -115,7 +115,7 @@ export function RetentionChart({ t }: { t: ShortTimeline }) {
         {s.top > 1 && <p className="text-xs text-emerald-300">Above 100% = rewatches</p>}
         {s.dur ? <p className="text-xs text-zinc-400">0:00 → {clock(s.dur)}</p> : null}
       </div>
-      <p className="text-xs text-zinc-400">Share of views still watching, as in YouTube Studio. Above 100% = rewatches.</p>
+      <p className="text-xs text-zinc-400">Share of views still watching, as in YouTube Studio.</p>
       {s.curve.length > 1 ? (
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={retentionLabel(t, drop?.atSec ?? null)}>
           {s.grid.map((g) => (

@@ -26,24 +26,23 @@ describe('test score', () => {
     const t = shortTest(channel[0], channel, 1343)!;
     expect(t.result).toBe('passed');
     expect(t.score).toBeGreaterThan(100);
-    expect(t.message).toMatch(/passed YouTube’s test/);
-    expect(t.message).toMatch(/4,000 views on its first day/);
+    expect(t.message).toMatch(/liked it more than your usual Short/);
   });
 
   it('fails a Short most people scrolled past, and names that', () => {
     const t = shortTest(channel[4], channel, 1343)!;
     expect(t.result).toBe('failed');
     expect(t.weakest).toBe('reacted');
-    expect(t.message).toMatch(/didn’t pass YouTube’s test/);
+    expect(t.message).toMatch(/Biggest reason|What held it back/);
     expect(t.fix).toMatch(/reason to react/);
   });
 
   it('never compares with a usual that is below the healthy floor', () => {
     const weak = [short('a', 100, 0.2, 40, 1), short('b', 120, 0.18, 38, 1), short('c', 90, 0.22, 42, 1), short('d', 110, 0.19, 41, 1)];
     const t = shortTest(weak[0], weak, 105)!;
-    expect(t.signals.find((s) => s.id === 'stayed')?.benchmark).toBe(0.4);
+    expect(t.signals.find((s) => s.id === 'stayed')?.benchmark).toBe(0.55);
     expect(t.result).toBe('failed');
-    expect(t.message).toMatch(/80% swiped it away in the first seconds \(a healthy Short: 60% or less\)/);
+    expect(t.message).toMatch(/80% swiped it away in the first seconds \(a healthy Short: 45% or less\)/);
   });
 
   it('points outside the video when viewers liked it but views stayed low', () => {

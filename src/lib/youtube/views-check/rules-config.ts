@@ -33,8 +33,8 @@ export const VIEWS_RULES = {
     shortsWeakAvgViewPct: 50,
     /** Long videos without a retention curve (few views): average % viewed below this counts as leaving early. */
     longWeakAvgViewPct: 30,
-    /** Shorts: estimated swipe-away at or above this is a weak first second… */
-    highSwipeAway: 0.6,
+    /** Shorts: estimated swipe-away at or above this is a weak first second (45%+ = poor on creators' benchmarks)… */
+    highSwipeAway: 0.45,
     /** …or this much above the channel's own median (with at least minShortsForMedian Shorts). */
     swipeAboveMedian: 0.15,
     minShortsForMedian: 3,
@@ -65,7 +65,7 @@ export const VIEWS_RULES = {
     /** How much each viewer signal counts in the test score. */
     weights: { stayed: 0.5, watched: 0.3, reacted: 0.2 },
     /** Healthy floors: the benchmark is the channel's usual, never below these. Rendoza lines, not YouTube's. */
-    floor: { stayed: 0.4, watched: 0.5, reacted: 1 },
+    floor: { stayed: 0.55, watched: 0.5, reacted: 1 },
     /** A ratio counts at most this much, so one great number can't hide a bad one. */
     cap: 1.5,
     /** Other Shorts needed before "your usual" is used instead of the floor. */

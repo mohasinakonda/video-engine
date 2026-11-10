@@ -33,15 +33,9 @@ export const LEVEL_STYLE: Record<Level, { box: string; label: string; hint: stri
 };
 
 export const RESULT: Record<ShortTest['result'], { label: string; chip: string; box: string }> = {
-  passed: { label: 'Passed', chip: 'bg-emerald-950 text-emerald-200', box: 'border-emerald-800 bg-emerald-950/40' },
-  close: { label: 'Almost', chip: 'bg-amber-950 text-amber-200', box: 'border-amber-700 bg-amber-950/60' },
-  failed: { label: 'Failed', chip: 'bg-rose-950 text-rose-200', box: 'border-rose-700 bg-rose-950/60' },
-};
-
-export const ROUND_STYLE: Record<TestRound['state'], { mark: string; text: string; box: string }> = {
-  pass: { mark: '✓', text: 'text-emerald-300', box: 'border-emerald-800 bg-emerald-950/40' },
-  fail: { mark: '✗', text: 'text-rose-300', box: 'border-rose-700 bg-rose-950/60' },
-  no_data: { mark: '–', text: 'text-zinc-500', box: 'border-bg-border bg-bg-surface' },
+  passed: { label: 'Above your usual', chip: 'bg-emerald-950 text-emerald-200', box: 'border-emerald-800 bg-emerald-950/40' },
+  close: { label: 'Near your usual', chip: 'bg-amber-950 text-amber-200', box: 'border-amber-700 bg-amber-950/60' },
+  failed: { label: 'Below your usual', chip: 'bg-rose-950 text-rose-200', box: 'border-rose-700 bg-rose-950/60' },
 };
 
 /** Bar colours for days 1–3 in the views-per-day chart. */
