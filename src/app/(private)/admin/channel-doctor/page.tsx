@@ -54,8 +54,8 @@ type ViewsNumberKey = Exclude<keyof ViewsCheckSettings, 'enabled' | 'keywordsEna
 const VIEWS_FIELDS: { key: ViewsNumberKey; label: string; hint: string; min: number; max: number }[] = [
   { key: 'creditCost', label: 'Views check (credits)', hint: 'Refunded if it fails', min: 0, max: 1000 },
   { key: 'runsPerUserDay', label: 'Views checks per user per day', hint: 'Protects the YouTube quota', min: 1, max: 100 },
-  { key: 'maxVideos', label: 'Recent uploads read', hint: 'About 1 unit per 50', min: 5, max: 50 },
-  { key: 'maxDeepDives', label: 'Videos looked at in depth', hint: '3 Analytics calls each', min: 0, max: 20 },
+  { key: 'maxVideos', label: 'Recent Shorts checked', hint: 'Up to 3× as many uploads are read to find them (about 1 unit per 50)', min: 5, max: 50 },
+  { key: 'maxDeepDives', label: 'Videos looked at in depth', hint: '3 Analytics calls each; Shorts first', min: 0, max: 50 },
 ];
 
 const KEYWORD_FIELDS: { key: ViewsNumberKey; label: string; hint: string; min: number; max: number }[] = [

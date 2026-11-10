@@ -68,6 +68,7 @@ function dataset(videos: VideoMeta[], overrides: Partial<ViewsCheckDataset> = {}
     status: { ok: true, data: Object.fromEntries(videos.map((v) => [v.id, publicStatus()])) },
     perVideo: { ok: true, data: Object.fromEntries(videos.map((v) => [v.id, stats(v.lifetimeViews ?? 0)])) },
     engaged: { ok: true, data: {} },
+    interactions: { ok: true, data: {} },
     reach: {
       ok: true,
       data: {
@@ -135,6 +136,24 @@ describe('analyzeViews: per video', () => {
     expect(causeOf(analyzeViews(data), 'v1')).toBe('unknown');
   });
 
+  it('does not call a long video fine when impressions are missing', () => {
+    const data = dataset([video(1, 10, { lifetimeViews: 15 })], { reach: { ok: false, reason: 'Not ready' } });
+    if (!data.perVideo.ok) throw new Error();
+    data.perVideo.data.v1 = stats(15, 60);
+    const finding = analyzeViews(data).videos[0];
+    expect(finding.cause).toBe('unknown');
+    expect(finding.reason).toMatch(/can’t tell whether it was barely shown/);
+  });
+
+  it('uses average % viewed when a long video has no retention curve', () => {
+    const data = dataset([video(1, 10, { lifetimeViews: 15, durationSec: 300 })], { reach: { ok: false, reason: 'Not ready' } });
+    if (!data.perVideo.ok) throw new Error();
+    data.perVideo.data.v1 = { ...stats(15, 18), avgViewDurationSec: 54 };
+    const finding = analyzeViews(data).videos[0];
+    expect(finding.cause).toBe('left_early');
+    expect(finding.evidence[0]).toBe('Watched 18% of the video on average (54s of 5:00)');
+  });
+
   it('flags low CTR only with enough impressions', () => {
     const data = dataset([video(1, 10), video(2, 10)]);
     if (!data.reach.ok) throw new Error();
@@ -198,13 +217,58 @@ describe('analyzeViews: per video', () => {
     data.perVideo.data.v1 = { ...stats(1000, 70), avgViewDurationSec: 12 };
     const report = analyzeViews(data);
     const finding = report.videos[0];
-    expect(finding.cause).toBe('left_early');
-    expect(finding.reason).toMatch(/about 70% of plays, estimated/);
+    expect(finding.cause).toBe('weak_hook');
+    expect(finding.reason).toMatch(/^Weak hook: .*about 70% of plays, estimated/);
     expect(finding.evidence).toEqual(expect.arrayContaining(['Watched 12s of 40s on average', 'Half the viewers gone by 0:02']));
+    // Studio's scale: 40% of views are still watching at the end.
+    const t = report.shorts[0];
+    expect(t.completion?.ofViews).toBeCloseTo(0.4);
+    expect(t.completion?.ofStarted).toBeCloseTo(0.4 / 0.45);
     expect(finding.fix).toMatch(/first 1–2 seconds/);
     expect(finding.fix).toMatch(/try a 15-second version/);
-    expect(report.verdict.headline).toMatch(/about 70% of plays on average \(estimate\)/);
+    expect(report.verdict.headline).toMatch(/^Weak hooks: .*about 70% of plays on average \(estimate\)/);
     expect(report.verdict.firstStep).toMatch(/^Start with “Video number 1/);
+  });
+
+  it('explains a weak Short on a new topic as a topic switch, with steps and topic summary', () => {
+    const older = [1, 2, 3, 4].map((i) => video(i, 20 + i, { format: 'short', durationSec: 25, lifetimeViews: 1000 }));
+    const newer = video(5, 10, { format: 'short', durationSec: 25, lifetimeViews: 90 });
+    const videos = [newer, ...older];
+    const data = dataset(videos, {
+      engaged: { ok: true, data: { v5: 20, v1: 700, v2: 700, v3: 700, v4: 700 } },
+      topics: [
+        { name: 'Car fixes', videoIds: ['v1', 'v2', 'v3', 'v4'] },
+        { name: 'Gaming', videoIds: ['v5'] },
+      ],
+    });
+    if (!data.perVideo.ok) throw new Error();
+    for (const v of videos) data.perVideo.data[v.id] = stats(v.lifetimeViews ?? 0, 60);
+    const report = analyzeViews(data);
+    const finding = report.videos.find((f) => f.videoId === 'v5');
+    expect(finding?.cause).toBe('new_topic');
+    expect(report.topics[0]).toMatchObject({ name: 'Car fixes', shorts: 4, medianViews: 1000 });
+    const t = report.shorts.find((s) => s.videoId === 'v5');
+    expect(t?.topic).toBe('Gaming');
+    expect(t?.gates?.[1].state).toBe('fail');
+    expect(report.stopPoints.find((s) => s.gate === 'stopped')?.count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('carries likes, comments and shares for each Short', () => {
+    const v = video(1, 10, { format: 'short', durationSec: 25, lifetimeViews: 100 });
+    const data = dataset([v], { interactions: { ok: true, data: { v1: { likes: 12, comments: 3, shares: 1 } } } });
+    expect(analyzeViews(data).shorts[0].interactions).toEqual({ likes: 12, comments: 3, shares: 1 });
+    const missing = dataset([v], { interactions: { ok: false, reason: 'x' } });
+    expect(analyzeViews(missing).shorts[0].interactions).toBeNull();
+  });
+
+  it('fills swipe-away for a Short that was not looked at in depth', () => {
+    const v = video(1, 10, { format: 'short', durationSec: 25, lifetimeViews: 100 });
+    const data = dataset([v], { engaged: { ok: true, data: { v1: 40 } } });
+    if (!data.perVideo.ok) throw new Error();
+    data.perVideo.data.v1 = stats(100, 137);
+    const t = analyzeViews(data).shorts.find((s) => s.videoId === 'v1');
+    expect(t?.estSwipeAway).toBeCloseTo(0.6);
+    expect(t?.completion).toBeNull();
   });
 
   it('compares a Short’s swipe-away with the channel’s own median', () => {
@@ -226,9 +290,27 @@ describe('analyzeViews: per video', () => {
     for (const s of shorts) data.perVideo.data[s.id] = stats(1000, 70);
     const report = analyzeViews(data);
     // v1: 60% swiped vs a median of about 23%.
-    expect(causeOf(report, 'v1')).toBe('left_early');
+    expect(causeOf(report, 'v1')).toBe('weak_hook');
     expect(report.videos.find((f) => f.videoId === 'v1')?.evidence[0]).toMatch(/About 60% of plays swiped away .* \(your Shorts’ median: 23%\)/);
     expect(causeOf(report, 'v2')).toBe('ok');
+  });
+
+  it('points at the real exit moment when viewers stay through the opening (Studio-like curve)', () => {
+    // Like "Cheap Kit" (0:23): ~113% at the start (rewatches), flat to 0:04, then a steep fall.
+    const v = video(1, 10, { format: 'short', durationSec: 23, lifetimeViews: 1000 });
+    const watch = [1.13, 1.13, 1.12, 1.12, 0.95, 0.7, 0.55, 0.45, 0.38, 0.3, 0.27, 0.25, 0.24, 0.22, 0.21, 0.2, 0.19, 0.18, 0.16, 0.15, 0.15, 0.14, 0.14];
+    const curve = watch.map((w, i) => ({ ratio: (i + 1) / 23, watchRatio: w, relativePerformance: 0.44 }));
+    const daily: DayViews[] = [
+      { date: '2026-10-21', views: 500, engagedViews: 105 },
+      { date: '2026-10-22', views: 500, engagedViews: 105 },
+    ];
+    const finding = analyzeViews(dataset([v], { deepDives: { v1: dive(daily, 950, 50, curve) } })).videos[0];
+    expect(finding.cause).toBe('weak_hook');
+    expect(finding.reason).toMatch(/≈21% stayed to watch/);
+    expect(finding.reason).toMatch(/stay through the opening, then most leave between 0:05 and 0:07/);
+    expect(finding.fix).toMatch(/show the payoff before 0:05/);
+    const t = analyzeViews(dataset([v], { deepDives: { v1: dive(daily, 950, 50, curve) } })).shorts[0];
+    expect(t.completion?.ofViews).toBeCloseTo(0.14, 1);
   });
 
   it('names the biggest drop later in a Short', () => {
@@ -244,8 +326,9 @@ describe('analyzeViews: per video', () => {
   it('prefers "left early" over "quick stop" when retention is weak', () => {
     const v = video(1, 10, { format: 'short', durationSec: 40, lifetimeViews: 1000 });
     const daily: DayViews[] = [
-      { date: '2026-10-21', views: 900, engagedViews: 300 },
-      { date: '2026-10-22', views: 100, engagedViews: 30 },
+      // Few swipes (23%), so the hook works; the retention is what's weak.
+      { date: '2026-10-21', views: 900, engagedViews: 700 },
+      { date: '2026-10-22', views: 100, engagedViews: 70 },
     ];
     const data = dataset([v], { deepDives: { v1: dive(daily, 950, 50, flatCurve(0.3, 0.2)) } });
     if (!data.perVideo.ok) throw new Error();

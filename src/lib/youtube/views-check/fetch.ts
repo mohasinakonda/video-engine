@@ -1,14 +1,13 @@
 import { fetchCountries, fetchPerVideo, fetchRetention, fetchTraffic, query } from '../analytics-client';
 import { getPeriods } from '../analysis/period';
 import { YOUTUBE_DATA_API } from '../config';
-import { updateReportingJob, type PublicConnection } from '../connection-service';
+import type { PublicConnection } from '../connection-service';
 import { fetchMyChannels, fetchUploadIds, fetchVideoDetails } from '../data-client';
 import { ChannelMismatchError, mapLimit, settle } from '../fetcher';
 import { googleJson } from '../google-fetch';
-import { ensureReachJob, fetchReach } from '../reporting-client';
 import type { DateRange, PeriodStats, Result } from '../types';
 import { videoRange } from './period';
-import type { DayViews, VideoDeepDive, VideoStatus, ViewsCheckDataset, ViewsCheckLimits } from './types';
+import type { DayViews, Interactions, VideoDeepDive, VideoStatus, ViewsCheckDataset, ViewsCheckLimits } from './types';
 
 export type ViewsCheckStage = 'fetch_channel' | 'fetch_analytics' | 'deep_dive';
 
@@ -69,7 +68,34 @@ export async function fetchVideoDaily(accessToken: string, range: DateRange, vid
     filters: `video==${videoId}`,
     sort: 'day',
   });
-  return rows.map((row) => ({ date: String(row.day), views: num(row.views), engagedViews: num(row.engagedViews) }));
+  // Reactions and % viewed per day, for the test rounds; a separate call so a refusal can't cost the views.
+  const extra = await query(accessToken, range, {
+    dimensions: 'day',
+    metrics: 'likes,comments,shares,averageViewPercentage',
+    filters: `video==${videoId}`,
+    sort: 'day',
+  }).catch(() => []);
+  const byDay = new Map(extra.map((row) => [String(row.day), row]));
+  return rows.map((row) => {
+    const more = byDay.get(String(row.day));
+    return {
+      date: String(row.day),
+      views: num(row.views),
+      engagedViews: num(row.engagedViews),
+      ...(more ? { likes: num(more.likes), comments: num(more.comments), shares: num(more.shares), avgViewPct: num(more.averageViewPercentage) } : {}),
+    };
+  });
+}
+
+/** Likes, comments and shares per video over a period (top 200 by views). */
+export async function fetchInteractionsPerVideo(accessToken: string, range: DateRange): Promise<Record<string, Interactions>> {
+  const rows = await query(accessToken, range, {
+    dimensions: 'video',
+    metrics: 'views,likes,comments,shares',
+    sort: '-views',
+    maxResults: '200',
+  });
+  return Object.fromEntries(rows.map((row) => [String(row.video), { likes: num(row.likes), comments: num(row.comments), shares: num(row.shares) }]));
 }
 
 /** Engaged views per video over a period (top 200 by views). */
@@ -97,54 +123,54 @@ interface FetchOptions {
  * Collects the views check data in memory only. The channel and its uploads are required
  * (they throw); every other source is optional and becomes a Result the report can explain.
  */
+/** Uploads read per run to find enough Shorts among long videos (3 pages of 50). */
+const UPLOADS_READ_MAX = 150;
+/** YouTube Shorts are at most 3 minutes. */
+const SHORT_MAX_SEC = 180;
+
 export async function fetchViewsCheckDataset(options: FetchOptions): Promise<ViewsCheckDataset> {
-  const { userId, accessToken, connection, limits, onStage } = options;
+  const { accessToken, connection, limits, onStage } = options;
   const now = options.now ?? new Date();
   const { current: period } = getPeriods('90d', now);
 
   onStage('fetch_channel');
   const channel = (await fetchMyChannels(accessToken)).find((c) => c.id === connection.channelId);
   if (!channel) throw new ChannelMismatchError();
-  const uploadIds = channel.uploadsPlaylistId ? await fetchUploadIds(accessToken, channel.uploadsPlaylistId, limits.maxVideos) : [];
-  const videos = await fetchVideoDetails(accessToken, uploadIds);
+  // Shorts only. Uploads mix Shorts and long videos, so read more than we keep, then keep the
+  // newest `maxVideos` Shorts (about 1 Data API unit per 50 uploads).
+  const uploadIds = channel.uploadsPlaylistId
+    ? await fetchUploadIds(accessToken, channel.uploadsPlaylistId, Math.min(UPLOADS_READ_MAX, limits.maxVideos * 3))
+    : [];
+  const uploads = await fetchVideoDetails(accessToken, uploadIds);
 
   onStage('fetch_analytics');
-  let jobId = options.reportingJobId;
-  let jobCreatedAt = connection.reportingStartedAt;
-  if (!jobId) {
-    try {
-      const job = await ensureReachJob(accessToken);
-      await updateReportingJob(userId, job);
-      jobId = job.id;
-      jobCreatedAt = job.createdAt;
-    } catch {
-      // reported below as unavailable reach data
-    }
-  }
-
-  const [status, shorts, longForm, engaged, reach, countries] = await Promise.all([
-    settle(fetchVideoStatus(accessToken, uploadIds), 'video availability'),
+  const [shortStats, longStats, engaged, interactions, countries] = await Promise.all([
     settle(fetchPerVideo(accessToken, period, 'short'), 'Shorts performance'),
+    // Only to tell long videos apart (YouTube's creatorContentType), never shown.
     settle(fetchPerVideo(accessToken, period, 'video'), 'video performance'),
     settle(fetchEngagedPerVideo(accessToken, period), 'engaged views'),
-    jobId
-      ? settle(fetchReach(accessToken, jobId, jobCreatedAt, period), 'impressions and CTR')
-      : Promise.resolve<Result<never>>({ ok: false, reason: 'Impressions and CTR reporting could not be started for this channel.' }),
+    settle(fetchInteractionsPerVideo(accessToken, period), 'likes, comments and shares'),
     settle(fetchCountries(accessToken, period), 'viewer countries'),
   ]);
 
-  const perVideoMap: Record<string, PeriodStats> = {};
-  if (shorts.ok) Object.assign(perVideoMap, shorts.data);
-  if (longForm.ok) Object.assign(perVideoMap, longForm.data);
-  for (const video of videos) {
-    if (shorts.ok && shorts.data[video.id]) video.format = 'short';
-    else if (longForm.ok && longForm.data[video.id]) video.format = 'video';
+  for (const video of uploads) {
+    if (shortStats.ok && shortStats.data[video.id]) video.format = 'short';
+    else if (longStats.ok && longStats.data[video.id]) video.format = 'video';
   }
-  const perVideo: Result<Record<string, PeriodStats>> =
-    shorts.ok || longForm.ok ? { ok: true, data: perVideoMap } : { ok: false, reason: (longForm as { reason: string }).reason };
+  // A video with no views in the period has no creatorContentType: up to 3 minutes counts as a Short.
+  const videos = uploads
+    .filter((v) => v.format === 'short' || (v.format === null && v.durationSec !== null && v.durationSec <= SHORT_MAX_SEC))
+    .slice(0, limits.maxVideos);
+  for (const video of videos) video.format = 'short';
+  const ids = videos.map((v) => v.id);
+
+  const status = await settle(fetchVideoStatus(accessToken, ids), 'video availability');
+  const perVideo: Result<Record<string, PeriodStats>> = shortStats.ok ? { ok: true, data: shortStats.data } : { ok: false, reason: shortStats.reason };
+  // Impressions and CTR (Reporting API) describe thumbnail clicks on long videos; Shorts are swiped, not clicked.
+  const reach: Result<never> = { ok: false, reason: 'Impressions and CTR are not used for Shorts.' };
 
   onStage('deep_dive');
-  // The newest videos that have at least one reported day, so a "why did it stop" answer has data.
+  // The newest Shorts that have at least one reported day, so a "why did it stop" answer has data.
   const deepIds = videos
     .filter((v) => videoRange(v.publishedAt, period) !== null)
     .slice(0, limits.maxDeepDives)
@@ -170,11 +196,13 @@ export async function fetchViewsCheckDataset(options: FetchOptions): Promise<Vie
       videoCount: channel.videoCount,
     },
     channelLanguage: channel.defaultLanguage ?? null,
+    channelCreatedAt: channel.createdAt ?? null,
     period,
     videos,
     status,
     perVideo,
     engaged,
+    interactions,
     reach,
     countries: countries.ok ? { ok: true, data: countries.data.map(({ country, views }) => ({ country, views })) } : countries,
     deepDives: Object.fromEntries(deepIds.map((id, i) => [id, dives[i]])),

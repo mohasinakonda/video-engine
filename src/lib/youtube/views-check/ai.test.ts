@@ -36,6 +36,10 @@ const report: ViewsCheckReport = {
   plan: ['Test one change per Short.', 'Reply to every comment.'],
   limitations: [],
   summary: { judgedVideos: 4, tooNew: 0, byCause: { quick_stop: 3 }, avgShortViews: 900, avgLongViews: null },
+  topics: [],
+  stopPoints: [],
+  testAgreement: null,
+  stage: { id: 'not_enough', title: 'Too early to see a trend', detail: '', recent: null, previous: null, shortsCompared: 0, subscribers: null, channelAgeDays: null },
 };
 
 const reply = (body: object) => llm.mockResolvedValue({ content: JSON.stringify(body), model: 'm' });

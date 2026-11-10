@@ -14,7 +14,6 @@ import {
   VideoTable,
 } from './diagnosis-sections';
 import { formatDate, formatDuration } from './format';
-import { HealthScoreCard } from './health-score-card';
 import { MetricCards } from './metric-cards';
 import { TrendChart } from './trend-chart';
 
@@ -62,8 +61,6 @@ export function ReportView({
         Last {result.current.days} days ({formatDate(result.current.startDate)} – {formatDate(result.current.endDate)}) · checked at{' '}
         {new Date(analyzedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
-
-      <HealthScoreCard result={result} />
 
       <VerdictCard result={result} />
 

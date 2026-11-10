@@ -12,7 +12,7 @@ import type { ConnectionState, DoctorConfig } from '@/components/youtube-doctor/
 import { AnalysisPanel } from '@/components/youtube-doctor/analysis-panel';
 import { ReportView } from '@/components/youtube-doctor/report-view';
 import { useDiagnosis } from '@/components/youtube-doctor/use-diagnosis';
-import { HealthScoreChip } from '@/components/youtube-doctor/health-score-card';
+import { HealthScoreCard } from '@/components/youtube-doctor/health-score-card';
 import { ViewsCheckPanel } from '@/components/youtube-doctor/views-check/views-check-panel';
 import { ViewsCheckReport } from '@/components/youtube-doctor/views-check/views-check-report';
 import { useViewsCheck } from '@/components/youtube-doctor/views-check/use-views-check';
@@ -80,7 +80,7 @@ export default function ChannelDoctorInner() {
 
   return (
     <div className="page-shell">
-      <div className="page-container max-w-5xl space-y-6">
+      <div className="page-container space-y-6">
         <header className="page-header">
           <div>
             <h1 className="page-title">
@@ -121,7 +121,7 @@ export default function ChannelDoctorInner() {
             {(
               [
                 ['diagnosis', 'Diagnosis'],
-                ['views', 'Why low views?'],
+                ['views', 'Performance'],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -136,10 +136,6 @@ export default function ChannelDoctorInner() {
               </button>
             ))}
           </div>
-        )}
-
-        {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && diagnosis.saved && (
-          <HealthScoreChip result={diagnosis.saved.result} onOpen={() => setTab('diagnosis')} />
         )}
 
         {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && (
@@ -168,7 +164,19 @@ export default function ChannelDoctorInner() {
         )}
 
         {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && viewsCheck.saved && !viewsCheck.running && (
-          <ViewsCheckReport result={viewsCheck.saved.result} analyzedAt={viewsCheck.saved.analyzedAt} />
+          <div className="space-y-6">
+            {viewsCheck.saved.result.health ? (
+              <div className="space-y-2">
+                <p className="text-sm text-zinc-400">Channel health · last {viewsCheck.saved.result.health.current.days} days</p>
+                <HealthScoreCard result={viewsCheck.saved.result.health} />
+              </div>
+            ) : (
+              viewsCheck.saved.result.version >= 5 && (
+                <div className="card text-sm text-zinc-400">The channel health score couldn’t be calculated this time. The rest of the report is below.</div>
+              )
+            )}
+            <ViewsCheckReport result={viewsCheck.saved.result} analyzedAt={viewsCheck.saved.analyzedAt} />
+          </div>
         )}
 
         {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'diagnosis' && (

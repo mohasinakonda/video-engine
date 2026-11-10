@@ -47,17 +47,25 @@ describe('fetchVideoStatus', () => {
 });
 
 describe('fetchVideoDaily', () => {
-  it('returns views and engaged views per day', async () => {
-    stubFetch({
-      columnHeaders: [{ name: 'day' }, { name: 'views' }, { name: 'engagedViews' }],
-      rows: [
-        ['2026-10-01', 500, 320],
-        ['2026-10-02', 40, 20],
-      ],
-    });
+  it('returns views, engaged views, reactions and % viewed per day', async () => {
+    const bodies = [
+      {
+        columnHeaders: [{ name: 'day' }, { name: 'views' }, { name: 'engagedViews' }],
+        rows: [
+          ['2026-10-01', 500, 320],
+          ['2026-10-02', 40, 20],
+        ],
+      },
+      {
+        columnHeaders: [{ name: 'day' }, { name: 'likes' }, { name: 'comments' }, { name: 'shares' }, { name: 'averageViewPercentage' }],
+        rows: [['2026-10-01', 12, 2, 1, 71.5]],
+      },
+    ];
+    let call = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(bodies[call++]), { status: 200, headers: { 'Content-Type': 'application/json' } })));
     const days = await fetchVideoDaily('token', { startDate: '2026-10-01', endDate: '2026-10-02', days: 2 }, 'a');
     expect(days).toEqual([
-      { date: '2026-10-01', views: 500, engagedViews: 320 },
+      { date: '2026-10-01', views: 500, engagedViews: 320, likes: 12, comments: 2, shares: 1, avgViewPct: 71.5 },
       { date: '2026-10-02', views: 40, engagedViews: 20 },
     ]);
   });

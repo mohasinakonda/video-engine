@@ -14,6 +14,8 @@ export interface ChannelIdentity {
   /** Set by the channel owner; null when not set. */
   country?: string | null;
   defaultLanguage?: string | null;
+  /** When the channel was created (ISO). */
+  createdAt?: string | null;
 }
 
 interface ChannelsResponse {
@@ -25,6 +27,7 @@ interface ChannelsResponse {
       thumbnails?: Record<string, { url?: string }>;
       country?: string;
       defaultLanguage?: string;
+      publishedAt?: string;
     };
     statistics?: { subscriberCount?: string; videoCount?: string; hiddenSubscriberCount?: boolean };
     contentDetails?: { relatedPlaylists?: { uploads?: string } };
@@ -38,7 +41,7 @@ const toNumber = (value: string | undefined): number | null => {
 };
 
 const CHANNEL_FIELDS =
-  'items(id,snippet(title,customUrl,country,defaultLanguage,thumbnails/default/url,thumbnails/medium/url),statistics(subscriberCount,videoCount,hiddenSubscriberCount),contentDetails/relatedPlaylists/uploads)';
+  'items(id,snippet(title,customUrl,country,defaultLanguage,publishedAt,thumbnails/default/url,thumbnails/medium/url),statistics(subscriberCount,videoCount,hiddenSubscriberCount),contentDetails/relatedPlaylists/uploads)';
 
 /** channels.list with the given selector (mine / id / forHandle). Costs 1 quota unit. */
 async function fetchChannels(accessToken: string, selector: Record<string, string>): Promise<ChannelIdentity[]> {
@@ -61,6 +64,7 @@ async function fetchChannels(accessToken: string, selector: Record<string, strin
       uploadsPlaylistId: item.contentDetails?.relatedPlaylists?.uploads || null,
       country: item.snippet?.country || null,
       defaultLanguage: item.snippet?.defaultLanguage || null,
+      createdAt: item.snippet?.publishedAt || null,
     };
   });
 }

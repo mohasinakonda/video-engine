@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { AlertCircle, CheckCircle2, CircleDashed } from 'lucide-react';
-import type { DiagnosisResult } from '@/lib/youtube/diagnosis';
-import { computeHealthScore, type HealthBand, type HealthScore } from '@/lib/youtube/analysis/health-score';
+import { computeHealthScore, type HealthBand, type HealthInput, type HealthScore } from '@/lib/youtube/analysis/health-score';
 import { MetricCards } from './metric-cards';
 
 const BAND: Record<HealthBand, { label: string; ring: string; pill: string; Icon: typeof AlertCircle }> = {
@@ -49,7 +48,7 @@ function Gauge({ health, size }: { health: HealthScore; size: number }) {
 }
 
 /** The top of the diagnosis: score, main drag, how it's made, and the four key numbers. */
-export function HealthScoreCard({ result }: { result: DiagnosisResult }) {
+export function HealthScoreCard({ result }: { result: HealthInput }) {
   const health = computeHealthScore(result);
   const [open, setOpen] = useState(false);
   const band = health.band ? BAND[health.band] : null;
@@ -124,20 +123,5 @@ export function HealthScoreCard({ result }: { result: DiagnosisResult }) {
 
       {tiles.length > 0 && <MetricCards metrics={tiles} previousLabel={`the ${result.current.days} days before`} />}
     </div>
-  );
-}
-
-/** A small read-only score for other tabs, from a diagnosis already saved in this tab. */
-export function HealthScoreChip({ result, onOpen }: { result: DiagnosisResult; onOpen: () => void }) {
-  const health = computeHealthScore(result);
-  if (health.score === null || !health.band) return null;
-  return (
-    <button type="button" onClick={onOpen} className="w-full flex items-center gap-3 p-3 rounded-xl border border-bg-border bg-bg-surface text-left hover:border-zinc-600">
-      <Gauge health={health} size={52} />
-      <span className="text-sm text-zinc-300">
-        Health score <span className="font-semibold text-white">{health.score}</span> · {BAND[health.band].label}
-        <span className="block text-xs text-zinc-500">From your last diagnosis ({result.current.days} days). Open diagnosis →</span>
-      </span>
-    </button>
   );
 }

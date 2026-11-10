@@ -8,8 +8,12 @@ import { titleSimilarity } from '../create/topic-landscape';
 import type { VideoMeta } from '../types';
 import { videoRange } from './period';
 import { VIEWS_RULES as R } from './rules-config';
+import { channelStage } from './stage';
+import { shortTest, testAgreement, testRounds } from './test-score';
+import { gatesFor, isHighSwipe, newTopicJudgement, stopPointOf, topicIndex, topicSummaries } from './insights';
 import type {
   ChannelSignal,
+  ShortTest,
   ShortTimeline,
   StudioCheck,
   VideoFinding,
@@ -25,7 +29,7 @@ const count = (n: number) => n.toLocaleString('en-US');
 const plural = (n: number, one: string, many = `${one}s`) => `${count(n)} ${n === 1 ? one : many}`;
 
 /** Most severe first; the order findings and verdicts are ranked in. */
-const SEVERITY: ViewsCause[] = ['blocked', 'not_shown', 'not_in_feed', 'not_clicked', 'left_early', 'quick_stop', 'unknown', 'too_new', 'ok'];
+const SEVERITY: ViewsCause[] = ['blocked', 'not_shown', 'not_in_feed', 'not_clicked', 'new_topic', 'weak_hook', 'left_early', 'quick_stop', 'unknown', 'too_new', 'ok'];
 
 export function formatOf(video: VideoMeta): 'short' | 'video' {
   if (video.format) return video.format;
@@ -135,12 +139,32 @@ function judgeLong(video: VideoMeta, data: ViewsCheckDataset, days: number): Jud
       };
     }
   }
-  if (impressions === null && (views ?? 0) === 0) {
+  // With few views YouTube often returns no retention curve, but the average % viewed still tells
+  // whether people who clicked stayed.
+  const watched = data.perVideo.ok ? (data.perVideo.data[video.id]?.avgViewPct ?? null) : null;
+  if (!retention?.ok && watched !== null && watched < R.opening.longWeakAvgViewPct) {
+    const avgSec = data.perVideo.ok ? data.perVideo.data[video.id]?.avgViewDurationSec : null;
+    return {
+      cause: 'left_early',
+      reason: 'Viewers click, then leave early.',
+      evidence: [
+        `Watched ${Math.round(watched)}% of the video on average${avgSec && video.durationSec ? ` (${Math.round(avgSec)}s of ${clock(video.durationSec)})` : ''}`,
+        ...(views !== null ? [`${plural(views, 'view')} in the period`] : []),
+      ],
+      fix: 'Open with the payoff: restate the title’s promise in the first seconds and cut the intro.',
+    };
+  }
+  // Without impressions we can't tell whether YouTube showed it and nobody clicked, or barely showed
+  // it at all: that is missing data, not "no problem".
+  if (impressions === null) {
     return {
       cause: 'unknown',
-      reason: 'No views, and YouTube hasn’t shared impressions for this video yet.',
-      evidence: ['Impressions: not available yet'],
-      fix: 'Check this video’s Reach tab in Studio; run the check again in a few days.',
+      reason:
+        (views ?? 0) === 0
+          ? 'No views, and YouTube hasn’t shared impressions for this video yet.'
+          : 'YouTube hasn’t shared impressions and click-through for this channel yet, so we can’t tell whether it was barely shown or shown and skipped.',
+      evidence: ['Impressions: not available yet', ...(views !== null ? [`${plural(views, 'view')} in the period`] : [])],
+      fix: 'Check this video’s Reach tab in Studio (impressions and click-through rate). YouTube usually starts sharing them a few days after you connect; run the check again then.',
     };
   }
   return { cause: 'ok', reason: 'No distribution problem found.', evidence: views !== null ? [`${plural(views, 'view')} in the period`] : [], fix: '' };
@@ -169,11 +193,27 @@ function shortTimeline(video: VideoMeta, data: ViewsCheckDataset): ShortTimeline
         ? Math.min(1, data.engaged.data[video.id] / views)
         : null;
 
+  // YouTube's audienceWatchRatio: a share of all views, as YouTube Studio draws it (it starts above
+  // 100% when people rewatch). Everything shown uses this scale, so numbers match Studio.
   const retention = dive?.retention.ok ? normalizeRetention(dive.retention.data) : [];
   const relatives = retention.map((p) => p.relativePerformance).filter((v): v is number => v !== null);
+  const start = retention[0]?.watchRatio ?? 0;
   const duration = video.durationSec;
   let halfGoneAtSec: number | null = null;
   let biggestDrop: ShortTimeline['biggestDrop'] = null;
+  let completion: ShortTimeline['completion'] = null;
+  let exitWindow: ShortTimeline['exitWindow'] = null;
+  if (retention.length > 1) {
+    const end = watchRatioAt(retention, O.completionAtRatio);
+    if (end !== null) completion = { ofViews: end, ofStarted: start > 0 ? end / start : end };
+  }
+  // Only when most plays are still there at the curve's first point; otherwise they left at once.
+  if (retention.length > 1 && duration && start >= O.openingHeldShare) {
+    // When the leaving starts (10% of the opening audience gone) and when half of them are gone.
+    const from = retention.find((p) => p.watchRatio <= start * O.exitStartShare);
+    const to = retention.find((p) => p.watchRatio <= start * 0.5);
+    if (from) exitWindow = { fromSec: from.ratio * duration, toSec: to ? to.ratio * duration : null };
+  }
   if (retention.length > 1 && duration) {
     const half = retention.find((p) => p.watchRatio < 0.5);
     halfGoneAtSec = half ? half.ratio * duration : null;
@@ -196,12 +236,15 @@ function shortTimeline(video: VideoMeta, data: ViewsCheckDataset): ShortTimeline
     durationSec: duration,
     avgViewSec: stats?.avgViewDurationSec ?? null,
     avgViewPct: stats?.avgViewPct ?? null,
+    completion,
+    exitWindow,
     halfGoneAtSec,
     biggestDrop,
     day1Views: daily?.[0]?.views ?? null,
     day2Views: daily?.[1]?.views ?? null,
     relativeRetention: relatives.length ? relatives.reduce((a, b) => a + b, 0) / relatives.length : null,
     likeRate: video.likes !== null && video.lifetimeViews ? video.likes / video.lifetimeViews : null,
+    interactions: data.interactions.ok ? (data.interactions.data[video.id] ?? { likes: 0, comments: 0, shares: 0 }) : null,
     daily: daily?.map(({ date, views: v }) => ({ date, views: v })) ?? [],
     curve: sampleCurve(retention),
   };
@@ -219,7 +262,7 @@ function shortEvidence(t: ShortTimeline): string[] {
   const out: string[] = [];
   if (t.estSwipeAway !== null) {
     const vs = t.channelMedianSwipeAway !== null ? ` (your Shorts’ median: ${pct(t.channelMedianSwipeAway)})` : '';
-    out.push(`About ${pct(t.estSwipeAway)} of plays swiped away in the first seconds (estimate)${vs}`);
+    out.push(`About ${pct(t.estSwipeAway)} of plays swiped away in the first seconds (estimate; ≈${pct(1 - t.estSwipeAway)} stayed to watch)${vs}`);
   }
   if (t.avgViewSec !== null && t.durationSec) out.push(`Watched ${Math.round(t.avgViewSec)}s of ${Math.round(t.durationSec)}s on average`);
   else if (t.avgViewPct !== null) out.push(`Average viewed: ${Math.round(t.avgViewPct)}%`);
@@ -233,10 +276,18 @@ function shortEvidence(t: ShortTimeline): string[] {
 function shortFix(t: ShortTimeline): string {
   const O = R.opening;
   const steps: string[] = [];
-  if ((t.halfGoneAtSec !== null && t.halfGoneAtSec <= O.instantExitSec) || (t.estSwipeAway !== null && t.estSwipeAway >= O.highSwipeAway)) {
+  const w = t.exitWindow;
+  // Leaving spread over a stretch after the opening; a single cliff is named as the biggest drop below.
+  const lateExit = w !== null && w.fromSec > O.hookSec && (w.toSec === null || w.toSec - w.fromSec >= 1);
+  if (lateExit) {
+    steps.push(
+      `Viewers stay through the opening, then most leave ${w.toSec !== null ? `between ${clock(w.fromSec)} and ${clock(w.toSec)}` : `from ${clock(w.fromSec)}`}: look at what’s on screen then, and show the payoff before ${clock(w.fromSec)}.`
+    );
+  } else if ((t.halfGoneAtSec !== null && t.halfGoneAtSec <= O.instantExitSec) || (t.estSwipeAway !== null && t.estSwipeAway >= O.highSwipeAway)) {
     steps.push('Viewers decide in the first 1–2 seconds: open on the finished result or the most surprising moment, with no setup, logo or intro.');
   }
-  if (t.biggestDrop && t.biggestDrop.lost >= 0.05 && t.biggestDrop.atSec > O.instantExitSec) {
+  const dropInWindow = lateExit && t.biggestDrop !== null && w.toSec !== null && t.biggestDrop.atSec >= w.fromSec && t.biggestDrop.atSec <= w.toSec;
+  if (!dropInWindow && t.biggestDrop && t.biggestDrop.lost >= 0.05 && t.biggestDrop.atSec > O.instantExitSec) {
     steps.push(`Most viewers left at ${clock(t.biggestDrop.atSec)}: cut or speed up what happens there.`);
   }
   if (t.avgViewSec !== null && t.durationSec && t.durationSec >= t.avgViewSec * 2 && t.durationSec > 15) {
@@ -265,14 +316,21 @@ function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judge
       fix: 'Make it vertical, original and clearly a Short; check Copyright and Restrictions in Studio.',
     };
   }
-  const highSwipe =
-    t.estSwipeAway !== null &&
-    (t.estSwipeAway >= O.highSwipeAway ||
-      (shortsJudged >= O.minShortsForMedian && t.channelMedianSwipeAway !== null && t.estSwipeAway >= t.channelMedianSwipeAway + O.swipeAboveMedian));
-  if (highSwipe) {
+  if (isHighSwipe(t, shortsJudged)) {
+    const usual =
+      t.channelMedianSwipeAway !== null && shortsJudged >= O.minShortsForMedian ? ` Your usual Short: about ${pct(t.channelMedianSwipeAway)}.` : '';
+    const w = t.exitWindow;
+    const where =
+      w === null
+        ? ''
+        : w.fromSec <= O.hookSec
+          ? ' Most leave in the first 1–2 seconds.'
+          : w.toSec !== null && w.toSec - w.fromSec >= 1
+            ? ` They stay through the opening, then most leave between ${clock(w.fromSec)} and ${clock(w.toSec)}.`
+            : ` They stay through the opening, then most leave at ${clock(w.fromSec)}.`;
     return {
-      cause: 'left_early',
-      reason: `Most people swipe this Short away in the first seconds (about ${pct(t.estSwipeAway as number)} of plays, estimated), so YouTube stops offering it to new viewers.`,
+      cause: 'weak_hook',
+      reason: `Weak hook: most people swipe this Short away in the first seconds (about ${pct(t.estSwipeAway as number)} of plays, estimated; ≈${pct(1 - (t.estSwipeAway as number))} stayed to watch), so YouTube stops offering it to new viewers.${where}${usual}`,
       evidence: shortEvidence(t),
       fix: shortFix(t),
     };
@@ -527,9 +585,17 @@ const HEADLINES: Partial<Record<ViewsCause, { headline: (n: number, of: number) 
     headline: (n, of) => `People see your videos but don’t click (${n} of ${of} under 2% CTR).`,
     firstStep: 'Rebuild titles and thumbnails around one clear promise, with the search phrase first.',
   },
-  left_early: {
-    headline: (n, of) => `Viewers leave in the first seconds (${n} of ${of}).`,
+  new_topic: {
+    headline: (n, of) => `Shorts on a new topic didn’t find an audience (${n} of ${of}): YouTube likely tested them on new viewers.`,
+    firstStep: 'Stay with the topic that works, or post several Shorts on a new topic in a row so YouTube can find its viewers.',
+  },
+  weak_hook: {
+    headline: (n, of) => `Weak hooks: viewers swipe your Shorts away in the first seconds (${n} of ${of}).`,
     firstStep: 'Open with the payoff: show the result or the best moment in the first second.',
+  },
+  left_early: {
+    headline: (n, of) => `Viewers start watching, then leave before the end (${n} of ${of}).`,
+    firstStep: 'Cut what comes before the payoff and end right after it.',
   },
   quick_stop: {
     headline: (n, of) => `Your Shorts get a first burst, then stop (${n} of ${of}): they lose the test against other Shorts.`,
@@ -543,9 +609,11 @@ const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + 
 function specificHeadline(cause: ViewsCause, affected: VideoFinding[], judged: number, timelines: Map<string, ShortTimeline>): string | null {
   const t = affected.map((f) => timelines.get(f.videoId)).filter((x): x is ShortTimeline => Boolean(x));
   const of = `${affected.length} of ${judged} videos`;
-  if (cause === 'left_early') {
+  if (cause === 'weak_hook') {
     const swipe = mean(t.map((x) => x.estSwipeAway).filter((v): v is number => v !== null));
-    if (swipe !== null) return `Viewers swipe your Shorts away in the first seconds: about ${pct(swipe)} of plays on average (estimate), on ${of}.`;
+    if (swipe !== null) return `Weak hooks: viewers swipe your Shorts away in the first seconds, about ${pct(swipe)} of plays on average (estimate), on ${of}.`;
+  }
+  if (cause === 'left_early') {
     const half = median(t.map((x) => x.halfGoneAtSec).filter((v): v is number => v !== null));
     if (half !== null) return `Viewers leave early: half of them are gone by ${clock(half)} (median), on ${of}.`;
   }
@@ -558,7 +626,7 @@ function specificHeadline(cause: ViewsCause, affected: VideoFinding[], judged: n
 
 /** The first step, pointed at the worst affected video. */
 function specificFirstStep(cause: ViewsCause, affected: VideoFinding[], timelines: Map<string, ShortTimeline>): string | null {
-  if (cause !== 'left_early' && cause !== 'quick_stop') return null;
+  if (cause !== 'new_topic' && cause !== 'weak_hook' && cause !== 'left_early' && cause !== 'quick_stop') return null;
   const worst = affected
     .map((f) => ({ f, t: timelines.get(f.videoId) }))
     .filter((x) => x.t)
@@ -584,6 +652,23 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
     .filter((v): v is number => v !== null);
   const medianSwipe = median(swipes);
   timelines.forEach((t) => (t.channelMedianSwipeAway = medianSwipe));
+
+  const shortVideos = data.videos.filter((v) => formatOf(v) === 'short');
+  const topicOf = topicIndex(data.topics);
+  const topics = topicSummaries(data.topics, shortVideos, timelines, new Date(data.collectedAt));
+  // Each Short's views on its upload day, for "your usual first day" (only Shorts whose data starts there).
+  const firstDay = new Map<string, number>();
+  for (const v of shortVideos) {
+    const d = data.deepDives[v.id]?.daily;
+    const pub = v.publishedAt.slice(0, 10);
+    if (d?.ok && pub >= data.period.startDate) firstDay.set(v.id, d.data.find((r) => r.date === pub)?.views ?? 0);
+  }
+  const usualFirstDay = (id: string) => {
+    const others = Array.from(firstDay.entries()).filter(([k]) => k !== id).map(([, v]) => v);
+    return others.length >= R.opening.minShortsForMedian ? median(others) : null;
+  };
+  const usualViews = median(shortVideos.filter((v) => timelines.has(v.id) && v.lifetimeViews !== null).map((v) => v.lifetimeViews as number));
+  const stops: ReturnType<typeof stopPointOf>[] = [];
 
   const shorts: ShortTimeline[] = [];
   const findings: VideoFinding[] = data.videos.map((video) => {
@@ -613,8 +698,23 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
     }
     if (format === 'short') {
       const timeline = timelines.get(video.id) ?? shortTimeline(video, data);
-      if (data.deepDives[video.id]) shorts.push(timeline);
-      return { ...base, ...judgeShort(timeline, days, swipes.length) };
+      // Every Short: swipe-away and % viewed come from bulk calls; the in-depth numbers (per day,
+      // traffic, retention) are filled when the Short was looked at in depth.
+      shorts.push(timeline);
+      let judgement = judgeShort(timeline, days, swipes.length);
+      // A likely topic switch explains a weak hook or an early stop better than the hook itself.
+      if (judgement.cause === 'weak_hook' || judgement.cause === 'left_early' || judgement.cause === 'quick_stop' || judgement.cause === 'ok') {
+        judgement = newTopicJudgement(video, shortVideos, topicOf, usualViews, topics, shortEvidence(timeline)) ?? judgement;
+        if (judgement.cause === 'new_topic') judgement.fix = `${judgement.fix} ${shortFix(timeline)}`.trim();
+      }
+      timeline.topic = topicOf.get(video.id) ?? null;
+      timeline.gates = gatesFor(timeline, judgement.cause, isHighSwipe(timeline, swipes.length));
+      stops.push(stopPointOf(timeline.gates));
+      timeline.test = shortTest(timeline, Array.from(timelines.values()), usualViews);
+      const daily = data.deepDives[video.id]?.daily;
+      // Rounds count from the publish day, so the data must start there.
+      timeline.rounds = daily?.ok && video.publishedAt.slice(0, 10) >= data.period.startDate ? testRounds(daily.data, video.publishedAt, days, timeline.test, usualFirstDay(video.id)) : null;
+      return { ...base, ...judgement };
     }
     return { ...base, ...judgeLong(video, data, days) };
   });
@@ -669,23 +769,19 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
   add(verdict.firstStep);
   for (const f of [...recent].sort((a, b) => SEVERITY.indexOf(a.cause) - SEVERITY.indexOf(b.cause))) {
     // Fixes built from one video's numbers name that video, so the step is clear on its own.
-    const perVideo = timelines.has(f.videoId) && (f.cause === 'left_early' || f.cause === 'quick_stop');
+    const perVideo = timelines.has(f.videoId) && (f.cause === 'new_topic' || f.cause === 'weak_hook' || f.cause === 'left_early' || f.cause === 'quick_stop');
     if (f.fix && !verdict.firstStep.includes(f.fix)) add(perVideo ? `“${f.title}”: ${f.fix}` : f.fix);
   }
   for (const s of signals.filter((s) => s.severity !== 'low')) add(s.fix);
   for (const s of signals.filter((s) => s.severity === 'low')) add(s.fix);
 
   const limitations: string[] = [];
-  for (const [label, result] of [
+  for (const [, result] of [
     ['availability', data.status],
     ['performance', data.perVideo],
     ['engaged views', data.engaged],
-    ['impressions', data.reach],
   ] as const) {
     if (!result.ok) limitations.push(result.reason);
-    else if (label === 'impressions' && data.reach.ok && data.reach.data.availableFrom) {
-      limitations.push(`Impressions and CTR aren’t ready yet; YouTube expects the first data around ${data.reach.data.availableFrom.slice(0, 10)}.`);
-    }
   }
   limitations.push(
     'YouTube Analytics reports views per day, not per hour, and is about 3 days behind; videos newer than that aren’t judged.',
@@ -712,5 +808,14 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
       avgShortViews: viewsOf('short'),
       avgLongViews: viewsOf('video'),
     },
+    topics,
+    testAgreement: testAgreement(shorts.filter((t) => t.test).map((t) => ({ views: t.views, score: (t.test as ShortTest).score }))),
+    stopPoints: (['shown', 'stopped', 'stayed', 'reacted', 'none', 'unknown'] as const).map((gate) => ({ gate, count: stops.filter((s) => s === gate).length })),
+    stage: channelStage(
+      data.videos.filter((v) => formatOf(v) === 'short'),
+      shorts,
+      { subscriberCount: data.channel.subscriberCount, createdAt: data.channelCreatedAt ?? null },
+      new Date(data.collectedAt)
+    ),
   };
 }
