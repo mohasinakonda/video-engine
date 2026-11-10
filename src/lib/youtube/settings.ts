@@ -21,8 +21,37 @@ export interface ChannelDoctorSettings {
   discover: DiscoverSettings;
   create: CreateSettings;
   audit: AuditSettings;
+  viewsCheck: ViewsCheckSettings;
   updatedAt: string | null;
 }
+
+/** Admin-controlled Views check and Keyword check, inside Channel Doctor (docs/views-check-plan.md). */
+export interface ViewsCheckSettings {
+  enabled: boolean;
+  creditCost: number;
+  runsPerUserDay: number;
+  /** Recent uploads read per run. */
+  maxVideos: number;
+  /** Newest videos that also get views per day, traffic and retention. */
+  maxDeepDives: number;
+  keywordsEnabled: boolean;
+  keywordCreditCost: number;
+  /** Keywords per run; each is one search call from the shared daily budget. */
+  keywordsPerRun: number;
+  keywordRunsPerUserDay: number;
+}
+
+export const DEFAULT_VIEWS_CHECK_SETTINGS: ViewsCheckSettings = {
+  enabled: false,
+  creditCost: 10,
+  runsPerUserDay: 5,
+  maxVideos: 30,
+  maxDeepDives: 30,
+  keywordsEnabled: false,
+  keywordCreditCost: 5,
+  keywordsPerRun: 3,
+  keywordRunsPerUserDay: 2,
+};
 
 /** Admin-controlled Audit settings (docs/audit-plan.md §7). Access follows Discover's plans. */
 export interface AuditSettings {
@@ -160,6 +189,7 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   discover: DEFAULT_DISCOVER_SETTINGS,
   create: DEFAULT_CREATE_SETTINGS,
   audit: DEFAULT_AUDIT_SETTINGS,
+  viewsCheck: DEFAULT_VIEWS_CHECK_SETTINGS,
   updatedAt: null,
 };
 
@@ -224,6 +254,18 @@ export const auditSettingsSchema = z.object({
   maxThumbnails: z.number().int().min(0).max(20),
 });
 
+export const viewsCheckSettingsSchema = z.object({
+  enabled: z.boolean(),
+  creditCost: credit,
+  runsPerUserDay: z.number().int().min(1).max(100),
+  maxVideos: z.number().int().min(5).max(50),
+  maxDeepDives: z.number().int().min(0).max(50),
+  keywordsEnabled: z.boolean(),
+  keywordCreditCost: credit,
+  keywordsPerRun: z.number().int().min(1).max(5),
+  keywordRunsPerUserDay: z.number().int().min(1).max(20),
+});
+
 /** What an admin may save. Mirrors the database CHECK constraints. */
 export const settingsUpdateSchema = z.object({
   enabled: z.boolean(),
@@ -240,6 +282,8 @@ export const settingsUpdateSchema = z.object({
   discover: discoverSettingsSchema,
   create: createSettingsSchema,
   audit: auditSettingsSchema,
+  /** Optional so an older admin page can still save the rest. */
+  viewsCheck: viewsCheckSettingsSchema.optional(),
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
@@ -262,7 +306,24 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     discover: readDiscover(data),
     create: readCreate(data),
     audit: readAudit(data),
+    viewsCheck: readViewsCheck(data),
     updatedAt: data.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readViewsCheck(data: Record<string, any>): ViewsCheckSettings {
+  const d = DEFAULT_VIEWS_CHECK_SETTINGS;
+  return {
+    enabled: data.views_check_enabled ?? d.enabled,
+    creditCost: data.views_check_credit_cost ?? d.creditCost,
+    runsPerUserDay: data.views_check_runs_per_user_day ?? d.runsPerUserDay,
+    maxVideos: data.views_check_max_videos ?? d.maxVideos,
+    maxDeepDives: data.views_check_max_deep_dives ?? d.maxDeepDives,
+    keywordsEnabled: data.keyword_check_enabled ?? d.keywordsEnabled,
+    keywordCreditCost: data.keyword_check_credit_cost ?? d.keywordCreditCost,
+    keywordsPerRun: data.keyword_check_keywords_per_run ?? d.keywordsPerRun,
+    keywordRunsPerUserDay: data.keyword_check_runs_per_user_day ?? d.keywordRunsPerUserDay,
   };
 }
 
@@ -377,6 +438,17 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
       audit_runs_per_user_day: update.audit.runsPerUserDay,
       audit_max_comments: update.audit.maxComments,
       audit_max_thumbnails: update.audit.maxThumbnails,
+      ...(update.viewsCheck && {
+        views_check_enabled: update.viewsCheck.enabled,
+        views_check_credit_cost: update.viewsCheck.creditCost,
+        views_check_runs_per_user_day: update.viewsCheck.runsPerUserDay,
+        views_check_max_videos: update.viewsCheck.maxVideos,
+        views_check_max_deep_dives: update.viewsCheck.maxDeepDives,
+        keyword_check_enabled: update.viewsCheck.keywordsEnabled,
+        keyword_check_credit_cost: update.viewsCheck.keywordCreditCost,
+        keyword_check_keywords_per_run: update.viewsCheck.keywordsPerRun,
+        keyword_check_runs_per_user_day: update.viewsCheck.keywordRunsPerUserDay,
+      }),
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(`Could not save settings (${error.code})`);

@@ -12,11 +12,16 @@ import type { ConnectionState, DoctorConfig } from '@/components/youtube-doctor/
 import { AnalysisPanel } from '@/components/youtube-doctor/analysis-panel';
 import { ReportView } from '@/components/youtube-doctor/report-view';
 import { useDiagnosis } from '@/components/youtube-doctor/use-diagnosis';
+import { HealthScoreCard } from '@/components/youtube-doctor/health-score-card';
+import { ViewsCheckPanel } from '@/components/youtube-doctor/views-check/views-check-panel';
+import { ViewsCheckReport } from '@/components/youtube-doctor/views-check/views-check-report';
+import { useViewsCheck } from '@/components/youtube-doctor/views-check/use-views-check';
 import { useAuth } from '@/contexts/auth-context';
 import { clearAllReports } from '@/lib/channel-doctor-storage';
 import type { RangeKey } from '@/lib/youtube/types';
 
 type LoadState = 'loading' | 'ready' | 'error';
+type Tab = 'diagnosis' | 'views';
 
 export default function ChannelDoctorInner() {
   const router = useRouter();
@@ -33,6 +38,10 @@ export default function ChannelDoctorInner() {
   const { user } = useAuth();
   const channelId = state.connected && state.connection.status === 'active' ? state.connection.channelId : null;
   const diagnosis = useDiagnosis(user?.id ?? null, channelId, range);
+  const viewsCheck = useViewsCheck(user?.id ?? null, channelId);
+  const [tab, setTab] = useState<Tab>('diagnosis');
+  // With the views check switched off, the page is exactly the diagnosis it always was.
+  const activeTab: Tab = config?.viewsCheckEnabled ? tab : 'diagnosis';
 
   const load = useCallback(async () => {
     setLoadState('loading');
@@ -71,7 +80,7 @@ export default function ChannelDoctorInner() {
 
   return (
     <div className="page-shell">
-      <div className="page-container max-w-5xl space-y-6">
+      <div className="page-container space-y-6">
         <header className="page-header">
           <div>
             <h1 className="page-title">
@@ -107,7 +116,70 @@ export default function ChannelDoctorInner() {
 
         {loadState === 'ready' && config?.enabled && !state.connected && <IntroCard canConnect />}
 
-        {loadState === 'ready' && config?.enabled && state.connected && (
+        {loadState === 'ready' && config?.enabled && state.connected && config.viewsCheckEnabled && (
+          <div className="inline-flex gap-1 p-1 rounded-xl bg-bg-elevated border border-bg-border" role="tablist" aria-label="Channel Doctor">
+            {(
+              [
+                ['diagnosis', 'Diagnosis'],
+                ['views', 'Performance'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === key}
+                onClick={() => setTab(key)}
+                className={`px-4 py-2 rounded-lg text-base font-semibold ${activeTab === key ? 'bg-white text-zinc-950' : 'text-zinc-400 hover:text-white'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && (
+          <ChannelCard connection={state.connection} stats={state.stats} onDisconnect={() => setShowDisconnect(true)}>
+            {config.hasAccess ? (
+              <ViewsCheckPanel
+                cost={config.viewsCheckCost ?? 0}
+                running={viewsCheck.running}
+                stages={viewsCheck.stages}
+                error={viewsCheck.error}
+                hasReport={Boolean(viewsCheck.saved)}
+                onRun={viewsCheck.run}
+              />
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-bg-border">
+                <p className="flex-1 text-sm text-zinc-400">
+                  The views check is available on the {config.allowedPlans.map(planLabel).join(', ')} plan
+                  {config.allowedPlans.length > 1 ? 's' : ''}.
+                </p>
+                <Link href="/plan" className="btn-primary btn-sm">
+                  Upgrade plan
+                </Link>
+              </div>
+            )}
+          </ChannelCard>
+        )}
+
+        {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && viewsCheck.saved && !viewsCheck.running && (
+          <div className="space-y-6">
+            {viewsCheck.saved.result.health ? (
+              <div className="space-y-2">
+                <p className="text-sm text-zinc-400">Channel health · last {viewsCheck.saved.result.health.current.days} days</p>
+                <HealthScoreCard result={viewsCheck.saved.result.health} />
+              </div>
+            ) : (
+              viewsCheck.saved.result.version >= 5 && (
+                <div className="card text-sm text-zinc-400">The channel health score couldn’t be calculated this time. The rest of the report is below.</div>
+              )
+            )}
+            <ViewsCheckReport result={viewsCheck.saved.result} analyzedAt={viewsCheck.saved.analyzedAt} />
+          </div>
+        )}
+
+        {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'diagnosis' && (
           <ChannelCard
             connection={state.connection}
             stats={state.stats}
@@ -146,7 +218,7 @@ export default function ChannelDoctorInner() {
           </ChannelCard>
         )}
 
-        {loadState === 'ready' && config?.enabled && state.connected && diagnosis.saved && !diagnosis.running && (
+        {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'diagnosis' && diagnosis.saved && !diagnosis.running && (
           <ReportView
             result={diagnosis.saved.result}
             analyzedAt={diagnosis.saved.analyzedAt}

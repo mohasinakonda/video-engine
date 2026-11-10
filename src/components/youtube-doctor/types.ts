@@ -30,4 +30,6 @@ export interface DoctorConfig {
   videoCost: number;
   /** Free diagnoses a Trial user has left; 0 on paid plans. */
   freeDiagnosesLeft: number;
+  viewsCheckEnabled?: boolean;
+  viewsCheckCost?: number;
 }

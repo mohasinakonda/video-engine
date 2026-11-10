@@ -20,7 +20,7 @@ interface ReportResponse {
 type Row = Record<string, string | number>;
 
 /** One reports.query call; rows come back keyed by column name. */
-async function query(accessToken: string, range: DateRange, params: Record<string, string>): Promise<Row[]> {
+export async function query(accessToken: string, range: DateRange, params: Record<string, string>): Promise<Row[]> {
   const search = new URLSearchParams({
     ids: 'channel==MINE',
     startDate: range.startDate,
