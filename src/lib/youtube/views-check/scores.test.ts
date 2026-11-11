@@ -36,8 +36,8 @@ describe('distribution score', () => {
   it('names the part that costs the most', () => {
     const half = Array.from({ length: 10 }, (_, i) => finding(i, i % 2 ? 'not_in_feed' : 'ok'));
     const d = distributionScore(half, [0.9, 0.9, 0.9].map(timeline), reach(1.2, 'rising'));
-    expect(d.headline).toMatch(/isn’t showing some of your Shorts/);
-    expect(d.detail).toMatch(/5 of your last 10 Shorts got into the feed/);
+    expect(d.headline).toMatch(/keeping some of your Shorts out of the feed/);
+    expect(d.detail).toMatch(/^5 of your last 10 Shorts reached the Shorts feed/);
   });
 
   it('leaves blocked and too-new Shorts out, and parts without data', () => {
@@ -79,7 +79,7 @@ describe('account health', () => {
   it('is 100 with nothing wrong', () => {
     const a = accountHealth({ ...base, videos: [video(0), video(1)] });
     expect(a.score).toBe(100);
-    expect(a.headline).toBe('No problems found on your channel.');
+    expect(a.headline).toBe('No strike, block or restriction found. Your channel is fine.');
   });
 
   it('takes points off per problem, capped per kind, worst first', () => {
@@ -91,7 +91,7 @@ describe('account health', () => {
     // copyright 15 + rejected 15 + not verified 10 + main-country 8 + other country 2; sudden_drop isn't an account problem.
     expect(a.issues.map((i) => i.id)).toEqual(['copyright_block', 'rejected', 'not_verified', 'main_country_block', 'country_block']);
     expect(a.score).toBe(50);
-    expect(a.headline).toMatch(/^Main issue: Videos blocked everywhere/);
+    expect(a.headline).toMatch(/^Videos blocked everywhere/);
     const many = accountHealth({
       ...base,
       videos: Array.from({ length: 6 }, (_, i) => video(i, { regionAllowed: [] })),

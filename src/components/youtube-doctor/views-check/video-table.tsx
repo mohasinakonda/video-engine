@@ -13,7 +13,7 @@ import { ScoreChip } from './test-rounds';
 type Filter = 'all' | 'problems';
 
 const PAGE = 8;
-const COLUMNS = ['Video', 'Views', 'Reason', 'Country block', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement', 'Views per day', ''] as const;
+const COLUMNS = ['Video', 'Views', 'Why', 'Restriction', 'Swiped away', 'Watched', 'To the end', 'From feed', 'Engagement', 'Views per day', ''] as const;
 const RIGHT_ALIGNED = new Set<string>(['Views', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement']);
 const SPARK_DAYS = 14;
 
@@ -43,7 +43,7 @@ export function VideoTable({ videos, timelines, analyzedAt }: { videos: VideoFin
         <h3 className="text-lg font-bold text-white">Your Shorts</h3>
         <div className="flex flex-wrap gap-1.5">
           <FilterButton id="all" label="All" count={videos.length} active={filter} onSelect={selectFilter} />
-          {problems > 0 && <FilterButton id="problems" label="Problems only" count={problems} active={filter} onSelect={selectFilter} />}
+          {problems > 0 && <FilterButton id="problems" label="Only problems" count={problems} active={filter} onSelect={selectFilter} />}
         </div>
         <span className="ml-auto text-xs text-zinc-400">Worst first</span>
       </div>
@@ -124,7 +124,6 @@ function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) 
   const cause = CAUSE[video.cause];
   const swipe = t?.estSwipeAway ?? null;
   const watched = avgWatched(video, t);
-
 
   return (
     <>

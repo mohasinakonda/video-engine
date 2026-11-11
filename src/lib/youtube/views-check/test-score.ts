@@ -43,7 +43,7 @@ function show(id: TrustSignalId, v: number): string {
 
 function problem(s: TestSignal): string {
   const usual = `your usual Short: ${show(s.id, s.usual)}`;
-  if (s.id === 'viewed') return `${Math.round((1 - s.value) * 100)}% swiped it away in the first seconds (${usual})`;
+  if (s.id === 'viewed') return `${Math.round((1 - s.value) * 100)} of every 100 swiped it away in the first 2 seconds (${usual})`;
   if (s.id === 'watched') return `people watched only ${Math.round(s.value * 100)}% of it on average (${usual})`;
   if (s.id === 'shares') return `fewer people shared it: ${rate(s.value)} of viewers (${usual})`;
   if (s.id === 'likes') return `fewer people liked it: ${rate(s.value)} of viewers (${usual})`;
@@ -94,11 +94,11 @@ export function shortTest(t: ShortTimeline, all: ShortTimeline[], usualViews: nu
   const reason = behind ? problem(behind) : 'viewers reacted less than to your usual Short';
   let message: string;
   if (result === 'failed') {
-    message = `Viewers reacted less than to your usual Short. Biggest reason: ${reason}.`;
+    message = `Viewers liked it less than your usual Short. The biggest reason: ${reason}.`;
   } else if (result === 'close') {
-    message = `Close to your usual Short. What held it back: ${reason}.`;
+    message = `About as good as your usual Short. What held it back: ${reason}.`;
   } else if (usualViews !== null && t.views < usualViews) {
-    message = `Viewers liked it at least as much as your usual Short, yet it got fewer views (${n(t.views)}; usual ${n(usualViews)}). The reason is likely outside the video: fewer people are interested in this topic, or other Shorts won the next round.`;
+    message = `Viewers liked it at least as much as your usual Short, yet it got fewer views (${n(t.views)}; usually ${n(usualViews)}). So the video isn’t the problem: fewer people care about this topic, or other Shorts did better that day.`;
   } else {
     message = `Viewers liked it more than your usual Short, so YouTube kept showing it to more people.`;
   }
@@ -237,17 +237,17 @@ export function testRounds(daily: DayViews[], publishedAt: string, reportedDays:
   const v = (k: number) => n(viewsOn(k - 1));
   let message: string;
   if (failedAt === 1) {
-    message = `Day 1 got ${v(1)} views${usualFirstDay !== null ? `, under your usual first day (${n(usualFirstDay)})` : ''}: the first viewers didn’t pass YouTube’s test.${why}`;
+    message = `Day 1 got ${v(1)} views${usualFirstDay !== null ? `, less than your usual first day (${n(usualFirstDay)})` : ''}: the first viewers didn’t like it enough for YouTube to show it to more people.${why}`;
   } else if (failedAt) {
     const share = Math.round((rounds[failedAt - 1].change ?? 0) * 100);
     const passed =
       failedAt === 2 ? `Day 1 passed (${v(1)} views${usualFirstDay !== null ? `; your usual first day: ${n(usualFirstDay)}` : ''})` : `Views grew on day 2 (${v(1)} → ${v(2)})`;
-    message = `${passed}. Day ${failedAt} didn’t grow: ${v(failedAt)} views, ${share}% of day ${failedAt - 1}, so YouTube didn’t widen it.${why} That’s why it didn’t go viral.`;
+    message = `${passed}. Day ${failedAt} didn’t grow: ${v(failedAt)} views, ${share}% of day ${failedAt - 1}, so YouTube stopped pushing it.${why} That’s why it didn’t go viral.`;
   } else if (passedAll) {
-    message = `Views grew every day (${v(1)} → ${v(2)} → ${v(3)}): YouTube kept widening it. This is how a Short spreads.`;
+    message = `Views grew every day (${v(1)} → ${v(2)} → ${v(3)}): YouTube kept showing it to more people. This is how a Short spreads.`;
   } else {
     const done = rounds.filter((r) => r.state === 'pass').length;
-    message = `${done} day${done === 1 ? '' : 's'} passed so far. The next day isn’t in YouTube Analytics yet (about 3 days behind). Check again soon.`;
+    message = `${done} day${done === 1 ? '' : 's'} so far. YouTube shares the next day about 3 days late, so check again soon.`;
   }
   return {
     rounds,
@@ -257,6 +257,6 @@ export function testRounds(daily: DayViews[], publishedAt: string, reportedDays:
     dropped,
     nextDay,
     message,
-    fix: dropped ? ROUND_FIX[dropped] : failedAt ? 'Try the same kind of Short on a topic more people care about, and compare.' : null,
+    fix: dropped ? ROUND_FIX[dropped] : failedAt ? 'Make the same kind of Short on a topic more people care about, and compare.' : null,
   };
 }

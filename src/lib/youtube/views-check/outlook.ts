@@ -29,7 +29,6 @@ export interface OutlookShort {
 const O = R.outlook;
 const DAY_MS = 86_400_000;
 const n = (v: number) => Math.round(v).toLocaleString('en-US');
-const pct = (v: number) => `${Math.round(v * 100)}%`;
 const UP: GrowthOutlookId[] = ['growing', 'will_stall'];
 
 interface Reading {
@@ -117,43 +116,43 @@ export function growthOutlook(shorts: OutlookShort[], now: Date): GrowthOutlook 
 
 function words(r: Reading): Pick<GrowthOutlook, 'id' | 'title' | 'detail' | 'nextStep'> {
   const { content, reach } = r;
-  const swipe = content.medianSwipeAway !== null ? pct(content.medianSwipeAway) : null;
   const what = reach.by === 'first_day' ? 'views on the upload day' : 'views';
   const trend =
     reach.recent && reach.previous
-      ? `Your newest ${reach.recent.count} Shorts got a median of ${n(reach.by === 'first_day' ? (reach.recent.medianFirstDay as number) : reach.recent.medianViews)} ${what}, vs ${n(
+      ? `Your newest ${reach.recent.count} Shorts got about ${n(reach.by === 'first_day' ? (reach.recent.medianFirstDay as number) : reach.recent.medianViews)} ${what} each, vs ${n(
           reach.by === 'first_day' ? (reach.previous.medianFirstDay as number) : reach.previous.medianViews,
         )} for the ${reach.previous.count} before.`
       : '';
-  const liked = swipe ? `About ${swipe} of viewers swipe away in the first seconds (a healthy Short: 45% or less).` : '';
+  const liked =
+    content.medianSwipeAway !== null ? `About ${Math.round(content.medianSwipeAway * 100)} of every 100 viewers swipe away in the first 2 seconds (good channels: under 45).` : '';
   const best = r.best && r.best.views > 0 ? ` Your strongest recent one, “${r.best.title}”, got ${n(r.best.views)} views: find what it did differently.` : '';
 
   switch (r.id) {
     case 'growing':
       return {
         id: r.id,
-        title: 'Likely to grow',
+        title: 'Your Shorts are on track to grow',
         detail: `Viewers like your newest Shorts and YouTube is showing them to more people. ${trend} ${liked}`.trim(),
         nextStep: `Keep posting what your newest Shorts have in common, on a steady schedule.${best}`,
       };
     case 'held_back':
       return {
         id: r.id,
-        title: 'Ready to grow, but reach isn’t moving',
-        detail: `Viewers like your Shorts, but YouTube isn’t showing them to more people yet. ${trend} ${liked}`.trim(),
+        title: 'Viewers like your Shorts, but YouTube hasn’t pushed them yet',
+        detail: `Viewers stay on your Shorts, but YouTube isn’t showing them to more people yet. ${trend} ${liked}`.trim(),
         nextStep: `The Shorts themselves hold viewers, so look outside them: post on a steady schedule, try new topics your viewers search for, and don’t post the same idea twice.${best}`,
       };
     case 'will_stall':
       return {
         id: r.id,
-        title: 'Growing for now, likely to stall',
-        detail: `YouTube is showing your Shorts to more people, but most of them swipe away, so this growth usually doesn’t last. ${trend} ${liked}`.trim(),
-        nextStep: `Fix the first 2 seconds before the reach drops: show the result or the question right away, no intro.${best}`,
+        title: 'Views are rising, but they’ll get stuck unless the hook improves',
+        detail: `YouTube is showing your Shorts to more people, but most of them swipe away, so this rise usually doesn’t last. ${trend} ${liked}`.trim(),
+        nextStep: `Fix the first 2 seconds before the views drop: show the result or the question right away, no intro.${best}`,
       };
     case 'not_growing':
       return {
         id: r.id,
-        title: 'Unlikely to grow as things are',
+        title: 'Your views won’t grow until the hook improves',
         detail: `Most viewers swipe away and YouTube isn’t showing your Shorts to more people. ${trend} ${liked}`.trim(),
         nextStep: `Start with the first 2 seconds: show the result or the question right away, no intro. Change one thing at a time and compare.${best}`,
       };

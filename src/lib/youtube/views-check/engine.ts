@@ -59,9 +59,9 @@ function judgeRegion(status: VideoStatus, mainCountries: string[]): Judgement | 
   // Blocked everywhere on a public, processed video: a copyright owner chose to block it.
   const copyright = (where: string): Judgement => ({
     cause: 'blocked',
-    reason: `The video is blocked ${where}. That almost always means a copyright claim: the owner of something in it, usually the music, chose to block it.`,
+    reason: `No one can watch this video ${where}. That almost always means a copyright claim: whoever owns something in it, usually the music, blocked it.`,
     evidence: [where === 'in every country' ? 'Allowed countries: none' : `Blocked ${where}`, 'Likely cause: copyright claim'],
-    fix: 'In Studio, open the video’s Copyright tab to see who claimed which part. Remove or replace that part (Studio’s editor can mute or swap the song), or dispute it if you own the rights. For Shorts, use music from YouTube’s own audio library.',
+    fix: 'In Studio, open this video’s Copyright tab to see who claimed which part. Remove or swap that part (Studio’s editor can mute or replace the song), or dispute it if you own the rights. For Shorts, use music from YouTube’s own audio library.',
   });
   const allowed = status.regionAllowed;
   const blocked = status.regionBlocked ?? [];
@@ -74,7 +74,7 @@ function judgeRegion(status: VideoStatus, mainCountries: string[]): Judgement | 
   if (mainBlocked.length) {
     return {
       cause: 'blocked',
-      reason: `The video is blocked in ${countryList(mainBlocked)}, where most of your viewers are, so YouTube can’t show it to the people it tests a new video on.`,
+      reason: `This video is blocked in ${countryList(mainBlocked)}, where most of your viewers are. YouTube shows a new video to those viewers first, so it can’t get started.`,
       evidence: [`Blocked in your top countries: ${countryList(mainBlocked)}`, ...(blocked.length > mainBlocked.length ? [`Blocked in ${blocked.length} countries in all`] : [])],
       fix,
     };
@@ -83,7 +83,7 @@ function judgeRegion(status: VideoStatus, mainCountries: string[]): Judgement | 
     const where = blocked.length ? `blocked in ${countryList(blocked)}` : `allowed only in ${countryList(allowed as string[])}`;
     return {
       cause: 'blocked',
-      reason: `The video is ${where}; people there can’t watch it.`,
+      reason: `This video is ${where}, so people there can’t watch it.`,
       evidence: [blocked.length ? `Blocked in: ${countryList(blocked)}` : `Allowed only in: ${countryList(allowed as string[])}`],
       fix,
     };
@@ -109,7 +109,7 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
           : 'Open the video in Studio to see the rejection details and upload a corrected version.';
     return {
       cause: 'blocked',
-      reason: 'YouTube rejected this upload.',
+      reason: 'YouTube rejected this upload, so no one can watch it.',
       evidence: [`Rejection reason: ${why}`],
       fix,
     };
@@ -125,7 +125,7 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
   if (status.uploadStatus === 'uploaded') {
     return {
       cause: 'blocked',
-      reason: 'YouTube is still processing this upload, so it can’t play yet.',
+      reason: 'YouTube is still processing this upload, so no one can watch it yet.',
       evidence: ['Upload status: processing'],
       fix: 'Processing usually takes minutes, but up to 24–48 hours on new channels. If it’s stuck longer, upload the file again.',
     };
@@ -134,7 +134,7 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
     const when = new Date(status.publishAt);
     return {
       cause: 'blocked',
-      reason: `The video is scheduled to go public on ${when.toUTCString().slice(5, 22)} UTC, so nobody can see it yet.`,
+      reason: `This video is scheduled to go public on ${when.toUTCString().slice(5, 22)} UTC, so no one can see it yet.`,
       evidence: ['Visibility: scheduled'],
       fix: 'Nothing to fix if the date is right; otherwise publish it now in Studio.',
     };
@@ -142,9 +142,9 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
   if (status.privacyStatus && status.privacyStatus !== 'public') {
     return {
       cause: 'blocked',
-      reason: `The video is ${status.privacyStatus}, so YouTube doesn’t show it to anyone.`,
+      reason: `This video is ${status.privacyStatus}, so YouTube doesn’t show it to anyone.`,
       evidence: [`Visibility: ${status.privacyStatus}`],
-      fix: 'Set visibility to Public in Studio if it should get views.',
+      fix: 'If you want views on it, set visibility to Public in Studio.',
     };
   }
   const region = judgeRegion(status, mainCountries);
@@ -152,15 +152,15 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
   if (status.ageRestricted) {
     return {
       cause: 'blocked',
-      reason: 'The video is age-restricted, so most viewers can’t see it and it isn’t recommended widely.',
+      reason: 'This video is age-restricted, so most viewers can’t see it and YouTube barely recommends it.',
       evidence: ['Age restriction: on'],
-      fix: 'Check the restriction in Studio; edit the video or appeal if you think it’s wrong.',
+      fix: 'Open the restriction in Studio. Edit the video, or appeal if you think it’s wrong.',
     };
   }
   if (status.madeForKids && !kidsChannel) {
     return {
       cause: 'blocked',
-      reason: 'The video is marked Made for Kids, which turns off comments, the notification bell and end screens.',
+      reason: 'This video is marked Made for Kids, which turns off comments, the notification bell and end screens.',
       evidence: ['Audience: Made for Kids'],
       fix: 'If the video isn’t for children, change the audience setting in Studio.',
     };
@@ -177,17 +177,17 @@ function judgeLong(video: VideoMeta, data: ViewsCheckDataset, days: number): Jud
   if (impressions !== null && impressions <= R.notShown.maxImpressions) {
     return {
       cause: 'not_shown',
-      reason: 'YouTube hasn’t shown this video to anyone yet: no impressions.',
-      evidence: [`0 impressions in ${plural(days, 'reported day')}`, ...(views !== null ? [`${plural(views, 'view')} in the period`] : [])],
-      fix: 'Check the Studio items below. If nothing is flagged, make the next video clearly original and search-led.',
+      reason: 'YouTube hasn’t shown this video to anyone yet: not even its thumbnail.',
+      evidence: [`Shown 0 times in ${plural(days, 'reported day')}`, ...(views !== null ? [`${plural(views, 'view')} in the period`] : [])],
+      fix: 'In Studio, check for a copyright claim, a strike or a restriction. If there’s none, make the next video clearly original, about something people search for.',
     };
   }
   if (impressions !== null && impressions >= R.packaging.minImpressions && stats?.ctr !== null && stats?.ctr !== undefined && stats.ctr < R.packaging.lowCtr) {
     return {
       cause: 'not_clicked',
-      reason: 'People see this video but almost nobody clicks.',
-      evidence: [`${count(impressions)} impressions`, `CTR ${(stats.ctr * 100).toFixed(1)}% (half of channels sit between 2% and 10%)`],
-      fix: 'Rebuild the title and thumbnail around one clear promise, with the search phrase first.',
+      reason: 'People see this video’s thumbnail, but almost no one taps it.',
+      evidence: [`Thumbnail shown ${count(impressions)} times`, `${(stats.ctr * 100).toFixed(1)} of every 100 people tapped (CTR; most channels get 2–10)`],
+      fix: 'Remake the title and thumbnail around one clear promise, with the words people search for first.',
     };
   }
   const retention = data.deepDives[video.id]?.retention;
@@ -199,12 +199,12 @@ function judgeLong(video: VideoMeta, data: ViewsCheckDataset, days: number): Jud
     if ((at30 !== null && at30 < R.opening.earlyExitWatchRatio) || (relative !== null && relative < R.opening.weakRelative)) {
       return {
         cause: 'left_early',
-        reason: 'Viewers click, then leave early.',
+        reason: 'People tap the video, then leave early.',
         evidence: [
           ...(at30 !== null ? [`${pct(Math.min(1, at30))} still watching at ${R.opening.earlyExitSec} seconds`] : []),
-          ...(relative !== null ? [`Retention vs similar videos: ${relative.toFixed(2)} (0.5 is typical)`] : []),
+          ...(relative !== null ? [`Kept viewers ${relative.toFixed(2)} vs similar videos (0.5 = the same)`] : []),
         ],
-        fix: 'Open with the payoff: restate the title’s promise in the first seconds and cut the intro.',
+        fix: 'Start with what the title promised, in the first seconds, and cut the intro.',
       };
     }
   }
@@ -215,12 +215,12 @@ function judgeLong(video: VideoMeta, data: ViewsCheckDataset, days: number): Jud
     const avgSec = data.perVideo.ok ? data.perVideo.data[video.id]?.avgViewDurationSec : null;
     return {
       cause: 'left_early',
-      reason: 'Viewers click, then leave early.',
+      reason: 'People tap the video, then leave early.',
       evidence: [
         `Watched ${Math.round(watched)}% of the video on average${avgSec && video.durationSec ? ` (${Math.round(avgSec)}s of ${clock(video.durationSec)})` : ''}`,
         ...(views !== null ? [`${plural(views, 'view')} in the period`] : []),
       ],
-      fix: 'Open with the payoff: restate the title’s promise in the first seconds and cut the intro.',
+      fix: 'Start with what the title promised, in the first seconds, and cut the intro.',
     };
   }
   // Without impressions we can't tell whether YouTube showed it and nobody clicked, or barely showed
@@ -230,15 +230,15 @@ function judgeLong(video: VideoMeta, data: ViewsCheckDataset, days: number): Jud
       cause: 'unknown',
       reason:
         (views ?? 0) === 0
-          ? 'No views, and YouTube hasn’t shared impressions for this video yet.'
-          : 'YouTube hasn’t shared impressions and click-through for this channel yet, so we can’t tell whether it was barely shown or shown and skipped.',
-      evidence: ['Impressions: not available yet', ...(views !== null ? [`${plural(views, 'view')} in the period`] : [])],
-      fix: 'Check this video’s Reach tab in Studio (impressions and click-through rate). YouTube usually starts sharing them a few days after you connect; run the check again then.',
+          ? 'No views, and YouTube hasn’t shared yet how often it showed this video.'
+          : 'YouTube hasn’t shared yet how often it showed this video, so we can’t tell if it was barely shown or shown and skipped.',
+      evidence: ['Times shown: not shared yet', ...(views !== null ? [`${plural(views, 'view')} in the period`] : [])],
+      fix: 'Look at this video’s Reach tab in Studio. YouTube usually shares these numbers a few days after you connect; check again then.',
     };
   }
   return {
     cause: 'ok',
-    reason: 'No distribution problem found.',
+    reason: 'No problem found: YouTube showed it and people watched.',
     evidence: views !== null ? [`${plural(views, 'view')} in the period`] : [],
     fix: '',
   };
@@ -349,14 +349,14 @@ function sampleCurve(points: { ratio: number; watchRatio: number }[]): ShortTime
 function shortEvidence(t: ShortTimeline): string[] {
   const out: string[] = [];
   if (t.estSwipeAway !== null) {
-    const vs = t.channelMedianSwipeAway !== null ? ` (your Shorts’ median: ${pct(t.channelMedianSwipeAway)})` : '';
-    out.push(`About ${pct(t.estSwipeAway)} of plays swiped away in the first seconds (estimate; ≈${pct(1 - t.estSwipeAway)} stayed to watch)${vs}`);
+    const vs = t.channelMedianSwipeAway !== null ? ` (your typical Short: ${per100(t.channelMedianSwipeAway)})` : '';
+    out.push(`${per100(t.estSwipeAway)} of every 100 viewers swiped away in the first 2 seconds${vs}`);
   }
   if (t.avgViewSec !== null && t.durationSec) out.push(`Watched ${Math.round(t.avgViewSec)}s of ${Math.round(t.durationSec)}s on average`);
-  else if (t.avgViewPct !== null) out.push(`Average viewed: ${Math.round(t.avgViewPct)}%`);
+  else if (t.avgViewPct !== null) out.push(`Watched ${Math.round(t.avgViewPct)}% of it on average`);
   if (t.halfGoneAtSec !== null) out.push(`Half the viewers gone by ${clock(t.halfGoneAtSec)}`);
-  if (t.biggestDrop && t.biggestDrop.lost >= 0.05) out.push(`Biggest drop at ${clock(t.biggestDrop.atSec)} (${pct(t.biggestDrop.lost)} of viewers left there)`);
-  if (t.relativeRetention !== null) out.push(`Retention vs similar Shorts: ${t.relativeRetention.toFixed(2)} (0.5 is typical)`);
+  if (t.biggestDrop && t.biggestDrop.lost >= 0.05) out.push(`Most viewers left at ${clock(t.biggestDrop.atSec)} (${per100(t.biggestDrop.lost)} of every 100 at once)`);
+  if (t.relativeRetention !== null) out.push(`Kept viewers ${t.relativeRetention.toFixed(2)} vs similar Shorts (0.5 = the same)`);
   return out;
 }
 
@@ -369,20 +369,20 @@ function shortFix(t: ShortTimeline): string {
   const lateExit = w !== null && w.fromSec > O.hookSec && (w.toSec === null || w.toSec - w.fromSec >= 1);
   if (lateExit) {
     steps.push(
-      `Viewers stay through the opening, then most leave ${w.toSec !== null ? `between ${clock(w.fromSec)} and ${clock(w.toSec)}` : `from ${clock(w.fromSec)}`}: look at what’s on screen then, and show the payoff before ${clock(w.fromSec)}.`,
+      `Viewers get past the start, then most leave ${w.toSec !== null ? `between ${clock(w.fromSec)} and ${clock(w.toSec)}` : `from ${clock(w.fromSec)}`}: watch what’s on screen then, and show the best part before ${clock(w.fromSec)}.`,
     );
   } else if ((t.halfGoneAtSec !== null && t.halfGoneAtSec <= O.instantExitSec) || (t.estSwipeAway !== null && t.estSwipeAway >= O.highSwipeAway)) {
-    steps.push('Viewers decide in the first 1–2 seconds: open on the finished result or the most surprising moment, with no setup, logo or intro.');
+    steps.push('Viewers decide in the first 1–2 seconds: start with the finished result or the most surprising moment. No setup, logo or intro.');
   }
   const dropInWindow = lateExit && t.biggestDrop !== null && w.toSec !== null && t.biggestDrop.atSec >= w.fromSec && t.biggestDrop.atSec <= w.toSec;
   if (!dropInWindow && t.biggestDrop && t.biggestDrop.lost >= 0.05 && t.biggestDrop.atSec > O.instantExitSec) {
-    steps.push(`Most viewers left at ${clock(t.biggestDrop.atSec)}: cut or speed up what happens there.`);
+    steps.push(`Most viewers left at ${clock(t.biggestDrop.atSec)}: cut or speed up that part.`);
   }
   if (t.avgViewSec !== null && t.durationSec && t.durationSec >= t.avgViewSec * 2 && t.durationSec > 15) {
     const target = Math.max(10, Math.round((t.avgViewSec * 1.3) / 5) * 5);
-    steps.push(`People watch about ${Math.round(t.avgViewSec)}s of ${Math.round(t.durationSec)}s: try a ${target}-second version.`);
+    steps.push(`People watch about ${Math.round(t.avgViewSec)}s of ${Math.round(t.durationSec)}s: make the next one about ${target} seconds.`);
   }
-  return steps.slice(0, 2).join(' ') || 'Change one thing in the next Short (the first second, or the length) and compare it with this one.';
+  return steps.slice(0, 2).join(' ') || 'Change one thing in your next Short (the first second, or the length) and compare it with this one.';
 }
 
 function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judgement {
@@ -391,21 +391,21 @@ function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judge
   if (views === 0) {
     return {
       cause: 'not_shown',
-      reason: 'This Short hasn’t been shown in the Shorts feed: 0 views.',
+      reason: 'YouTube didn’t show this Short to anyone: 0 views.',
       evidence: [`0 views in ${plural(days, 'reported day')}`],
-      fix: 'Check Restrictions and Copyright in Studio; if it uses claimed music and is over 60 seconds, trim it under 60.',
+      fix: 'In Studio, check this Short’s Copyright and Restrictions. If it uses claimed music and is over 60 seconds, cut it under 60.',
     };
   }
   if (t.shortsFeedShare !== null && views >= R.notShown.minViewsForFeedCheck && t.shortsFeedShare <= R.notShown.maxShortsFeedShare) {
     return {
       cause: 'not_in_feed',
-      reason: 'This Short isn’t reaching the Shorts feed; its few views come from elsewhere.',
+      reason: 'YouTube kept this Short out of the Shorts feed: its few views came from somewhere else.',
       evidence: [`${plural(views, 'view')}`, `${pct(t.shortsFeedShare)} from the Shorts feed`],
-      fix: 'Make it vertical, original and clearly a Short; check Copyright and Restrictions in Studio.',
+      fix: 'Make it vertical, original and clearly a Short, and check its Copyright and Restrictions in Studio.',
     };
   }
   if (isHighSwipe(t, shortsJudged)) {
-    const usual = t.channelMedianSwipeAway !== null && shortsJudged >= O.minShortsForMedian ? ` Your usual Short: about ${pct(t.channelMedianSwipeAway)}.` : '';
+    const usual = t.channelMedianSwipeAway !== null && shortsJudged >= O.minShortsForMedian ? ` On your typical Short it’s ${per100(t.channelMedianSwipeAway)}.` : '';
     const w = t.exitWindow;
     const where =
       w === null
@@ -413,11 +413,11 @@ function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judge
         : w.fromSec <= O.hookSec
           ? ' Most leave in the first 1–2 seconds.'
           : w.toSec !== null && w.toSec - w.fromSec >= 1
-            ? ` They stay through the opening, then most leave between ${clock(w.fromSec)} and ${clock(w.toSec)}.`
-            : ` They stay through the opening, then most leave at ${clock(w.fromSec)}.`;
+            ? ` They get past the start, then most leave between ${clock(w.fromSec)} and ${clock(w.toSec)}.`
+            : ` They get past the start, then most leave at ${clock(w.fromSec)}.`;
     return {
       cause: 'weak_hook',
-      reason: `Weak hook: most people swipe this Short away in the first seconds (about ${pct(t.estSwipeAway as number)} of plays, estimated; ≈${pct(1 - (t.estSwipeAway as number))} stayed to watch), so YouTube stops offering it to new viewers.${where}${usual}`,
+      reason: `The hook lost them: ${per100(t.estSwipeAway as number)} of every 100 viewers swiped away in the first 2 seconds, so YouTube stopped showing it to new people.${where}${usual}`,
       evidence: shortEvidence(t),
       fix: shortFix(t),
     };
@@ -428,7 +428,7 @@ function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judge
     const when = t.biggestDrop && t.biggestDrop.lost >= 0.05 ? ` Most of them leave at ${clock(t.biggestDrop.atSec)}.` : '';
     return {
       cause: 'left_early',
-      reason: `People start watching, but leave before the end (average viewed ${t.avgViewPct !== null ? `${Math.round(t.avgViewPct)}%` : 'is low'}).${when}`,
+      reason: `People start watching, but leave before the end${t.avgViewPct !== null ? `: they watch ${Math.round(t.avgViewPct)}% of it on average` : ''}.${when}`,
       evidence: shortEvidence(t),
       fix: shortFix(t),
     };
@@ -439,21 +439,21 @@ function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judge
     return {
       cause: 'quick_stop',
       reason: held
-        ? `It kept viewers as well as similar Shorts, but lost to the other Shorts competing for the next, wider audience.${burst}`
-        : `It got a first burst, then didn’t beat the other Shorts competing for the next audience.${burst}`,
+        ? `Viewers liked it as much as similar Shorts, but other Shorts did better with the next, bigger group, so YouTube stopped pushing it.${burst}`
+        : `It got views on day 1, then YouTube stopped pushing it: other Shorts did better with the next group of viewers.${burst}`,
       evidence: [
         `${pct(t.firstDaysShare)} of its views came in the first ${R.quickStop.firstDays} days`,
         ...shortEvidence(t),
         ...(t.likeRate !== null ? [`Likes per view: ${(t.likeRate * 100).toFixed(1)}%`] : []),
       ],
       fix: held
-        ? 'The opening works; the next audience needs a stronger reason to stay to the end and react: a payoff in the last seconds and a question viewers want to answer.'
+        ? 'Your start works. Give the next viewers a reason to stay to the end and react: a payoff in the last seconds, and a question they want to answer.'
         : shortFix(t),
     };
   }
   return {
     cause: 'ok',
-    reason: 'No distribution problem found.',
+    reason: 'No problem found: viewers stayed and YouTube kept showing it.',
     evidence: [`${plural(views, 'view')} in the period`, ...shortEvidence(t)],
     fix: '',
   };
@@ -652,7 +652,7 @@ function channelSignals(data: ViewsCheckDataset, findings: VideoFinding[]): Chan
         id: 'sudden_drop',
         severity: 'high',
         title: 'Views dropped sharply on recent uploads',
-        detail: `Your last 5 videos have a median of ${count(Math.round(last))} views; the 5 before had ${count(Math.round(before))}.`,
+        detail: `Your last 5 videos get about ${count(Math.round(last))} views each; the 5 before got about ${count(Math.round(before))}.`,
         fix: 'Compare what changed (topic, format, length, music, originality) between the two groups and undo it.',
       });
     }
@@ -665,8 +665,8 @@ function channelSignals(data: ViewsCheckDataset, findings: VideoFinding[]): Chan
       id: 'channel_wide_stop',
       severity: 'high',
       title: 'YouTube isn’t showing your recent uploads',
-      detail: `${unseen.length} of your last ${judged.length} judged videos got no impressions or no Shorts-feed views.`,
-      fix: 'Check the Studio items below first, then make sure every upload is your own, original work.',
+      detail: `${unseen.length} of your last ${judged.length} videos were shown to almost no one.`,
+      fix: 'In Studio, check for copyright claims, strikes and restrictions first, then make sure every upload is your own, original work.',
     });
   }
 
@@ -754,39 +754,41 @@ function studioChecks(hasShorts: boolean): StudioCheck[] {
 
 const HEADLINES: Partial<Record<ViewsCause, { headline: (n: number, of: number) => string; firstStep: string }>> = {
   blocked: {
-    headline: (n) => `${plural(n, 'recent video is', 'recent videos are')} blocked, rejected or not public.`,
-    firstStep: 'Fix the blocked videos listed below first; nothing else helps until they can play.',
+    headline: (n) => `People can’t watch ${plural(n, 'of your recent videos', 'of your recent videos')}: blocked, rejected or not public.`,
+    firstStep: 'Fix the videos marked “Blocked” below first. Nothing else helps until people can watch them.',
   },
   not_shown: {
-    headline: (n, of) => `YouTube isn’t showing your videos: ${n} of ${of} got no impressions or views.`,
-    firstStep: 'Check the Studio items below (copyright, strikes, Feature eligibility), then post one clearly original video.',
+    headline: (n, of) => `YouTube isn’t showing ${n} of your last ${of} videos to anyone: they got no views at all.`,
+    firstStep: 'In Studio, check for a copyright claim, a strike or a restriction (see “What YouTube doesn’t share” below), then post one clearly original video.',
   },
   not_in_feed: {
-    headline: (n, of) => `Your Shorts aren’t reaching the Shorts feed (${n} of ${of}).`,
+    headline: (n, of) => `YouTube kept ${n} of your last ${of} Shorts out of the Shorts feed, so almost no one saw them.`,
     firstStep: 'Check Copyright and Restrictions in Studio, and make each Short vertical, original and under 60 seconds if it uses music.',
   },
   not_clicked: {
-    headline: (n, of) => `People see your videos but don’t click (${n} of ${of} under 2% CTR).`,
+    headline: (n, of) => `People see ${n} of your ${of} videos but don’t tap them: fewer than 2 in 100 tap.`,
     firstStep: 'Rebuild titles and thumbnails around one clear promise, with the search phrase first.',
   },
   new_topic: {
-    headline: (n, of) => `Shorts on a new topic didn’t find an audience (${n} of ${of}): YouTube likely tested them on new viewers.`,
+    headline: (n, of) => `Your Shorts on a new topic didn’t find viewers (${n} of ${of}): YouTube showed them to people who don’t know you yet.`,
     firstStep: 'Stay with the topic that works, or post several Shorts on a new topic in a row so YouTube can find its viewers.',
   },
   weak_hook: {
-    headline: (n, of) => `Weak hooks: viewers swipe your Shorts away in the first seconds (${n} of ${of}).`,
+    headline: (n, of) => `Your hook loses viewers: they swipe away in the first 2 seconds (${n} of ${of} Shorts).`,
     firstStep: 'Open with the payoff: show the result or the best moment in the first second.',
   },
   left_early: {
-    headline: (n, of) => `Viewers start watching, then leave before the end (${n} of ${of}).`,
+    headline: (n, of) => `Viewers start watching, then leave before the end (${n} of ${of} Shorts).`,
     firstStep: 'Cut what comes before the payoff and end right after it.',
   },
   quick_stop: {
-    headline: (n, of) => `Your Shorts get a first burst, then stop (${n} of ${of}): they lose the test against other Shorts.`,
+    headline: (n, of) => `Your views get stuck after the first day or two (${n} of ${of} Shorts): YouTube stops pushing them.`,
     firstStep: 'Test one change per Short on the first second, and give viewers a reason to like, comment or share.',
   },
 };
 
+/** 0.74 → "74", for “74 of every 100 viewers”. */
+const per100 = (v: number) => String(Math.round(v * 100));
 const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
 
 /** A headline with the channel's own numbers, when the affected videos have them. */
@@ -795,16 +797,16 @@ function specificHeadline(cause: ViewsCause, affected: VideoFinding[], judged: n
   const of = `${affected.length} of ${judged} videos`;
   if (cause === 'weak_hook') {
     const swipe = mean(t.map((x) => x.estSwipeAway).filter((v): v is number => v !== null));
-    if (swipe !== null) return `Weak hooks: viewers swipe your Shorts away in the first seconds, about ${pct(swipe)} of plays on average (estimate), on ${of}.`;
+    if (swipe !== null) return `Your hook loses about ${Math.round(swipe * 100)} of every 100 viewers in the first 2 seconds (${of}).`;
   }
   if (cause === 'left_early') {
     const half = median(t.map((x) => x.halfGoneAtSec).filter((v): v is number => v !== null));
-    if (half !== null) return `Viewers leave early: half of them are gone by ${clock(half)} (median), on ${of}.`;
+    if (half !== null) return `Viewers leave early: half of them are gone by ${clock(half)} (${of}).`;
   }
   if (cause === 'quick_stop') {
     const share = median(t.map((x) => x.firstDaysShare).filter((v): v is number => v !== null));
     if (share !== null)
-      return `Your Shorts get ${pct(share)} of their views in the first ${R.quickStop.firstDays} days, then stop (${of}): they lose the test against other Shorts.`;
+      return `Your views get stuck after day ${R.quickStop.firstDays}: ${pct(share)} of a Short’s views come in its first ${R.quickStop.firstDays} days, then YouTube stops pushing it (${of}).`;
   }
   return null;
 }
@@ -882,7 +884,7 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
       return {
         ...base,
         cause: 'too_new',
-        reason: 'Too new to judge: YouTube Analytics is about 3 days behind.',
+        reason: 'Too new to judge: YouTube shares a video’s numbers about 3 days late.',
         evidence: [`${plural(days, 'reported day')}`],
         fix: 'Check again in a few days.',
       };
@@ -986,8 +988,8 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
     if (!result.ok) limitations.push(result.reason);
   }
   limitations.push(
-    'YouTube Analytics reports views per day, not per hour, and is about 3 days behind; videos newer than that aren’t judged.',
-    '“Shown in feed”, “Viewed vs swiped away”, copyright claims and strikes aren’t available through the YouTube API; check them in Studio (listed above).',
+    'YouTube shares views per day (not per hour), about 3 days late, so videos newer than that aren’t judged yet.',
+    'YouTube doesn’t share copyright claims, strikes, “Shown in feed” or its exact “Viewed vs swiped away” with apps like this one. Check them in Studio. Our swipe-away numbers come from YouTube’s engaged views, so they can differ from Studio’s by a few points.',
   );
 
   const viewsOf = (format: 'short' | 'video') => {

@@ -25,7 +25,7 @@ describe('growth outlook', () => {
     expect(o.id).toBe('growing');
     expect(o.reach.state).toBe('rising');
     expect(o.reach.by).toBe('views');
-    expect(o.detail).toMatch(/median of 900 views, vs 400/);
+    expect(o.detail).toMatch(/about 900 views each, vs 400/);
   });
 
   it('held back: liked but reach flat', () => {
@@ -40,7 +40,7 @@ describe('growth outlook', () => {
     const o = growthOutlook(channel([...rep(5, { views: 100, swipe: 0.8 }), ...rep(5, { views: 400, swipe: 0.8 })]), NOW);
     expect(o.id).toBe('not_growing');
     expect(o.reach.state).toBe('falling');
-    expect(o.detail).toMatch(/About 80% of viewers swipe away/);
+    expect(o.detail).toMatch(/About 80 of every 100 viewers swipe away/);
   });
 
   it('compares upload-day views when enough Shorts have them', () => {

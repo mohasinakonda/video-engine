@@ -141,9 +141,11 @@ export function accountHealth(input: {
     band: bandOf(score),
     checked,
     issues,
-    headline: top ? `Main issue: ${top.title}.` : 'No problems found on your channel.',
+    headline: top
+      ? `${top.severity === 'low' ? `Small risk: ${/^[A-Z][a-z]/.test(top.title) ? top.title.charAt(0).toLowerCase() + top.title.slice(1) : top.title}` : top.title}.`
+      : 'No strike, block or restriction found. Your channel is fine.',
     detail: top
       ? `${top.detail}${issues.length > 1 ? ` ${issues.length - 1} more issue${issues.length === 2 ? '' : 's'} in the details.` : ''}`
-      : `Checked ${checked} video${checked === 1 ? '' : 's'}: no blocks, rejections or restrictions.`,
+      : `We checked ${checked} video${checked === 1 ? '' : 's'} and your channel settings.`,
   };
 }

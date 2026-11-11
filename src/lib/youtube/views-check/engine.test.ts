@@ -99,7 +99,7 @@ describe('analyzeViews: per video', () => {
     data.status.data.v3 = { ...publicStatus(), regionAllowed: [] };
     data.status.data.v4 = { ...publicStatus(), ageRestricted: true };
     const report = analyzeViews(data);
-    expect(report.videos[2].reason).toMatch(/blocked in every country. That almost always means a copyright claim/);
+    expect(report.videos[2].reason).toMatch(/watch this video in every country. That almost always means a copyright claim/);
     expect(report.videos.every((v) => v.cause === 'blocked')).toBe(true);
     expect(report.videos[0].fix).toMatch(/same file/);
     expect(report.verdict.cause).toBe('blocked');
@@ -132,7 +132,7 @@ describe('analyzeViews: per video', () => {
     expect(find('v3').reason).toMatch(/almost always means a copyright claim/);
     expect(find('v3').evidence).toContain('Likely cause: copyright claim');
     expect(find('v4').evidence).not.toContain('Likely cause: copyright claim');
-    expect(find('v4').reason).toMatch(/blocked in Germany; people there can’t watch it/);
+    expect(find('v4').reason).toMatch(/blocked in Germany, so people there can’t watch it/);
     expect(report.videos.map((v) => v.countryBlock)).toEqual([true, true, true, true]);
   });
 
@@ -172,7 +172,7 @@ describe('analyzeViews: per video', () => {
     data.reach.data.byVideo = {};
     const report = analyzeViews(data);
     expect(causeOf(report, 'v1')).toBe('not_shown');
-    expect(report.videos[0].evidence[0]).toMatch(/0 impressions in 11 reported days/);
+    expect(report.videos[0].evidence[0]).toMatch(/Shown 0 times in 11 reported days/);
   });
 
   it('says "unknown" instead of guessing when impressions are not available yet', () => {
@@ -186,7 +186,7 @@ describe('analyzeViews: per video', () => {
     data.perVideo.data.v1 = stats(15, 60);
     const finding = analyzeViews(data).videos[0];
     expect(finding.cause).toBe('unknown');
-    expect(finding.reason).toMatch(/can’t tell whether it was barely shown/);
+    expect(finding.reason).toMatch(/can’t tell if it was barely shown/);
   });
 
   it('uses average % viewed when a long video has no retention curve', () => {
@@ -241,7 +241,7 @@ describe('analyzeViews: per video', () => {
     const report = analyzeViews(data);
     const finding = report.videos[0];
     expect(finding.cause).toBe('quick_stop');
-    expect(finding.reason).toMatch(/kept viewers as well as similar Shorts/);
+    expect(finding.reason).toMatch(/liked it as much as similar Shorts/);
     expect(finding.reason).toMatch(/Day 1: 700 views, day 2: 200/);
     expect(finding.evidence[0]).toBe('90% of its views came in the first 2 days');
     expect(report.shorts[0].shortsFeedShare).toBeCloseTo(0.95);
@@ -262,15 +262,15 @@ describe('analyzeViews: per video', () => {
     const report = analyzeViews(data);
     const finding = report.videos[0];
     expect(finding.cause).toBe('weak_hook');
-    expect(finding.reason).toMatch(/^Weak hook: .*about 70% of plays, estimated/);
+    expect(finding.reason).toMatch(/^The hook lost them: 70 of every 100 viewers swiped away/);
     expect(finding.evidence).toEqual(expect.arrayContaining(['Watched 12s of 40s on average', 'Half the viewers gone by 0:02']));
     // Studio's scale: 40% of views are still watching at the end.
     const t = report.shorts[0];
     expect(t.completion?.ofViews).toBeCloseTo(0.4);
     expect(t.completion?.ofStarted).toBeCloseTo(0.4 / 0.45);
     expect(finding.fix).toMatch(/first 1–2 seconds/);
-    expect(finding.fix).toMatch(/try a 15-second version/);
-    expect(report.verdict.headline).toMatch(/^Weak hooks: .*about 70% of plays on average \(estimate\)/);
+    expect(finding.fix).toMatch(/make the next one about 15 seconds/);
+    expect(report.verdict.headline).toMatch(/^Your hook loses about 70 of every 100 viewers/);
     expect(report.verdict.firstStep).toMatch(/^Start with “Video number 1/);
   });
 
@@ -335,7 +335,7 @@ describe('analyzeViews: per video', () => {
     const report = analyzeViews(data);
     // v1: 60% swiped vs a median of about 23%.
     expect(causeOf(report, 'v1')).toBe('weak_hook');
-    expect(report.videos.find((f) => f.videoId === 'v1')?.evidence[0]).toMatch(/About 60% of plays swiped away .* \(your Shorts’ median: 23%\)/);
+    expect(report.videos.find((f) => f.videoId === 'v1')?.evidence[0]).toMatch(/^60 of every 100 viewers swiped away .* \(your typical Short: 23\)/);
     expect(causeOf(report, 'v2')).toBe('ok');
   });
 
@@ -350,9 +350,9 @@ describe('analyzeViews: per video', () => {
     ];
     const finding = analyzeViews(dataset([v], { deepDives: { v1: dive(daily, 950, 50, curve) } })).videos[0];
     expect(finding.cause).toBe('weak_hook');
-    expect(finding.reason).toMatch(/≈21% stayed to watch/);
-    expect(finding.reason).toMatch(/stay through the opening, then most leave between 0:05 and 0:07/);
-    expect(finding.fix).toMatch(/show the payoff before 0:05/);
+    expect(finding.reason).toMatch(/79 of every 100 viewers swiped away/);
+    expect(finding.reason).toMatch(/get past the start, then most leave between 0:05 and 0:07/);
+    expect(finding.fix).toMatch(/show the best part before 0:05/);
     const t = analyzeViews(dataset([v], { deepDives: { v1: dive(daily, 950, 50, curve) } })).shorts[0];
     expect(t.completion?.ofViews).toBeCloseTo(0.14, 1);
   });
@@ -406,7 +406,7 @@ describe('analyzeViews: verdict and channel signals', () => {
     data.reach.data.byVideo.v2 = { impressions: 5000, ctr: 0.01 };
     const report = analyzeViews(data);
     expect(report.verdict.cause).toBe('not_clicked');
-    expect(report.verdict.headline).toMatch(/2 of 3/);
+    expect(report.verdict.headline).toMatch(/2 of your 3 videos/);
   });
 
   it('reports a healthy channel plainly', () => {
@@ -447,7 +447,7 @@ describe('analyzeViews: verdict and channel signals', () => {
   it('turns missing data sources into limitations, never into findings', () => {
     const report = analyzeViews(dataset([video(1, 10)], { engaged: { ok: false, reason: 'engaged views is not available.' } }));
     expect(report.limitations).toContain('engaged views is not available.');
-    expect(report.limitations.some((l) => l.includes('per day, not per hour'))).toBe(true);
+    expect(report.limitations.some((l) => l.includes('per day (not per hour)'))).toBe(true);
   });
 
   it('keeps the plan to at most 5 distinct steps', () => {

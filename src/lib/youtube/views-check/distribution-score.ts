@@ -20,14 +20,14 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 const partScore = (value: number, line: number) => Math.max(0, Math.min(100, (AT * value) / line));
 
 const NAMES: Record<DistributionPartId, string> = {
-  shown: 'Shown in the feed',
-  momentum: 'Reach trend',
+  shown: 'Reached the Shorts feed',
+  momentum: 'Views trend',
   feed: 'Views from the Shorts feed',
 };
 const PROBLEM: Record<DistributionPartId, string> = {
-  shown: 'Main problem: YouTube isn’t showing some of your Shorts in the feed.',
-  momentum: 'Main problem: your newest Shorts reach fewer people than the ones before.',
-  feed: 'Main problem: few of your views come from the Shorts feed.',
+  shown: 'YouTube is keeping some of your Shorts out of the feed.',
+  momentum: 'Your newest Shorts get fewer views than your older ones.',
+  feed: 'Few of your views come from the Shorts feed.',
 };
 
 /**
@@ -56,12 +56,12 @@ export function distributionScore(findings: VideoFinding[], timelines: ShortTime
     name: NAMES.shown,
     weight: D.weights.shown,
     score: partScore(shown, D.lines.shown),
-    text: `${judged.length - unseen} of your last ${judged.length} Shorts got into the feed (healthy: ${pct(D.lines.shown)}+)`,
+    text: `${unseen === 0 ? 'all ' : ''}${judged.length - unseen} of your last ${judged.length} Shorts reached the Shorts feed (good: ${Math.round(D.lines.shown * 10)} in 10 or more)`,
   });
 
   if (reach.state !== 'unknown') {
     const change = reach.change ?? (reach.state === 'rising' ? Infinity : 1);
-    const by = reach.by === 'first_day' ? 'views on their first day' : 'views';
+    const by = reach.by === 'first_day' ? 'views on day 1' : 'views';
     const diff = Number.isFinite(change) ? Math.round((change - 1) * 100) : null;
     parts.push({
       id: 'momentum',
@@ -70,8 +70,8 @@ export function distributionScore(findings: VideoFinding[], timelines: ShortTime
       score: partScore(Number.isFinite(change) ? change : 2, D.lines.momentum),
       text:
         diff === null
-          ? `Your newest Shorts get ${by}; the ones before got none`
-          : `Your newest ${reach.recent?.count ?? ''} Shorts get ${Math.abs(diff)}% ${diff >= 0 ? 'more' : 'fewer'} ${by} than the ${reach.previous?.count ?? ''} before (healthy: the same or more)`.replace(
+          ? `your newest Shorts get ${by}; the ones before got none`
+          : `your newest ${reach.recent?.count ?? ''} Shorts get ${Math.abs(diff)}% ${diff >= 0 ? 'more' : 'fewer'} ${by} than the ${reach.previous?.count ?? ''} before (good: the same or more)`.replace(
               / {2,}/g,
               ' ',
             ),
@@ -89,7 +89,7 @@ export function distributionScore(findings: VideoFinding[], timelines: ShortTime
       name: NAMES.feed,
       weight: D.weights.feed,
       score: partScore(feed, D.lines.feed),
-      text: `${pct(feed)} of a Short’s views come from the Shorts feed, the median of ${feedShares.length} (healthy: ${pct(D.lines.feed)}+)`,
+      text: `${pct(feed)} of a typical Short’s views come from the Shorts feed (good: ${pct(D.lines.feed)}+)`,
     });
   }
 
@@ -104,7 +104,7 @@ export function distributionScore(findings: VideoFinding[], timelines: ShortTime
     provisional: judged.length < D.confidentShorts,
     shorts: judged.length,
     parts,
-    headline: costly ? PROBLEM[costly.id] : 'YouTube is showing your Shorts normally.',
-    detail: costly ? `${costly.text}.` : `${parts[0].text}.`,
+    headline: costly ? PROBLEM[costly.id] : 'Not shadowbanned: YouTube is showing your Shorts.',
+    detail: `${parts.find((p) => p.id === costly?.id)?.text ?? parts[0].text}.`.replace(/^./, (c) => c.toUpperCase()),
   };
 }

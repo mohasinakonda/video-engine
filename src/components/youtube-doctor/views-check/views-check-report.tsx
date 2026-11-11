@@ -1,100 +1,110 @@
 'use client';
 
-/** The views check report: why the channel's Shorts got the views they did, and what to do. */
-import { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+/**
+ * The views check report, as a story: your problem in one line → the three scores → what to do this
+ * week → will your Shorts grow → the proof (numbers, each Short, what YouTube doesn't share).
+ */
+import { ArrowRight } from 'lucide-react';
 import type { ViewsCheckResult } from '@/lib/youtube/views-check/run';
 import type { ViewsCheckReport as Report } from '@/lib/youtube/views-check/types';
-import { StageCard, StopPointsCard, TopicsCard } from './channel-cards';
+import { StopPointsCard, TopicsCard } from './channel-cards';
+import { OutlookCard } from './outlook-card';
+import { ScoreCards } from './score-cards';
 import { KeyTiles, VerdictNumbers } from './summary';
 import { TestCard } from './test-rounds';
 import { VideoTable } from './video-table';
 
 /** Kept in step with VIEWS_CHECK_VERSION in run.ts (not imported: run.ts is server code). */
 const REPORT_VERSION = 20;
+/** Steps shown up front; the rest open on request. */
+const TOP_STEPS = 3;
 
 export function ViewsCheckReport({ result, analyzedAt }: { result: ViewsCheckResult; analyzedAt: string }) {
-  const [found, setFound] = useState<Set<string>>(new Set());
   if (result.version !== REPORT_VERSION) {
-    return <div className="card text-base text-zinc-300">This report was made by an older version of the views check. Click “Check again” for the new report.</div>;
+    return <div className="card text-base text-zinc-300">This report was made by an older version of the check. Click “Check again” for the new report.</div>;
   }
   const { report, wording } = result;
   const timelines = new Map(report.shorts.map((s) => [s.videoId, s]));
-
-
-
   return (
-    <div className="space-y-5">
-      <p className="text-sm text-zinc-400">
-        Last {result.period.days} days · {report.verdict.basedOn} videos judged · {new Date(analyzedAt).toLocaleString()}
-      </p>
+    <div className="space-y-6">
+      <Hero wording={wording} days={result.period.days} videos={report.verdict.basedOn} analyzedAt={analyzedAt} />
+      <ScoreCards health={report.health} distribution={report.distribution} account={report.account} />
+      {wording.plan.length > 0 && <Plan steps={wording.plan} />}
+      <OutlookCard outlook={report.outlook} />
 
+      <div className="space-y-1 pt-4">
+        <h2 className="text-xl font-bold text-white">The proof: your numbers</h2>
+        <p className="text-sm text-zinc-400">Everything above comes from these numbers. Open any Short to see why it got the views it did.</p>
+      </div>
       <VerdictNumbers report={report} />
       <KeyTiles report={report} />
-      {report.stage && <StageCard stage={report.stage} />}
-      <TestCard shorts={report.shorts} agreement={report.testAgreement ?? null} />
+      {/* <TestCard shorts={report.shorts} agreement={report.testAgreement ?? null} /> */}
       {report.stopPoints && <StopPointsCard stops={report.stopPoints} />}
       {report.topics?.length > 0 && <TopicsCard topics={report.topics} />}
-
-      <ExplainInWords wording={wording} />
-
-      {found.size > 0 && <StudioProblemNotice />}
-
       <VideoTable videos={report.videos} timelines={timelines} analyzedAt={analyzedAt} />
-
-
-
-      {wording.plan.length > 0 && <Plan steps={wording.plan} />}
       {report.limitations.length > 0 && <Limitations items={report.limitations} />}
     </div>
   );
 }
 
-function ExplainInWords({ wording }: { wording: ViewsCheckResult['wording'] }) {
+/** Your problem in one line, why, in plain words. */
+function Hero({ wording, days, videos, analyzedAt }: { wording: ViewsCheckResult['wording']; days: number; videos: number; analyzedAt: string }) {
   return (
-    <details className="rounded-2xl border border-bg-border bg-bg-surface px-5 py-3.5">
-      <summary className="cursor-pointer text-sm font-semibold text-emerald-300">Explain this in words</summary>
-      <div className="mt-3 space-y-2">
-        <p className="text-base font-semibold text-white">{wording.headline}</p>
-        <p className="text-base leading-relaxed text-zinc-300">{wording.explanation}</p>
-        {wording.source === 'rules' && <p className="text-xs text-zinc-500">Written from the rules directly (the AI summary wasn’t available).</p>}
-      </div>
-    </details>
-  );
-}
-
-function StudioProblemNotice() {
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
-      <AlertTriangle size={20} className="mt-0.5 shrink-0 text-amber-400" aria-hidden="true" />
-      <p className="text-base text-amber-100">You found a problem in Studio. Fix that first: it outranks everything else in this report.</p>
-    </div>
+    <section className="space-y-3 rounded-2xl border border-bg-border bg-bg-surface p-6 sm:p-7">
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">What’s holding your views back</p>
+      <h2 className="text-2xl font-bold leading-snug text-white sm:text-3xl">{wording.headline}</h2>
+      {wording.explanation && <p className="max-w-3xl text-base leading-relaxed text-zinc-300">{wording.explanation}</p>}
+      <p className="text-xs text-zinc-500">
+        From your last {days} days · {videos} videos checked · {new Date(analyzedAt).toLocaleString()}
+      </p>
+    </section>
   );
 }
 
 function Plan({ steps }: { steps: string[] }) {
+  const top = steps.slice(0, TOP_STEPS);
+  const more = steps.slice(TOP_STEPS);
   return (
-    <section id="views-plan" className="space-y-3 rounded-2xl border border-bg-border bg-bg-surface p-5">
-      <h3 className="text-lg font-bold text-white">Your plan</h3>
-      <ol className="space-y-2.5">
-        {steps.map((step, i) => (
-          <li key={step} className="flex items-start gap-3 text-base text-zinc-200">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-white">{i + 1}</span>
-            <span className="pt-0.5">{step}</span>
-          </li>
+    <section id="views-plan" className="space-y-4 rounded-2xl border border-emerald-500/30 bg-bg-surface p-6">
+      <h2 className="text-lg font-bold text-white">This week: {top.length === 1 ? 'one thing' : `${top.length} things`} to do</h2>
+      <ol className="space-y-3">
+        {top.map((step, i) => (
+          <Step key={step} n={i + 1} text={step} />
         ))}
       </ol>
+      {more.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-sm font-semibold text-emerald-300">
+            {more.length} more {more.length === 1 ? 'step' : 'steps'} after these
+          </summary>
+          <ol className="mt-3 space-y-3">
+            {more.map((step, i) => (
+              <Step key={step} n={TOP_STEPS + i + 1} text={step} />
+            ))}
+          </ol>
+        </details>
+      )}
     </section>
+  );
+}
+
+function Step({ n, text }: { n: number; text: string }) {
+  return (
+    <li className="flex items-start gap-3 text-base text-zinc-100">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-sm font-bold text-emerald-200">{n}</span>
+      <span className="pt-0.5">{text}</span>
+    </li>
   );
 }
 
 function Limitations({ items }: { items: Report['limitations'] }) {
   return (
     <details className="rounded-xl border border-bg-border bg-bg-surface px-5 py-3">
-      <summary className="cursor-pointer text-sm font-semibold text-zinc-400">What this check can’t see</summary>
+      <summary className="cursor-pointer text-sm font-semibold text-zinc-400">What YouTube doesn’t share (check these in Studio)</summary>
       <ul className="mt-2 space-y-1">
         {items.map((l) => (
-          <li key={l} className="text-sm text-zinc-400">
+          <li key={l} className="flex gap-2 text-sm text-zinc-400">
+            <ArrowRight size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
             {l}
           </li>
         ))}

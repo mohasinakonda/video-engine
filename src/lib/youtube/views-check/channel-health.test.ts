@@ -56,14 +56,14 @@ describe('Shorts health score', () => {
 
   it('names the part that costs the most points in one line', () => {
     const h = shortsHealth(many(20, { viewed: 0.3 }));
-    expect(h.headline).toBe('Main drag: most viewers swipe away in the first seconds.');
-    expect(h.detail).toBe('70% of viewers swipe away (healthy: 45% or less).');
+    expect(h.headline).toBe('Your hook loses most viewers in the first 2 seconds.');
+    expect(h.detail).toBe('70 of every 100 viewers swipe away in the first 2 seconds (good: under 45).');
   });
 
   it('names a falling trend when that costs more than any part', () => {
     const h = shortsHealth([...many(10, { trust: 20 }), ...many(10, { trust: 70 }, 10)]);
-    expect(h.headline).toMatch(/newest Shorts do worse than the ones before/);
-    expect(h.detail).toMatch(/Median Trust Score 20 for your last 10, down from 70/);
+    expect(h.headline).toMatch(/newest Shorts do worse than your older ones/);
+    expect(h.detail).toMatch(/Your last 10 Shorts score 20, down from 70/);
   });
 
   it('compares % viewed with the line for the Short’s length', () => {

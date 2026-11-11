@@ -42,7 +42,7 @@ export function VerdictNumbers({ report }: { report: ViewsCheckReport }) {
   return (
     <section className="flex flex-col gap-6 rounded-2xl border border-bg-border bg-bg-surface p-6 md:flex-row md:gap-8">
       <div className="flex shrink-0 flex-col gap-1.5 md:w-64">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{main === 'ok' ? 'Result' : 'Main reason'}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{main === 'ok' ? 'Result' : 'Your main problem'}</p>
         {main && mainCount > 0 ? (
           <>
             <p className="text-5xl font-extrabold leading-none text-white tabular-nums">
@@ -51,7 +51,7 @@ export function VerdictNumbers({ report }: { report: ViewsCheckReport }) {
             </p>
             <p className="flex items-center gap-2 text-lg font-semibold text-white">
               <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: CAUSE[main].color }} aria-hidden="true" />
-              {main === 'ok' ? 'videos have no problem' : `videos: ${CAUSE[main].label.toLowerCase()}`}
+              {main === 'ok' ? 'videos have no problem' : `videos: ${CAUSE[main].label.charAt(0).toLowerCase()}${CAUSE[main].label.slice(1)}`}
             </p>
           </>
         ) : (
@@ -90,14 +90,14 @@ function keyTiles(report: ViewsCheckReport): TileData[] {
   const { avgShortViews, avgLongViews } = report.summary;
 
   const tiles: TileData[] = [];
-  if (swipe !== null) tiles.push({ label: 'Swiped away (est.), median Short', value: pct(swipe), level: levelOf('swipeAway', swipe), hint: 'Under 50% is good' });
+  if (swipe !== null) tiles.push({ label: 'Swiped away in the first 2 seconds', value: pct(swipe), level: levelOf('swipeAway', swipe), hint: 'Good: under 45%' });
   if (first !== null) {
     const level = levelOf('firstDaysShare', first);
-    tiles.push({ label: 'Views in the first 2 days', value: pct(first), level, status: level === 'ok' ? 'Keeps going' : 'Stops fast', hint: 'Median of your checked Shorts' });
+    tiles.push({ label: 'Views in the first 2 days', value: pct(first), level, status: level === 'ok' ? 'Keeps going' : 'Stops fast', hint: 'Good: under 60%' });
   }
-  if (feed !== null) tiles.push({ label: 'Views from the Shorts feed', value: pct(feed), level: levelOf('shortsFeedShare', feed), hint: 'Healthy Shorts: most views' });
-  if (viewed !== null) tiles.push({ label: 'Average viewed, Shorts', value: `${Math.round(viewed)}%`, level: levelOf('avgViewPct', viewed), hint: '50%+ holds viewers' });
-  if (avgShortViews !== null) tiles.push({ label: 'Average views per Short', value: num(avgShortViews), level: null, hint: 'Recent Shorts' });
+  if (feed !== null) tiles.push({ label: 'Views from the Shorts feed', value: pct(feed), level: levelOf('shortsFeedShare', feed), hint: 'Good: 60% or more' });
+  if (viewed !== null) tiles.push({ label: 'Watched, on average', value: `${Math.round(viewed)}%`, level: levelOf('avgViewPct', viewed), hint: 'Good: 50% or more' });
+  if (avgShortViews !== null) tiles.push({ label: 'Average views per Short', value: num(avgShortViews), level: null, hint: 'Your recent Shorts' });
   else if (avgLongViews !== null) tiles.push({ label: 'Average views per video', value: num(avgLongViews), level: null, hint: 'Recent videos' });
   return tiles;
 }

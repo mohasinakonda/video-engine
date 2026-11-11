@@ -86,14 +86,14 @@ describe('Trust Score (YRDS)', () => {
     expect(t.score).toBe(34);
     expect(t.result).toBe('failed');
     expect(t.weakest).toBe('viewed');
-    expect(t.message).toMatch(/80% swiped it away in the first seconds \(your usual Short: 60% swiped away\)/);
+    expect(t.message).toMatch(/80 of every 100 swiped it away in the first 2 seconds \(your usual Short: 60% swiped away\)/);
     expect(t.fix).toMatch(/first second/);
   });
 
   it('points outside the video when viewers liked it but views stayed low', () => {
     const t = shortTest(short('new', 300, 0.6, 85, 40, 10, 5), channel, 1343)!;
     expect(t.result).toBe('passed');
-    expect(t.message).toMatch(/reason is likely outside the video/);
+    expect(t.message).toMatch(/the video isn’t the problem/);
   });
 
   it('measures how well the score ranks the channel’s own Shorts', () => {
@@ -140,7 +140,7 @@ describe('test rounds (one per day)', () => {
     expect(r.rounds.map((x) => x.state)).toEqual(['fail', 'pass', 'fail']);
     expect(r.failedAt).toBe(1);
     expect(r.dropped).toBe('stayed');
-    expect(r.message).toMatch(/Day 1 got 300 views, under your usual first day \(900\)/);
+    expect(r.message).toMatch(/Day 1 got 300 views, less than your usual first day \(900\)/);
   });
 
   it('passes all rounds only when views grow every day', () => {
@@ -154,6 +154,6 @@ describe('test rounds (one per day)', () => {
     const daily = [day(0, 500, 0.6), day(1, 600, 0.6)];
     const r = testRounds(daily, PUB, 2, null, null)!;
     expect(r.rounds.map((x) => x.state)).toEqual(['pass', 'pass', 'no_data']);
-    expect(r.message).toMatch(/2 days passed so far/);
+    expect(r.message).toMatch(/2 days so far/);
   });
 });

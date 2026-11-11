@@ -74,7 +74,7 @@ function RoundCard({ round, previous }: { round: TestRound; previous: TestRound 
 export function RoundsBox({ rounds }: { rounds: TestRounds }) {
   return (
     <section className="space-y-3 rounded-xl border border-bg-border bg-bg-surface p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">YouTube’s test, round by round</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Day by day: how YouTube tested this Short</p>
       <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {rounds.rounds.map((r, i) => (
           <RoundCard key={r.no} round={r} previous={rounds.rounds[i - 1] ?? null} />
@@ -87,7 +87,7 @@ export function RoundsBox({ rounds }: { rounds: TestRounds }) {
 function NextShort({ text }: { text: string }) {
   return (
     <p className="text-sm text-zinc-200">
-      <b className="text-white">Next Short:</b> {text}
+      <b className="text-white">On your next Short:</b> {text}
     </p>
   );
 }
@@ -100,8 +100,7 @@ export function ScoreChip({ test }: { test: ShortTest }) {
   );
 }
 
-const SCORE_EXPLAINED =
-  'Out of 100: 50 means as good as your usual Short, 100 means twice as good. Fewer swipes, longer watching, and more shares, likes and new subscribers raise it.';
+const SCORE_EXPLAINED = 'Compared with your usual Short: 50 = the same, 100 = twice as good. Fewer swipes, longer watching, and more shares, likes and new subscribers raise it.';
 
 /** One Short's Trust Score (your usual Short = 50), the reason in one line, and what to do next time. */
 export function TestBox({ test }: { test: ShortTest }) {

@@ -90,10 +90,10 @@ export function newTopicJudgement(
   const best = summaries.find((s) => s.shorts >= 2 && s.medianViews !== null && s.name !== topic);
   return {
     cause: 'new_topic',
-    reason: `New topic for your channel: “${topic}”. Your ${before.length} Shorts before it were ${main ? `mostly about “${main}”` : 'about other topics'}. YouTube likely tested it on new viewers, and it didn’t find its audience (${n(video.lifetimeViews)} views; your usual Short gets ${n(usualViews)}).`,
+    reason: `A new topic for your channel: “${topic}”. Your ${before.length} Shorts before it were ${main ? `mostly about “${main}”` : 'about other topics'}. YouTube showed it to people who don’t know you yet, and they didn’t bite (${n(video.lifetimeViews)} views; your typical Short gets ${n(usualViews)}).`,
     evidence: [`Topic: ${topic}`, ...evidence],
     fix: best
-      ? `If you want this topic, post 3–5 Shorts on it in a row so YouTube can find its viewers. Otherwise stay with “${best.name}”, where your Shorts get a median of ${n(best.medianViews as number)} views.`
+      ? `If you want this topic, post 3–5 Shorts on it in a row so YouTube can find its viewers. Otherwise stay with “${best.name}”, where a typical Short of yours gets ${n(best.medianViews as number)} views.`
       : 'If you want this topic, post 3–5 Shorts on it in a row so YouTube can find its viewers.',
   };
 }
@@ -117,7 +117,7 @@ export function gatesFor(t: ShortTimeline, cause: ViewsCause, highSwipe: boolean
   const stopped: Gate =
     t.estSwipeAway === null
       ? unknown('stopped')
-      : { id: 'stopped', state: highSwipe ? 'fail' : 'pass', note: `≈${pct(1 - t.estSwipeAway)} stayed to watch` };
+      : { id: 'stopped', state: highSwipe ? 'fail' : 'pass', note: `${Math.round((1 - t.estSwipeAway) * 100)} of every 100 didn’t swipe away` };
 
   const weakPct = t.avgViewPct !== null && t.avgViewPct < O.shortsWeakAvgViewPct;
   const weakRelative = t.relativeRetention !== null && t.relativeRetention < O.weakRelative;

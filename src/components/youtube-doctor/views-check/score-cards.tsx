@@ -11,37 +11,37 @@ import type { AccountHealth, DistributionScore, HealthBandId, ShortsHealth } fro
 
 const BAND: Record<HealthBandId, { label: string; ring: string; pill: string; Icon: typeof AlertCircle }> = {
   excellent: {
-    label: 'Excellent',
+    label: 'Great',
     ring: '#34d399',
     pill: 'bg-emerald-500/15 text-emerald-200',
     Icon: CheckCircle2,
   },
   healthy: {
-    label: 'Healthy',
+    label: 'Good',
     ring: '#34d399',
     pill: 'bg-emerald-500/15 text-emerald-200',
     Icon: CheckCircle2,
   },
   average: {
-    label: 'Average',
+    label: 'Okay',
     ring: '#fbbf24',
     pill: 'bg-amber-500/15 text-amber-200',
     Icon: AlertCircle,
   },
   weak: {
-    label: 'Weak',
+    label: 'Needs work',
     ring: '#fb923c',
     pill: 'bg-orange-500/15 text-orange-200',
     Icon: AlertCircle,
   },
   critical: {
-    label: 'Critical',
+    label: 'Fix now',
     ring: '#fb7185',
     pill: 'bg-rose-500/15 text-rose-200',
     Icon: AlertCircle,
   },
 };
-const BANDS_NOTE = '85+ Excellent · 70–84 Healthy · 55–69 Average · 40–54 Weak · 0–39 Critical.';
+const BANDS_NOTE = '85+ Great · 70–84 Good · 55–69 Okay · 40–54 Needs work · 0–39 Fix now.';
 
 const barColor = (score: number) => (score >= 70 ? 'bg-emerald-400' : score >= 55 ? 'bg-amber-400' : score >= 40 ? 'bg-orange-400' : 'bg-rose-400');
 const sentence = (s: string) => `${s.charAt(0).toUpperCase()}${s.slice(1)}${/[.!?]$/.test(s) ? '' : '.'}`;
@@ -177,33 +177,30 @@ function ChannelHealthCard({ health }: { health: ShortsHealth }) {
   const trend = health.trend;
   return (
     <ScoreCard
-      title="Channel health"
-      question="Are your Shorts good enough for viewers?"
+      title="Video quality"
+      question="Do viewers stay and watch?"
       score={health.score}
       band={health.band}
-      basedOn={`Based on ${health.shorts} Short${health.shorts === 1 ? '' : 's'}${health.score !== null && health.provisional ? ' · provisional' : ''}`}
+      basedOn={`From your last ${health.shorts} Short${health.shorts === 1 ? '' : 's'}${health.score !== null && health.provisional ? ' · early read: more Shorts make it surer' : ''}`}
       headline={health.headline}
       detail={health.detail}
     >
-      <Bar name="Content" note="70%" score={health.p} detail="Your Shorts against healthy lines (the median Short)." />
+      <Bar name="Your Shorts" note="70%" score={health.p} detail="A typical Short of yours, against a good level for each part below." />
       <Bar
         name="Trend"
         note="30%"
         score={health.t}
         detail={
           trend
-            ? `Median Trust Score ${Math.round(trend.recent)} for your last ${trend.recentCount} Shorts vs ${Math.round(trend.previous)} for the ${trend.previousCount} before.`
-            : 'Not enough Shorts yet to compare the newest with the ones before; the score is content only.'
+            ? `Your last ${trend.recentCount} Shorts score ${Math.round(trend.recent)} on the Trust Score, vs ${Math.round(trend.previous)} for the ${trend.previousCount} before.`
+            : 'Not enough Shorts yet to compare your newest with the ones before, so this part is left out.'
         }
       />
-      <p className="pt-1 text-sm font-semibold text-white">What makes up the content score</p>
+      <p className="pt-1 text-sm font-semibold text-white">What makes up “Your Shorts”</p>
       {health.parts.map((part) => (
         <Bar key={part.id} name={part.name} note={`${Math.round(part.weight * 100)}%`} score={part.score} detail={sentence(part.text)} />
       ))}
-      <Note>
-        Score = 70% content + 30% trend. Each part scores 70 at its healthy line and 100 well above it; parts YouTube didn’t share are left out. “Viewed” is estimated from engaged
-        views. {BANDS_NOTE}
-      </Note>
+      <Note>Score = 70% your Shorts + 30% trend. Each part scores 70 at a good level and 100 well above it; parts YouTube didn’t share are left out. {BANDS_NOTE}</Note>
     </ScoreCard>
   );
 }
@@ -211,20 +208,18 @@ function ChannelHealthCard({ health }: { health: ShortsHealth }) {
 function DistributionCard({ distribution }: { distribution: DistributionScore }) {
   return (
     <ScoreCard
-      title="Distribution"
-      question="Is YouTube showing your Shorts to people?"
+      title="YouTube reach"
+      question="Is YouTube showing your Shorts? (shadowban check)"
       score={distribution.score}
       band={distribution.band}
-      basedOn={`Based on ${distribution.shorts} Short${distribution.shorts === 1 ? '' : 's'}${distribution.score !== null && distribution.provisional ? ' · provisional' : ''}`}
+      basedOn={`From your last ${distribution.shorts} Short${distribution.shorts === 1 ? '' : 's'}${distribution.score !== null && distribution.provisional ? ' · early read: more Shorts make it surer' : ''}`}
       headline={distribution.headline}
       detail={distribution.detail}
     >
       {distribution.parts.map((part) => (
         <Bar key={part.id} name={part.name} note={`${Math.round(part.weight * 100)}%`} score={part.score} detail={sentence(part.text)} />
       ))}
-      <Note>
-        Each part scores 70 at its healthy line and 100 well above it; parts without data are left out. Blocked Shorts are counted under Account health, not here. {BANDS_NOTE}
-      </Note>
+      <Note>Each part scores 70 at a good level and 100 well above it; parts without data are left out. Blocked Shorts count under Channel safety, not here. {BANDS_NOTE}</Note>
     </ScoreCard>
   );
 }
@@ -238,11 +233,11 @@ const SEVERITY_DOT: Record<'high' | 'medium' | 'low', string> = {
 function AccountHealthCard({ account }: { account: AccountHealth }) {
   return (
     <ScoreCard
-      title="Account health"
-      question="Is anything wrong with the channel itself?"
+      title="Channel safety"
+      question="Any strike, block or restriction?"
       score={account.score}
       band={account.band}
-      basedOn={`Checked ${account.checked} video${account.checked === 1 ? '' : 's'} and the channel’s settings`}
+      basedOn={`We checked ${account.checked} video${account.checked === 1 ? '' : 's'} and your channel settings`}
       headline={account.headline}
       detail={account.detail}
     >
@@ -274,10 +269,7 @@ function AccountHealthCard({ account }: { account: AccountHealth }) {
       ) : (
         <p className="text-sm text-zinc-300">No blocks, rejections, restrictions or spam-like patterns found.</p>
       )}
-      <Note>
-        Starts at 100; each problem takes points off. Strikes, copyright claims without a block and Community Guidelines warnings aren’t in YouTube’s API, so check Studio’s
-        dashboard and each video’s Copyright tab too. {BANDS_NOTE}
-      </Note>
+
     </ScoreCard>
   );
 }

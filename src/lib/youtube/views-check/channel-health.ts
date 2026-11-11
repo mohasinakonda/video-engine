@@ -20,14 +20,22 @@ const H = R.health;
 const W = R.test.weights;
 const IDS: TrustSignalId[] = ['viewed', 'watched', 'shares', 'likes', 'subscribed'];
 const NAMES: Record<TrustSignalId, string> = {
-  viewed: 'Viewed (not swiped away)',
-  watched: 'Average % viewed',
+  viewed: 'Hook (didn’t swipe away)',
+  watched: 'Watch time',
   shares: 'Shares',
   likes: 'Likes',
   subscribed: 'New subscribers',
 };
 const pct = (v: number) => `${Math.round(v * 100)}%`;
-const rate = (v: number) => `${(v * 100).toFixed(v < 0.01 ? 2 : 1)}%`;
+/** "3 of every 100" / "5 of every 1,000": per 1,000 for rates whose good level is under 1 in 100. */
+function perEvery(value: number, line: number): { value: string; line: string; of: string } {
+  const per = line < 0.01 ? 1000 : 100;
+  const fmt = (v: number) => {
+    const x = v * per;
+    return x >= 10 || Number.isInteger(Math.round(x * 10) / 10) ? String(Math.round(x)) : x.toFixed(1);
+  };
+  return { value: fmt(value), line: fmt(line), of: per === 1000 ? '1,000' : '100' };
+}
 const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
 /** The average-%-viewed line for a Short of this length. */
@@ -60,20 +68,21 @@ export function bandOf(score: number): HealthBandId {
   return score >= B.excellent ? 'excellent' : score >= B.healthy ? 'healthy' : score >= B.average ? 'average' : score >= B.weak ? 'weak' : 'critical';
 }
 
-/** "62% swipe away (healthy: 45% or less)" */
+/** "62 of every 100 viewers swipe away (good: under 45)" */
 function partText(p: Omit<HealthPart, 'text'>): string {
-  if (p.id === 'viewed') return `${pct(1 - p.value)} of viewers swipe away (healthy: ${pct(1 - p.line)} or less)`;
-  if (p.id === 'watched') return `viewers watch ${pct(p.value)} on average (healthy for this length: ${pct(p.line)}+)`;
+  if (p.id === 'viewed') return `${Math.round((1 - p.value) * 100)} of every 100 viewers swipe away in the first 2 seconds (good: under ${Math.round((1 - p.line) * 100)})`;
+  if (p.id === 'watched') return `viewers watch ${pct(p.value)} of a Short on average (good for this length: ${pct(p.line)}+)`;
   const what = p.id === 'shares' ? 'share' : p.id === 'likes' ? 'like' : 'subscribe';
-  return `${rate(p.value)} of viewers ${what} (healthy: ${rate(p.line)}+)`;
+  const r = perEvery(p.value, p.line);
+  return `${r.value} of every ${r.of} viewers ${what} (good: ${r.line}+)`;
 }
 
 const DRAG: Record<TrustSignalId, string> = {
-  viewed: 'Most viewers swipe away in the first seconds',
-  watched: 'Viewers leave before the end',
-  shares: 'Few viewers share your Shorts',
-  likes: 'Few viewers like your Shorts',
-  subscribed: 'Viewers don’t subscribe',
+  viewed: 'Your hook loses most viewers in the first 2 seconds.',
+  watched: 'Viewers leave before the end of your Shorts.',
+  shares: 'Viewers rarely share your Shorts.',
+  likes: 'Viewers rarely like your Shorts.',
+  subscribed: 'Viewers watch, but don’t subscribe.',
 };
 
 /** `shorts`: the channel's judged Shorts, newest first, with their Trust Score filled in. */
@@ -135,14 +144,14 @@ export function shortsHealth(shorts: ShortTimeline[]): ShortsHealth {
   let headline: string;
   let detail: string;
   if (falling && (!costly || H.weights.t * (H.atLine - (t as number)) > H.weights.p * costly.weight * (H.atLine - costly.score))) {
-    headline = 'Main drag: your newest Shorts do worse than the ones before.';
-    detail = `Median Trust Score ${Math.round(trend!.recent)} for your last ${trend!.recentCount}, down from ${Math.round(trend!.previous)}.`;
+    headline = 'Your newest Shorts do worse than your older ones.';
+    detail = `Your last ${trend!.recentCount} Shorts score ${Math.round(trend!.recent)}, down from ${Math.round(trend!.previous)} for the ${trend!.previousCount} before.`;
   } else if (costly) {
-    headline = `Main drag: ${DRAG[costly.id].charAt(0).toLowerCase()}${DRAG[costly.id].slice(1)}.`;
+    headline = DRAG[costly.id];
     detail = `${partText(costly).charAt(0).toUpperCase()}${partText(costly).slice(1)}.`;
   } else {
-    headline = 'Your Shorts are at or above the healthy line on every part.';
-    detail = trend ? `Median Trust Score ${Math.round(trend.recent)} for your last ${trend.recentCount} (before: ${Math.round(trend.previous)}).` : '';
+    headline = 'Viewers like your Shorts: every part is at a good level.';
+    detail = trend ? `Your last ${trend.recentCount} Shorts score ${Math.round(trend.recent)} (the ${trend.previousCount} before: ${Math.round(trend.previous)}).` : '';
   }
 
   return {
