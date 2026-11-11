@@ -12,10 +12,11 @@ import type { ConnectionState, DoctorConfig } from '@/components/youtube-doctor/
 import { AnalysisPanel } from '@/components/youtube-doctor/analysis-panel';
 import { ReportView } from '@/components/youtube-doctor/report-view';
 import { useDiagnosis } from '@/components/youtube-doctor/use-diagnosis';
-import { HealthScoreCard } from '@/components/youtube-doctor/health-score-card';
 import { ViewsCheckPanel } from '@/components/youtube-doctor/views-check/views-check-panel';
 import { ViewsCheckReport } from '@/components/youtube-doctor/views-check/views-check-report';
 import { useViewsCheck } from '@/components/youtube-doctor/views-check/use-views-check';
+import { OutlookCard } from '@/components/youtube-doctor/views-check/outlook-card';
+import { ScoreCards } from '@/components/youtube-doctor/views-check/score-cards';
 import { useAuth } from '@/contexts/auth-context';
 import { clearAllReports } from '@/lib/channel-doctor-storage';
 import type { RangeKey } from '@/lib/youtube/types';
@@ -165,26 +166,20 @@ export default function ChannelDoctorInner() {
 
         {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && viewsCheck.saved && !viewsCheck.running && (
           <div className="space-y-6">
-            {viewsCheck.saved.result.health ? (
-              <div className="space-y-2">
-                <p className="text-sm text-zinc-400">Channel health · last {viewsCheck.saved.result.health.current.days} days</p>
-                <HealthScoreCard result={viewsCheck.saved.result.health} />
-              </div>
-            ) : (
-              viewsCheck.saved.result.version >= 5 && (
-                <div className="card text-sm text-zinc-400">The channel health score couldn’t be calculated this time. The rest of the report is below.</div>
-              )
+            {viewsCheck.saved.result.version >= 20 && viewsCheck.saved.result.report.distribution && (
+              <ScoreCards
+                health={viewsCheck.saved.result.report.health}
+                distribution={viewsCheck.saved.result.report.distribution}
+                account={viewsCheck.saved.result.report.account}
+              />
             )}
+            {viewsCheck.saved.result.version >= 18 && viewsCheck.saved.result.report.outlook && <OutlookCard outlook={viewsCheck.saved.result.report.outlook} />}
             <ViewsCheckReport result={viewsCheck.saved.result} analyzedAt={viewsCheck.saved.analyzedAt} />
           </div>
         )}
 
         {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'diagnosis' && (
-          <ChannelCard
-            connection={state.connection}
-            stats={state.stats}
-            onDisconnect={() => setShowDisconnect(true)}
-          >
+          <ChannelCard connection={state.connection} stats={state.stats} onDisconnect={() => setShowDisconnect(true)}>
             {config.hasAccess || config.freeDiagnosesLeft > 0 ? (
               <AnalysisPanel
                 range={range}
@@ -226,13 +221,7 @@ export default function ChannelDoctorInner() {
           />
         )}
 
-        {showDisconnect && state.connected && (
-          <DisconnectDialog
-            channelTitle={state.connection.title}
-            onClose={closeDisconnect}
-            onConfirm={disconnect}
-          />
-        )}
+        {showDisconnect && state.connected && <DisconnectDialog channelTitle={state.connection.title} onClose={closeDisconnect} onConfirm={disconnect} />}
       </div>
     </div>
   );

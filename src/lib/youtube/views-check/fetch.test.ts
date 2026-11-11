@@ -34,6 +34,7 @@ describe('fetchVideoStatus', () => {
       regionAllowed: [],
       regionBlocked: null,
       ageRestricted: true,
+      publishAt: null,
     });
     expect(result.b.uploadStatus).toBeNull();
     expect(result.b.ageRestricted).toBe(false);

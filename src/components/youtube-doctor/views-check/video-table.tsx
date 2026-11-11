@@ -13,7 +13,7 @@ import { ScoreChip } from './test-rounds';
 type Filter = 'all' | 'problems';
 
 const PAGE = 8;
-const COLUMNS = ['Video', 'Views', 'Reason', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement', 'Views per day', ''] as const;
+const COLUMNS = ['Video', 'Views', 'Reason', 'Country block', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement', 'Views per day', ''] as const;
 const RIGHT_ALIGNED = new Set<string>(['Views', 'Swiped', 'Avg watched', 'To the end', 'From feed', 'Engagement']);
 const SPARK_DAYS = 14;
 
@@ -49,7 +49,7 @@ export function VideoTable({ videos, timelines, analyzedAt }: { videos: VideoFin
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1120px] border-collapse text-left">
+        <table className="w-full min-w-[1220px] border-collapse text-left">
           <thead>
             <tr className="border-t border-bg-border text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
               {COLUMNS.map((c, i) => (
@@ -103,7 +103,12 @@ interface RowProps {
 }
 
 function rowMeta(video: VideoFinding, timeline: ShortTimeline | null, analyzedAt: string): string {
-  const parts = [video.format === 'short' ? 'Short' : 'Video', video.durationSec ? clock(video.durationSec) : null, ageText(video.publishedAt, analyzedAt), timeline?.topic ?? null];
+  const parts = [
+    video.format === 'short' ? 'Short' : 'Video',
+    video.durationSec ? clock(video.durationSec) : null,
+    ageText(video.publishedAt, analyzedAt),
+    timeline?.topic ?? null,
+  ];
   return parts.filter(Boolean).join(' · ');
 }
 
@@ -119,7 +124,7 @@ function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) 
   const cause = CAUSE[video.cause];
   const swipe = t?.estSwipeAway ?? null;
   const watched = avgWatched(video, t);
-  const usualSwipe = t?.channelMedianSwipeAway != null && swipe !== null ? `usual ${pct(t.channelMedianSwipeAway)}` : undefined;
+
 
   return (
     <>
@@ -141,6 +146,7 @@ function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) 
             </p>
           )}
         </td>
+        <CountryBlockCell value={video.countryBlock} />
         <NumCell value={pct(swipe)} level={levelOf('swipeAway', swipe)} sub={''} title={swipeTier(swipe) ?? undefined} />
         <NumCell value={''} level={levelOf('avgViewPct', video.avgViewPct)} sub={watched.sub} />
         <NumCell value={endPct(t?.completion?.ofViews)} />
@@ -169,6 +175,21 @@ function VideoRow({ video, timeline: t, analyzedAt, open, onToggle }: RowProps) 
         </tr>
       )}
     </>
+  );
+}
+
+/** Blocked in some or all countries: true, false, or — when availability couldn't be read (or an older report). */
+function CountryBlockCell({ value }: { value: boolean | null | undefined }) {
+  if (value === null || value === undefined) return <td className="px-3 py-3 text-sm text-zinc-500">—</td>;
+  return (
+    <td className="px-3 py-3">
+      <span
+        className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${value ? 'bg-rose-950 text-rose-200' : 'bg-zinc-800 text-zinc-300'}`}
+        title={value ? 'Blocked in some or all countries: open the row for where and why' : 'Plays in every country'}
+      >
+        {value ? 'YES' : 'NO'}
+      </span>
+    </td>
   );
 }
 
@@ -202,7 +223,12 @@ function Sparkline({ daily, color }: { daily: { date: string; views: number }[];
   return (
     <div className="flex h-7 items-end gap-0.5" role="img" aria-label={`Views per day for the first ${days.length} days`}>
       {days.map((d) => (
-        <div key={d.date} className="flex-1 rounded-t-sm" style={{ background: color, height: `${Math.max(8, (d.views / max) * 100)}%` }} title={`${d.date}: ${num(d.views)} views`} />
+        <div
+          key={d.date}
+          className="flex-1 rounded-t-sm"
+          style={{ background: color, height: `${Math.max(8, (d.views / max) * 100)}%` }}
+          title={`${d.date}: ${num(d.views)} views`}
+        />
       ))}
     </div>
   );

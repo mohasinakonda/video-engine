@@ -16,6 +16,7 @@ interface StatusResponse {
     id: string;
     status?: {
       uploadStatus?: string;
+      publishAt?: string;
       failureReason?: string;
       rejectionReason?: string;
       privacyStatus?: string;
@@ -35,8 +36,7 @@ export async function fetchVideoStatus(accessToken: string, ids: string[]): Prom
     const params = new URLSearchParams({
       part: 'status,contentDetails',
       id: ids.slice(i, i + 50).join(','),
-      fields:
-        'items(id,status(uploadStatus,failureReason,rejectionReason,privacyStatus,madeForKids),contentDetails(regionRestriction,contentRating/ytRating))',
+      fields: 'items(id,status(uploadStatus,publishAt,failureReason,rejectionReason,privacyStatus,madeForKids),contentDetails(regionRestriction,contentRating/ytRating))',
     });
     const data = await googleJson<StatusResponse>(`${YOUTUBE_DATA_API}/videos?${params}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -52,10 +52,23 @@ export async function fetchVideoStatus(accessToken: string, ids: string[]): Prom
         regionAllowed: region?.allowed ?? null,
         regionBlocked: region?.blocked ?? null,
         ageRestricted: item.contentDetails?.contentRating?.ytRating === 'ytAgeRestricted',
+        publishAt: item.status?.publishAt ?? null,
       };
     }
   }
   return result;
+}
+
+/**
+ * The channel's long-upload status (1 quota unit, owner only): 'allowed' = verified, 'eligible' =
+ * not verified yet, 'disallowed' = turned off by YouTube. Null when YouTube didn't say.
+ */
+export async function fetchLongUploadsStatus(accessToken: string): Promise<string | null> {
+  const params = new URLSearchParams({ part: 'status', mine: 'true', fields: 'items(id,status/longUploadsStatus)' });
+  const data = await googleJson<{ items?: Array<{ status?: { longUploadsStatus?: string } }> }>(`${YOUTUBE_DATA_API}/channels?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return data.items?.[0]?.status?.longUploadsStatus ?? null;
 }
 
 interface FileDetailsResponse {
@@ -189,10 +202,12 @@ export async function fetchViewsCheckDataset(options: FetchOptions): Promise<Vie
   if (!channel) throw new ChannelMismatchError();
   // Shorts only. Uploads mix Shorts and long videos, so read more than we keep, then keep the
   // newest `maxVideos` Shorts (about 1 Data API unit per 50 uploads).
-  const uploadIds = channel.uploadsPlaylistId
-    ? await fetchUploadIds(accessToken, channel.uploadsPlaylistId, Math.min(UPLOADS_READ_MAX, limits.maxVideos * 3))
-    : [];
+  const uploadIds = channel.uploadsPlaylistId ? await fetchUploadIds(accessToken, channel.uploadsPlaylistId, Math.min(UPLOADS_READ_MAX, limits.maxVideos * 3)) : [];
   const uploads = await fetchVideoDetails(accessToken, uploadIds);
+  // The first upload is known only when every upload was read (the playlist holds them all).
+  const readAll = channel.videoCount !== null && uploadIds.length >= channel.videoCount;
+  const firstUploadAt = readAll && uploads.length ? uploads.map((v) => v.publishedAt).sort()[0] : null;
+  const longUploads = await fetchLongUploadsStatus(accessToken).catch(() => null);
 
   onStage('fetch_analytics');
   const [shortStats, longStats, engaged, interactions, countries] = await Promise.all([
@@ -253,6 +268,8 @@ export async function fetchViewsCheckDataset(options: FetchOptions): Promise<Vie
     },
     channelLanguage: channel.defaultLanguage ?? null,
     channelCreatedAt: channel.createdAt ?? null,
+    firstUploadAt,
+    longUploadsStatus: longUploads,
     period,
     videos,
     status,

@@ -177,6 +177,10 @@ const WEIGHTS: { key: keyof Weights; label: string }[] = [
   { key: 'phase1', label: 'Channel Doctor diagnosis' },
 ];
 
+/** What to do when the opportunity score weights don't add up to 100. */
+const weightsMessage = (total: number) =>
+  `The opportunity score weights add up to ${total}, not 100. ${total > 100 ? `Lower other weights by ${total - 100}` : `Raise other weights by ${100 - total}`} before saving.`;
+
 export default function AdminChannelDoctorPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
@@ -208,6 +212,11 @@ export default function AdminChannelDoctorPage() {
 
   const save = async () => {
     if (!settings) return;
+    const weightTotal = WEIGHTS.reduce((sum, w) => sum + settings.discover.weights[w.key], 0);
+    if (weightTotal !== 100) {
+      setError(weightsMessage(weightTotal));
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -477,6 +486,7 @@ function DiscoverSection({
             {weightTotal}/100
           </span>
         </div>
+        {weightTotal !== 100 && <p className="text-xs text-rose-300">{weightsMessage(weightTotal)}</p>}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {WEIGHTS.map((w) => (
             <NumberField

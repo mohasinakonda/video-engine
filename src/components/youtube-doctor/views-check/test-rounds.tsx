@@ -100,9 +100,10 @@ export function ScoreChip({ test }: { test: ShortTest }) {
   );
 }
 
-const SCORE_EXPLAINED = 'How viewers reacted to this Short next to your usual one. Fewer swipes, longer watching and more likes, comments and shares raise it.';
+const SCORE_EXPLAINED =
+  'Out of 100: 50 means as good as your usual Short, 100 means twice as good. Fewer swipes, longer watching, and more shares, likes and new subscribers raise it.';
 
-/** One Short's Trust Score (your usual Short = 100), the reason in one line, and what to do next time. */
+/** One Short's Trust Score (your usual Short = 50), the reason in one line, and what to do next time. */
 export function TestBox({ test }: { test: ShortTest }) {
   return (
     <section className="space-y-2 rounded-xl border border-bg-border bg-bg-surface p-4">
@@ -110,7 +111,6 @@ export function TestBox({ test }: { test: ShortTest }) {
         <span className="text-sm font-semibold text-zinc-300">Trust Score</span>
         <span className="text-2xl font-bold tabular-nums text-white">{test.score}</span>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${RESULT[test.result].chip}`}>{RESULT[test.result].label}</span>
-
       </div>
       <p className="text-xs text-zinc-400">{SCORE_EXPLAINED}</p>
       <p className="text-base text-zinc-100">{test.message}</p>

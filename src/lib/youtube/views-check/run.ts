@@ -15,7 +15,7 @@ export type ViewsCheckRunStage = ViewsCheckStage | 'analyze' | 'write';
 
 /** Everything the browser renders. Sent once, kept only in the tab's sessionStorage. */
 /** 6: retention on YouTube Studio's scale, exit window, topics and the stop-point per Short. */
-export const VIEWS_CHECK_VERSION = 16;
+export const VIEWS_CHECK_VERSION = 20;
 
 /** The days the channel health score covers (the same window the diagnosis uses by default). */
 const HEALTH_RANGE = '28d';

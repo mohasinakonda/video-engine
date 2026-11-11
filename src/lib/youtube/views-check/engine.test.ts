@@ -99,9 +99,53 @@ describe('analyzeViews: per video', () => {
     data.status.data.v3 = { ...publicStatus(), regionAllowed: [] };
     data.status.data.v4 = { ...publicStatus(), ageRestricted: true };
     const report = analyzeViews(data);
+    expect(report.videos[2].reason).toMatch(/blocked in every country. That almost always means a copyright claim/);
     expect(report.videos.every((v) => v.cause === 'blocked')).toBe(true);
     expect(report.videos[0].fix).toMatch(/same file/);
     expect(report.verdict.cause).toBe('blocked');
+  });
+
+  it('flags country blocks, naming the top viewer countries first', () => {
+    const videos = [video(1, 10), video(2, 10), video(3, 10), video(4, 10)];
+    const data = dataset(videos);
+    if (!data.status.ok) throw new Error();
+    data.countries = {
+      ok: true,
+      data: [
+        { country: 'US', views: 50 },
+        { country: 'BD', views: 900 },
+        { country: 'IN', views: 300 },
+        { country: 'FR', views: 10 },
+      ],
+    };
+    data.status.data.v1 = { ...publicStatus(), regionBlocked: ['BD', 'DE'] };
+    data.status.data.v2 = { ...publicStatus(), regionAllowed: ['DE', 'FR'] };
+    data.status.data.v3 = { ...publicStatus(), regionBlocked: Array.from({ length: 210 }, (_, i) => `C${i}`) };
+    data.status.data.v4 = { ...publicStatus(), regionBlocked: ['DE'] };
+    const report = analyzeViews(data);
+    const find = (id: string) => report.videos.find((v) => v.videoId === id)!;
+    expect(report.videos.every((v) => v.cause === 'blocked')).toBe(true);
+    expect(find('v1').reason).toMatch(/blocked in Bangladesh, where most of your viewers are/);
+    expect(find('v1').evidence).toContain('Blocked in 2 countries in all');
+    expect(find('v2').reason).toMatch(/Bangladesh, India, United States/);
+    expect(find('v3').reason).toMatch(/210 countries, almost everywhere/);
+    expect(find('v3').reason).toMatch(/almost always means a copyright claim/);
+    expect(find('v3').evidence).toContain('Likely cause: copyright claim');
+    expect(find('v4').evidence).not.toContain('Likely cause: copyright claim');
+    expect(find('v4').reason).toMatch(/blocked in Germany; people there can’t watch it/);
+    expect(report.videos.map((v) => v.countryBlock)).toEqual([true, true, true, true]);
+  });
+
+  it('flags a country block even when the viewer countries are unknown', () => {
+    const data = dataset([video(1, 10)]);
+    if (!data.status.ok) throw new Error();
+    data.countries = { ok: false, reason: 'no data' };
+    data.status.data.v1 = { ...publicStatus(), regionBlocked: ['BD'] };
+    expect(causeOf(analyzeViews(data), 'v1')).toBe('blocked');
+    data.status.data.v1 = publicStatus();
+    expect(analyzeViews(data).videos[0].countryBlock).toBe(false);
+    data.status = { ok: false, reason: 'no data' };
+    expect(analyzeViews(data).videos[0].countryBlock).toBeNull();
   });
 
   it('only flags Made for Kids on a channel that is mostly not for kids', () => {
@@ -281,9 +325,9 @@ describe('analyzeViews: per video', () => {
         dive(
           ['2026-10-20', '2026-10-22', '2026-10-24', '2026-10-26'].map((date) => ({ date, views: 250, engagedViews: engaged[s.id as keyof typeof engaged] / 4 })),
           950,
-          50
+          50,
         ),
-      ])
+      ]),
     );
     const data = dataset(shorts, { deepDives });
     if (!data.perVideo.ok) throw new Error();
@@ -383,9 +427,7 @@ describe('analyzeViews: verdict and channel signals', () => {
   });
 
   it('warns about many near-identical uploads in two weeks as a risk', () => {
-    const videos = Array.from({ length: 45 }, (_, i) =>
-      video(i, Math.floor(i / 4), { title: `Amazing car cleaning product review part ${i}` })
-    );
+    const videos = Array.from({ length: 45 }, (_, i) => video(i, Math.floor(i / 4), { title: `Amazing car cleaning product review part ${i}` }));
     const signal = analyzeViews(dataset(videos)).signals.find((s) => s.id === 'mass_produced_risk');
     expect(signal?.title).toMatch(/^Risk/);
   });
@@ -413,5 +455,64 @@ describe('analyzeViews: verdict and channel signals', () => {
     const plan = analyzeViews(dataset(videos)).plan;
     expect(plan.length).toBeLessThanOrEqual(5);
     expect(new Set(plan).size).toBe(plan.length);
+  });
+});
+
+describe('analyzeViews: 0-view and channel-health rules', () => {
+  const ids = (report: ReturnType<typeof analyzeViews>) => report.signals.map((s) => s.id);
+  /** Distinct titles and lengths, a day apart: none of the new rules should fire. */
+  const spaced = () =>
+    [1, 2, 3, 4].map((i) => video(i, 10 + i, { title: ['Fixing a bike chain', 'Best budget tent', 'How to fold a shirt', 'Cooking rice fast'][i - 1], durationSec: 300 + i * 40 }));
+
+  it('flags a video that is still processing or scheduled', () => {
+    const data = dataset([video(1, 10), video(2, 10, { title: 'Another thing entirely' })]);
+    if (!data.status.ok) throw new Error();
+    data.status.data.v1 = { ...publicStatus(), uploadStatus: 'uploaded' };
+    data.status.data.v2 = { ...publicStatus(), privacyStatus: 'private', publishAt: '2026-11-20T15:00:00Z' };
+    const report = analyzeViews(data);
+    expect(report.videos[0].reason).toMatch(/still processing/);
+    expect(report.videos[1].reason).toMatch(/scheduled to go public on 20 Nov 2026 15:00 UTC/);
+    expect(report.videos.every((v) => v.cause === 'blocked')).toBe(true);
+  });
+
+  it('none of the new rules fire on a normal channel', () => {
+    const report = analyzeViews(dataset(spaced(), { channelCreatedAt: '2025-01-01T00:00:00Z', firstUploadAt: '2025-03-01T00:00:00Z', longUploadsStatus: 'allowed' }));
+    expect(ids(report)).not.toEqual(expect.arrayContaining(['upload_burst']));
+    for (const id of ['upload_burst', 're_upload', 'unclear_titles', 'no_warmup', 'not_verified', 'standing_risk']) expect(ids(report)).not.toContain(id);
+  });
+
+  it('flags 3 uploads within an hour', () => {
+    const videos = spaced();
+    const base = Date.parse(videos[0].publishedAt);
+    videos[1].publishedAt = new Date(base + 10 * 60_000).toISOString();
+    videos[2].publishedAt = new Date(base + 40 * 60_000).toISOString();
+    expect(ids(analyzeViews(dataset(videos)))).toContain('upload_burst');
+  });
+
+  it('flags the same video uploaded again (same length, near-identical title)', () => {
+    const videos = spaced();
+    videos[2] = { ...videos[2], title: 'Fixing a bike chain!', durationSec: videos[0].durationSec };
+    const report = analyzeViews(dataset(videos));
+    expect(ids(report)).toContain('re_upload');
+    expect(report.signals.find((s) => s.id === 're_upload')?.severity).toBe('high');
+  });
+
+  it('flags titles that are only hashtags or a file name', () => {
+    const videos = spaced();
+    videos[0].title = '#viral #fyp #shorts';
+    videos[1].title = 'VID_20261101.mp4';
+    const signal = analyzeViews(dataset(videos)).signals.find((s) => s.id === 'unclear_titles');
+    expect(signal?.detail).toMatch(/^2 recent titles are only hashtags or a file name/);
+  });
+
+  it('flags uploads that started within a week of creating the channel', () => {
+    const report = analyzeViews(dataset(spaced(), { channelCreatedAt: '2026-06-01T00:00:00Z', firstUploadAt: '2026-06-03T09:00:00Z' }));
+    expect(report.signals.find((s) => s.id === 'no_warmup')?.detail).toMatch(/2 days after the channel was created/);
+  });
+
+  it('reads verification and standing from the long-upload status', () => {
+    expect(ids(analyzeViews(dataset(spaced(), { longUploadsStatus: 'eligible' })))).toContain('not_verified');
+    const report = analyzeViews(dataset(spaced(), { longUploadsStatus: 'disallowed' }));
+    expect(report.signals.find((s) => s.id === 'standing_risk')?.severity).toBe('high');
   });
 });

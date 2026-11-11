@@ -8,20 +8,14 @@ import { titleSimilarity } from '../create/topic-landscape';
 import type { VideoMeta } from '../types';
 import { videoRange } from './period';
 import { VIEWS_RULES as R } from './rules-config';
+import { accountHealth } from './account-health';
+import { shortsHealth } from './channel-health';
+import { distributionScore } from './distribution-score';
+import { growthOutlook } from './outlook';
 import { channelStage } from './stage';
 import { shortTest, testAgreement, testRounds } from './test-score';
 import { gatesFor, isHighSwipe, newTopicJudgement, stopPointOf, topicIndex, topicSummaries } from './insights';
-import type {
-  ChannelSignal,
-  ShortTest,
-  ShortTimeline,
-  StudioCheck,
-  VideoFinding,
-  VideoStatus,
-  ViewsCause,
-  ViewsCheckDataset,
-  ViewsCheckReport,
-} from './types';
+import type { ChannelSignal, ShortTest, ShortTimeline, StudioCheck, VideoFinding, VideoStatus, ViewsCause, ViewsCheckDataset, ViewsCheckReport } from './types';
 
 const DAY = 86_400_000;
 const pct = (value: number) => `${Math.round(value * 100)}%`;
@@ -44,7 +38,66 @@ function reportedDays(video: VideoMeta, data: ViewsCheckDataset): number {
 
 type Judgement = Pick<VideoFinding, 'cause' | 'reason' | 'evidence' | 'fix'>;
 
-function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean): Judgement | null {
+const countryName = (code: string): string => {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+};
+const countryList = (codes: string[]): string => {
+  const names = codes.slice(0, 5).map(countryName);
+  return codes.length > 5 ? `${names.join(', ')} and ${codes.length - 5} more` : names.join(', ');
+};
+
+/**
+ * A country block: people there can't watch the video. Shorts are first tested on viewers in the
+ * channel's main countries, so a block there can leave a Short with no views at all.
+ */
+function judgeRegion(status: VideoStatus, mainCountries: string[]): Judgement | null {
+  const fix = 'Open Copyright in Studio for this video: a claim (often music) is the usual cause. Remove or replace the claimed part, or upload a version without it.';
+  // Blocked everywhere on a public, processed video: a copyright owner chose to block it.
+  const copyright = (where: string): Judgement => ({
+    cause: 'blocked',
+    reason: `The video is blocked ${where}. That almost always means a copyright claim: the owner of something in it, usually the music, chose to block it.`,
+    evidence: [where === 'in every country' ? 'Allowed countries: none' : `Blocked ${where}`, 'Likely cause: copyright claim'],
+    fix: 'In Studio, open the video’s Copyright tab to see who claimed which part. Remove or replace that part (Studio’s editor can mute or swap the song), or dispute it if you own the rights. For Shorts, use music from YouTube’s own audio library.',
+  });
+  const allowed = status.regionAllowed;
+  const blocked = status.regionBlocked ?? [];
+  if (allowed && allowed.length === 0) {
+    return copyright('in every country');
+  }
+  if (blocked.length >= R.region.nearlyEverywhere) return copyright(`in ${blocked.length} countries, almost everywhere`);
+  const main = mainCountries.slice(0, R.region.topCountries);
+  const mainBlocked = main.filter((c) => blocked.includes(c) || (allowed !== null && !allowed.includes(c)));
+  if (mainBlocked.length) {
+    return {
+      cause: 'blocked',
+      reason: `The video is blocked in ${countryList(mainBlocked)}, where most of your viewers are, so YouTube can’t show it to the people it tests a new video on.`,
+      evidence: [`Blocked in your top countries: ${countryList(mainBlocked)}`, ...(blocked.length > mainBlocked.length ? [`Blocked in ${blocked.length} countries in all`] : [])],
+      fix,
+    };
+  }
+  if (blocked.length || (allowed && allowed.length)) {
+    const where = blocked.length ? `blocked in ${countryList(blocked)}` : `allowed only in ${countryList(allowed as string[])}`;
+    return {
+      cause: 'blocked',
+      reason: `The video is ${where}; people there can’t watch it.`,
+      evidence: [blocked.length ? `Blocked in: ${countryList(blocked)}` : `Allowed only in: ${countryList(allowed as string[])}`],
+      fix,
+    };
+  }
+  return null;
+}
+
+/** Any country block: a list of allowed countries, or any blocked one. */
+function hasCountryBlock(status: VideoStatus | undefined): boolean | null {
+  if (!status) return null;
+  return status.regionAllowed !== null || (status.regionBlocked?.length ?? 0) > 0;
+}
+
+function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean, mainCountries: string[] = []): Judgement | null {
   if (!status) return null;
   if (status.uploadStatus === 'rejected') {
     const why = status.rejectionReason ?? 'unknown';
@@ -54,7 +107,12 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
         : why === 'claim' || why === 'copyright'
           ? 'Remove the copyrighted material (often music or clips) and upload a new version.'
           : 'Open the video in Studio to see the rejection details and upload a corrected version.';
-    return { cause: 'blocked', reason: 'YouTube rejected this upload.', evidence: [`Rejection reason: ${why}`], fix };
+    return {
+      cause: 'blocked',
+      reason: 'YouTube rejected this upload.',
+      evidence: [`Rejection reason: ${why}`],
+      fix,
+    };
   }
   if (status.uploadStatus === 'failed') {
     return {
@@ -62,6 +120,23 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
       reason: 'The upload failed, so the video can’t play.',
       evidence: [`Failure reason: ${status.failureReason ?? 'unknown'}`],
       fix: 'Upload the file again, exported as MP4 (H.264 video, AAC audio).',
+    };
+  }
+  if (status.uploadStatus === 'uploaded') {
+    return {
+      cause: 'blocked',
+      reason: 'YouTube is still processing this upload, so it can’t play yet.',
+      evidence: ['Upload status: processing'],
+      fix: 'Processing usually takes minutes, but up to 24–48 hours on new channels. If it’s stuck longer, upload the file again.',
+    };
+  }
+  if (status.privacyStatus === 'private' && status.publishAt) {
+    const when = new Date(status.publishAt);
+    return {
+      cause: 'blocked',
+      reason: `The video is scheduled to go public on ${when.toUTCString().slice(5, 22)} UTC, so nobody can see it yet.`,
+      evidence: ['Visibility: scheduled'],
+      fix: 'Nothing to fix if the date is right; otherwise publish it now in Studio.',
     };
   }
   if (status.privacyStatus && status.privacyStatus !== 'public') {
@@ -72,14 +147,8 @@ function judgeAvailability(status: VideoStatus | undefined, kidsChannel: boolean
       fix: 'Set visibility to Public in Studio if it should get views.',
     };
   }
-  if (status.regionAllowed && status.regionAllowed.length === 0) {
-    return {
-      cause: 'blocked',
-      reason: 'The video is blocked in every country.',
-      evidence: ['Allowed countries: none'],
-      fix: 'Open Copyright in Studio for this video: a claim is usually the cause. Remove the claimed part or trim a Short under 60 seconds.',
-    };
-  }
+  const region = judgeRegion(status, mainCountries);
+  if (region) return region;
   if (status.ageRestricted) {
     return {
       cause: 'blocked',
@@ -167,7 +236,12 @@ function judgeLong(video: VideoMeta, data: ViewsCheckDataset, days: number): Jud
       fix: 'Check this video’s Reach tab in Studio (impressions and click-through rate). YouTube usually starts sharing them a few days after you connect; run the check again then.',
     };
   }
-  return { cause: 'ok', reason: 'No distribution problem found.', evidence: views !== null ? [`${plural(views, 'view')} in the period`] : [], fix: '' };
+  return {
+    cause: 'ok',
+    reason: 'No distribution problem found.',
+    evidence: views !== null ? [`${plural(views, 'view')} in the period`] : [],
+    fix: '',
+  };
 }
 
 /** 0:07, 1:05 */
@@ -212,7 +286,11 @@ function shortTimeline(video: VideoMeta, data: ViewsCheckDataset): ShortTimeline
     // When the leaving starts (10% of the opening audience gone) and when half of them are gone.
     const from = retention.find((p) => p.watchRatio <= start * O.exitStartShare);
     const to = retention.find((p) => p.watchRatio <= start * 0.5);
-    if (from) exitWindow = { fromSec: from.ratio * duration, toSec: to ? to.ratio * duration : null };
+    if (from)
+      exitWindow = {
+        fromSec: from.ratio * duration,
+        toSec: to ? to.ratio * duration : null,
+      };
   }
   if (retention.length > 1 && duration) {
     const half = retention.find((p) => p.watchRatio < 0.5);
@@ -244,7 +322,14 @@ function shortTimeline(video: VideoMeta, data: ViewsCheckDataset): ShortTimeline
     day2Views: daily?.[1]?.views ?? null,
     relativeRetention: relatives.length ? relatives.reduce((a, b) => a + b, 0) / relatives.length : null,
     likeRate: video.likes !== null && video.lifetimeViews ? video.likes / video.lifetimeViews : null,
-    interactions: data.interactions.ok ? (data.interactions.data[video.id] ?? { likes: 0, comments: 0, shares: 0 }) : null,
+    subscribersGained: stats?.subscribersGained ?? null,
+    interactions: data.interactions.ok
+      ? (data.interactions.data[video.id] ?? {
+          likes: 0,
+          comments: 0,
+          shares: 0,
+        })
+      : null,
     daily: daily?.map(({ date, views: v }) => ({ date, views: v })) ?? [],
     curve: sampleCurve(retention),
   };
@@ -254,7 +339,10 @@ function shortTimeline(video: VideoMeta, data: ViewsCheckDataset): ShortTimeline
 function sampleCurve(points: { ratio: number; watchRatio: number }[]): ShortTimeline['curve'] {
   const step = Math.max(1, Math.ceil(points.length / 40));
   const out = points.filter((_, i) => i % step === 0 || i === points.length - 1);
-  return out.map((p) => ({ at: Math.round(p.ratio * 1000) / 1000, watching: Math.round(p.watchRatio * 1000) / 1000 }));
+  return out.map((p) => ({
+    at: Math.round(p.ratio * 1000) / 1000,
+    watching: Math.round(p.watchRatio * 1000) / 1000,
+  }));
 }
 
 /** The numbers every Short finding shows, so no finding reads as generic advice. */
@@ -281,7 +369,7 @@ function shortFix(t: ShortTimeline): string {
   const lateExit = w !== null && w.fromSec > O.hookSec && (w.toSec === null || w.toSec - w.fromSec >= 1);
   if (lateExit) {
     steps.push(
-      `Viewers stay through the opening, then most leave ${w.toSec !== null ? `between ${clock(w.fromSec)} and ${clock(w.toSec)}` : `from ${clock(w.fromSec)}`}: look at what’s on screen then, and show the payoff before ${clock(w.fromSec)}.`
+      `Viewers stay through the opening, then most leave ${w.toSec !== null ? `between ${clock(w.fromSec)} and ${clock(w.toSec)}` : `from ${clock(w.fromSec)}`}: look at what’s on screen then, and show the payoff before ${clock(w.fromSec)}.`,
     );
   } else if ((t.halfGoneAtSec !== null && t.halfGoneAtSec <= O.instantExitSec) || (t.estSwipeAway !== null && t.estSwipeAway >= O.highSwipeAway)) {
     steps.push('Viewers decide in the first 1–2 seconds: open on the finished result or the most surprising moment, with no setup, logo or intro.');
@@ -317,8 +405,7 @@ function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judge
     };
   }
   if (isHighSwipe(t, shortsJudged)) {
-    const usual =
-      t.channelMedianSwipeAway !== null && shortsJudged >= O.minShortsForMedian ? ` Your usual Short: about ${pct(t.channelMedianSwipeAway)}.` : '';
+    const usual = t.channelMedianSwipeAway !== null && shortsJudged >= O.minShortsForMedian ? ` Your usual Short: about ${pct(t.channelMedianSwipeAway)}.` : '';
     const w = t.exitWindow;
     const where =
       w === null
@@ -354,13 +441,22 @@ function judgeShort(t: ShortTimeline, days: number, shortsJudged: number): Judge
       reason: held
         ? `It kept viewers as well as similar Shorts, but lost to the other Shorts competing for the next, wider audience.${burst}`
         : `It got a first burst, then didn’t beat the other Shorts competing for the next audience.${burst}`,
-      evidence: [`${pct(t.firstDaysShare)} of its views came in the first ${R.quickStop.firstDays} days`, ...shortEvidence(t), ...(t.likeRate !== null ? [`Likes per view: ${(t.likeRate * 100).toFixed(1)}%`] : [])],
+      evidence: [
+        `${pct(t.firstDaysShare)} of its views came in the first ${R.quickStop.firstDays} days`,
+        ...shortEvidence(t),
+        ...(t.likeRate !== null ? [`Likes per view: ${(t.likeRate * 100).toFixed(1)}%`] : []),
+      ],
       fix: held
         ? 'The opening works; the next audience needs a stronger reason to stay to the end and react: a payoff in the last seconds and a question viewers want to answer.'
         : shortFix(t),
     };
   }
-  return { cause: 'ok', reason: 'No distribution problem found.', evidence: [`${plural(views, 'view')} in the period`, ...shortEvidence(t)], fix: '' };
+  return {
+    cause: 'ok',
+    reason: 'No distribution problem found.',
+    evidence: [`${plural(views, 'view')} in the period`, ...shortEvidence(t)],
+    fix: '',
+  };
 }
 
 // ─── Channel-wide ──────────────────────────────────────────────────────────────
@@ -423,7 +519,10 @@ function channelSignals(data: ViewsCheckDataset, findings: VideoFinding[]): Chan
     });
   }
 
-  const times = data.videos.map((v) => Date.parse(v.publishedAt)).filter(Number.isFinite).sort((a, b) => b - a);
+  const times = data.videos
+    .map((v) => Date.parse(v.publishedAt))
+    .filter(Number.isFinite)
+    .sort((a, b) => b - a);
   if (times.length) {
     const sinceLast = Math.floor((now - times[0]) / DAY);
     const gaps = times.slice(1).map((t, i) => Math.floor((times[i] - t) / DAY));
@@ -457,6 +556,91 @@ function channelSignals(data: ViewsCheckDataset, findings: VideoFinding[]): Chan
         });
       }
     }
+  }
+
+  // Many uploads within an hour: looks like spam to YouTube.
+  const byTime = recent
+    .map((v) => ({ v, t: Date.parse(v.publishedAt) }))
+    .filter((x) => Number.isFinite(x.t))
+    .sort((a, b) => a.t - b.t);
+  for (let i = 0; i + C.burstUploads - 1 < byTime.length; i++) {
+    const last = byTime[i + C.burstUploads - 1];
+    if (last.t - byTime[i].t <= C.burstMinutes * 60_000) {
+      const inBurst = byTime.filter((x) => x.t >= byTime[i].t && x.t <= byTime[i].t + C.burstMinutes * 60_000).length;
+      signals.push({
+        id: 'upload_burst',
+        severity: 'medium',
+        title: 'Many uploads within one hour',
+        detail: `${inBurst} videos were published within ${C.burstMinutes} minutes (${new Date(byTime[i].t).toUTCString().slice(5, 16)}). YouTube can treat a burst like this as spam, and each one gets less testing.`,
+        fix: 'Spread uploads out: one at a time, a few hours apart at least.',
+      });
+      break;
+    }
+  }
+
+  // The same file uploaded again: same length and near-identical title.
+  reupload: for (let i = 0; i < recent.length; i++) {
+    for (let j = i + 1; j < recent.length; j++) {
+      const [a, b] = [recent[i], recent[j]];
+      if (a.durationSec === null || b.durationSec === null || Math.abs(a.durationSec - b.durationSec) > C.reuploadLengthSec) continue;
+      if (titleSimilarity(a.title, b.title) < C.reuploadSimilarity) continue;
+      signals.push({
+        id: 're_upload',
+        severity: 'high',
+        title: 'The same video seems to be uploaded again',
+        detail: `“${a.title}” and “${b.title}” have the same length (${a.durationSec}s) and almost the same title. Re-uploads are treated as repetitive content and usually get no views.`,
+        fix: 'Don’t re-upload a Short that didn’t get views; delete the copy and post a new, different video.',
+      });
+      break reupload;
+    }
+  }
+
+  // Titles that tell YouTube nothing: only hashtags, or a file name.
+  const unclear = recent.filter((v) => {
+    const words = v.title.replace(/#\S+/g, '').trim();
+    return words.length === 0 || /\.(mp4|mov|m4v|avi|mkv)$/i.test(v.title.trim()) || /^(vid|video|img|mov|pxl|dji|clip|untitled|short)[\s_-]*\d+/i.test(v.title.trim());
+  });
+  if (unclear.length) {
+    signals.push({
+      id: 'unclear_titles',
+      severity: 'medium',
+      title: 'Titles that don’t say what the video is',
+      detail: `${unclear.length} recent ${unclear.length === 1 ? 'title is' : 'titles are'} only hashtags or a file name (e.g. “${unclear[0].title}”), so YouTube can’t tell who to show ${unclear.length === 1 ? 'it' : 'them'} to.`,
+      fix: 'Write what happens in the video in plain words, with the phrase people would search; keep hashtags to 1–3 in the description.',
+    });
+  }
+
+  // Uploaded within days of creating the channel: no warm-up.
+  if (data.channelCreatedAt && data.firstUploadAt) {
+    const days = Math.floor((Date.parse(data.firstUploadAt) - Date.parse(data.channelCreatedAt)) / DAY);
+    if (days >= 0 && days < C.warmupDays) {
+      signals.push({
+        id: 'no_warmup',
+        severity: 'low',
+        title: 'Uploads started right after the channel was made',
+        detail: `The first video went up ${days === 0 ? 'the same day the channel was created' : `${plural(days, 'day')} after the channel was created`}. Creators often see new channels get little reach at first; a brand-new account that posts at once can look automated.`,
+        fix: 'Use the channel like a viewer for a while (watch, like, subscribe in your niche), finish verification, then post on a steady schedule.',
+      });
+    }
+  }
+
+  // Verification and standing, from the channel's long-upload status.
+  if (data.longUploadsStatus === 'eligible') {
+    signals.push({
+      id: 'not_verified',
+      severity: 'medium',
+      title: 'The channel isn’t verified',
+      detail: 'Phone verification isn’t done, so intermediate features are off (videos over 15 minutes, custom thumbnails, live streaming).',
+      fix: 'Verify the channel with a phone number in Studio → Settings → Channel → Feature eligibility.',
+    });
+  } else if (data.longUploadsStatus === 'disallowed') {
+    signals.push({
+      id: 'standing_risk',
+      severity: 'high',
+      title: 'YouTube has turned off features for this channel',
+      detail: 'Uploads over 15 minutes are disallowed. That usually means the channel isn’t in good standing, for example a Community Guidelines strike.',
+      fix: 'Check Studio → Settings → Channel → Feature eligibility and the strikes in Studio’s dashboard. Wait out or appeal a strike, and don’t re-upload removed videos.',
+    });
   }
 
   const aged = data.videos.filter((v) => v.lifetimeViews !== null && now - Date.parse(v.publishedAt) >= C.suddenDropMinAgeDays * DAY);
@@ -560,7 +744,7 @@ function studioChecks(hasShorts: boolean): StudioCheck[] {
         where: 'Studio → Content → Shorts → open a Short → Analytics → Engagement',
         why: 'The share who stayed instead of swiping in the first second. The API doesn’t provide this.',
         ifFound: 'Compare with your own other Shorts; a low “viewed” share means the first second needs work.',
-      }
+      },
     );
   }
   return checks;
@@ -619,7 +803,8 @@ function specificHeadline(cause: ViewsCause, affected: VideoFinding[], judged: n
   }
   if (cause === 'quick_stop') {
     const share = median(t.map((x) => x.firstDaysShare).filter((v): v is number => v !== null));
-    if (share !== null) return `Your Shorts get ${pct(share)} of their views in the first ${R.quickStop.firstDays} days, then stop (${of}): they lose the test against other Shorts.`;
+    if (share !== null)
+      return `Your Shorts get ${pct(share)} of their views in the first ${R.quickStop.firstDays} days, then stop (${of}): they lose the test against other Shorts.`;
   }
   return null;
 }
@@ -639,10 +824,13 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
   const kidsVideos = data.videos.filter((v) => status[v.id]?.madeForKids).length;
   const kidsChannel = data.videos.length > 0 && kidsVideos / data.videos.length > 0.5;
 
+  // The channel's main viewer countries, most views first: where YouTube tests a new video.
+  const mainCountries = data.countries.ok ? [...data.countries.data].sort((a, b) => b.views - a.views).map((c) => c.country) : [];
+
   // Shorts are compared with the channel's own Shorts, so their timelines come first.
   const timelines = new Map<string, ShortTimeline>();
   for (const video of data.videos) {
-    if (formatOf(video) === 'short' && reportedDays(video, data) >= R.minReportedDays && !judgeAvailability(status[video.id], kidsChannel)) {
+    if (formatOf(video) === 'short' && reportedDays(video, data) >= R.minReportedDays && !judgeAvailability(status[video.id], kidsChannel, mainCountries)) {
       timelines.set(video.id, shortTimeline(video, data));
     }
   }
@@ -664,7 +852,9 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
     if (d?.ok && pub >= data.period.startDate) firstDay.set(v.id, d.data.find((r) => r.date === pub)?.views ?? 0);
   }
   const usualFirstDay = (id: string) => {
-    const others = Array.from(firstDay.entries()).filter(([k]) => k !== id).map(([, v]) => v);
+    const others = Array.from(firstDay.entries())
+      .filter(([k]) => k !== id)
+      .map(([, v]) => v);
     return others.length >= R.opening.minShortsForMedian ? median(others) : null;
   };
   const usualViews = median(shortVideos.filter((v) => timelines.has(v.id) && v.lifetimeViews !== null).map((v) => v.lifetimeViews as number));
@@ -684,8 +874,9 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
       lifetimeViews: video.lifetimeViews,
       durationSec: video.durationSec ?? null,
       avgViewPct: stats?.avgViewPct ? stats.avgViewPct : null,
+      countryBlock: hasCountryBlock(status[video.id]),
     };
-    const blocked = judgeAvailability(status[video.id], kidsChannel);
+    const blocked = judgeAvailability(status[video.id], kidsChannel, mainCountries);
     if (blocked) return { ...base, ...blocked };
     if (days < R.minReportedDays) {
       return {
@@ -713,7 +904,8 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
       timeline.test = shortTest(timeline, Array.from(timelines.values()), usualViews);
       const daily = data.deepDives[video.id]?.daily;
       // Rounds count from the publish day, so the data must start there.
-      timeline.rounds = daily?.ok && video.publishedAt.slice(0, 10) >= data.period.startDate ? testRounds(daily.data, video.publishedAt, days, timeline.test, usualFirstDay(video.id)) : null;
+      timeline.rounds =
+        daily?.ok && video.publishedAt.slice(0, 10) >= data.period.startDate ? testRounds(daily.data, video.publishedAt, days, timeline.test, usualFirstDay(video.id)) : null;
       return { ...base, ...judgement };
     }
     return { ...base, ...judgeLong(video, data, days) };
@@ -729,9 +921,19 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
   let verdict: ViewsCheckReport['verdict'];
   if (blockedRecent.length) {
     const h = HEADLINES.blocked!;
-    verdict = { cause: 'blocked', headline: h.headline(blockedRecent.length, recent.length), firstStep: h.firstStep, basedOn: recent.length };
+    verdict = {
+      cause: 'blocked',
+      headline: h.headline(blockedRecent.length, recent.length),
+      firstStep: h.firstStep,
+      basedOn: recent.length,
+    };
   } else if (signals[0]?.id === 'channel_wide_stop') {
-    verdict = { cause: 'channel_wide_stop', headline: `${signals[0].title}. ${signals[0].detail}`, firstStep: signals[0].fix, basedOn: judged.length };
+    verdict = {
+      cause: 'channel_wide_stop',
+      headline: `${signals[0].title}. ${signals[0].detail}`,
+      firstStep: signals[0].fix,
+      basedOn: judged.length,
+    };
   } else if (judged.length === 0) {
     verdict = {
       cause: 'not_enough_data',
@@ -785,13 +987,34 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
   }
   limitations.push(
     'YouTube Analytics reports views per day, not per hour, and is about 3 days behind; videos newer than that aren’t judged.',
-    '“Shown in feed”, “Viewed vs swiped away”, copyright claims and strikes aren’t available through the YouTube API; check them in Studio (listed above).'
+    '“Shown in feed”, “Viewed vs swiped away”, copyright claims and strikes aren’t available through the YouTube API; check them in Studio (listed above).',
   );
 
   const viewsOf = (format: 'short' | 'video') => {
-    const values = data.videos.filter((v) => formatOf(v) === format).map((v) => v.lifetimeViews).filter((n): n is number => n !== null);
+    const values = data.videos
+      .filter((v) => formatOf(v) === format)
+      .map((v) => v.lifetimeViews)
+      .filter((n): n is number => n !== null);
     return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
   };
+
+  const outlook = growthOutlook(
+    shortVideos
+      .filter((v) => v.lifetimeViews !== null)
+      .map((v) => {
+        const t = timelines.get(v.id);
+        return {
+          id: v.id,
+          title: v.title,
+          publishedAt: v.publishedAt,
+          views: v.lifetimeViews as number,
+          firstDay: firstDay.get(v.id) ?? null,
+          swipeAway: t && t.views > 0 ? t.estSwipeAway : null,
+          viewPct: t?.avgViewPct ?? null,
+        };
+      }),
+    new Date(data.collectedAt),
+  );
 
   return {
     verdict,
@@ -811,11 +1034,28 @@ export function analyzeViews(data: ViewsCheckDataset): ViewsCheckReport {
     topics,
     testAgreement: testAgreement(shorts.filter((t) => t.test).map((t) => ({ views: t.views, score: (t.test as ShortTest).score }))),
     stopPoints: (['shown', 'stopped', 'stayed', 'reacted', 'none', 'unknown'] as const).map((gate) => ({ gate, count: stops.filter((s) => s === gate).length })),
+    health: shortsHealth(shorts),
+    outlook,
+    distribution: distributionScore(findings, shorts, outlook.reach),
+    account: accountHealth({
+      videos: data.videos.map((v) => ({
+        videoId: v.id,
+        title: v.title,
+        status: status[v.id],
+      })),
+      statusRead: data.status.ok,
+      mainCountries,
+      kidsChannel,
+      signals,
+    }),
     stage: channelStage(
       data.videos.filter((v) => formatOf(v) === 'short'),
       shorts,
-      { subscriberCount: data.channel.subscriberCount, createdAt: data.channelCreatedAt ?? null },
-      new Date(data.collectedAt)
+      {
+        subscriberCount: data.channel.subscriberCount,
+        createdAt: data.channelCreatedAt ?? null,
+      },
+      new Date(data.collectedAt),
     ),
   };
 }
