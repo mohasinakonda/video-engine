@@ -46,7 +46,7 @@ export function signalText(id: TestSignalId, v: number | null): string {
 
 export const SIGNAL_LABEL: Record<TestSignalId, string> = {
   stayed: 'Swiped away',
-  watched: 'Avg viewed',
+  watched: 'Watched',
   reacted: 'Engagement',
 };
 

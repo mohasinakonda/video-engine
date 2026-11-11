@@ -62,17 +62,26 @@ export const VIEWS_RULES = {
     minPer100Views: 1,
   },
   test: {
-    /** How much each viewer signal counts in the test score. */
-    weights: { stayed: 0.5, watched: 0.3, reacted: 0.2 },
-    /** Healthy floors: the benchmark is the channel's usual, never below these. Rendoza lines, not YouTube's. */
-    floor: { stayed: 0.55, watched: 0.5, reacted: 1 },
-    /** A ratio counts at most this much, so one great number can't hide a bad one. */
-    cap: 1.5,
-    /** Other Shorts needed before "your usual" is used instead of the floor. */
+    /**
+     * Trust Score (YRDS): each metric ÷ the median of the channel's other Shorts = R; its score
+     * S = min(100, 50 × R), so 50 = as good as the usual Short and 100 = twice as good or better.
+     * Trust Score = the weighted sum of S.
+     */
+    weights: {
+      viewed: 0.35,
+      watched: 0.3,
+      shares: 0.15,
+      likes: 0.1,
+      subscribed: 0.1,
+    },
+    /** S = min(max, scale × R). */
+    scale: 50,
+    max: 100,
+    /** Other Shorts needed for a median; a metric with fewer is left out (weights shared among the rest). */
     minOthers: 3,
-    /** Score at or above: passed; at or above `close`: almost. */
-    pass: 100,
-    close: 80,
+    /** Score at or above `pass`: above the usual Short; at or above `close`: near it. */
+    pass: 50,
+    close: 40,
     /** Agreement check: only pairs whose views differ by this factor, and only with this many pairs. */
     pairViewsRatio: 1.5,
     minPairs: 3,
@@ -130,6 +139,118 @@ export const VIEWS_RULES = {
     minViewsForSubscribeRate: 1000,
     /** Average Short views this many times the average long-video views. */
     formatGapRatio: 10,
+    /** This many uploads within `burstMinutes`: a spam signal. */
+    burstUploads: 3,
+    burstMinutes: 60,
+    /** Same length (± seconds) and near-identical title: the same file uploaded again. */
+    reuploadLengthSec: 1,
+    reuploadSimilarity: 0.8,
+    /** First upload within this many days of creating the channel: no warm-up. */
+    warmupDays: 7,
+  },
+  region: {
+    /** A block in any of the channel's top viewer countries is the most likely reason for 0 views. */
+    topCountries: 3,
+    /** Blocked in this many countries or more: treated as blocked almost everywhere. */
+    nearlyEverywhere: 200,
   },
   maxPlanSteps: 5,
+  health: {
+    /**
+     * Shorts health score (CHS) = 0.70 × P + 0.30 × T. P = median over the newest Shorts of each
+     * Short's score against fixed healthy lines (same 5 metrics and weights as the Trust Score,
+     * S = min(100, 70 × value ÷ line)). T = 70 + (median Trust Score of the newest Shorts − the ones
+     * before), 0–100. Rendoza lines, not YouTube's.
+     */
+    weights: { p: 0.7, t: 0.3 },
+    /**
+     * The score at the healthy line and for a flat trend: the bottom of "Healthy", so a channel at
+     * every line with no change scores 70. A part's score is min(100, 70 × value ÷ line); T = 70 + change.
+     */
+    atLine: 70,
+    lines: { viewed: 0.55, shares: 0.005, likes: 0.03, subscribed: 0.002 },
+    /** Average % viewed line by length: shorter Shorts are expected to be watched further (and loop). */
+    watchedByLength: [
+      { upToSec: 20, line: 0.8 },
+      { upToSec: 40, line: 0.7 },
+      { upToSec: 60, line: 0.6 },
+      { upToSec: Infinity, line: 0.5 },
+    ],
+    /** Newest Shorts used, and the fewest views a Short needs for its rates to count. */
+    maxShorts: 30,
+    minViews: 20,
+    /** Fewer scored Shorts than this: provisional. */
+    confidentShorts: 20,
+    /** Trend: up to this many newest vs the ones before, at least `minTrend` in each. */
+    trendWindow: 10,
+    minTrend: 3,
+    minShorts: 3,
+    /** Bands (lower bounds). */
+    bands: { excellent: 85, healthy: 70, average: 55, weak: 40 },
+  },
+  distribution: {
+    /**
+     * Distribution score: is YouTube showing the channel's Shorts? Each part scores
+     * min(100, 70 × value ÷ line) like the health score; missing parts are left out.
+     * shown: share of judged Shorts that got into the feed; momentum: newest ÷ before (the growth
+     * outlook's reach); feed: median share of views from the Shorts feed.
+     */
+    weights: { shown: 0.4, momentum: 0.35, feed: 0.25 },
+    lines: { shown: 0.9, momentum: 1, feed: 0.7 },
+    maxShorts: 30,
+    minShorts: 3,
+    minFeedShorts: 3,
+    confidentShorts: 10,
+  },
+  account: {
+    /**
+     * Account health: 100 minus points per problem found. Per-video problems lose `perVideo` points
+     * each, up to `caps`; channel problems lose `signals` points once. Rendoza's reading of what the
+     * API shows; strikes and claims without a block aren't visible.
+     */
+    perVideo: {
+      rejected: 15,
+      copyright_block: 15,
+      main_country_block: 8,
+      country_block: 2,
+      age_restricted: 5,
+      made_for_kids: 5,
+    },
+    caps: {
+      rejected: 30,
+      copyright_block: 45,
+      main_country_block: 24,
+      country_block: 6,
+      age_restricted: 15,
+      made_for_kids: 10,
+    },
+    signals: {
+      standing_risk: 40,
+      re_upload: 15,
+      mass_produced_risk: 15,
+      not_verified: 10,
+      upload_burst: 8,
+      unclear_titles: 5,
+      no_warmup: 3,
+      double_post: 3,
+      hashtags_in_titles: 2,
+    },
+  },
+  outlook: {
+    /** Shorts at least this old count: most of a Short's views arrive in its first days. */
+    minAgeDays: 2,
+    /** Newest Shorts vs the ones before, up to this many in each window. */
+    window: 5,
+    /** Fewer Shorts per window than this: too early to tell. */
+    minWindow: 3,
+    /** Recent ÷ before at or above this: reach is rising; at or below `falling`: falling. */
+    rising: 1.15,
+    falling: 0.85,
+    /** Median swipe-away of the newest Shorts at or below this: viewers like them (45%+ = poor). */
+    goodSwipeAway: 0.45,
+    /** A Short needs this many views before its swipe-away counts. */
+    minViewsForSwipe: 30,
+    /** The look-back check: what the outlook said this many days ago, and what happened since. */
+    checkDays: 30,
+  },
 } as const;

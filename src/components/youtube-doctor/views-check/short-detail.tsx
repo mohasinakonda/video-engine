@@ -73,7 +73,7 @@ function swipeHint(t: ShortTimeline): string {
   const parts: string[] = [];
   const tier = swipeTier(t.estSwipeAway);
   if (tier) parts.push(tier);
-  if (t.channelMedianSwipeAway !== null) parts.push(`your median Short: ${pct(t.channelMedianSwipeAway)}`);
+  if (t.channelMedianSwipeAway !== null) parts.push(`your typical Short: ${pct(t.channelMedianSwipeAway)}`);
   return parts.join(' · ') || 'Studio shows the exact number';
 }
 
@@ -93,7 +93,7 @@ function leaveHint(t: ShortTimeline): string {
 
 function detailTiles(t: ShortTimeline): TileData[] {
   return [
-    { label: 'Swiped away (estimate)', value: pct(t.estSwipeAway), level: levelOf('swipeAway', t.estSwipeAway), hint: swipeHint(t) },
+    { label: 'Swiped away', value: pct(t.estSwipeAway), level: levelOf('swipeAway', t.estSwipeAway), hint: swipeHint(t) },
     { label: 'Watched on average', level: levelOf('avgViewPct', t.avgViewPct || null), ...watchedTile(t) },
     { label: 'Watched to the end', value: endPct(t.completion?.ofViews), level: null, hint: t.completion ? 'of views, as in YouTube Studio' : 'No retention curve yet' },
     { label: 'Half the viewers gone by', value: t.halfGoneAtSec === null ? '—' : clock(t.halfGoneAtSec), level: null, hint: leaveHint(t) },
@@ -101,7 +101,7 @@ function detailTiles(t: ShortTimeline): TileData[] {
       label: 'Retention vs similar Shorts',
       value: t.relativeRetention === null ? '—' : t.relativeRetention.toFixed(2),
       level: levelOf('relativeRetention', t.relativeRetention),
-      hint: '0.5 is typical',
+      hint: '0.5 = same as similar Shorts',
     },
   ];
 }

@@ -10,9 +10,9 @@ type Stage = ViewsCheckRunStage | 'connect' | 'done';
 
 const STEPS: { stage: Stage; label: string }[] = [
   { stage: 'fetch_channel', label: 'Reading your recent uploads' },
-  { stage: 'fetch_analytics', label: 'Checking availability, impressions and views' },
-  { stage: 'deep_dive', label: 'Looking at how each new video’s views arrived' },
-  { stage: 'analyze', label: 'Finding the reasons' },
+  { stage: 'fetch_analytics', label: 'Checking blocks, restrictions and views' },
+  { stage: 'deep_dive', label: 'Looking at how each Short’s views came in, day by day' },
+  { stage: 'analyze', label: 'Finding what holds your views back' },
   { stage: 'write', label: 'Writing your report' },
 ];
 
@@ -58,7 +58,7 @@ export function ViewsCheckPanel({ cost, running, stages, error, hasReport, onRun
         <div className="flex flex-col items-start sm:items-end gap-1.5">
           <button type="button" onClick={onRun} className="btn-primary px-6 py-3 text-base font-semibold">
             {hasReport ? <RefreshCw size={18} /> : <Search size={18} />}
-            {hasReport ? 'Check again' : 'Check my views'}
+            {hasReport ? 'Check again' : 'Find out why my views are low'}
           </button>
           <p className="text-sm text-zinc-400">{cost === 0 ? 'Free' : `Uses ${cost} credits`}</p>
         </div>

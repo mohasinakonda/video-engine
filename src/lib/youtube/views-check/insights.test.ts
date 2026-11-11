@@ -78,7 +78,7 @@ describe('topics', () => {
     const later = short(7, 1, 90);
     const judged = newTopicJudgement(later, [...shorts, later], new Map([...Array.from(topicOf), ['v7', 'Gaming']]), 700, summaries, []);
     expect(judged?.cause).toBe('new_topic');
-    expect(judged?.reason).toMatch(/New topic for your channel: “Gaming”/);
+    expect(judged?.reason).toMatch(/new topic for your channel: “Gaming”/);
     expect(judged?.fix).toMatch(/stay with “Car fixes”/);
   });
 
@@ -99,7 +99,7 @@ describe('steps', () => {
   it('stops at "stopped scrolling" when most swipe', () => {
     const gates = gatesFor(timeline({ estSwipeAway: 0.79 }), 'weak_hook', true);
     expect(gates.map((g) => g.state)).toEqual(['pass', 'fail', 'pass', 'pass']);
-    expect(gates[1].note).toBe('≈21% stayed to watch');
+    expect(gates[1].note).toBe('21 of every 100 didn’t swipe away');
     expect(stopPointOf(gates)).toBe('stopped');
   });
 

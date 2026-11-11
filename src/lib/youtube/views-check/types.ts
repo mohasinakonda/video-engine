@@ -14,6 +14,8 @@ export interface VideoStatus {
   /** Countries where the video is blocked. */
   regionBlocked: string[] | null;
   ageRestricted: boolean;
+  /** When a scheduled video goes public (ISO); null when not scheduled. */
+  publishAt?: string | null;
 }
 
 export interface DayViews {
@@ -50,18 +52,7 @@ export interface ViewsCheckLimits {
  * blocked → not shown → not in the Shorts feed → seen but not clicked → clicked then left →
  * Short stopped early → fine.
  */
-export type ViewsCause =
-  | 'blocked'
-  | 'too_new'
-  | 'not_shown'
-  | 'not_in_feed'
-  | 'not_clicked'
-  | 'new_topic'
-  | 'weak_hook'
-  | 'left_early'
-  | 'quick_stop'
-  | 'unknown'
-  | 'ok';
+export type ViewsCause = 'blocked' | 'too_new' | 'not_shown' | 'not_in_feed' | 'not_clicked' | 'new_topic' | 'weak_hook' | 'left_early' | 'quick_stop' | 'unknown' | 'ok';
 
 export interface VideoFinding {
   videoId: string;
@@ -74,6 +65,8 @@ export interface VideoFinding {
   durationSec: number | null;
   /** Average % of the video watched over the period (0–100), when reported. */
   avgViewPct: number | null;
+  /** Blocked in some or all countries (YouTube's regionRestriction); null when availability couldn't be read. */
+  countryBlock: boolean | null;
   cause: ViewsCause;
   /** One sentence: what is wrong. */
   reason: string;
@@ -109,27 +102,36 @@ export interface Gate {
   note: string;
 }
 
+/** Signals of the per-day test rounds. */
 export type TestSignalId = 'stayed' | 'watched' | 'reacted';
 
+/** The five metrics of the Trust Score (YRDS). */
+export type TrustSignalId = 'viewed' | 'watched' | 'shares' | 'likes' | 'subscribed';
+
 export interface TestSignal {
-  id: TestSignalId;
-  /** stayed and watched: 0–1 (watched can exceed 1 with rewatches); reacted: per 100 views. */
+  id: TrustSignalId;
+  /**
+   * viewed: viewed ÷ (viewed + swiped away), estimated as engaged ÷ views (0–1);
+   * watched: average % viewed (0–1, above 1 with rewatches);
+   * shares, likes, subscribed: per engaged view (0–1).
+   */
   value: number;
-  /** Median of the channel's other Shorts; null with too few. */
-  usual: number | null;
-  /** What it was compared with: the usual, never below the healthy floor. */
+  /** Median of the channel's other Shorts (the benchmark). */
+  usual: number;
   benchmark: number;
-  /** value ÷ benchmark, capped. */
+  /** R = value ÷ usual. */
   ratio: number;
+  /** S = min(100, 50 × R). */
+  score: number;
 }
 
 export interface ShortTest {
-  /** 100 = as good as the channel's usual Short. */
+  /** Trust Score 0–100: 50 = as good as the channel's usual Short, 100 = twice as good or better. */
   score: number;
   result: 'passed' | 'close' | 'failed';
   signals: TestSignal[];
   /** The signal furthest below its benchmark, when one is below. */
-  weakest: TestSignalId | null;
+  weakest: TrustSignalId | null;
   /** Why distribution stopped (or didn't), in one or two plain sentences. */
   message: string;
   fix: string | null;
@@ -221,6 +223,8 @@ export interface ShortTimeline {
   /** Mean relativeRetentionPerformance (0–1, 0.5 = typical for similar Shorts). */
   relativeRetention: number | null;
   likeRate: number | null;
+  /** Subscribers gained over the period, when Analytics returned it. */
+  subscribersGained: number | null;
   /** Likes, comments and shares in the period; null when Analytics didn't return them. */
   interactions: Interactions | null;
   /** The topic group this Short is in, when topics were grouped. */
@@ -249,7 +253,13 @@ export type SignalId =
   | 'mass_produced_risk'
   | 'sudden_drop'
   | 'low_subscribe_rate'
-  | 'no_comments';
+  | 'no_comments'
+  | 'upload_burst'
+  | 're_upload'
+  | 'unclear_titles'
+  | 'no_warmup'
+  | 'not_verified'
+  | 'standing_risk';
 
 export interface ChannelSignal {
   id: SignalId;
@@ -291,12 +301,176 @@ export interface ViewsCheckReport {
   };
   /** Where the channel's Shorts stand: still being tested, finding an audience, steady or slowing. */
   stage: ChannelStage;
+  /** Whether the channel's Shorts are likely to grow, with a look-back check of the same reading. */
+  outlook: GrowthOutlook;
+  /** The Shorts health score: content against healthy lines, and the trend. */
+  health: ShortsHealth;
+  /** Is YouTube showing the channel's Shorts? */
+  distribution: DistributionScore;
+  /** Problems with the channel itself: blocks, rejections, standing, spam-like patterns. */
+  account: AccountHealth;
   /** The channel's Shorts by topic, best first; empty when they couldn't be grouped. */
   topics: TopicSummary[];
   /** How many judged Shorts stopped at each step (the first step they failed). */
   stopPoints: { gate: GateId | 'none' | 'unknown'; count: number }[];
   /** How often the test score ranked this channel's Shorts the way their views did. */
   testAgreement: { agreed: number; pairs: number } | null;
+}
+
+export type GrowthOutlookId = 'growing' | 'held_back' | 'will_stall' | 'not_growing' | 'too_early';
+
+export interface OutlookWindow {
+  count: number;
+  /** Median public views of the window's Shorts. */
+  medianViews: number;
+  /** Median views on the upload day, when known for enough of them. */
+  medianFirstDay: number | null;
+  /** Share of the window's Shorts with 0 views (0–1). */
+  zeroViewShare: number;
+}
+
+/**
+ * Will the channel's Shorts grow? Two questions from the channel's own numbers: do viewers like
+ * the newest Shorts (swipe-away), and is YouTube showing them to more people than before (views,
+ * first-day views when known)? A likelihood for the next weeks, never a promise.
+ */
+export interface GrowthOutlook {
+  id: GrowthOutlookId;
+  title: string;
+  detail: string;
+  nextStep: string;
+  content: {
+    state: 'good' | 'weak' | 'unknown';
+    medianSwipeAway: number | null;
+    medianViewPct: number | null;
+    shorts: number;
+  };
+  reach: {
+    state: 'rising' | 'flat' | 'falling' | 'unknown';
+    /** What was compared: views on the upload day, or total views. */
+    by: 'first_day' | 'views' | null;
+    /** Recent ÷ before; null when before was 0. */
+    change: number | null;
+    recent: OutlookWindow | null;
+    previous: OutlookWindow | null;
+  };
+  /**
+   * The same reading made `days` ago, against what happened since: did the Shorts posted after it
+   * get more views than the ones before? Null when either side had too few Shorts.
+   */
+  check: {
+    days: number;
+    said: GrowthOutlookId;
+    grew: boolean;
+    matched: boolean;
+    change: number | null;
+  } | null;
+}
+
+export type HealthBandId = 'excellent' | 'healthy' | 'average' | 'weak' | 'critical';
+
+export interface HealthPart {
+  id: TrustSignalId;
+  name: string;
+  weight: number;
+  /** Median score of the Shorts on this metric (0–100, 70 = at the healthy line). */
+  score: number;
+  /** The channel's median value (same units as TestSignal.value). */
+  value: number;
+  /** The healthy line it's compared with (watched: for the channel's median length). */
+  line: number;
+  /** "62% of viewers swipe away (healthy: 45% or less)" */
+  text: string;
+}
+
+/**
+ * The channel's Shorts health: how its newest Shorts perform against fixed healthy lines (P) and
+ * whether they're getting better or worse than before (T). Rendoza's score, not YouTube's.
+ */
+export interface ShortsHealth {
+  score: number | null;
+  band: HealthBandId | null;
+  /** Fewer Shorts than needed for a confident score. */
+  provisional: boolean;
+  /** Shorts the score is based on. */
+  shorts: number;
+  p: number | null;
+  t: number | null;
+  parts: HealthPart[];
+  trend: {
+    recent: number;
+    previous: number;
+    diff: number;
+    recentCount: number;
+    previousCount: number;
+  } | null;
+  /** One line: the main problem (or that things are fine). */
+  headline: string;
+  /** The number behind it. */
+  detail: string;
+}
+
+export type DistributionPartId = 'shown' | 'momentum' | 'feed';
+
+export interface ScorePart<Id extends string = string> {
+  id: Id;
+  name: string;
+  weight: number;
+  /** 0–100, 70 = at the healthy line. */
+  score: number;
+  text: string;
+}
+
+/** Is YouTube showing the channel's Shorts? Rendoza's score from the channel's own numbers. */
+export interface DistributionScore {
+  score: number | null;
+  band: HealthBandId | null;
+  provisional: boolean;
+  /** Judged Shorts it is based on. */
+  shorts: number;
+  parts: ScorePart<DistributionPartId>[];
+  headline: string;
+  detail: string;
+}
+
+export type AccountIssueId =
+  | 'rejected'
+  | 'copyright_block'
+  | 'main_country_block'
+  | 'country_block'
+  | 'age_restricted'
+  | 'made_for_kids'
+  | 'standing_risk'
+  | 're_upload'
+  | 'mass_produced_risk'
+  | 'not_verified'
+  | 'upload_burst'
+  | 'unclear_titles'
+  | 'no_warmup'
+  | 'double_post'
+  | 'hashtags_in_titles';
+
+export interface AccountIssue {
+  id: AccountIssueId;
+  severity: 'high' | 'medium' | 'low';
+  title: string;
+  detail: string;
+  fix: string;
+  /** Points taken off the score. */
+  points: number;
+  /** The videos it was found on (per-video problems). */
+  videos: { videoId: string; title: string }[];
+}
+
+/** Is anything wrong with the channel itself? 100 minus points per problem the API shows. */
+export interface AccountHealth {
+  score: number | null;
+  band: HealthBandId | null;
+  /** Videos whose status was read. */
+  checked: number;
+  issues: AccountIssue[];
+  headline: string;
+  detail: string;
 }
 
 export type ChannelStageId = 'not_enough' | 'finding_audience' | 'slowing' | 'testing' | 'steady';
@@ -333,6 +507,13 @@ export interface ViewsCheckDataset {
   channelLanguage: string | null;
   /** When the channel was created (ISO), if YouTube returned it. */
   channelCreatedAt?: string | null;
+  /** The channel's first upload (ISO), when every upload was read; null when not known. */
+  firstUploadAt?: string | null;
+  /**
+   * channels.list status.longUploadsStatus: 'allowed' (verified), 'eligible' (not verified yet),
+   * 'disallowed' (turned off, usually not in good standing); null when not read.
+   */
+  longUploadsStatus?: string | null;
   /** The Shorts grouped by topic (AI, from titles); null when not grouped. */
   topics?: TopicGroup[] | null;
   /** The period the analytics cover, ending on the last fully reported day. */

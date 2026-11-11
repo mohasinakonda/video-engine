@@ -74,7 +74,7 @@ function RoundCard({ round, previous }: { round: TestRound; previous: TestRound 
 export function RoundsBox({ rounds }: { rounds: TestRounds }) {
   return (
     <section className="space-y-3 rounded-xl border border-bg-border bg-bg-surface p-4">
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">YouTube’s test, round by round</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Day by day: how YouTube tested this Short</p>
       <ol className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {rounds.rounds.map((r, i) => (
           <RoundCard key={r.no} round={r} previous={rounds.rounds[i - 1] ?? null} />
@@ -87,7 +87,7 @@ export function RoundsBox({ rounds }: { rounds: TestRounds }) {
 function NextShort({ text }: { text: string }) {
   return (
     <p className="text-sm text-zinc-200">
-      <b className="text-white">Next Short:</b> {text}
+      <b className="text-white">On your next Short:</b> {text}
     </p>
   );
 }
@@ -100,9 +100,9 @@ export function ScoreChip({ test }: { test: ShortTest }) {
   );
 }
 
-const SCORE_EXPLAINED = 'How viewers reacted to this Short next to your usual one. Fewer swipes, longer watching and more likes, comments and shares raise it.';
+const SCORE_EXPLAINED = 'Compared with your usual Short: 50 = the same, 100 = twice as good. Fewer swipes, longer watching, and more shares, likes and new subscribers raise it.';
 
-/** One Short's Trust Score (your usual Short = 100), the reason in one line, and what to do next time. */
+/** One Short's Trust Score (your usual Short = 50), the reason in one line, and what to do next time. */
 export function TestBox({ test }: { test: ShortTest }) {
   return (
     <section className="space-y-2 rounded-xl border border-bg-border bg-bg-surface p-4">
@@ -110,7 +110,6 @@ export function TestBox({ test }: { test: ShortTest }) {
         <span className="text-sm font-semibold text-zinc-300">Trust Score</span>
         <span className="text-2xl font-bold tabular-nums text-white">{test.score}</span>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${RESULT[test.result].chip}`}>{RESULT[test.result].label}</span>
-
       </div>
       <p className="text-xs text-zinc-400">{SCORE_EXPLAINED}</p>
       <p className="text-base text-zinc-100">{test.message}</p>

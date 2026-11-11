@@ -24,6 +24,7 @@ const report: ViewsCheckReport = {
       lifetimeViews: 900,
       durationSec: 30,
       avgViewPct: 52,
+      countryBlock: false,
       cause: 'quick_stop',
       reason: 'It got a first burst, then stopped.',
       evidence: ['90% of its views came in the first 2 days'],
@@ -40,6 +41,18 @@ const report: ViewsCheckReport = {
   stopPoints: [],
   testAgreement: null,
   stage: { id: 'not_enough', title: 'Too early to see a trend', detail: '', recent: null, previous: null, shortsCompared: 0, subscribers: null, channelAgeDays: null },
+  health: { score: null, band: null, provisional: true, shorts: 0, p: null, t: null, parts: [], trend: null, headline: '', detail: '' },
+  distribution: { score: null, band: null, provisional: true, shorts: 0, parts: [], headline: '', detail: '' },
+  account: { score: 100, band: 'excellent', checked: 0, issues: [], headline: '', detail: '' },
+  outlook: {
+    id: 'too_early',
+    title: 'Too early to tell',
+    detail: '',
+    nextStep: '',
+    content: { state: 'unknown', medianSwipeAway: null, medianViewPct: null, shorts: 0 },
+    reach: { state: 'unknown', by: null, change: null, recent: null, previous: null },
+    check: null,
+  },
 };
 
 const reply = (body: object) => llm.mockResolvedValue({ content: JSON.stringify(body), model: 'm' });
@@ -52,7 +65,11 @@ describe('numbersIn', () => {
 
 describe('wordViewsReport', () => {
   it('uses the AI wording when it keeps to the facts', async () => {
-    reply({ headline: 'Your Shorts stop after 2 days.', explanation: 'They get 90% of views early, then other Shorts win.', plan: ['Change one thing per Short.', 'Answer every comment.'] });
+    reply({
+      headline: 'Your Shorts stop after 2 days.',
+      explanation: 'They get 90% of views early, then other Shorts win.',
+      plan: ['Change one thing per Short.', 'Answer every comment.'],
+    });
     const wording = await wordViewsReport(report, 'English', ['m']);
     expect(wording.source).toBe('ai');
     expect(wording.plan).toHaveLength(2);

@@ -48,4 +48,4 @@ export function swipeTier(swipeAway: number | null): string | null {
   return 'Poor';
 }
 
-export const LEVEL_LABEL: Record<Level, string> = { critical: 'Critical', error: 'Poor', warning: 'Watch', ok: 'OK' };
+export const LEVEL_LABEL: Record<Level, string> = { critical: 'Fix now', error: 'Needs work', warning: 'Okay', ok: 'Good' };

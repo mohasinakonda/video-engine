@@ -1,65 +1,11 @@
-/** Channel-wide cards: the channel's stage, where its Shorts lose viewers, and its topics. */
+/** Channel-wide cards: where its Shorts lose viewers, and its topics. */
 import type { ReactNode } from 'react';
-import type { ChannelStage, StageWindow, TopicSummary, ViewsCheckReport } from '@/lib/youtube/views-check/types';
-import { num, pct, plural } from './format';
-import { STAGE_STYLE, STOP_LINE } from './styles';
+import type { TopicSummary, ViewsCheckReport } from '@/lib/youtube/views-check/types';
+import { num, pct } from './format';
+import { STOP_LINE } from './styles';
 
 function CardTitle({ children }: { children: ReactNode }) {
   return <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">{children}</p>;
-}
-
-// ─── Channel stage ────────────────────────────────────────────────────────────
-
-function stageFacts(stage: ChannelStage): string[] {
-  const facts: string[] = [];
-  if (stage.subscribers !== null) facts.push(plural(stage.subscribers, 'subscriber'));
-  if (stage.channelAgeDays !== null) facts.push(`channel ${plural(stage.channelAgeDays, 'day')} old`);
-  if (stage.shortsCompared > 0) facts.push(`${stage.shortsCompared} Shorts compared`);
-  return facts;
-}
-
-/** Newest Shorts vs the ones before: is the floor rising? A reading of the channel's numbers, not a YouTube status. */
-export function StageCard({ stage }: { stage: ChannelStage }) {
-  const facts = stageFacts(stage);
-  return (
-    <section className="space-y-4 rounded-2xl border border-bg-border bg-bg-surface p-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <CardTitle>Channel stage</CardTitle>
-        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${STAGE_STYLE[stage.id]}`}>{stage.title}</span>
-        {facts.length > 0 && <span className="text-xs text-zinc-400">{facts.join(' · ')}</span>}
-      </div>
-      {/* <p className="text-base leading-relaxed text-zinc-200">{stage.detail}</p> */}
-      {stage.recent && stage.previous && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <StageWindowBox label={`Your newest ${stage.recent.count} Shorts`} w={stage.recent} />
-          <StageWindowBox label={`The ${stage.previous.count} before them`} w={stage.previous} muted />
-        </div>
-      )}
-
-    </section>
-  );
-}
-
-function StageWindowBox({ label, w, muted = false }: { label: string; w: StageWindow; muted?: boolean }) {
-  const items = [
-    { k: 'Lowest', v: num(w.floorViews) },
-    { k: 'Median', v: num(w.medianViews) },
-    { k: 'Highest', v: num(w.maxViews) },
-  ];
-  if (w.feedShare !== null) items.push({ k: 'From feed', v: pct(w.feedShare) });
-  return (
-    <div className={`rounded-xl border border-bg-border p-3.5 ${muted ? 'bg-bg-base' : 'bg-bg-elevated'}`}>
-      <p className="mb-2 text-xs font-semibold text-zinc-400">{label}</p>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
-        {items.map((i) => (
-          <div key={i.k}>
-            <dt className="text-[11px] text-zinc-500">{i.k}</dt>
-            <dd className="text-base font-bold tabular-nums text-white">{i.v}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  );
 }
 
 // ─── Where the Shorts lose viewers ────────────────────────────────────────────
@@ -73,9 +19,9 @@ export function StopPointsCard({ stops }: { stops: ViewsCheckReport['stopPoints'
   if (total === 0) return null;
   return (
     <section className="space-y-3 rounded-2xl border border-bg-border bg-bg-surface p-5">
-      <CardTitle>What happened to your Shorts</CardTitle>
+      <CardTitle>Where your Shorts lose viewers</CardTitle>
       <p className="text-base text-zinc-200">
-        We could judge <b className="text-white">{total}</b> of your Shorts. Here is where each one lost its viewers:
+        We checked <b className="text-white">{total}</b> of your Shorts. Here is where each one lost its viewers:
       </p>
       <ul className="space-y-2">
         {lines.map((l) => (
@@ -88,7 +34,7 @@ export function StopPointsCard({ stops }: { stops: ViewsCheckReport['stopPoints'
           </li>
         ))}
       </ul>
-      <p className="text-xs text-zinc-500">Open a Short in the list below to see its four steps: shown, stopped scrolling, stayed, reacted.</p>
+
     </section>
   );
 }
@@ -102,7 +48,7 @@ export function TopicsCard({ topics }: { topics: TopicSummary[] }) {
     <section className="space-y-3 rounded-2xl border border-bg-border bg-bg-surface p-5">
       <CardTitle>Your topics</CardTitle>
       {topics.length === 1 ? <OneTopic topic={topics[0]} /> : <TopicTable topics={topics} top={top} />}
-      <p className="text-xs text-zinc-500">Topics are grouped by AI from your titles. “Views per Short” is the typical (middle) value, counting Shorts at least 2 days old.</p>
+
     </section>
   );
 }
