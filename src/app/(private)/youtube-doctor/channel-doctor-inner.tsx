@@ -77,6 +77,16 @@ export default function ChannelDoctorInner() {
     load();
   };
 
+  const handleRunDiagnosis = async (hasAccess: boolean) => {
+    await diagnosis.run();
+    // A free diagnosis was just used: refresh what's left, quietly.
+    if (!hasAccess) {
+      const res = await fetch('/api/youtube/config').catch(() => null);
+      if (res?.ok) setConfig(await res.json());
+    }
+  }
+
+
   return (
     <div className="page-shell">
       <div className="page-container space-y-6">
@@ -177,14 +187,7 @@ export default function ChannelDoctorInner() {
                 stages={diagnosis.stages}
                 error={diagnosis.error}
                 hasReport={Boolean(diagnosis.saved)}
-                onRun={async () => {
-                  await diagnosis.run();
-                  // A free diagnosis was just used: refresh what's left, quietly.
-                  if (!config.hasAccess) {
-                    const res = await fetch('/api/youtube/config').catch(() => null);
-                    if (res?.ok) setConfig(await res.json());
-                  }
-                }}
+                onRun={() => handleRunDiagnosis(config.hasAccess)}
               />
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-bg-border">

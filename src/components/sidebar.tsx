@@ -106,7 +106,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
     const visibleNav = navItems.filter(({ href }) => showItem(href));
     return (
       <aside
-        className="absolute left-0 top-0 h-full w-14 flex flex-col items-center bg-bg-base border-r border-bg-border z-40 py-4 gap-3"
+        className="fixed left-0 top-0 h-full w-14 flex flex-col items-center bg-bg-base border-r border-bg-border z-40 py-4 gap-3"
         onMouseEnter={() => setHovered(true)}
       >
         <AppLogo className="w-8 h-8 rounded-lg shadow-sm" />
@@ -165,7 +165,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
     <aside
       className={
         collapsed
-          ? 'absolute left-0 top-0 h-full w-56 flex flex-col bg-bg-base border-r border-bg-border z-40 shadow-2xl'
+          ? 'fixed left-0 top-0 h-full w-56 flex flex-col bg-bg-base border-r border-bg-border z-40 shadow-2xl'
           : 'w-56 flex-shrink-0 flex flex-col bg-bg-base border-r border-bg-border h-full sticky top-0 self-start z-30'
       }
       onMouseLeave={collapsed ? () => setHovered(false) : undefined}
@@ -361,7 +361,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         <div className="p-3 pt-0 relative" ref={menuRef}>
           {/* Popover Menu (Upward) */}
           {profileMenuOpen && (
-            <div className="absolute bottom-full left-3 right-3 mb-2 p-1.5 rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-750 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 space-y-1">
+            <div className="fixed bottom-full left-3 right-3 mb-2 p-1.5 rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-750 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 space-y-1">
               {/* Profile Card Header in Popover */}
               <div className="px-3 py-2.5 border-b border-zinc-800/80">
                 <div className="flex items-center justify-between gap-1">
