@@ -4,11 +4,13 @@
  * The views check report, as a story: your problem in one line → the three scores → what to do this
  * week → will your Shorts grow → the proof (numbers, each Short, what YouTube doesn't share).
  */
-import { ArrowRight } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, Check, ClipboardCopy } from 'lucide-react';
 import type { ViewsCheckResult } from '@/lib/youtube/views-check/run';
 import type { ViewsCheckReport as Report } from '@/lib/youtube/views-check/types';
 import { StopPointsCard, TopicsCard } from './channel-cards';
 import { OutlookCard } from './outlook-card';
+import { reportText } from './report-text';
 import { ScoreCards } from './score-cards';
 import { KeyTiles, VerdictNumbers } from './summary';
 import { TestCard } from './test-rounds';
@@ -27,7 +29,7 @@ export function ViewsCheckReport({ result, analyzedAt }: { result: ViewsCheckRes
   const timelines = new Map(report.shorts.map((s) => [s.videoId, s]));
   return (
     <div className="space-y-6">
-      <Hero wording={wording} days={result.period.days} videos={report.verdict.basedOn} analyzedAt={analyzedAt} />
+      <Hero result={result} analyzedAt={analyzedAt} />
       <ScoreCards health={report.health} distribution={report.distribution} account={report.account} />
       {wording.plan.length > 0 && <Plan steps={wording.plan} />}
       <OutlookCard outlook={report.outlook} />
@@ -48,16 +50,48 @@ export function ViewsCheckReport({ result, analyzedAt }: { result: ViewsCheckRes
 }
 
 /** Your problem in one line, why, in plain words. */
-function Hero({ wording, days, videos, analyzedAt }: { wording: ViewsCheckResult['wording']; days: number; videos: number; analyzedAt: string }) {
+function Hero({ result, analyzedAt }: { result: ViewsCheckResult; analyzedAt: string }) {
+  const { wording } = result;
   return (
     <section className="space-y-3 rounded-2xl border border-bg-border bg-bg-surface p-6 sm:p-7">
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">What’s holding your views back</p>
-      <h2 className="text-2xl font-bold leading-snug text-white sm:text-3xl">{wording.headline}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">What’s holding your views back</p>
+        <CopyReport result={result} analyzedAt={analyzedAt} />
+      </div>
+      <h2 className=" max-w-3xl  text-2xl font-bold leading-snug text-white sm:text-3xl">{wording.headline}</h2>
       {wording.explanation && <p className="max-w-3xl text-base leading-relaxed text-zinc-300">{wording.explanation}</p>}
       <p className="text-xs text-zinc-500">
-        From your last {days} days · {videos} videos checked · {new Date(analyzedAt).toLocaleString()}
+        From your last {result.period.days} days · {result.report.verdict.basedOn} videos checked · {new Date(analyzedAt).toLocaleString()}
       </p>
     </section>
+  );
+}
+
+/** Copies the full report with a prompt, so ChatGPT, Claude or any chat AI can explain it in Bangla. */
+function CopyReport({ result, analyzedAt }: { result: ViewsCheckResult; analyzedAt: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(reportText(result, analyzedAt));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        className="btn-primary btn-md"
+        onClick={copy}
+        title="Copy the full report, then paste it into ChatGPT, Claude or Gemini to get it explained in Bangla"
+      >
+        {copied ? <Check size={14} aria-hidden="true" /> : <ClipboardCopy size={14} aria-hidden="true" />}
+        {copied ? 'Copied! Paste it in ChatGPT' : 'Copy full report'}
+      </button>
+
+    </div>
   );
 }
 
