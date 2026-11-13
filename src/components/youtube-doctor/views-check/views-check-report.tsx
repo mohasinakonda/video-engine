@@ -2,10 +2,11 @@
 
 /**
  * The views check report, as a story: your problem in one line → the three scores → what to do this
- * week → will your Shorts grow → the proof (numbers, each Short, what YouTube doesn't share).
+ * week → will your Shorts grow → the proof → next video ideas (numbers, each Short, what YouTube doesn't share).
  */
 import { useState } from 'react';
-import { ArrowRight, Check, ClipboardCopy } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, Check, Clapperboard, ClipboardCopy } from 'lucide-react';
 import type { ViewsCheckResult } from '@/lib/youtube/views-check/run';
 import type { ViewsCheckReport as Report } from '@/lib/youtube/views-check/types';
 import { StopPointsCard, TopicsCard } from './channel-cards';
@@ -45,6 +46,7 @@ export function ViewsCheckReport({ result, analyzedAt }: { result: ViewsCheckRes
       {report.topics?.length > 0 && <TopicsCard topics={report.topics} />}
       <VideoTable videos={report.videos} timelines={timelines} analyzedAt={analyzedAt} />
       {report.limitations.length > 0 && <Limitations items={report.limitations} />}
+      <NextIdeasLink />
     </div>
   );
 }
@@ -81,16 +83,10 @@ function CopyReport({ result, analyzedAt }: { result: ViewsCheckResult; analyzed
   };
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        className="btn-primary btn-md"
-        onClick={copy}
-        title="Copy the full report, then paste it into ChatGPT, Claude or Gemini to get it explained in Bangla"
-      >
+      <button type="button" className="btn-primary btn-md" onClick={copy} title="Copy the full report, then paste it into ChatGPT, Claude or Gemini to get it explained in Bangla">
         {copied ? <Check size={14} aria-hidden="true" /> : <ClipboardCopy size={14} aria-hidden="true" />}
         {copied ? 'Copied! Paste it in ChatGPT' : 'Copy full report'}
       </button>
-
     </div>
   );
 }
@@ -128,6 +124,23 @@ function Step({ n, text }: { n: number; text: string }) {
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-sm font-bold text-emerald-200">{n}</span>
       <span className="pt-0.5">{text}</span>
     </li>
+  );
+}
+
+/** The way out of the report: new Shorts built on what works, on their own page. */
+function NextIdeasLink() {
+  return (
+    <section className="flex flex-col items-start justify-between gap-4 rounded-2xl border border-violet-500/30 bg-bg-surface p-6 sm:flex-row sm:items-center">
+      <div className="space-y-1">
+        <p className="flex items-center gap-2 text-lg font-bold text-white">
+          <Clapperboard size={20} className="text-violet-300" aria-hidden="true" /> What to make next
+        </p>
+        <p className="text-sm text-zinc-400">New Shorts built on what already works on your channel: storyboard, Flow prompts and packaging.</p>
+      </div>
+      <Link href="/youtube-doctor/next-shorts" className="btn-primary shrink-0">
+        Next video ideas <ArrowRight size={16} aria-hidden="true" />
+      </Link>
+    </section>
   );
 }
 
