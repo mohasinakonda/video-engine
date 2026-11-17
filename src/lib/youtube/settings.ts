@@ -22,8 +22,33 @@ export interface ChannelDoctorSettings {
   create: CreateSettings;
   audit: AuditSettings;
   viewsCheck: ViewsCheckSettings;
+  affiliate: AffiliateSettings;
   updatedAt: string | null;
 }
+
+/** Admin-controlled Affiliate Intelligence and Store (docs/affiliate-intelligence-plan.md). */
+export interface AffiliateSettings {
+  enabled: boolean;
+  allowedPlans: PlanTier[];
+  /** Charged on every Canopy search (each one costs us money). */
+  searchCreditCost: number;
+  /** The video prompts for up to 5 products, including their product-detail calls. */
+  videoCreditCost: number;
+  seoCreditCost: number;
+  searchesPerUserDay: number;
+  /** Free product-detail lookups (the Add to bio modal), limited per day. */
+  detailsPerUserDay: number;
+}
+
+export const DEFAULT_AFFILIATE_SETTINGS: AffiliateSettings = {
+  enabled: false,
+  allowedPlans: ['STARTER', 'CREATOR', 'STUDIO'],
+  searchCreditCost: 2,
+  videoCreditCost: 10,
+  seoCreditCost: 5,
+  searchesPerUserDay: 30,
+  detailsPerUserDay: 100,
+};
 
 /** Admin-controlled Views check and Keyword check, inside Channel Doctor (docs/views-check-plan.md). */
 export interface ViewsCheckSettings {
@@ -190,6 +215,7 @@ export const DEFAULT_SETTINGS: ChannelDoctorSettings = {
   create: DEFAULT_CREATE_SETTINGS,
   audit: DEFAULT_AUDIT_SETTINGS,
   viewsCheck: DEFAULT_VIEWS_CHECK_SETTINGS,
+  affiliate: DEFAULT_AFFILIATE_SETTINGS,
   updatedAt: null,
 };
 
@@ -266,6 +292,16 @@ export const viewsCheckSettingsSchema = z.object({
   keywordRunsPerUserDay: z.number().int().min(1).max(20),
 });
 
+export const affiliateSettingsSchema = z.object({
+  enabled: z.boolean(),
+  allowedPlans: z.array(z.enum(PLAN_TIERS)).max(4),
+  searchCreditCost: credit,
+  videoCreditCost: credit,
+  seoCreditCost: credit,
+  searchesPerUserDay: z.number().int().min(1).max(500),
+  detailsPerUserDay: z.number().int().min(1).max(2000),
+});
+
 /** What an admin may save. Mirrors the database CHECK constraints. */
 export const settingsUpdateSchema = z.object({
   enabled: z.boolean(),
@@ -284,6 +320,7 @@ export const settingsUpdateSchema = z.object({
   audit: auditSettingsSchema,
   /** Optional so an older admin page can still save the rest. */
   viewsCheck: viewsCheckSettingsSchema.optional(),
+  affiliate: affiliateSettingsSchema.optional(),
 });
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
@@ -307,6 +344,7 @@ export async function getChannelDoctorSettings(): Promise<ChannelDoctorSettings>
     create: readCreate(data),
     audit: readAudit(data),
     viewsCheck: readViewsCheck(data),
+    affiliate: readAffiliate(data),
     updatedAt: data.updated_at,
   };
 }
@@ -324,6 +362,20 @@ function readViewsCheck(data: Record<string, any>): ViewsCheckSettings {
     keywordCreditCost: data.keyword_check_credit_cost ?? d.keywordCreditCost,
     keywordsPerRun: data.keyword_check_keywords_per_run ?? d.keywordsPerRun,
     keywordRunsPerUserDay: data.keyword_check_runs_per_user_day ?? d.keywordRunsPerUserDay,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function readAffiliate(data: Record<string, any>): AffiliateSettings {
+  const d = DEFAULT_AFFILIATE_SETTINGS;
+  return {
+    enabled: data.affiliate_enabled ?? d.enabled,
+    allowedPlans: data.affiliate_allowed_plans ? toPlans(data.affiliate_allowed_plans) : d.allowedPlans,
+    searchCreditCost: data.affiliate_search_credit_cost ?? d.searchCreditCost,
+    videoCreditCost: data.affiliate_video_credit_cost ?? d.videoCreditCost,
+    seoCreditCost: data.affiliate_seo_credit_cost ?? d.seoCreditCost,
+    searchesPerUserDay: data.affiliate_searches_per_user_day ?? d.searchesPerUserDay,
+    detailsPerUserDay: data.affiliate_details_per_user_day ?? d.detailsPerUserDay,
   };
 }
 
@@ -449,6 +501,15 @@ export async function saveChannelDoctorSettings(update: SettingsUpdate): Promise
         keyword_check_keywords_per_run: update.viewsCheck.keywordsPerRun,
         keyword_check_runs_per_user_day: update.viewsCheck.keywordRunsPerUserDay,
       }),
+      ...(update.affiliate && {
+        affiliate_enabled: update.affiliate.enabled,
+        affiliate_allowed_plans: Array.from(new Set(update.affiliate.allowedPlans)),
+        affiliate_search_credit_cost: update.affiliate.searchCreditCost,
+        affiliate_video_credit_cost: update.affiliate.videoCreditCost,
+        affiliate_seo_credit_cost: update.affiliate.seoCreditCost,
+        affiliate_searches_per_user_day: update.affiliate.searchesPerUserDay,
+        affiliate_details_per_user_day: update.affiliate.detailsPerUserDay,
+      }),
       updated_at: new Date().toISOString(),
     });
   if (error) throw new Error(`Could not save settings (${error.code})`);
@@ -483,6 +544,8 @@ export async function getUserAccess(userId: string, settings: ChannelDoctorSetti
     hasCreateAccess: isAdmin || (settings.create.enabled && settings.create.allowedPlans.includes(tier)),
     // The audit lives in Discover, so it follows Discover's plans and needs its own switch too.
     hasAuditAccess: isAdmin || (settings.audit.enabled && settings.discover.enabled && settings.discover.allowedPlans.includes(tier)),
+    // Affiliate Intelligence and the Store: every plan the admin allows (Trial is left out by default).
+    hasAffiliateAccess: isAdmin || (settings.affiliate.enabled && settings.affiliate.allowedPlans.includes(tier)),
   };
 }
 

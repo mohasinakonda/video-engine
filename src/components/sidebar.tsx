@@ -23,6 +23,8 @@ import {
   Stethoscope,
   Compass,
   PenLine,
+  Store,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { AppLogo } from '@/icons/logo-icon';
@@ -36,6 +38,8 @@ const navItems = [
   { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
   { href: '/discover', label: 'Discover', icon: Compass },
   { href: '/create', label: 'Create', icon: PenLine },
+  { href: '/affiliate', label: 'Affiliate Intelligence', icon: ShoppingBag },
+  { href: '/store', label: 'Store', icon: Store },
   // { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
 ];
@@ -51,6 +55,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const [hovered, setHovered] = useState(false);
   const [discoverOn, setDiscoverOn] = useState(false);
   const [createOn, setCreateOn] = useState(false);
+  const [affiliateOn, setAffiliateOn] = useState(false);
   useEffect(() => {
     if (!isLoggedIn) return;
     const enabled = (url: string) =>
@@ -60,10 +65,15 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         .catch(() => false);
     enabled('/api/youtube/discover/config').then(setDiscoverOn);
     enabled('/api/create/config').then(setCreateOn);
+    enabled('/api/affiliate/config').then(setAffiliateOn);
   }, [isLoggedIn]);
   // Discover and Create are listed once the admin switches them on (admins always see them, to test).
   const showItem = (href: string) =>
-    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && (href !== '/create' || isAdmin || createOn);
+    (href !== '/admin' || isAdmin) &&
+    (href !== '/discover' || isAdmin || discoverOn) &&
+    (href !== '/create' || isAdmin || createOn) &&
+    (href !== '/store' || isAdmin || affiliateOn) &&
+    (href !== '/affiliate' || isAdmin || affiliateOn);
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
