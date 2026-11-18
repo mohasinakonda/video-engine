@@ -15,6 +15,7 @@ import { useDiagnosis } from '@/components/youtube-doctor/use-diagnosis';
 import { ViewsCheckPanel } from '@/components/youtube-doctor/views-check/views-check-panel';
 import { ViewsCheckReport } from '@/components/youtube-doctor/views-check/views-check-report';
 import { useViewsCheck } from '@/components/youtube-doctor/views-check/use-views-check';
+import { SavedIdeasLink } from '@/components/youtube-doctor/views-check/next-shorts';
 import { useAuth } from '@/contexts/auth-context';
 import { clearAllReports } from '@/lib/channel-doctor-storage';
 import type { RangeKey } from '@/lib/youtube/types';
@@ -38,7 +39,8 @@ export default function ChannelDoctorInner() {
   const channelId = state.connected && state.connection.status === 'active' ? state.connection.channelId : null;
   const diagnosis = useDiagnosis(user?.id ?? null, channelId, range);
   const viewsCheck = useViewsCheck(user?.id ?? null, channelId);
-  const [tab, setTab] = useState<Tab>('diagnosis');
+  // ?tab=views opens Performance (the way back from Next video ideas).
+  const [tab, setTab] = useState<Tab>(searchParams.get('tab') === 'views' ? 'views' : 'diagnosis');
   // With the views check switched off, the page is exactly the diagnosis it always was.
   const activeTab: Tab = config?.viewsCheckEnabled ? tab : 'diagnosis';
 
@@ -170,6 +172,10 @@ export default function ChannelDoctorInner() {
               </div>
             )}
           </ChannelCard>
+        )}
+
+        {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && user && channelId && (
+          <SavedIdeasLink userId={user.id} channelId={channelId} />
         )}
 
         {loadState === 'ready' && config?.enabled && state.connected && activeTab === 'views' && viewsCheck.saved && !viewsCheck.running && (

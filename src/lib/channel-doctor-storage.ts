@@ -26,6 +26,41 @@ export function saveReport<T>(key: string, result: T) {
   }
 }
 
+/**
+ * Next Shorts ideas stay in this browser's localStorage (never on our servers) so the creator can
+ * come back to them; a new batch replaces the old one. Cleared with the reports below.
+ */
+const NEXT_SHORTS_PREFIX = 'next-shorts:v3:';
+
+export const nextShortsKey = (userId: string, channelId: string) => `${NEXT_SHORTS_PREFIX}${userId}:${channelId}`;
+
+export function loadNextShorts<T>(key: string): T | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveNextShorts<T>(key: string, value: T) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage full or blocked: the ideas still show, they just won't be there next time.
+  }
+}
+
+/** Forgets the saved ideas, and the copy this tab kept of the batch that made them. */
+export function clearNextShorts(key: string, tabKey: string) {
+  try {
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(tabKey);
+  } catch {
+    // nothing to clear
+  }
+}
+
 /** Left in browsers by Create's removed Publish and Measure steps; they hold analytics and video ids. */
 const CREATE_SESSION_PREFIX = 'create:performance:';
 const CREATE_LOCAL_PREFIX = 'create:publish-reminders:';
@@ -43,7 +78,7 @@ const removeWhere = (storage: Storage, test: (key: string) => boolean) => {
 export function clearAllReports() {
   try {
     removeWhere(window.sessionStorage, (key) => key.startsWith(PREFIX) || key.startsWith(CREATE_SESSION_PREFIX));
-    removeWhere(window.localStorage, (key) => key.startsWith(CREATE_LOCAL_PREFIX));
+    removeWhere(window.localStorage, (key) => key.startsWith(CREATE_LOCAL_PREFIX) || key.startsWith(NEXT_SHORTS_PREFIX));
   } catch {
     // nothing to clear
   }
