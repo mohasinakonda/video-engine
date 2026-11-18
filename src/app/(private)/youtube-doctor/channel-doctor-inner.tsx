@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { AlertCircle, Loader2, RefreshCw, Stethoscope } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw, TrendingDown } from 'lucide-react';
 import { IntroCard } from '@/components/youtube-doctor/intro-card';
 import { ChannelCard } from '@/components/youtube-doctor/channel-card';
 import { DisconnectDialog } from '@/components/youtube-doctor/disconnect-dialog';
@@ -39,8 +39,8 @@ export default function ChannelDoctorInner() {
   const channelId = state.connected && state.connection.status === 'active' ? state.connection.channelId : null;
   const diagnosis = useDiagnosis(user?.id ?? null, channelId, range);
   const viewsCheck = useViewsCheck(user?.id ?? null, channelId);
-  // ?tab=views opens Performance (the way back from Next video ideas).
-  const [tab, setTab] = useState<Tab>(searchParams.get('tab') === 'views' ? 'views' : 'diagnosis');
+  // The views check opens first (the menu calls this page "Why no views?"); ?tab=diagnosis opens the growth check.
+  const [tab, setTab] = useState<Tab>(searchParams.get('tab') === 'diagnosis' ? 'diagnosis' : 'views');
   // With the views check switched off, the page is exactly the diagnosis it always was.
   const activeTab: Tab = config?.viewsCheckEnabled ? tab : 'diagnosis';
 
@@ -95,10 +95,10 @@ export default function ChannelDoctorInner() {
         <header className="page-header">
           <div>
             <h1 className="page-title">
-              <Stethoscope size={22} className="text-emerald-400" />
-              Channel Doctor
+              <TrendingDown size={22} aria-hidden="true" />
+              Why no views?
             </h1>
-            <p className="page-subtitle text-base">Find out what holds your channel back, and what to fix first.</p>
+            <p className="page-subtitle text-base">Find why your views stop, and what to fix first.</p>
           </div>
         </header>
 
@@ -113,7 +113,7 @@ export default function ChannelDoctorInner() {
         {loadState === 'error' && (
           <div className="card flex flex-col items-center gap-3 py-12 text-center">
             <AlertCircle size={22} className="text-rose-400" />
-            <p className="text-sm text-zinc-300">Could not load Channel Doctor. Check your connection and try again.</p>
+            <p className="text-sm text-zinc-300">Could not load this page. Check your connection and try again.</p>
             <button type="button" onClick={load} className="btn-secondary btn-sm">
               <RefreshCw size={14} />
               Retry
@@ -122,17 +122,17 @@ export default function ChannelDoctorInner() {
         )}
 
         {loadState === 'ready' && config && !config.enabled && (
-          <div className="card text-sm text-zinc-300">Channel Doctor is temporarily unavailable. Please check back later.</div>
+          <div className="card text-sm text-zinc-300">This check is temporarily unavailable. Please check back later.</div>
         )}
 
         {loadState === 'ready' && config?.enabled && !state.connected && <IntroCard canConnect />}
 
         {loadState === 'ready' && config?.enabled && state.connected && config.viewsCheckEnabled && (
-          <div className="inline-flex gap-1 p-1 rounded-xl bg-bg-elevated border border-bg-border" role="tablist" aria-label="Channel Doctor">
+          <div className="inline-flex gap-1 p-1 rounded-xl bg-bg-elevated border border-bg-border" role="tablist" aria-label="Checks">
             {(
               [
-                ['diagnosis', 'Diagnosis'],
-                ['views', 'Performance'],
+                ['views', 'Views check'],
+                ['diagnosis', 'Growth check'],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -198,8 +198,8 @@ export default function ChannelDoctorInner() {
             ) : (
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-bg-border">
                 <p className="flex-1 text-sm text-zinc-400">
-                  {config.tier === 'TRIAL' && config.freeDiagnosesLeft === 0 && diagnosis.saved ? 'That was your free diagnosis. ' : ''}
-                  Channel analysis is available on the {config.allowedPlans.map(planLabel).join(', ')} plan
+                  {config.tier === 'TRIAL' && config.freeDiagnosesLeft === 0 && diagnosis.saved ? 'That was your free growth check. ' : ''}
+                  The growth check is available on the {config.allowedPlans.map(planLabel).join(', ')} plan
                   {config.allowedPlans.length > 1 ? 's' : ''}.
                 </p>
                 <Link href="/plan" className="btn-primary btn-sm">

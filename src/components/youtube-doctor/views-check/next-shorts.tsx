@@ -123,9 +123,9 @@ export function NextShorts({ result, userId, channelId }: { result: ViewsCheckRe
       <section className="space-y-5 rounded-2xl border border-violet-500/30 bg-bg-surface p-6">
         <div className="space-y-1">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-300">
-            <Clapperboard size={14} aria-hidden="true" /> Next video ideas
+            <Clapperboard size={14} aria-hidden="true" /> Next Shorts
           </p>
-          <h1 className="text-2xl font-bold text-white">Make Shorts from what already works on your channel</h1>
+          <h1 className="text-2xl font-bold text-white">New Shorts from what already works on your channel</h1>
           <p className="text-sm text-zinc-400">
             We read which of your Shorts stop the swipe and where viewers leave, then plan new ones as a storyboard of simple shots for Google Flow: the reference images that keep
             them consistent, one prompt per shot, the sound and the packaging. Every Short is 15–30 seconds.
@@ -133,12 +133,12 @@ export function NextShorts({ result, userId, channelId }: { result: ViewsCheckRe
         </div>
 
         {config && !config.hasAccess ? (
-          <p className="text-sm text-zinc-400">Next video ideas is part of the Creator and Studio plans.</p>
+          <p className="text-sm text-zinc-400">Next Shorts is part of the Creator and Studio plans.</p>
         ) : !usable ? (
           <p className="text-sm text-zinc-400">
             To make new ideas, run the views check first in{' '}
             <Link href="/youtube-doctor?tab=views" className="underline hover:text-white">
-              Performance
+              Views check
             </Link>
             . {pack ? 'Your last ideas are below.' : ''}
           </p>
@@ -676,10 +676,10 @@ export function SavedIdeasLink({ userId, channelId }: { userId: string; channelI
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-500/30 bg-bg-surface px-5 py-3">
       <p className="flex items-center gap-2 text-sm text-zinc-300">
         <Clapperboard size={16} className="text-violet-300" aria-hidden="true" />
-        Your next video ideas: {saved.shorts.length} Shorts, made {new Date(saved.generatedAt).toLocaleDateString()}
+        Your Next Shorts: {saved.shorts.length} ideas, made {new Date(saved.generatedAt).toLocaleDateString()}
       </p>
       <Link href="/youtube-doctor/next-shorts" className="btn-secondary btn-sm">
-        Open ideas
+        Open
       </Link>
     </div>
   );

@@ -33,7 +33,7 @@ export default function NextShortsPage() {
       <div className="page-container max-w-5xl space-y-5">
         <Link href="/youtube-doctor?tab=views" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white">
           <ArrowLeft size={16} aria-hidden="true" />
-          Back to Performance
+          Back to Views check
         </Link>
         {!connection || !user ? (
           <div className="card flex justify-center py-12">
@@ -43,7 +43,7 @@ export default function NextShortsPage() {
           <div className="card text-sm text-zinc-300">
             Connect YouTube first on the{' '}
             <Link href="/youtube-doctor" className="underline">
-              Channel Doctor
+              Why no views?
             </Link>{' '}
             page.
           </div>

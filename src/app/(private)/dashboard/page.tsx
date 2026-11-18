@@ -134,7 +134,7 @@ export default function UserDashboardPage() {
             }`}
           >
             <Share2 size={15} />
-            <span>Affiliate & Earnings</span>
+            <span>Referral & Earnings</span>
             {profile.referralPendingBDT >= 100 && (
               <span className="px-1.5 py-0.5 rounded-full text-2xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                 ৳{profile.referralPendingBDT} Available
