@@ -1,0 +1,254 @@
+{
+	"landing": {
+		"nav": {
+			"views": "Why no views?",
+			"next": "Next Shorts",
+			"price": "Pricing",
+			"login": "Log in",
+			"dashboard": "Dashboard",
+			"main": "Main"
+		},
+		"switchTo": "বাংলা",
+		"switchLabel": "বাংলায় দেখুন",
+		"hero": {
+			"line1": "Views stuck",
+			"line2": "on your Shorts?",
+			"answer": "We'll tell you why.",
+			"body": "Rendoza reads your channel and tells you, in plain words, why a Short stopped and what to make next. Second by second.",
+			"cta": "Check for free",
+			"sample": "See a sample report",
+			"trust": [
+				"Official YouTube API",
+				"Read-only, never posts",
+				"Pay with bKash · Nagad"
+			]
+		},
+		"slip": {
+			"label": "Sample report",
+			"title": "Report",
+			"meta": "Last 5 Shorts · sample",
+			"rows": [
+				{
+					"name": "3 things in my glovebox",
+					"views": "1,240",
+					"state": "Stopped",
+					"tone": "stop"
+				},
+				{
+					"name": "The car-wash mistake",
+					"views": "41,200",
+					"state": "Running",
+					"tone": "ok"
+				},
+				{
+					"name": "Fixing a door scratch",
+					"views": "18,900",
+					"state": "Growing",
+					"tone": "ok"
+				},
+				{
+					"name": "The tyre trick",
+					"views": "980",
+					"state": "Stopped",
+					"tone": "stop"
+				},
+				{
+					"name": "Wax test",
+					"views": "3,400",
+					"state": "Testing",
+					"tone": "wait"
+				}
+			],
+			"causeLabel": "Cause",
+			"cause": "2 Shorts stopped after the test. Viewers swiped before 2 seconds.",
+			"firstLabel": "First step:",
+			"first": "Show the result in the first second."
+		},
+		"pains": {
+			"title": "What creators tell us most",
+			"items": [
+				{
+					"n": "1",
+					"quote": "0 views all day",
+					"answer": "Usually a setting or a restriction. We check that first."
+				},
+				{
+					"n": "2",
+					"quote": "Views stop after 2 days",
+					"answer": "YouTube's test ended. We show the exact second viewers left."
+				},
+				{
+					"n": "3",
+					"quote": "I don't know what to make next",
+					"answer": "Ideas from your own Shorts that worked, not a trend list."
+				}
+			]
+		},
+		"reviews": {
+			"title": "What creators wrote back",
+			"note": "WhatsApp messages, word for word.",
+			"items": [
+				{
+					"quote": "Vai vai ami goto 2 din dhore shodu dekhtechilam kivabe ki kora jay, aponader app theke 5 ta video idea niye kaj shuru korchi",
+					"result": "23,419",
+					"resultLabel": "views, YouTube Realtime",
+					"who": "Shorts creator",
+					"translation": "“For 2 days I only watched how it's done. I took 5 video ideas from your app and started working.”",
+					"image": "/landing/reviews/review-1.jpg",
+					"w": 696,
+					"h": 1102
+				},
+				{
+					"quote": "Vai ki tool banaichen, ekhon to video khali direct viral",
+					"result": "12,711",
+					"resultLabel": "views on one Short in 48 hours",
+					"who": "Shorts creator",
+					"translation": "“What a tool you've built. Now my videos just go straight viral.”",
+					"image": "/landing/reviews/review-2.jpg",
+					"w": 684,
+					"h": 956
+				},
+				{
+					"quote": "Vai aponar tool ta sotti e onek kajer, ami vai age shodo video ditam ar ditam, kinto views ar ashto na, aponar tool ta amake sothik somossa dekhiye diche, ekhon vai Alhumdulillah valo views ashe",
+					"result": "",
+					"resultLabel": "",
+					"who": "Shorts creator",
+					"translation": "“Your tool is really useful. I used to post video after video and the views never came. Your tool showed me the real problem, and now, thank God, good views are coming.”",
+					"image": "/landing/reviews/review-3.jpg",
+					"w": 690,
+					"h": 952
+				}
+			]
+		},
+		"report": {
+			"line1": "One Short.",
+			"line2": "Seven days. One reason.",
+			"body": "We look at each Short's views day by day, then name one reason. Not twenty charts, one answer.",
+			"figureLabel": "Sample: one Short's views per day",
+			"figureTitle": "“3 things in my glovebox” · sample",
+			"figureMeta": "Views per day",
+			"days": [
+				{
+					"label": "Day 1",
+					"v": "1,050"
+				},
+				{
+					"label": "Day 2",
+					"v": "140"
+				},
+				{
+					"label": "Day 3",
+					"v": "28"
+				},
+				{
+					"label": "Day 4",
+					"v": "12"
+				},
+				{
+					"label": "Day 5",
+					"v": "6"
+				},
+				{
+					"label": "Day 6",
+					"v": "3"
+				},
+				{
+					"label": "Day 7",
+					"v": "1"
+				}
+			],
+			"notes": [
+				{
+					"label": "What happened",
+					"text": "On day 1, YouTube tested it with a small group of viewers."
+				},
+				{
+					"label": "Why it stopped",
+					"text": "Most viewers swiped away before 2 seconds."
+				},
+				{
+					"label": "What to do",
+					"text": "Show the result in the first second. Skip the intro."
+				}
+			]
+		},
+		"next": {
+			"line1": "Your next Short,",
+			"line2": "planned to the second.",
+			"body": "Built on what already works on your channel. 15–30 seconds, fast, with a Google Flow prompt for every shot.",
+			"stripLabel": "Sample storyboard",
+			"shot": "Shot",
+			"shots": [
+				{
+					"n": "1",
+					"time": "0–2s",
+					"title": "Result first",
+					"body": "Scratch gone, close-up. No intro."
+				},
+				{
+					"n": "2",
+					"time": "2–8s",
+					"title": "The before",
+					"body": "The deep scratch, same angle."
+				},
+				{
+					"n": "3",
+					"time": "8–16s",
+					"title": "Tool at work",
+					"body": "One pass, one action, fast."
+				},
+				{
+					"n": "4",
+					"time": "16–22s",
+					"title": "Side by side",
+					"body": "Before and after, then cut."
+				}
+			],
+			"pasteStrong": "One copy, one paste.",
+			"paste": "Flow's agent gets the images first, then every shot in order. Title, cover text and description come with it."
+		},
+		"tools": {
+			"title": "Everything after the idea, too.",
+			"items": [
+				{
+					"title": "Competitors",
+					"body": "Which videos beat their own channel's usual views, and why."
+				},
+				{
+					"title": "Voice",
+					"body": "Long, natural voiceovers. Bangla coming soon."
+				},
+				{
+					"title": "Script & titles",
+					"body": "Brief, script, titles and thumbnail text that match."
+				},
+				{
+					"title": "Video",
+					"body": "From script to scenes, then the full video."
+				}
+			]
+		},
+		"price": {
+			"title": "Price.",
+			"body": "bKash, Nagad, Bangla QR or bank transfer. Start free with trial credits.",
+			"loading": "Loading prices…",
+			"popular": "Most chosen",
+			"perMonth": "/ month",
+			"credits": "{credits} credits a month",
+			"choose": "Get {name}",
+			"more": "See 3-month plans and credit top-ups"
+		},
+		"footer": {
+			"line1": "Your first check",
+			"line2": "is free.",
+			"cta": "Connect your channel",
+			"note": "Rendoza · Uses YouTube API Services. Read-only access, revocable any time.",
+			"label": "Footer",
+			"privacy": "Privacy",
+			"terms": "Terms",
+			"refund": "Refunds",
+			"use": "Acceptable use",
+			"contact": "Contact"
+		}
+	}
+}

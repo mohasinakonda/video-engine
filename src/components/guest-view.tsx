@@ -1,4 +1,5 @@
 import React from 'react';
+import BanglaLanding from './landing-bn/landing';
 import { HeroSection } from './landing/hero-section';
 import { GrowthLoopSection } from './landing/growth-loop-section';
 import { GrowthToolsShowcaseSection } from './landing/growth-tools-showcase-section';
@@ -6,12 +7,16 @@ import { KeyFeaturesSection } from './landing/key-features-section';
 import { HowItWorksSection } from './landing/how-it-works-section';
 import { StoryboardShowcaseSection } from './landing/storyboard-showcase-section';
 import { VisualStyleSection } from './landing/visual-style-section';
-import { BanglaCreatorsSection } from './landing/bangla-creators-section';
 import { ResponsibleUseSection } from './landing/responsible-use-section';
 import { PricingSection } from './landing/pricing-section';
 import { PaymentMethodsSection } from './landing/payment-methods-section';
 
+/** The landing page. The earlier English sections stay below (unused) so they can be brought back. */
 export default function GuestView() {
+  return <BanglaLanding />;
+}
+
+export function GuestViewEnglish() {
   return (
     <div className="w-full">
       {/* ─── Hero: grow your channel, or make a video from a script ──────── */}

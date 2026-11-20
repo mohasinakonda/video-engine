@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { LayoutDashboard } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { AppLogo } from '@/icons/logo-icon';
@@ -10,6 +11,7 @@ import { useTrialOffer } from '@/hooks/use-trial-offer';
 export const LandingNavbar: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const trial = useTrialOffer();
+  const pathname = usePathname();
 
   useEffect(() => {
     try {
@@ -23,6 +25,9 @@ export const LandingNavbar: React.FC = () => {
       // Ignore auth check error in mock/offline environments
     }
   }, []);
+
+  // The landing page ("/") has its own header.
+  if (pathname === '/') return null;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#E5E0D8] bg-[#FAF8F5]/85 backdrop-blur-xl transition-all">
