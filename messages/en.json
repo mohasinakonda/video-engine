@@ -23,19 +23,20 @@
 				"Pay with bKash · Nagad"
 			]
 		},
+
 		"slip": {
 			"label": "Sample report",
 			"title": "Report",
 			"meta": "Last 5 Shorts · sample",
 			"rows": [
 				{
-					"name": "3 things in my glovebox",
+					"name": "What If Earth Stopped Spinning?",
 					"views": "1,240",
 					"state": "Stopped",
 					"tone": "stop"
 				},
 				{
-					"name": "The car-wash mistake",
+					"name": "This Is What 10,000 Volts Looks Like",
 					"views": "41,200",
 					"state": "Running",
 					"tone": "ok"
@@ -47,13 +48,13 @@
 					"tone": "ok"
 				},
 				{
-					"name": "The tyre trick",
+					"name": "The Deepest Hole Ever Drilled",
 					"views": "980",
 					"state": "Stopped",
 					"tone": "stop"
 				},
 				{
-					"name": "Wax test",
+					"name": "Why Planes Don't Fly",
 					"views": "3,400",
 					"state": "Testing",
 					"tone": "wait"

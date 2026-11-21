@@ -21,6 +21,7 @@ import type {
   UserSubscription,
   UserProfile,
   AdminSettings,
+  PromoCode
 } from '@/types/subscription';
 
 export interface UsePricingPlansReturn {
@@ -30,6 +31,7 @@ export interface UsePricingPlansReturn {
   isLoading: boolean;
   error: string | null;
   refreshPlans: () => Promise<void>;
+  promoCodes: PromoCode[]
 }
 
 /**
@@ -40,6 +42,7 @@ export function usePricingPlans(): UsePricingPlansReturn {
   const [plans, setPlans] = useState<SubscriptionPlan[]>(() => getSubscriptionPlans());
   const [topupPacks, setTopupPacks] = useState<CreditTopupPack[]>(() => getTopupPacks());
   const [settings, setSettings] = useState<AdminSettings | null>(() => getAdminSettings());
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +53,7 @@ export function usePricingPlans(): UsePricingPlansReturn {
       const res = await fetch('/api/admin/plan');
       if (res.ok) {
         const data = await res.json();
+
         if (data.plans && data.plans.length > 0) {
           const activePlans = data.plans.filter((p: SubscriptionPlan) => p.isActive !== false);
           setPlans(activePlans);
@@ -60,6 +64,9 @@ export function usePricingPlans(): UsePricingPlansReturn {
         if (data.settings) {
           setSettings(data.settings);
           saveAdminSettings(data.settings);
+        }
+        if (data.promoCodes && data.promoCodes.length > 0) {
+          setPromoCodes(data.promoCodes)
         }
       }
     } catch (err: unknown) {
@@ -80,6 +87,7 @@ export function usePricingPlans(): UsePricingPlansReturn {
     isLoading,
     error,
     refreshPlans,
+    promoCodes
   };
 }
 

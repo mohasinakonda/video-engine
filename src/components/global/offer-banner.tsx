@@ -5,21 +5,19 @@ import { Sparkles } from 'lucide-react';
 import { usePricingPlans } from '@/hooks/use-pricing';
 
 export const OfferBanner = () => {
-  const { settings } = usePricingPlans();
+  const { settings, promoCodes } = usePricingPlans();
 
   if (!settings?.globalBannerActive) return null;
 
   return (
-    <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-purple-500/15 border border-amber-500/20 text-xs font-medium text-amber-200 flex items-center justify-between shadow-sm">
-      <div className="flex items-center gap-2">
-        <Sparkles size={16} className="text-amber-400 shrink-0" />
-        <span>{settings.globalBannerText}</span>
+    <div className="py-2 rounded-b-xl bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-purple-500/15 border border-amber-500/20 font-medium  flex items-center justify-between shadow-sm ">
+      <div className="flex items-center gap-2 mx-auto max-w-[1180px] px-4 sm:px-10">
+
+        <span className='text-lg text-black'>{settings.globalBannerText}</span>
+        with
+        <span className='bg-white px-0.5 font-bold'>{promoCodes[0]?.code}</span>
       </div>
-      {settings.globalDiscountActive && (
-        <span className="bg-amber-400 text-zinc-950 font-bold px-2 py-0.5 rounded text-2xs uppercase">
-          {settings.globalDiscountPercent}% OFF ACTIVE
-        </span>
-      )}
+
     </div>
   );
 };
