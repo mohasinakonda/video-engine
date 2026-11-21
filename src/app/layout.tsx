@@ -3,6 +3,7 @@ import './globals.css';
 import { DM_Sans } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import JsonLd from '@/components/seo/json-ld';
+import { GA4 } from '@/components/global/GA4';
 
 const dm_sans = DM_Sans({
   subsets: ['latin'],
@@ -11,6 +12,9 @@ const dm_sans = DM_Sans({
   fallback: ['system-ui', 'arial'],
   weight: ['400', '500', '600', '700', '800', '900'],
 });
+
+/** Google Tag Manager container (override with NEXT_PUBLIC_GTM_ID). */
+const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID || 'GTM-MQ955524';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.rendoza.com';
 
@@ -74,7 +78,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <JsonLd />
       </head>
       <body className="min-h-screen bg-[#FAF8F5] text-zinc-900 antialiased font-sans">
-
         {children}
 
         <Toaster
@@ -101,7 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         />
-
+        <GA4 />
       </body>
     </html>
   );

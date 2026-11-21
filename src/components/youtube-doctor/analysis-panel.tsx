@@ -21,7 +21,7 @@ interface AnalysisPanelProps {
 }
 
 /** Screens 4 and 5: one choice (period), one button, then real progress. */
-export function AnalysisPanel({ range, onRangeChange, cost, running, stages, error, hasReport, onRun, actionLabel = 'Check my channel' }: AnalysisPanelProps) {
+export function AnalysisPanel({ range, onRangeChange, cost, running, stages, error, hasReport, onRun, actionLabel = 'Check my growth' }: AnalysisPanelProps) {
   if (running) {
     return (
       <div className="pt-5 border-t border-bg-border space-y-4">

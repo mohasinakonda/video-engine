@@ -16,9 +16,11 @@ export default async function Page() {
   }
 
   if (user) {
-    redirect('/dashboard');
+    redirect('/home');
   }
+  return (
 
-  return <GuestView />;
+    <GuestView />
+
+  );
 }
-

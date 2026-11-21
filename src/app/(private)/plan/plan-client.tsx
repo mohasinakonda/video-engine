@@ -237,7 +237,7 @@ export default function PlanClient({ initialUser }: PlanClientProps) {
       bonusCredits,
     };
   };
-
+  console.log('cal', calculateFinalPrice())
   const handleSubmitPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');

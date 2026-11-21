@@ -59,9 +59,9 @@ function VideoAnalysisInner() {
   return (
     <div className="page-shell">
       <div className="page-container max-w-5xl space-y-5">
-        <Link href="/youtube-doctor" className="text-sm text-zinc-400 hover:text-white inline-flex items-center gap-1.5">
+        <Link href="/youtube-doctor?tab=diagnosis" className="text-sm text-zinc-400 hover:text-white inline-flex items-center gap-1.5">
           <ArrowLeft size={16} />
-          Back to channel report
+          Back to growth check
         </Link>
 
         {!connection || !config ? (
@@ -70,7 +70,7 @@ function VideoAnalysisInner() {
           </div>
         ) : !connection.connected ? (
           <div className="card text-sm text-zinc-300">
-            Connect YouTube first on the <Link href="/youtube-doctor" className="underline">Channel Doctor</Link> page.
+            Connect YouTube first on the <Link href="/youtube-doctor" className="underline">Why no views?</Link> page.
           </div>
         ) : (
           <section className="card space-y-4">

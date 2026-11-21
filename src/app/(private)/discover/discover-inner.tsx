@@ -105,7 +105,7 @@ export default function DiscoverInner() {
               others, so it needs to read your videos.
             </p>
             <Link href="/youtube-doctor" className="btn-primary btn-sm w-fit">
-              Go to Channel Doctor
+              Connect YouTube
             </Link>
           </div>
         ) : (

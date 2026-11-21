@@ -2,17 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { MessageSquare } from 'lucide-react';
-import { formatWhatsAppLink } from '@/lib/subscription-store';
-import { usePricingPlans } from '@/hooks/use-pricing';
+import { usePathname } from 'next/navigation';
 import { AppLogo } from '@/icons/logo-icon';
 
 export const LandingFooter: React.FC = () => {
-  const { settings } = usePricingPlans();
-  const whatsappUrl = formatWhatsAppLink(
-    settings?.whatsappNumber,
-    'Hello! I would like to know more about AI Video Studio.'
-  );
+
+  const pathname = usePathname();
+
+  // The landing page ("/") has its own footer.
+  if (pathname === '/') return null;
 
   return (
     <footer className="py-12 px-6 bg-[#F4F0EA] border-t border-[#E5E0D8] text-xs text-zinc-600">

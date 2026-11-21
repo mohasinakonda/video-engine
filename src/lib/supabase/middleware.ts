@@ -21,7 +21,7 @@ export async function updateSession(request: NextRequest) {
     const isPublicPage =
       !pathname.startsWith('/api/') &&
       !pathname.startsWith('/admin') &&
-      !['/dashboard', '/project', '/storyboard', '/voice-studio', '/youtube-kit-studio', '/export', '/settings'].some(
+      !['/home', '/dashboard', '/project', '/storyboard', '/voice-studio', '/youtube-kit-studio', '/export', '/settings'].some(
         (p) => pathname.startsWith(p)
       );
     if (isPublicPage) return supabaseResponse;
@@ -74,6 +74,7 @@ export async function updateSession(request: NextRequest) {
   const isProtectedApiRoute =
     pathname.startsWith('/api/') && !pathname.startsWith('/api/admin') && !isPublicApiRoute;
   const isUserPrivateRoute =
+    pathname.startsWith('/home') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/project') ||
     pathname.startsWith('/storyboard') ||
@@ -134,10 +135,10 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // 3. Logged-in user visiting /login -> redirect to /dashboard
+  // 3. Logged-in user visiting /login -> redirect to /home
   if (user && pathname === '/login') {
     const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
+    url.pathname = '/home';
     return createRedirectResponse(url);
   }
 

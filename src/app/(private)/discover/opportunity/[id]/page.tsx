@@ -170,7 +170,7 @@ function Detail({
                   <a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank" rel="noopener noreferrer" className="text-zinc-100 hover:underline">
                     {v.title}
                   </a>
-                  {v.label && <span className="block text-sm text-zinc-500">Channel Doctor: {LABEL_TEXT[v.label]}</span>}
+                  {v.label && <span className="block text-sm text-zinc-500">Growth check: {LABEL_TEXT[v.label]}</span>}
                 </li>
               ))}
             </ul>

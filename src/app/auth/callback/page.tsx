@@ -12,12 +12,12 @@ export default function AuthCallbackPage() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.replace('/project/new');
+        router.replace('/home');
       } else {
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
           if (newSession) {
             authListener.subscription.unsubscribe();
-            router.replace('/project/new');
+            router.replace('/home');
           }
         });
       }

@@ -58,7 +58,7 @@ export function ViewsCheckPanel({ cost, running, stages, error, hasReport, onRun
         <div className="flex flex-col items-start sm:items-end gap-1.5">
           <button type="button" onClick={onRun} className="btn-primary px-6 py-3 text-base font-semibold">
             {hasReport ? <RefreshCw size={18} /> : <Search size={18} />}
-            {hasReport ? 'Check again' : 'Find out why my views are low'}
+            {hasReport ? 'Check again' : 'Check my views'}
           </button>
           <p className="text-sm text-zinc-400">{cost === 0 ? 'Free' : `Uses ${cost} credits`}</p>
         </div>

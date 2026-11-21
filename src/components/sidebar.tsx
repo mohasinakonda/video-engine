@@ -6,7 +6,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Video,
   Settings,
-  PlusCircle,
+  Home,
+  Lightbulb,
+  TrendingDown,
   Zap,
   Film,
   CreditCard,
@@ -21,7 +23,6 @@ import {
   Flame,
   ChevronsUpDown,
   Stethoscope,
-  Compass,
   PenLine,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -29,16 +30,41 @@ import { AppLogo } from '@/icons/logo-icon';
 import { signOutUser } from '@/lib/supabase-service';
 import Image from 'next/image';
 
-const navItems = [
-  { href: '/projects', label: 'Projects', icon: Video },
-  { href: '/voice-studio', label: 'Voice Studio', icon: AudioLines },
-  { href: '/youtube-kit-studio', label: 'YouTube Kit Studio', icon: Flame },
-  { href: '/youtube-doctor', label: 'Channel Doctor', icon: Stethoscope },
-  { href: '/discover', label: 'Discover', icon: Compass },
-  { href: '/create', label: 'Create', icon: PenLine },
-  // { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/admin', label: 'Admin Hub', icon: ShieldCheck },
+type NavItem = { href: string; label: string; icon: typeof Video };
+
+/** The menu, grouped by what the creator wants to do. Headings show only in the open menu; the rail shows a divider. */
+const navGroups: { label: string | null; items: NavItem[] }[] = [
+  { label: null, items: [{ href: '/home', label: 'Home', icon: Home }] },
+  {
+    label: 'Grow',
+    items: [
+      { href: '/youtube-doctor', label: 'Why no views?', icon: TrendingDown },
+      { href: '/discover', label: 'Competitors', icon: Users },
+    ],
+  },
+  {
+    label: 'Create',
+    items: [
+      { href: '/youtube-doctor/next-shorts', label: 'Next Shorts', icon: Lightbulb },
+      { href: '/create', label: 'Script & packaging', icon: PenLine },
+      { href: '/voice-studio', label: 'Voice', icon: AudioLines },
+    ],
+  },
+  {
+    label: 'Make',
+    items: [
+      { href: '/projects', label: 'Video projects', icon: Video },
+      { href: '/youtube-kit-studio', label: 'YouTube Kit', icon: Flame },
+    ],
+  },
+  { label: null, items: [{ href: '/admin', label: 'Admin Hub', icon: ShieldCheck }] },
 ];
+const allHrefs = navGroups.flatMap((g) => g.items.map((i) => i.href));
+
+/** The one menu item for this page: the longest href the path starts with (so Next Shorts, not Why no views?, on /youtube-doctor/next-shorts). */
+function activeHrefFor(pathname: string) {
+  return allHrefs.filter((h) => pathname === h || pathname.startsWith(`${h}/`)).sort((a, b) => b.length - a.length)[0] ?? null;
+}
 
 export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
@@ -51,6 +77,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const [hovered, setHovered] = useState(false);
   const [discoverOn, setDiscoverOn] = useState(false);
   const [createOn, setCreateOn] = useState(false);
+  const [ideasOn, setIdeasOn] = useState(false);
   useEffect(() => {
     if (!isLoggedIn) return;
     const enabled = (url: string) =>
@@ -60,10 +87,19 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         .catch(() => false);
     enabled('/api/youtube/discover/config').then(setDiscoverOn);
     enabled('/api/create/config').then(setCreateOn);
+    fetch('/api/youtube/config')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((cfg) => setIdeasOn(Boolean(cfg?.enabled && cfg?.viewsCheckEnabled)))
+      .catch(() => setIdeasOn(false));
   }, [isLoggedIn]);
-  // Discover and Create are listed once the admin switches them on (admins always see them, to test).
+  // Discover, Create and Next Shorts are listed once the admin switches them on (admins always see them, to test).
   const showItem = (href: string) =>
-    (href !== '/admin' || isAdmin) && (href !== '/discover' || isAdmin || discoverOn) && (href !== '/create' || isAdmin || createOn);
+    (href !== '/admin' || isAdmin) &&
+    (href !== '/discover' || isAdmin || discoverOn) &&
+    (href !== '/create' || isAdmin || createOn) &&
+    (href !== '/youtube-doctor/next-shorts' || isAdmin || ideasOn);
+  const visibleGroups = navGroups.map((g) => ({ ...g, items: g.items.filter(({ href }) => showItem(href)) })).filter((g) => g.items.length > 0);
+  const activeHref = activeHrefFor(pathname);
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -103,7 +139,6 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
   const expanded = !collapsed || hovered || profileMenuOpen;
 
   if (!expanded) {
-    const visibleNav = navItems.filter(({ href }) => showItem(href));
     return (
       <aside
         className="fixed left-0 top-0 h-full w-14 flex flex-col items-center bg-bg-base border-r border-bg-border z-40 py-4 gap-3"
@@ -111,29 +146,26 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
       >
         <AppLogo className="w-8 h-8 rounded-lg shadow-sm" />
 
-        <Link
-          href="/project/new"
-          title="New Project"
-          className="w-8 h-8 rounded-lg bg-white text-zinc-950 flex items-center justify-center hover:bg-zinc-200 transition-colors"
-        >
-          <PlusCircle size={15} />
-        </Link>
-
         <nav className="flex-1 flex flex-col items-center gap-1 pt-2">
-          {visibleNav.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={label}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isActive ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
-                  }`}
-              >
-                <Icon size={15} />
-              </Link>
-            );
-          })}
+          {visibleGroups.map((group, gi) => (
+            <React.Fragment key={group.label ?? `g${gi}`}>
+              {gi > 0 && <span aria-hidden="true" className="my-1 h-px w-6 bg-bg-border" />}
+              {group.items.map(({ href, label, icon: Icon }) => {
+                const isActive = href === activeHref;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    title={label}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isActive ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
+                      }`}
+                  >
+                    <Icon size={15} />
+                  </Link>
+                );
+              })}
+            </React.Fragment>
+          ))}
         </nav>
 
         {isLoggedIn && sub && (
@@ -181,49 +213,38 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         </div>
       </div>
 
-      {/* New Project CTA */}
-      <div className="px-3 pt-4">
-        <Link
-          href="/project/new"
-          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg
-                     bg-white text-zinc-950 text-sm font-medium
-                     hover:bg-zinc-200 transition-colors shadow-sm group"
-        >
-          <PlusCircle size={15} className="text-zinc-950 group-hover:scale-105 transition-transform" />
-          New Project
-        </Link>
-      </div>
-
       {/* Navigation */}
       <nav className="flex-1 px-3 pt-4 space-y-1 overflow-y-auto">
-        {navItems
-          .filter(({ href }) => showItem(href))
-          .map(({ href, label, icon: Icon }) => {
-            const isActive =
-              href === '/' ? pathname === '/' : pathname.startsWith(href);
+        {visibleGroups.map((group, gi) => (
+          <div key={group.label ?? `g${gi}`} className={gi > 0 ? 'pt-3 space-y-1' : 'space-y-1'}>
+            {group.label && <p className="px-3 pb-1 text-3xs font-semibold uppercase tracking-wider text-zinc-500">{group.label}</p>}
+            {group.items.map(({ href, label, icon: Icon }) => {
+                const isActive = href === activeHref;
 
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium
-                            transition-colors duration-150 group
-                            ${isActive
-                    ? 'bg-zinc-800/90 text-white border border-zinc-700/60'
-                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40'
-                  }`}
-              >
-                <Icon
-                  size={15}
-                  className={isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}
-                />
-                {label}
-                {isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />
-                )}
-              </Link>
-            );
-          })}
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium
+                                transition-colors duration-150 group
+                                ${isActive
+                        ? 'bg-zinc-800/90 text-white border border-zinc-700/60'
+                        : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40'
+                      }`}
+                  >
+                    <Icon
+                      size={15}
+                      className={isActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}
+                    />
+                    {label}
+                    {isActive && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white" />
+                    )}
+                  </Link>
+                );
+            })}
+          </div>
+        ))}
 
         {/* Contextual navigation when in Admin */}
         {isAdmin && adminMatch && (
@@ -361,7 +382,7 @@ export default function Sidebar({ collapsed = false }: { collapsed?: boolean }) 
         <div className="p-3 pt-0 relative" ref={menuRef}>
           {/* Popover Menu (Upward) */}
           {profileMenuOpen && (
-            <div className="fixed bottom-full left-3 right-3 mb-2 p-1.5 rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-750 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 space-y-1">
+            <div className="absolute bottom-full left-3 right-3 mb-2 p-1.5 rounded-2xl bg-zinc-900/95 backdrop-blur-xl border border-zinc-750 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150 space-y-1">
               {/* Profile Card Header in Popover */}
               <div className="px-3 py-2.5 border-b border-zinc-800/80">
                 <div className="flex items-center justify-between gap-1">

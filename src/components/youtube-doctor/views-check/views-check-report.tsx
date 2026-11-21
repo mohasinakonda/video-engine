@@ -138,7 +138,7 @@ function NextIdeasLink() {
         <p className="text-sm text-zinc-400">New Shorts built on what already works on your channel: storyboard, Flow prompts and packaging.</p>
       </div>
       <Link href="/youtube-doctor/next-shorts" className="btn-primary shrink-0">
-        Next video ideas <ArrowRight size={16} aria-hidden="true" />
+        Next Shorts <ArrowRight size={16} aria-hidden="true" />
       </Link>
     </section>
   );
